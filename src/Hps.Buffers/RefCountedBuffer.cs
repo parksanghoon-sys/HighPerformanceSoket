@@ -129,26 +129,36 @@ namespace Hps.Buffers
             return block;
         }
 
+        // Length 는 payload 유효 범위를 다른 경로가 읽는 관측값이다.
+        // 직접 Volatile.Read 를 노출하지 않고 "publish 된 길이"라는 의미를 호출부에 남긴다.
         private int ReadPublishedLength()
         {
             return Volatile.Read(ref _length);
         }
 
+        // 수신/조립 경로가 payload 길이를 확정해 이후 송신 경로가 관측할 수 있게 공개한다.
+        // 버퍼 용량(Memory/Span 길이)과 실제 payload 길이를 분리하기 위한 publish 지점이다.
         private void PublishLength(int length)
         {
             Volatile.Write(ref _length, length);
         }
 
+        // 참조계수 변경은 CompareExchange 가 최종 권위지만, 루프의 현재 판단에는 최신 스냅샷이 필요하다.
+        // AddRef/Release 호출부가 저수준 volatile primitive 를 직접 해석하지 않도록 감싼다.
         private int ReadRefCountSnapshot()
         {
             return Volatile.Read(ref _refCount);
         }
 
+        // _block 은 마지막 Release 에서 null 로 교체된다. 접근 경로는 이 스냅샷과 반환 상태를 함께 확인해
+        // 풀로 돌아간 배열을 다시 사용하는 use-after-free 를 막는다.
         private byte[]? ReadBlockSnapshot()
         {
             return Volatile.Read(ref _block);
         }
 
+        // _returned 는 0 도달 반환이 이미 수행됐는지 나타내는 수명 경계 플래그다.
+        // AddRef 부활 방지와 반환 후 Memory/Span 접근 차단에서 같은 의미로 사용한다.
         private bool IsReturned()
         {
             return Volatile.Read(ref _returned) != 0;

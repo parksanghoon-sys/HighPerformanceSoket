@@ -3,7 +3,7 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - D013 리뷰 게이트에 따라 `BipBuffer` Volatile helper 리팩터링을 사용자 검토한 뒤 다음 단위로 진행한다.
+  - D013 리뷰 게이트에 따라 private helper 주석 보강을 사용자 검토한 뒤 다음 단위로 진행한다.
 
 ## Deferred Backlog
 
@@ -59,6 +59,11 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] `BipBuffer`와 `RefCountedBuffer` private helper 주석을 보강했다.
+  - 범위: `src/Hps.Buffers/BipBuffer.cs`, `src/Hps.Buffers/RefCountedBuffer.cs`.
+  - 기능 변경 없이 helper별 snapshot/publish 의미, SPSC cursor 소유권, payload length publish, 반환 상태/부활 방지 의도를 주석으로 남겼다.
+  - 검증: focused `BipBufferTests|RefCountedBufferTests` → 통과 11, 실패 0, 건너뜀 0. 전체 `dotnet test HighPerformanceSocket.slnx` → 통과 16, 실패 0, 건너뜀 0.
 
 - [x] `BipBuffer`의 `Volatile.Read/Write` 호출을 cursor/count 의미 기반 helper로 정리했다.
   - 범위: `src/Hps.Buffers/BipBuffer.cs`.

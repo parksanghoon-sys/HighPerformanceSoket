@@ -194,36 +194,50 @@ namespace Hps.Buffers
             Interlocked.Add(ref _count, -bytes);
         }
 
+        // _count 는 생산자의 Commit 과 소비자의 Consume 이 함께 갱신하는 공유 상태다.
+        // Count/IsEmpty 와 read span clamp 는 모두 이 커밋 완료 바이트 수를 기준으로 판단한다.
         private int ReadCommittedCountSnapshot()
         {
             return Volatile.Read(ref _count);
         }
 
+        // empty/non-empty 판단이 직접 Volatile.Read(ref _count) 로 흩어지면 왜 _count 가 권위값인지
+        // 매번 다시 해석해야 하므로, 빈 상태 관측 의도를 이름으로 고정한다.
         private bool IsCommittedCountZero()
         {
             return ReadCommittedCountSnapshot() == 0;
         }
 
+        // _read 는 소비자 소유 커서지만 생산자가 여유 공간을 계산하려면 최신 소비 위치를 관측해야 한다.
+        // 생산자 쪽에서는 이 값을 스냅샷으로만 읽고 직접 전진시키지 않는다.
         private int ReadConsumerCursorSnapshot()
         {
             return Volatile.Read(ref _read);
         }
 
+        // _write 는 생산자 소유 커서이고 소비자는 읽기 가능한 연속 구간을 계산하기 위해 이 publish 값을 본다.
+        // 소비자 쪽에서는 이 값을 스냅샷으로만 읽고 직접 전진시키지 않는다.
         private int ReadProducerCursorSnapshot()
         {
             return Volatile.Read(ref _write);
         }
 
+        // watermark 는 생산자가 front 로 wrap 할 때 상단 데이터 구간의 끝을 소비자에게 알려주는 경계값이다.
+        // 소비자는 wrap 상태에서 이 snapshot 을 기준으로 먼저 읽을 tail 구간을 제한한다.
         private int ReadWatermarkSnapshot()
         {
             return Volatile.Read(ref _watermark);
         }
 
+        // 생산자가 새 write cursor 를 publish 하는 지점이다. wrap 시 watermark 를 먼저 갱신한 뒤
+        // 이 메서드로 _write 를 공개해야 소비자가 일관된 경계값 조합을 볼 수 있다.
         private void PublishProducerCursor(int write)
         {
             Volatile.Write(ref _write, write);
         }
 
+        // 소비자가 처리 완료한 read cursor 를 publish 하는 지점이다.
+        // 생산자는 이 값이 공개된 뒤에야 해당 공간을 다시 쓸 수 있다.
         private void PublishConsumerCursor(int read)
         {
             Volatile.Write(ref _read, read);

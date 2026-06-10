@@ -1,5 +1,24 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — private helper 주석 보강)
+
+### 작업 단위
+- 사용자 검토 의견에 따라 `BipBuffer`와 `RefCountedBuffer`의 private helper 주석을 보강했다.
+- 기능 변경 없이 helper가 감싼 volatile snapshot/publish 의미와 소유권/수명 경계를 설명하는 주석만 추가했다.
+
+### 수정
+- `BipBuffer` helper에 committed count, consumer cursor snapshot, producer cursor snapshot, watermark snapshot,
+  producer/consumer cursor publish 의도를 설명했다.
+- `RefCountedBuffer` helper에 payload length publish, ref count snapshot, live block snapshot, returned flag 의미를 설명했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 private helper 주석 보강 상태와 검증 결과를 반영했다.
+- `TODOS.md`에 이번 주석 보강을 Completed로 기록했고, 다음 리뷰 단위는 `RefCountedBuffer` 동시 Release/fan-out 스트레스 테스트로 유지했다.
+
+### 검증
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~BipBufferTests|FullyQualifiedName~RefCountedBufferTests"` → 통과 11, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 16, 실패 0, 건너뜀 0.
+
 ## 2026-06-10 (Codex — BipBuffer Volatile helper 리팩터링)
 
 ### 작업 단위

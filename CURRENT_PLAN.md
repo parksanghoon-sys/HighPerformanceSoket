@@ -29,6 +29,7 @@ Phase 1 — 메모리 계층 `src/Hps.Buffers/`.
 - `tests/Hps.Buffers.Tests/BipBufferTests.cs`가 추가됐고 M1/M2 회귀 테스트, deterministic edge 테스트,
   seeded fuzz 테스트가 discover된다.
 - `BipBuffer` 내부의 `Volatile.Read/Write` 호출은 committed count, producer/consumer cursor, watermark snapshot/publish helper로 정리됐다.
+- `BipBuffer`와 `RefCountedBuffer`의 private helper에는 snapshot/publish 의미와 수명/소유권 경계 주석이 보강됐다.
 - `src/Hps.Buffers/PinnedBlockMemoryPool.cs`가 추가됐고 최소 API 테스트가 discover된다.
 - `PinnedBlockMemoryPool` 멀티스레드 대여/반환 스트레스 테스트가 추가됐다.
 - `PinnedBlockMemoryPoolTests`는 reflection 기반 `PoolApi` 래퍼 없이 public API를 직접 호출하도록 정리됐다.
@@ -45,10 +46,10 @@ Phase 1 — 메모리 계층 `src/Hps.Buffers/`.
 이 작업은 최소 API 구현과 별도 리뷰 단위로 다룬다.
 
 ## 이번 단위의 검증 경로
-- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~BipBufferTests"`
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~BipBufferTests|FullyQualifiedName~RefCountedBufferTests"`
 - `dotnet test HighPerformanceSocket.slnx`
 - 테스트 출력에서 `Hps.Buffers.Tests`의 실제 테스트 16개가 discover되고 실행됐는지 확인한다.
-- 결과: 리팩터링 전 focused 통과 6, 리팩터링 후 focused 통과 6. 전체 통과 16, 실패 0, 건너뜀 0.
+- 결과: focused 통과 11, 실패 0, 건너뜀 0. 전체 통과 16, 실패 0, 건너뜀 0.
 
 ## 다음 작업에서 건드리지 않을 범위
 - `Hps.Transport`
