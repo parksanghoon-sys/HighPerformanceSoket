@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Hps.Buffers;
 using Xunit;
 
@@ -49,6 +51,84 @@ namespace Hps.Buffers.Tests
             Assert.Equal(1, pool.RentedCount);
 
             buffer.Release();
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // 팬아웃 동시 반환 테스트: publish 가드 ref 와 여러 구독자 송신 완료 ref 가 같은 시점에 Release 되더라도
+        // 마지막 0 도달 경로 하나만 풀 반환을 수행해야 한다. 구독자 0명도 즉시 반환되는 정상 경로이므로 함께 검증한다.
+        [Fact]
+        public void Release_WhenFanOutSubscribersReleaseConcurrently_ReturnsExactlyOnce()
+        {
+            int[] subscriberCounts = new int[] { 0, 1, 2, 4, 8, 32 };
+
+            for (int countIndex = 0; countIndex < subscriberCounts.Length; countIndex++)
+            {
+                int subscriberCount = subscriberCounts[countIndex];
+
+                for (int iteration = 0; iteration < 64; iteration++)
+                {
+                    PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+                    RefCountedBuffer buffer = pool.RentCounted();
+
+                    for (int subscriberIndex = 0; subscriberIndex < subscriberCount; subscriberIndex++)
+                    {
+                        buffer.AddRef();
+                    }
+
+                    Action[] releases = new Action[subscriberCount + 1];
+                    for (int releaseIndex = 0; releaseIndex < releases.Length; releaseIndex++)
+                    {
+                        releases[releaseIndex] = delegate()
+                        {
+                            buffer.Release();
+                        };
+                    }
+
+                    Assert.Equal(1, pool.RentedCount);
+
+                    RunConcurrentActions(releases);
+
+                    Assert.Equal(0, pool.RentedCount);
+                }
+            }
+        }
+
+        // 다수 버퍼 동시 in-flight 테스트: 실제 브로커에서는 여러 publish payload 가 동시에 송신 큐와 완료 경로를 지난다.
+        // 각 버퍼의 참조계수 경쟁이 서로 섞여도 누수 없이 모두 반환되어야 다음 fan-out 단계에서 풀 고갈을 만들지 않는다.
+        [Fact]
+        public void Release_WhenManyBuffersAreInFlightConcurrently_FinishesWithNoLeaks()
+        {
+            const int bufferCount = 64;
+            const int subscriberRefsPerBuffer = 3;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            Action[] releases = new Action[bufferCount * (subscriberRefsPerBuffer + 1)];
+            int releaseIndex = 0;
+
+            for (int bufferIndex = 0; bufferIndex < bufferCount; bufferIndex++)
+            {
+                RefCountedBuffer buffer = pool.RentCounted();
+
+                for (int subscriberIndex = 0; subscriberIndex < subscriberRefsPerBuffer; subscriberIndex++)
+                {
+                    buffer.AddRef();
+                }
+
+                for (int refIndex = 0; refIndex < subscriberRefsPerBuffer + 1; refIndex++)
+                {
+                    RefCountedBuffer captured = buffer;
+                    releases[releaseIndex] = delegate()
+                    {
+                        captured.Release();
+                    };
+                    releaseIndex++;
+                }
+            }
+
+            Assert.Equal(bufferCount, pool.RentedCount);
+
+            RunConcurrentActions(releases);
+
             Assert.Equal(0, pool.RentedCount);
         }
 
@@ -108,6 +188,32 @@ namespace Hps.Buffers.Tests
 
             buffer.Release();
             Assert.Equal(0, pool.RentedCount);
+        }
+
+        // 동시성 테스트 보조 함수: 모든 작업을 시작 게이트 뒤에 세워 마지막 Release 주변의 경쟁을 의도적으로 만든다.
+        // timeout 은 실패 시 테스트가 무한 대기하지 않도록 하는 안전장치이고, 작업 예외는 Task.WaitAll 이 그대로 보고한다.
+        private static void RunConcurrentActions(Action[] actions)
+        {
+            using (ManualResetEventSlim start = new ManualResetEventSlim(false))
+            {
+                Task[] tasks = new Task[actions.Length];
+
+                for (int actionIndex = 0; actionIndex < actions.Length; actionIndex++)
+                {
+                    Action action = actions[actionIndex];
+                    tasks[actionIndex] = Task.Run(delegate()
+                    {
+                        start.Wait();
+                        action();
+                    });
+                }
+
+                start.Set();
+
+                Assert.True(
+                    Task.WaitAll(tasks, TimeSpan.FromSeconds(10)),
+                    "동시 Release 작업이 시간 안에 모두 끝나야 한다.");
+            }
         }
     }
 }

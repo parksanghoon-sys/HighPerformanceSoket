@@ -1,5 +1,25 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — RefCountedBuffer 동시 Release 스트레스 테스트)
+
+### 작업 단위
+- D013에 따라 `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트만 별도 리뷰 단위로 보강했다.
+- production code 수정 없이 기존 참조계수 구현이 동시 반환 계약을 만족하는지 테스트로 확인했다.
+
+### 테스트
+- 구독자 수 0, 1, 2, 4, 8, 32명 fan-out에서 publish 가드 ref와 구독자별 ref가 동시에 `Release()`되는 상황을 반복 검증했다.
+- 64개 buffer가 동시에 in-flight 상태일 때 각 buffer의 여러 ref가 경쟁적으로 `Release()`되어도 종료 후 `RentedCount==0`으로 돌아오는지 검증했다.
+- 새 테스트와 helper에는 무엇을 보호하는지 설명하는 한국어 주석을 남겼다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 테스트 18개 통과와 빌드 경고 0개 상태를 반영했다.
+- `TODOS.md`에서 이번 스트레스 테스트 보강을 Completed로 이동하고, 다음 리뷰 단위를 Phase 2 `ITransport`/버퍼 소유권 계약 구체화로 남겼다.
+
+### 검증
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RefCountedBufferTests"` → 통과 7, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 18, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+
 ## 2026-06-10 (Codex — private helper 주석 보강)
 
 ### 작업 단위

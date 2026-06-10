@@ -36,24 +36,28 @@ Phase 1 — 메모리 계층 `src/Hps.Buffers/`.
 - `src/Hps.Buffers/RefCountedBuffer.cs`가 추가됐고 최소 참조계수/반환 계약 테스트가 discover된다.
 - `PinnedBlockMemoryPool.RentCounted()`가 추가되어 counted buffer 가 마지막 `Release()`에서 풀로 돌아간다.
 - `RefCountedBuffer` 내부의 `Volatile.Read/Write` 호출은 의도 기반 helper로 감싸져 수명/길이 상태 관측 의미가 드러나도록 정리됐다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 16개를 실행했고 모두 통과했다.
+- `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트가 추가되어 구독자 수 가변 fan-out과 다수 buffer in-flight 반환을 검증한다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 18개를 실행했고 모두 통과했다.
+- 재확인: `dotnet build HighPerformanceSocket.slnx`는 경고 0개, 오류 0개로 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트 보강이다.
-이 작업은 최소 API 구현과 별도 리뷰 단위로 다룬다.
+리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 Phase 2 착수 전에 `ITransport`와 버퍼 소유권 계약을 구체화하는 것이다.
+이 작업은 Transport/Protocol/Broker 전체 구현이 아니라, 풀 핸들(`RefCountedBuffer`/lease) 기반 인터페이스와 반환 책임을
+작게 정의하는 단위로 제한한다.
 
 ## 이번 단위의 검증 경로
-- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~BipBufferTests|FullyQualifiedName~RefCountedBufferTests"`
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RefCountedBufferTests"`
 - `dotnet test HighPerformanceSocket.slnx`
-- 테스트 출력에서 `Hps.Buffers.Tests`의 실제 테스트 16개가 discover되고 실행됐는지 확인한다.
-- 결과: focused 통과 11, 실패 0, 건너뜀 0. 전체 통과 16, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx`
+- 테스트 출력에서 `Hps.Buffers.Tests`의 실제 테스트 18개가 discover되고 실행됐는지 확인한다.
+- 결과: focused 통과 7, 실패 0, 건너뜀 0. 전체 통과 18, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
 
-## 다음 작업에서 건드리지 않을 범위
+## 이번 작업에서 건드리지 않은 범위
 - `Hps.Transport`
 - Protocol/Broker/Server
 - RIO/io_uring 백엔드
 
-위 범위는 `RefCountedBuffer` 동시성 보강과 Phase 1 완료 기준이 정리된 뒤 진행한다.
+위 범위는 사용자 리뷰 후 다음 단일 작업 단위에서 필요 범위만 다시 확인하고 진행한다.

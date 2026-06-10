@@ -3,27 +3,13 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - D013 리뷰 게이트에 따라 private helper 주석 보강을 사용자 검토한 뒤 다음 단위로 진행한다.
+  - D013 리뷰 게이트에 따라 `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트 보강을 사용자 검토한 뒤 다음 단위로 진행한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트를 보강한다.
-  - 무엇이 남았는지: 구독자 수 가변 fan-out 시나리오에서 여러 송신 완료 경로가 동시에 `Release()` 하더라도
-    0 도달 시 정확히 1회만 풀에 반환되는지 반복 검증하고, 다수 buffer 동시 in-flight 해머 테스트를 추가해야 한다.
-  - 왜 defer 되었는지: 최소 참조계수/반환 계약 구현과 순차 계약 테스트가 막 완료됐고, D013에 따라 동시성 스트레스는 별도 리뷰 단위로 분리한다.
-  - objective: Phase 3 팬아웃에서 구독자당 복사 없이 참조계수 기반으로 메시지를 공유한다.
-  - relevant context: `AGENTS.md`는 구독자별 payload 복사를 금지하고, `PLAN.md`는 `RefCountedBuffer` 1개를 팬아웃에 사용하도록 한다.
-    **설계 검토 완료(승인)**: `.claude/review/phase1-refcounted-pool.md`(+`phase3-publish-ownership.md`), DECISIONS D006·D009.
-    **필수 계약**: 팬아웃에서 publish 가드 ref 보유 → 구독자별 AddRef+enqueue(실패 시 즉시 Release) → publish 마지막 Release.
-    이중 반환/부활 가드 유지. recv→팬아웃 경계 소유권 단위는 RefCountedBuffer 하나(TCP 1회 복사 / UDP 직접 recv).
-  - 관련 파일/범위: `src/Hps.Buffers/`, `tests/Hps.Buffers.Tests/`, 이후 `src/Hps.Broker/`.
-  - 현재 상태: `RefCountedBuffer` 최소 API와 순차 수명 계약 테스트는 통과한다. 아직 동시 Release 스트레스 테스트는 없다.
-  - known blockers/open questions: (해소) `Release()` 이후 `Memory`/`Span` 접근 금지 — 송신측이 완료까지 ref를 보유(D007).
-  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 fan-out concurrent Release Red 테스트를 먼저 작성하고 실패 또는 부족한 보장을 확인한다.
-
 - [ ] `P1_SOON` Phase 2 착수 전에 `ITransport`와 버퍼 소유권 계약을 구체화한다.
   - 무엇이 남았는지: receive buffer, send buffer, send 완료 후 release 책임, backpressure 책임을 인터페이스 수준에서 명확히 해야 한다.
-  - 왜 defer 되었는지: Phase 1 메모리 계층이 아직 완료되지 않았다.
+  - 왜 defer 되었는지: 이번 사이클은 `RefCountedBuffer` 동시성 테스트 보강만 진행했고, D013에 따라 Phase 2 계약 작업은 다음 리뷰 단위로 분리한다.
   - objective: Transport/Protocol/Broker 사이에 중복 버퍼 경로와 소유권 모호성을 만들지 않는다.
   - relevant context: `PLAN.md` Phase 2. **설계 검토 완료**: `.claude/review/phase2-transport-bipbuffer.md`
     (+`phase3-framing-and-close.md`), DECISIONS D007·D011. 확정 사항:
@@ -59,6 +45,16 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트를 보강했다.
+  - 범위: `tests/Hps.Buffers.Tests/RefCountedBufferTests.cs`.
+  - 테스트: 구독자 수 0, 1, 2, 4, 8, 32명 fan-out에서 publish 가드 ref와 구독자 ref를 동시에 `Release()`하고,
+    각 반복에서 풀 반환이 정확히 1회 이루어져 `RentedCount==0`으로 돌아오는지 검증했다.
+  - 테스트: 64개 buffer가 동시에 in-flight 상태일 때 각 buffer의 publish 가드 ref와 구독자 ref들이 경쟁적으로 `Release()`되어도
+    전체 풀 누수 없이 `RentedCount==0`으로 끝나는지 검증했다.
+  - production code 수정은 없었다. 기존 `RefCountedBuffer` 구현이 동시 반환 계약을 만족해 추가 구현 없이 통과했다.
+  - 검증: focused `RefCountedBufferTests` → 통과 7, 실패 0, 건너뜀 0. 전체 `dotnet test HighPerformanceSocket.slnx` → 통과 18, 실패 0, 건너뜀 0.
+    `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
 
 - [x] `BipBuffer`와 `RefCountedBuffer` private helper 주석을 보강했다.
   - 범위: `src/Hps.Buffers/BipBuffer.cs`, `src/Hps.Buffers/RefCountedBuffer.cs`.
