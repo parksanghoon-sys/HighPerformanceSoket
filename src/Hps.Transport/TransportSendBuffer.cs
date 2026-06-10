@@ -1,0 +1,70 @@
+using System;
+using Hps.Buffers;
+
+namespace Hps.Transport
+{
+    /// <summary>
+    /// 연결 송신 큐에 들어가는 풀 소유 payload 참조와 전송 범위이다.
+    ///
+    /// 이 값은 raw <see cref="Memory{T}"/> 를 넘기지 않기 위한 경계 타입이다. Transport 구현은
+    /// <see cref="Buffer"/> 의 고정 블록 출처와 참조계수 수명을 알고 있어야 RIO/io_uring 등록 버퍼,
+    /// 송신 완료 콜백, 연결 종료 drain 에서 같은 소유권 규칙을 적용할 수 있다.
+    ///
+    /// 소유권: 이 값 자체는 참조계수를 늘리거나 줄이지 않는다. 호출자는 연결에 넘기기 전에
+    /// 구독자 몫 <see cref="RefCountedBuffer.AddRef"/> 를 끝내야 한다. 연결이 enqueue 를 수락하면
+    /// 그 참조 1개를 소유하고, 송신 완료·drop·close 중 정확히 한 곳에서 <see cref="RefCountedBuffer.Release"/> 해야 한다.
+    /// enqueue 가 거부되면 연결은 소유권을 갖지 않으므로 호출자가 즉시 Release 해야 한다.
+    /// </summary>
+    public readonly struct TransportSendBuffer
+    {
+        private readonly RefCountedBuffer? _buffer;
+
+        /// <summary>
+        /// 송신할 payload 를 담은 참조계수 버퍼이다. default 값처럼 버퍼가 없는 요청은 계약 위반이다.
+        /// </summary>
+        public RefCountedBuffer Buffer
+        {
+            get
+            {
+                if (_buffer == null)
+                    throw new InvalidOperationException("TransportSendBuffer 에 버퍼가 설정되지 않았다.");
+
+                return _buffer;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="RefCountedBuffer.Length"/> 기준 payload 범위 안에서 전송을 시작할 오프셋이다.
+        /// </summary>
+        public int Offset { get; }
+
+        /// <summary>
+        /// <see cref="Offset"/> 부터 전송할 바이트 수이다. 0 길이 송신은 프레임/프로토콜 계층에서
+        /// 유효 payload 로 사용할 수 있으므로 허용한다.
+        /// </summary>
+        public int Length { get; }
+
+        /// <summary>
+        /// 참조계수 버퍼와 유효 payload 내부 전송 범위를 만든다.
+        /// </summary>
+        public TransportSendBuffer(RefCountedBuffer buffer, int offset, int length)
+        {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
+            // Length 0 요청은 payload 범위만 보면 유효할 수 있다. 그래도 이미 풀로 돌아간 버퍼는
+            // 송신 큐에 들어가면 안 되므로 Memory 접근으로 live block 여부를 먼저 확인한다.
+            _ = buffer.Memory;
+
+            int payloadLength = buffer.Length;
+            if (offset < 0 || offset > payloadLength)
+                throw new ArgumentOutOfRangeException(nameof(offset), "Offset 은 payload 길이 안에 있어야 한다.");
+            if (length < 0 || length > payloadLength - offset)
+                throw new ArgumentOutOfRangeException(nameof(length), "Length 는 Offset 이후 payload 범위 안에 있어야 한다.");
+
+            _buffer = buffer;
+            Offset = offset;
+            Length = length;
+        }
+    }
+}

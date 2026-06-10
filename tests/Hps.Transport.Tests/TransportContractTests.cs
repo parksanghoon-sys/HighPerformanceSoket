@@ -1,0 +1,98 @@
+using System;
+using System.Reflection;
+using Hps.Buffers;
+using Hps.Transport;
+using Xunit;
+
+namespace Hps.Transport.Tests
+{
+    public sealed class TransportContractTests
+    {
+        // Transport 송신 계약 테스트: Phase 2 진입점은 raw Memory<byte>가 아니라 RefCountedBuffer 기반 핸들을
+        // 받아야 한다. 그래야 RIO/io_uring 등록 버퍼 식별과 송신 완료 후 Release 책임을 인터페이스에서 잃지 않는다.
+        [Fact]
+        public void TransportSendBuffer_WhenCreated_ExposesRefCountedBufferAndPayloadRange()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer buffer = pool.RentCounted();
+            buffer.SetLength(12);
+
+            TransportSendBuffer sendBuffer = new TransportSendBuffer(buffer, 3, 7);
+
+            Assert.Same(buffer, sendBuffer.Buffer);
+            Assert.Equal(3, sendBuffer.Offset);
+            Assert.Equal(7, sendBuffer.Length);
+
+            buffer.Release();
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // 송신 범위 경계 테스트: Transport 는 RefCountedBuffer 전체 블록이 아니라 Length 로 publish 된 payload 범위만
+        // 전송해야 한다. offset/length 가 payload 밖을 가리키면 이후 송신 펌프가 미초기화 영역을 보낼 수 있다.
+        [Fact]
+        public void TransportSendBuffer_WhenRangeIsOutsidePayloadLength_Throws()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer buffer = pool.RentCounted();
+            buffer.SetLength(4);
+
+            Assert.Throws<ArgumentOutOfRangeException>(delegate()
+            {
+                new TransportSendBuffer(buffer, -1, 1);
+            });
+            Assert.Throws<ArgumentOutOfRangeException>(delegate()
+            {
+                new TransportSendBuffer(buffer, 5, 0);
+            });
+            Assert.Throws<ArgumentOutOfRangeException>(delegate()
+            {
+                new TransportSendBuffer(buffer, 2, 3);
+            });
+
+            buffer.Release();
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // 반환된 버퍼 방어 테스트: 길이 0 요청이라도 이미 풀에 돌아간 RefCountedBuffer 를 송신 큐에 넣으면
+        // 송신 펌프가 나중에 반환된 블록에 접근하게 된다. 계약 타입 생성 시점에서 즉시 거부해야 원인을 좁힐 수 있다.
+        [Fact]
+        public void TransportSendBuffer_WhenBufferAlreadyReturned_Throws()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer buffer = pool.RentCounted();
+
+            buffer.Release();
+
+            Assert.Throws<ObjectDisposedException>(delegate()
+            {
+                new TransportSendBuffer(buffer, 0, 0);
+            });
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // 연결 큐 계약 테스트: IConnection 이 raw Memory<byte>를 받으면 등록 버퍼 출처와 Release 책임이 사라진다.
+        // public 표면에는 RefCountedBuffer 를 감싼 TransportSendBuffer 기반 enqueue 만 있어야 한다.
+        [Fact]
+        public void IConnection_Contract_QueuesTransportSendBufferWithoutRawMemoryParameters()
+        {
+            Type connectionType = typeof(IConnection);
+
+            MethodInfo? tryQueueSend = connectionType.GetMethod("TryQueueSend", new Type[] { typeof(TransportSendBuffer) });
+            Assert.NotNull(tryQueueSend);
+            Assert.Equal(typeof(bool), tryQueueSend!.ReturnType);
+
+            Assert.DoesNotContain(connectionType.GetMethods(), delegate(MethodInfo method)
+            {
+                ParameterInfo[] parameters = method.GetParameters();
+                for (int parameterIndex = 0; parameterIndex < parameters.Length; parameterIndex++)
+                {
+                    Type parameterType = parameters[parameterIndex].ParameterType;
+                    if (parameterType == typeof(Memory<byte>) || parameterType == typeof(ReadOnlyMemory<byte>))
+                        return true;
+                }
+
+                return false;
+            });
+        }
+    }
+}

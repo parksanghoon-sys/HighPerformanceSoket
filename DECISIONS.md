@@ -1,5 +1,19 @@
 # DECISIONS.md
 
+## D015 — Transport 송신 enqueue 계약은 TransportSendBuffer 기반으로 한다
+
+- 날짜: 2026-06-10
+- 상태: Accepted
+- 결정: `IConnection.TryQueueSend`의 public 계약은 raw `Memory<byte>`/`ReadOnlyMemory<byte>`를 받지 않고,
+  `RefCountedBuffer + offset + length`를 담은 `TransportSendBuffer`를 받는다. enqueue 성공 시 연결이 해당
+  버퍼 참조 1개를 소유하며, 송신 완료·drop·close drain 중 정확히 한 곳에서 `Release`한다. enqueue 실패 시
+  연결은 소유권을 갖지 않으므로 호출자가 즉시 `Release`한다.
+- 근거: D007/D011에 따라 Transport는 커널 등록 버퍼 출처와 refcount 반환 책임을 알아야 한다. raw Memory를
+  받으면 RIO/io_uring 등록 식별, 송신 완료 반환, close 시 pending drain 책임이 모호해진다.
+- 영향: Phase 2 이후 concrete connection/send queue 구현은 이 계약을 따라야 한다. 테스트는 `IConnection`
+  public 메서드에 raw Memory parameter 가 다시 들어오지 않는지 확인한다. listen/connect/accept endpoint 모델은
+  SAEA 기준선 구현 단위에서 별도 테스트와 함께 확정한다.
+
 ## D014 — 테스트에는 검증 의도 주석을 남긴다
 
 - 날짜: 2026-06-10

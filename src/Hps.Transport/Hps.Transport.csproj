@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 공통 설정(TFM/LangVersion/Unsafe)은 루트 Directory.Build.props 참조 -->
+  <ItemGroup>
+    <ProjectReference Include="..\Hps.Buffers\Hps.Buffers.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Hps.Buffers/Hps.Buffers.csproj" />
+    <Project Path="src/Hps.Transport/Hps.Transport.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Hps.Buffers.Tests/Hps.Buffers.Tests.csproj" />
+    <Project Path="tests/Hps.Transport.Tests/Hps.Transport.Tests.csproj" />
   </Folder>
 </Solution>

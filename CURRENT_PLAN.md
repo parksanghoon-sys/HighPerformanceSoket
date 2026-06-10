@@ -10,7 +10,7 @@
 - Phase 4 벤치마크 단계에서 p50/p99 지연, 처리량, 큐 길이, 누수 여부를 측정 가능한 기준으로 확정한다.
 
 ## 현재 Phase
-Phase 1 — 메모리 계층 `src/Hps.Buffers/`.
+Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 
 ## 확인된 현재 상태
 - Phase 0 스캐폴딩은 존재한다.
@@ -37,27 +37,36 @@ Phase 1 — 메모리 계층 `src/Hps.Buffers/`.
 - `PinnedBlockMemoryPool.RentCounted()`가 추가되어 counted buffer 가 마지막 `Release()`에서 풀로 돌아간다.
 - `RefCountedBuffer` 내부의 `Volatile.Read/Write` 호출은 의도 기반 helper로 감싸져 수명/길이 상태 관측 의미가 드러나도록 정리됐다.
 - `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트가 추가되어 구독자 수 가변 fan-out과 다수 buffer in-flight 반환을 검증한다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 18개를 실행했고 모두 통과했다.
+- `src/Hps.Transport`와 `tests/Hps.Transport.Tests` 프로젝트가 추가됐다.
+- `TransportSendBuffer`가 `RefCountedBuffer + offset + length` 기반 송신 요청 범위를 표현한다.
+  raw `Memory<byte>`를 public enqueue 계약에 노출하지 않는다.
+- `IConnection.TryQueueSend(TransportSendBuffer)`는 enqueue 성공 시 연결이 버퍼 참조 1개를 소유하고,
+  실패 시 호출자가 Release 해야 한다는 소유권 경계를 XML doc으로 명시한다.
+- `ITransport`는 현재 lifecycle 계약(`StartAsync`/`StopAsync`/`Dispose`)만 둔다. 실제 listen/connect/accept 모델과
+  SAEA 구현은 다음 단위에서 테스트와 함께 확장한다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 22개를 실행했고 모두 통과했다.
 - 재확인: `dotnet build HighPerformanceSocket.slnx`는 경고 0개, 오류 0개로 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 Phase 2 착수 전에 `ITransport`와 버퍼 소유권 계약을 구체화하는 것이다.
-이 작업은 Transport/Protocol/Broker 전체 구현이 아니라, 풀 핸들(`RefCountedBuffer`/lease) 기반 인터페이스와 반환 책임을
-작게 정의하는 단위로 제한한다.
+리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `IConnection` 송신 큐의 enqueue/close release 계약을
+작게 구현하고 테스트하는 것이다. 실제 소켓 I/O나 SAEA 루프백 echo 는 그 다음 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RefCountedBufferTests"`
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportContractTests"`
+  → `Hps.Transport.TransportSendBuffer` 타입 부재로 단언 실패 1개.
+- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportContractTests"`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
-- 테스트 출력에서 `Hps.Buffers.Tests`의 실제 테스트 18개가 discover되고 실행됐는지 확인한다.
-- 결과: focused 통과 7, 실패 0, 건너뜀 0. 전체 통과 18, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 4개가 discover되고 실행됐는지 확인한다.
+- 결과: focused 통과 4, 실패 0, 건너뜀 0. 전체 통과 22, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
 
 ## 이번 작업에서 건드리지 않은 범위
-- `Hps.Transport`
+- SAEA/RIO/io_uring 실제 소켓 백엔드
+- listen/connect/accept endpoint 모델
+- 송신 큐/송신 펌프 구현
 - Protocol/Broker/Server
-- RIO/io_uring 백엔드
 
 위 범위는 사용자 리뷰 후 다음 단일 작업 단위에서 필요 범위만 다시 확인하고 진행한다.

@@ -3,25 +3,25 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - D013 리뷰 게이트에 따라 `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트 보강을 사용자 검토한 뒤 다음 단위로 진행한다.
+  - D013 리뷰 게이트에 따라 Phase 2 `ITransport`/버퍼 소유권 계약 구체화 작업을 사용자 검토한 뒤 다음 단위로 진행한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` Phase 2 착수 전에 `ITransport`와 버퍼 소유권 계약을 구체화한다.
-  - 무엇이 남았는지: receive buffer, send buffer, send 완료 후 release 책임, backpressure 책임을 인터페이스 수준에서 명확히 해야 한다.
-  - 왜 defer 되었는지: 이번 사이클은 `RefCountedBuffer` 동시성 테스트 보강만 진행했고, D013에 따라 Phase 2 계약 작업은 다음 리뷰 단위로 분리한다.
-  - objective: Transport/Protocol/Broker 사이에 중복 버퍼 경로와 소유권 모호성을 만들지 않는다.
-  - relevant context: `PLAN.md` Phase 2. **설계 검토 완료**: `.claude/review/phase2-transport-bipbuffer.md`
-    (+`phase3-framing-and-close.md`), DECISIONS D007·D011. 확정 사항:
-    (D1) 송신은 "MPSC 큐 → 단일 펌프 → SPSC 송신 BipBuffer"(다중 생산자 직접 노출 금지).
-    (D2) 버퍼는 풀 핸들(`RefCountedBuffer`/lease)로 주고받음. (수신) recv+파싱을 같은 I/O 워커 인라인.
-    (D3) backpressure는 연결 단위(기본 느린 소비자 끊기 / 옵션 drop-oldest).
-    (D011) `Close()/Dispose()`는 송신 큐 pending·in-flight·조립중 RefCountedBuffer를 모두 Release +
-    이후 enqueue 원자적 reject. 종료 후 `RentedCount==0` 테스트 필수.
-  - 관련 파일/범위: `src/Hps.Transport/`, `src/Hps.Protocol/`, `src/Hps.Broker/`.
-  - 현재 상태: 프로젝트 없음.
-  - known blockers/open questions: (해소) raw `Memory<byte>` 대신 lease/handle로 확정.
-  - next step: Phase 1 완료 후 인터페이스 테스트와 간단한 echo 흐름부터 정의한다.
+- [ ] `P1_SOON` `IConnection` 송신 큐의 enqueue/close release 계약을 구현한다.
+  - 무엇이 남았는지: `IConnection.TryQueueSend(TransportSendBuffer)` 계약을 만족하는 최소 송신 큐 컴포넌트를 만들고,
+    close 이후 enqueue reject, pending 항목 drain release, 이중 release 방지를 테스트해야 한다.
+  - 왜 defer 되었는지: 이번 사이클은 public 계약(`TransportSendBuffer`, `IConnection`, `ITransport`)만 고정했고,
+    실제 큐/펌프 구현은 D013에 따라 별도 리뷰 단위로 분리한다.
+  - objective: D011 종료 계약의 첫 구현 지점으로, 소켓 I/O 없이도 pending 송신 항목이 close 시 누수 없이 반환되는지 검증한다.
+  - relevant context: `PLAN.md` Phase 2, DECISIONS D007·D011·D012, `.claude/review/phase2-transport-bipbuffer.md`,
+    `.claude/review/phase3-framing-and-close.md`. 송신은 MPSC 큐 → 단일 펌프 → SPSC 송신 BipBuffer 구조이며,
+    enqueue 성공 시 연결이 `RefCountedBuffer` ref 1개를 소유하고 실패 시 호출자가 Release 한다.
+  - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`.
+  - 현재 상태: `src/Hps.Transport` 프로젝트와 `TransportSendBuffer`, `IConnection`, `ITransport` 계약은 존재한다.
+    실제 송신 큐/펌프/SAEA 구현은 아직 없다.
+  - known blockers/open questions: drop-oldest 정책은 D012로 확정됐지만, 이번 다음 단위에서는 기본 close/drain release부터 처리하고
+    drop-oldest evict release 는 이후 별도 단위로 분리하는 편이 리뷰하기 쉽다.
+  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 pending 항목을 남긴 상태에서 Close 시 `RentedCount==0`이 되는 Red 테스트부터 작성한다.
 
 - [ ] `P2_LATER` Phase 3 브로커 라우팅의 빈 토픽 정리 경합(R1)을 회피해 구현한다.
   - 무엇이 남았는지: `topic → 구독자 set` 라우팅을 빈 토픽 eager-cleanup 없이 구현한다.
@@ -45,6 +45,18 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] Phase 2 `ITransport`와 버퍼 소유권 계약을 구체화했다.
+  - 범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`, `HighPerformanceSocket.slnx`.
+  - Red: `Hps.Transport.TransportSendBuffer` 타입 부재를 reflection 기반 테스트의 단언 실패로 확인했다.
+  - 구현: `TransportSendBuffer`를 `RefCountedBuffer + offset + length` 기반 값 타입으로 추가했고,
+    payload `Length` 범위 밖 송신 요청을 거부하도록 했다.
+  - 구현: `IConnection.TryQueueSend(TransportSendBuffer)`에 enqueue 성공/실패별 Release 책임을 XML doc으로 명시했다.
+  - 구현: `ITransport`는 lifecycle 계약만 우선 추가했고, 실제 listen/connect/accept와 SAEA 구현은 다음 단위로 남겼다.
+  - 테스트: `TransportSendBuffer`의 버퍼/범위 노출, payload 범위 검증, `IConnection` public 계약에 raw `Memory<byte>`/
+    `ReadOnlyMemory<byte>` parameter 가 없는지 검증했다. 이미 풀에 반환된 버퍼는 길이 0 요청이라도 거부되는지 검증했다.
+  - 검증: focused `TransportContractTests` → 통과 4, 실패 0, 건너뜀 0. 전체 `dotnet test HighPerformanceSocket.slnx`
+    → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 4. `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
 
 - [x] `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트를 보강했다.
   - 범위: `tests/Hps.Buffers.Tests/RefCountedBufferTests.cs`.

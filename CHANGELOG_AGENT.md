@@ -1,5 +1,37 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — Transport 버퍼 소유권 계약)
+
+### 작업 단위
+- Phase 2 진입을 위해 `Hps.Transport` public 계약의 첫 단위를 추가했다.
+- 실제 소켓 I/O, SAEA 백엔드, 송신 큐/펌프 구현은 넣지 않고, raw `Memory<byte>` 대신 `RefCountedBuffer` 핸들을 받는 송신 소유권 경계만 고정했다.
+
+### Red
+- `tests/Hps.Transport.Tests`를 추가하고 reflection 기반 테스트로 `Hps.Transport.TransportSendBuffer` 타입 부재를 단언 실패로 확인했다.
+
+### 구현
+- `src/Hps.Transport` 프로젝트를 추가하고 `Hps.Buffers`를 참조하도록 했다.
+- `TransportSendBuffer`를 `RefCountedBuffer + offset + length` 값 타입으로 추가했다.
+- `TransportSendBuffer`는 `RefCountedBuffer.Length` 기준 payload 범위를 벗어난 offset/length 를 거부한다.
+- `IConnection.TryQueueSend(TransportSendBuffer)` 계약에 enqueue 성공 시 연결이 ref 1개를 소유하고, 실패 시 호출자가 Release 해야 한다는 규칙을 XML doc으로 명시했다.
+- `ITransport`는 lifecycle 계약만 우선 추가했고 listen/connect/accept 모델은 다음 구현 단위로 남겼다.
+
+### 테스트
+- `TransportSendBuffer`가 `RefCountedBuffer`와 payload range 를 그대로 노출하는지 검증했다.
+- payload 범위 밖 송신 요청이 거부되는지 검증했다.
+- 이미 풀에 반환된 `RefCountedBuffer`로 송신 요청을 만들면 거부되는지 검증했다.
+- `IConnection` public enqueue 계약에 raw `Memory<byte>`/`ReadOnlyMemory<byte>` parameter 가 없는지 검증했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 Phase 2 초기 계약 상태와 테스트 22개 통과 상태로 갱신했다.
+- `TODOS.md`에서 이번 계약 작업을 Completed로 이동하고, 다음 리뷰 단위를 `IConnection` 송신 큐 close/drain release 계약 구현으로 남겼다.
+- `DECISIONS.md`에 Transport 송신 계약의 소유권 경계를 D015로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportContractTests"` → 통과 4, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 4, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+
 ## 2026-06-10 (Codex — RefCountedBuffer 동시 Release 스트레스 테스트)
 
 ### 작업 단위
