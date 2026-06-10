@@ -13,18 +13,21 @@
 - `src/Hps.Transport` 프로젝트를 추가하고 `Hps.Buffers`를 참조하도록 했다.
 - `TransportSendBuffer`를 `RefCountedBuffer + offset + length` 값 타입으로 추가했다.
 - `TransportSendBuffer`는 `RefCountedBuffer.Length` 기준 payload 범위를 벗어난 offset/length 를 거부한다.
-- `IConnection.TryQueueSend(TransportSendBuffer)` 계약에 enqueue 성공 시 연결이 ref 1개를 소유하고, 실패 시 호출자가 Release 해야 한다는 규칙을 XML doc으로 명시했다.
-- `ITransport`는 lifecycle 계약만 우선 추가했고 listen/connect/accept 모델은 다음 구현 단위로 남겼다.
+- 사용자 리뷰를 반영해 송신 시도와 소유권 판정을 `IConnection`이 아니라 `ITransport.TrySend(IConnection, TransportSendBuffer)`에 둔다.
+- `IConnection`은 연결 핸들/수명 계약에 집중하도록 `Close()`/`Dispose()`만 노출한다.
+- `ITransport`는 lifecycle 계약과 `TrySend` 계약만 우선 추가했고 listen/connect/accept 모델은 다음 구현 단위로 남겼다.
 
 ### 테스트
 - `TransportSendBuffer`가 `RefCountedBuffer`와 payload range 를 그대로 노출하는지 검증했다.
 - payload 범위 밖 송신 요청이 거부되는지 검증했다.
 - 이미 풀에 반환된 `RefCountedBuffer`로 송신 요청을 만들면 거부되는지 검증했다.
-- `IConnection` public enqueue 계약에 raw `Memory<byte>`/`ReadOnlyMemory<byte>` parameter 가 없는지 검증했다.
+- `ITransport.TrySend(IConnection, TransportSendBuffer)`가 존재하고 bool 을 반환하는지 검증했다.
+- `IConnection` public 계약에 `TransportSendBuffer` parameter 가 없고, Transport public 계약에 raw `Memory<byte>`/
+  `ReadOnlyMemory<byte>` parameter 가 없는지 검증했다.
 
 ### 상태 갱신
 - `CURRENT_PLAN.md`를 Phase 2 초기 계약 상태와 테스트 22개 통과 상태로 갱신했다.
-- `TODOS.md`에서 이번 계약 작업을 Completed로 이동하고, 다음 리뷰 단위를 `IConnection` 송신 큐 close/drain release 계약 구현으로 남겼다.
+- `TODOS.md`에서 이번 계약 작업을 Completed로 이동하고, 다음 리뷰 단위를 `ITransport.TrySend` 송신 큐 close/drain release 계약 구현으로 남겼다.
 - `DECISIONS.md`에 Transport 송신 계약의 소유권 경계를 D015로 기록했다.
 
 ### 검증

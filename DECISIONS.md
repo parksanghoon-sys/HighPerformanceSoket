@@ -1,18 +1,20 @@
 # DECISIONS.md
 
-## D015 — Transport 송신 enqueue 계약은 TransportSendBuffer 기반으로 한다
+## D015 — Transport 송신 시도 계약은 ITransport.TrySend 기반으로 한다
 
 - 날짜: 2026-06-10
 - 상태: Accepted
-- 결정: `IConnection.TryQueueSend`의 public 계약은 raw `Memory<byte>`/`ReadOnlyMemory<byte>`를 받지 않고,
-  `RefCountedBuffer + offset + length`를 담은 `TransportSendBuffer`를 받는다. enqueue 성공 시 연결이 해당
-  버퍼 참조 1개를 소유하며, 송신 완료·drop·close drain 중 정확히 한 곳에서 `Release`한다. enqueue 실패 시
-  연결은 소유권을 갖지 않으므로 호출자가 즉시 `Release`한다.
+- 결정: 송신 시도와 버퍼 소유권 판정은 `IConnection`이 아니라 `ITransport.TrySend(IConnection, TransportSendBuffer)`에 둔다.
+  `IConnection`은 연결 핸들과 수명(`Close`/`Dispose`)에 집중한다. public 송신 계약은 raw `Memory<byte>`/
+  `ReadOnlyMemory<byte>`를 받지 않고, `RefCountedBuffer + offset + length`를 담은 `TransportSendBuffer`를 받는다.
+  `TrySend` 성공 시 Transport가 해당 버퍼 참조 1개를 소유하며, 송신 완료·drop·close drain 중 정확히 한 곳에서
+  `Release`한다. 실패 시 Transport는 소유권을 갖지 않으므로 호출자가 즉시 `Release`한다.
 - 근거: D007/D011에 따라 Transport는 커널 등록 버퍼 출처와 refcount 반환 책임을 알아야 한다. raw Memory를
-  받으면 RIO/io_uring 등록 식별, 송신 완료 반환, close 시 pending drain 책임이 모호해진다.
-- 영향: Phase 2 이후 concrete connection/send queue 구현은 이 계약을 따라야 한다. 테스트는 `IConnection`
-  public 메서드에 raw Memory parameter 가 다시 들어오지 않는지 확인한다. listen/connect/accept endpoint 모델은
-  SAEA 기준선 구현 단위에서 별도 테스트와 함께 확정한다.
+  받으면 RIO/io_uring 등록 식별, 송신 완료 반환, close 시 pending drain 책임이 모호해진다. 또한 큐라는 내부 구현
+  세부사항을 `IConnection`에 노출하면 연결 핸들의 책임이 넓어진다.
+- 영향: Phase 2 이후 concrete transport/send queue 구현은 이 계약을 따라야 한다. 테스트는 `IConnection`에
+  `TransportSendBuffer` parameter 가 다시 들어오지 않는지, `ITransport` public 메서드에 raw Memory parameter 가
+  들어오지 않는지 확인한다. listen/connect/accept endpoint 모델은 SAEA 기준선 구현 단위에서 별도 테스트와 함께 확정한다.
 
 ## D014 — 테스트에는 검증 의도 주석을 남긴다
 

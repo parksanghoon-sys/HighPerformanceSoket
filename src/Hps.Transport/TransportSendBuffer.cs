@@ -10,10 +10,10 @@ namespace Hps.Transport
     /// <see cref="Buffer"/> 의 고정 블록 출처와 참조계수 수명을 알고 있어야 RIO/io_uring 등록 버퍼,
     /// 송신 완료 콜백, 연결 종료 drain 에서 같은 소유권 규칙을 적용할 수 있다.
     ///
-    /// 소유권: 이 값 자체는 참조계수를 늘리거나 줄이지 않는다. 호출자는 연결에 넘기기 전에
-    /// 구독자 몫 <see cref="RefCountedBuffer.AddRef"/> 를 끝내야 한다. 연결이 enqueue 를 수락하면
+    /// 소유권: 이 값 자체는 참조계수를 늘리거나 줄이지 않는다. 호출자는 Transport 로 넘기기 전에
+    /// 구독자 몫 <see cref="RefCountedBuffer.AddRef"/> 를 끝내야 한다. Transport 가 send 를 수락하면
     /// 그 참조 1개를 소유하고, 송신 완료·drop·close 중 정확히 한 곳에서 <see cref="RefCountedBuffer.Release"/> 해야 한다.
-    /// enqueue 가 거부되면 연결은 소유권을 갖지 않으므로 호출자가 즉시 Release 해야 한다.
+    /// send 가 거부되면 Transport 는 소유권을 갖지 않으므로 호출자가 즉시 Release 해야 한다.
     /// </summary>
     public readonly struct TransportSendBuffer
     {

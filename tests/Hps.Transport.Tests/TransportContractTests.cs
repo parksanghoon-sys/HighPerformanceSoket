@@ -70,18 +70,37 @@ namespace Hps.Transport.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
-        // 연결 큐 계약 테스트: IConnection 이 raw Memory<byte>를 받으면 등록 버퍼 출처와 Release 책임이 사라진다.
-        // public 표면에는 RefCountedBuffer 를 감싼 TransportSendBuffer 기반 enqueue 만 있어야 한다.
+        // 송신 위치 계약 테스트: IConnection 은 연결 핸들과 수명에 집중하고, 송신 시도와 소유권 판정은
+        // Transport 가 맡아야 한다. 큐라는 내부 구현 세부사항이 연결 public API 로 새면 책임 경계가 흐려진다.
         [Fact]
-        public void IConnection_Contract_QueuesTransportSendBufferWithoutRawMemoryParameters()
+        public void Transport_Contract_SendsThroughTransportWithoutConnectionQueueMethod()
         {
             Type connectionType = typeof(IConnection);
+            Type transportType = typeof(ITransport);
 
-            MethodInfo? tryQueueSend = connectionType.GetMethod("TryQueueSend", new Type[] { typeof(TransportSendBuffer) });
-            Assert.NotNull(tryQueueSend);
-            Assert.Equal(typeof(bool), tryQueueSend!.ReturnType);
+            MethodInfo? trySend = transportType.GetMethod("TrySend", new Type[] { typeof(IConnection), typeof(TransportSendBuffer) });
+            Assert.NotNull(trySend);
+            Assert.Equal(typeof(bool), trySend!.ReturnType);
 
             Assert.DoesNotContain(connectionType.GetMethods(), delegate(MethodInfo method)
+            {
+                ParameterInfo[] parameters = method.GetParameters();
+                for (int parameterIndex = 0; parameterIndex < parameters.Length; parameterIndex++)
+                {
+                    if (parameters[parameterIndex].ParameterType == typeof(TransportSendBuffer))
+                        return true;
+                }
+
+                return false;
+            });
+
+            AssertDoesNotExposeRawMemoryParameters(connectionType);
+            AssertDoesNotExposeRawMemoryParameters(transportType);
+        }
+
+        private static void AssertDoesNotExposeRawMemoryParameters(Type contractType)
+        {
+            Assert.DoesNotContain(contractType.GetMethods(), delegate(MethodInfo method)
             {
                 ParameterInfo[] parameters = method.GetParameters();
                 for (int parameterIndex = 0; parameterIndex < parameters.Length; parameterIndex++)

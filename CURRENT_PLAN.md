@@ -39,9 +39,11 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 - `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트가 추가되어 구독자 수 가변 fan-out과 다수 buffer in-flight 반환을 검증한다.
 - `src/Hps.Transport`와 `tests/Hps.Transport.Tests` 프로젝트가 추가됐다.
 - `TransportSendBuffer`가 `RefCountedBuffer + offset + length` 기반 송신 요청 범위를 표현한다.
-  raw `Memory<byte>`를 public enqueue 계약에 노출하지 않는다.
-- `IConnection.TryQueueSend(TransportSendBuffer)`는 enqueue 성공 시 연결이 버퍼 참조 1개를 소유하고,
+  raw `Memory<byte>`를 public send 계약에 노출하지 않는다.
+- `ITransport.TrySend(IConnection, TransportSendBuffer)`는 send 수락 성공 시 Transport가 버퍼 참조 1개를 소유하고,
   실패 시 호출자가 Release 해야 한다는 소유권 경계를 XML doc으로 명시한다.
+- `IConnection`은 연결 핸들/수명 계약에 집중하도록 `Close()`/`Dispose()`만 노출한다. 송신 큐나 펌프 같은
+  Transport 내부 구현 세부사항은 `IConnection` public API 에 노출하지 않는다.
 - `ITransport`는 현재 lifecycle 계약(`StartAsync`/`StopAsync`/`Dispose`)만 둔다. 실제 listen/connect/accept 모델과
   SAEA 구현은 다음 단위에서 테스트와 함께 확장한다.
 - 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 22개를 실행했고 모두 통과했다.
@@ -51,8 +53,8 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `IConnection` 송신 큐의 enqueue/close release 계약을
-작게 구현하고 테스트하는 것이다. 실제 소켓 I/O나 SAEA 루프백 echo 는 그 다음 단위로 둔다.
+리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `ITransport.TrySend`를 만족하는 최소 송신 큐와
+close/drain release 계약을 작게 구현하고 테스트하는 것이다. 실제 소켓 I/O나 SAEA 루프백 echo 는 그 다음 단위로 둔다.
 
 ## 이번 단위의 검증 경로
 - Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportContractTests"`

@@ -7,21 +7,22 @@
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` `IConnection` 송신 큐의 enqueue/close release 계약을 구현한다.
-  - 무엇이 남았는지: `IConnection.TryQueueSend(TransportSendBuffer)` 계약을 만족하는 최소 송신 큐 컴포넌트를 만들고,
+- [ ] `P1_SOON` `ITransport.TrySend` 송신 큐의 enqueue/close release 계약을 구현한다.
+  - 무엇이 남았는지: `ITransport.TrySend(IConnection, TransportSendBuffer)` 계약을 만족하는 최소 송신 큐 컴포넌트를 만들고,
     close 이후 enqueue reject, pending 항목 drain release, 이중 release 방지를 테스트해야 한다.
-  - 왜 defer 되었는지: 이번 사이클은 public 계약(`TransportSendBuffer`, `IConnection`, `ITransport`)만 고정했고,
-    실제 큐/펌프 구현은 D013에 따라 별도 리뷰 단위로 분리한다.
+  - 왜 defer 되었는지: 이번 사이클은 사용자 리뷰를 반영해 송신 시도/소유권 판정을 `IConnection`에서 `ITransport`로 옮기는
+    public 계약 리팩터링까지만 처리했고, 실제 큐/펌프 구현은 D013에 따라 별도 리뷰 단위로 분리한다.
   - objective: D011 종료 계약의 첫 구현 지점으로, 소켓 I/O 없이도 pending 송신 항목이 close 시 누수 없이 반환되는지 검증한다.
   - relevant context: `PLAN.md` Phase 2, DECISIONS D007·D011·D012, `.claude/review/phase2-transport-bipbuffer.md`,
     `.claude/review/phase3-framing-and-close.md`. 송신은 MPSC 큐 → 단일 펌프 → SPSC 송신 BipBuffer 구조이며,
-    enqueue 성공 시 연결이 `RefCountedBuffer` ref 1개를 소유하고 실패 시 호출자가 Release 한다.
+    `TrySend` 성공 시 Transport가 `RefCountedBuffer` ref 1개를 소유하고 실패 시 호출자가 Release 한다.
   - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`.
-  - 현재 상태: `src/Hps.Transport` 프로젝트와 `TransportSendBuffer`, `IConnection`, `ITransport` 계약은 존재한다.
-    실제 송신 큐/펌프/SAEA 구현은 아직 없다.
+  - 현재 상태: `src/Hps.Transport` 프로젝트와 `TransportSendBuffer`, `IConnection`, `ITransport.TrySend` 계약은 존재한다.
+    `IConnection`은 송신 메서드를 노출하지 않는다. 실제 송신 큐/펌프/SAEA 구현은 아직 없다.
   - known blockers/open questions: drop-oldest 정책은 D012로 확정됐지만, 이번 다음 단위에서는 기본 close/drain release부터 처리하고
     drop-oldest evict release 는 이후 별도 단위로 분리하는 편이 리뷰하기 쉽다.
-  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 pending 항목을 남긴 상태에서 Close 시 `RentedCount==0`이 되는 Red 테스트부터 작성한다.
+  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 `ITransport.TrySend`가 pending 항목을 수락한 뒤 Close/drain 시
+    `RentedCount==0`이 되는 Red 테스트부터 작성한다.
 
 - [ ] `P2_LATER` Phase 3 브로커 라우팅의 빈 토픽 정리 경합(R1)을 회피해 구현한다.
   - 무엇이 남았는지: `topic → 구독자 set` 라우팅을 빈 토픽 eager-cleanup 없이 구현한다.
@@ -51,10 +52,12 @@
   - Red: `Hps.Transport.TransportSendBuffer` 타입 부재를 reflection 기반 테스트의 단언 실패로 확인했다.
   - 구현: `TransportSendBuffer`를 `RefCountedBuffer + offset + length` 기반 값 타입으로 추가했고,
     payload `Length` 범위 밖 송신 요청을 거부하도록 했다.
-  - 구현: `IConnection.TryQueueSend(TransportSendBuffer)`에 enqueue 성공/실패별 Release 책임을 XML doc으로 명시했다.
+  - 구현: 사용자 리뷰를 반영해 송신 시도와 소유권 판정을 `IConnection`이 아니라 `ITransport.TrySend(IConnection, TransportSendBuffer)`에 둔다.
+    `IConnection`은 `Close()`/`Dispose()` 수명 계약만 노출한다.
   - 구현: `ITransport`는 lifecycle 계약만 우선 추가했고, 실제 listen/connect/accept와 SAEA 구현은 다음 단위로 남겼다.
-  - 테스트: `TransportSendBuffer`의 버퍼/범위 노출, payload 범위 검증, `IConnection` public 계약에 raw `Memory<byte>`/
-    `ReadOnlyMemory<byte>` parameter 가 없는지 검증했다. 이미 풀에 반환된 버퍼는 길이 0 요청이라도 거부되는지 검증했다.
+  - 테스트: `TransportSendBuffer`의 버퍼/범위 노출, payload 범위 검증, `ITransport.TrySend` 존재, `IConnection`에
+    `TransportSendBuffer` parameter 가 없는지, public 계약에 raw `Memory<byte>`/`ReadOnlyMemory<byte>` parameter 가 없는지 검증했다.
+    이미 풀에 반환된 버퍼는 길이 0 요청이라도 거부되는지 검증했다.
   - 검증: focused `TransportContractTests` → 통과 4, 실패 0, 건너뜀 0. 전체 `dotnet test HighPerformanceSocket.slnx`
     → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 4. `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
 
