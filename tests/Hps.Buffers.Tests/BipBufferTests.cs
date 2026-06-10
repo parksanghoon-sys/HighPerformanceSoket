@@ -8,6 +8,24 @@ namespace Hps.Buffers.Tests
     public sealed class BipBufferTests
     {
         [Fact]
+        public void GetWriteSpan_WhenBufferUsesCapacityMinusOne_ReportsNoMoreWritableSpace()
+        {
+            BipBuffer buffer = new BipBuffer(8);
+
+            Span<byte> write = buffer.GetWriteSpan();
+            Assert.Equal(7, write.Length);
+            Fill(write, 0, write.Length);
+            buffer.Commit(write.Length);
+
+            Assert.Equal(7, buffer.Count);
+            Assert.Equal(0, buffer.GetWriteSpan().Length);
+
+            ReadOnlySpan<byte> read = buffer.GetReadSpan();
+            Assert.Equal(7, read.Length);
+            AssertBytes(read, 0, 7);
+        }
+
+        [Fact]
         public void GetWriteSpan_WhenTailCommitReachedPhysicalEndAndBufferBecameEmpty_AllowsWritingAgain()
         {
             BipBuffer buffer = new BipBuffer(8);
@@ -26,6 +44,52 @@ namespace Hps.Buffers.Tests
 
             Assert.True(buffer.IsEmpty);
             Assert.True(buffer.GetWriteSpan().Length > 0);
+        }
+
+        [Fact]
+        public void Commit_WhenOnlyPartOfWriteSpanIsCommitted_ExposesOnlyCommittedPrefix()
+        {
+            BipBuffer buffer = new BipBuffer(8);
+
+            Span<byte> write = buffer.GetWriteSpan();
+            Fill(write, 0, 5);
+            buffer.Commit(3);
+
+            ReadOnlySpan<byte> firstRead = buffer.GetReadSpan();
+            Assert.Equal(3, firstRead.Length);
+            AssertBytes(firstRead, 0, 3);
+
+            buffer.Consume(2);
+
+            ReadOnlySpan<byte> secondRead = buffer.GetReadSpan();
+            Assert.Equal(1, secondRead.Length);
+            Assert.Equal((byte)2, secondRead[0]);
+            Assert.Equal(1, buffer.Count);
+        }
+
+        [Fact]
+        public void GetWriteSpan_WhenTailCannotSatisfyMinimumSize_WrapsToFrontAndPreservesWatermarkOrder()
+        {
+            BipBuffer buffer = new BipBuffer(8);
+
+            Span<byte> initial = buffer.GetWriteSpan();
+            Fill(initial, 0, 6);
+            buffer.Commit(6);
+            buffer.Consume(5);
+
+            Span<byte> front = buffer.GetWriteSpan(3);
+            Assert.Equal(4, front.Length);
+            Fill(front, 100, 4);
+            buffer.Commit(4);
+
+            ReadOnlySpan<byte> tailRead = buffer.GetReadSpan();
+            Assert.Equal(1, tailRead.Length);
+            Assert.Equal((byte)5, tailRead[0]);
+            buffer.Consume(1);
+
+            ReadOnlySpan<byte> frontRead = buffer.GetReadSpan();
+            Assert.Equal(4, frontRead.Length);
+            AssertBytes(frontRead, 100, 4);
         }
 
         [Fact]
@@ -136,6 +200,13 @@ namespace Hps.Buffers.Tests
         {
             for (int i = 0; i < length; i++)
                 target[i] = unchecked((byte)(start + i));
+        }
+
+        private static void AssertBytes(ReadOnlySpan<byte> actual, int start, int length)
+        {
+            Assert.Equal(length, actual.Length);
+            for (int i = 0; i < length; i++)
+                Assert.Equal(unchecked((byte)(start + i)), actual[i]);
         }
     }
 }

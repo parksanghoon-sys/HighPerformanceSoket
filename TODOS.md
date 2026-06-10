@@ -7,19 +7,19 @@
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` `BipBuffer` 경계/fuzz 보강 테스트를 별도 리뷰 단위로 추가한다.
-  - 무엇이 남았는지: M1/M2 핵심 회귀 테스트는 들어갔지만, `PLAN.md`가 요구하는 빈/가득참, 꼬리→앞쪽 랩,
-    watermark 경계, 부분 commit/consume, capacity-1 실사용 용량, 무작위 fuzz 테스트는 아직 별도 보강이 필요하다.
-  - 왜 defer 되었는지: 사용자가 한 번에 많은 수정은 리뷰하기 어렵다고 지적했고, D013에 따라 M1/M2 기능 단위
-    완료 후 사용자 리뷰를 먼저 받기로 했다.
-  - objective: `BipBuffer`의 단일스레드 경계와 랜덤 write/read 시퀀스를 참조 큐와 비교해 Phase 1 완료 신뢰도를 높인다.
+- [ ] `P1_SOON` `BipBuffer` fuzz 테스트를 별도 리뷰 단위로 추가한다.
+  - 무엇이 남았는지: M1/M2 핵심 회귀 테스트와 deterministic edge 테스트는 들어갔지만,
+    무작위 write/read 시퀀스를 참조 큐와 비교하는 fuzz 테스트는 아직 필요하다.
+  - 왜 defer 되었는지: D013에 따라 deterministic edge 테스트와 fuzz 테스트를 같은 리뷰 단위에 묶지 않기로 했다.
+  - objective: `BipBuffer`의 랜덤 write/read 시퀀스를 단순 참조 큐와 비교해 wrap, partial commit/consume,
+    watermark 전환이 길게 섞여도 바이트 순서와 Count가 유지되는지 검증한다.
   - relevant context: `PLAN.md` Phase 1 테스트 요구사항, `.claude/review/phase1-bipbuffer.md`의 "반드시 추가할 테스트",
     DECISIONS D005 및 D013.
   - 관련 파일/범위: `tests/Hps.Buffers.Tests/BipBufferTests.cs`, 필요 시 `src/Hps.Buffers/BipBuffer.cs`.
-  - 현재 상태 또는 이미 시도한 접근: M1 결정적 회귀 테스트와 M2 SPSC 스트레스 테스트는 통과한다.
-    `dotnet test HighPerformanceSocket.slnx` 결과: 통과 2, 실패 0.
+  - 현재 상태 또는 이미 시도한 접근: M1 결정적 회귀 테스트, M2 SPSC 스트레스 테스트, deterministic edge 테스트는 통과한다.
+    `dotnet test HighPerformanceSocket.slnx` 결과: 통과 5, 실패 0.
   - known blockers/open questions: 사용자 리뷰 완료 전에는 다음 구현 사이클을 시작하지 않는다.
-  - 가장 자연스러운 next step: 사용자가 계속 진행을 승인하면 edge/fuzz 테스트 Red부터 추가하고 필요한 최소 수정만 한다.
+  - 가장 자연스러운 next step: 사용자가 계속 진행을 승인하면 seeded fuzz 테스트를 추가하고 필요한 최소 수정만 한다.
 
 - [ ] `P1_SOON` `PinnedBlockMemoryPool`의 소유권 모델을 확정하고 구현한다.
   - 무엇이 남았는지: 고정 블록 풀의 public API와 반환 검증 정책을 결정하고 구현해야 한다.
@@ -92,6 +92,13 @@
     반환 길이를 `_count` 기준으로 제한(clamp)했다. `_count` 값 자체는 보정하지 않는다.
   - XML doc에 소비자는 데이터를 처리한 뒤에만 `Consume`해야 한다는 계약을 명시했다.
   - 검증: `dotnet test HighPerformanceSocket.slnx` → 통과 2, 실패 0, 건너뜀 0.
+
+- [x] `BipBuffer` deterministic edge 테스트를 별도 리뷰 단위로 추가했다.
+  - 범위: `tests/Hps.Buffers.Tests/BipBufferTests.cs`.
+  - 추가한 테스트: `Capacity - 1` 실사용 용량과 full 상태, partial commit/consume, tail이 minimum size를
+    만족하지 못할 때 front wrap 및 watermark 순서 보존.
+  - production code 수정은 없었다.
+  - 검증: `dotnet test HighPerformanceSocket.slnx` → 통과 5, 실패 0, 건너뜀 0.
 
 - [x] Phase 0 스캐폴딩이 존재한다.
   - 근거: `HighPerformanceSocket.slnx`, `Directory.Build.props`, `src/Hps.Buffers`, `tests/Hps.Buffers.Tests` 확인.

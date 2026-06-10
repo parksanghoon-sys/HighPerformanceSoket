@@ -1,5 +1,22 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — BipBuffer deterministic edge 테스트)
+
+### 작업 단위
+- D013에 따라 `BipBuffer` deterministic edge 테스트만 별도 리뷰 단위로 진행했다.
+- 추가한 테스트:
+  - `Capacity - 1` 실사용 용량과 full 상태 검증.
+  - partial commit 후 커밋된 prefix만 읽히는지 검증.
+  - tail이 `minimumSize`를 만족하지 못할 때 front wrap으로 전환되고 watermark 순서가 보존되는지 검증.
+- production code 수정은 없었다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기 상태로 갱신했다.
+- `TODOS.md`에서 deterministic edge 테스트를 Completed로 옮기고, fuzz 테스트는 별도 `P1_SOON` 항목으로 남겼다.
+
+### 검증
+- `dotnet test HighPerformanceSocket.slnx` → 통과 5, 실패 0, 건너뜀 0.
+
 ## 2026-06-10 (Codex — BipBuffer M1/M2 최소 구현 + 리뷰 게이트 반영)
 
 ### 작업 단위 크기 규칙 추가
