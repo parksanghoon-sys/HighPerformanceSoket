@@ -1,0 +1,112 @@
+# CHANGELOG_AGENT.md
+
+## 2026-06-10 (Codex — BipBuffer M1/M2 최소 구현 + 리뷰 게이트 반영)
+
+### 작업 단위 크기 규칙 추가
+- 사용자 지시에 따라 구현을 작고 리뷰 가능한 기능 단위로 나누고, 한 단위 완료 후 사용자 리뷰 전에는
+  다음 기능으로 자동 진행하지 않는 규칙을 `AGENT_RULES.md`에 추가했다.
+- 장기 결정으로 DECISIONS D013을 추가했다.
+- 후속 사용자 지시에 따라 각 기능 단위 완료 후 관련 파일만 stage 하여 단일 커밋으로 남기고,
+  unrelated 변경은 커밋에 포함하지 않는 규칙을 D013과 `AGENT_RULES.md`에 보강했다.
+
+### BipBuffer must-fix 2건 구현
+- M1: capacity 끝까지 commit 후 read가 0으로 돌아온 빈 버퍼가 다시 쓰기 가능해야 함을 Red 테스트로 확인했다.
+  `Commit()`에서 `_write == _capacity` 상태를 저장하지 않고 즉시 0으로 wrap하도록 수정했다.
+- M2: SPSC 스트레스에서 `GetReadSpan()`이 커밋량보다 긴 span을 노출해 `Consume` 계약을 깨는 Red 테스트를 확인했다.
+  반환 길이를 `_count` 기준으로 제한했고, `_count` 값 자체는 보정하지 않았다.
+- 소비자는 데이터를 처리한 뒤에만 `Consume()`해야 한다는 SPSC 계약을 XML doc에 명시했다.
+
+### 범위 조정
+- 이번 사이클은 M1/M2만 리뷰 단위로 닫는다.
+- `PLAN.md`가 요구하는 추가 edge/fuzz 테스트는 `TODOS.md`의 `Deferred Backlog`로 분리했다.
+  사용자 리뷰 후 계속 진행 지시가 있으면 별도 Red 테스트 사이클로 처리한다.
+
+### 검증
+- `dotnet test HighPerformanceSocket.slnx` → 통과 2, 실패 0, 건너뜀 0.
+
+## 2026-06-10 (마무리 — drop-oldest release + CURRENT_PLAN 최신화, Claude)
+
+### D012 (drop-oldest evict release) 확정 — 실측 검증
+- 외부 검토의 남은 minor 항목. drop-oldest는 이미 enqueue된 가장 오래된 항목을 능동 제거하므로 별도
+  release 지점. evict한 RefCountedBuffer를 정확히 1회 Release, evict/dequeue/close를 단일 락으로 직렬화.
+- 프로토타입 실측: 720만 enqueue(cap=16, 대량 eviction) + 동시 pump + close-drain → 누수 0·이중 반환 0.
+- 반영: DECISIONS D012, `AGENTS.md §2-5`, `PLAN.md` Phase 3, `phase3-framing-and-close.md`, TODOS.
+
+### CURRENT_PLAN.md 최신화
+- 검토 6건·결정 D005~D012 종결을 반영. 다음 단일 작업은 여전히 Phase 1 BipBuffer M1·M2 3색 TDD.
+- 테스트 discover 재확인: 0개(D003 기준 green 아님). 첫 Red 테스트로 해소 예정.
+
+### 검증
+- D012 프로토타입 실측 통과. 프로덕션 코드 미변경(Codex 구현 대기). 구현 전 설계 결정은 모두 종결.
+
+## 2026-06-10 (설계 결정 — TCP 프레임 조립 + 종료 release, Claude)
+
+### 외부 검토 Major×2 반영 → D010, D011 확정
+- **D010 (TCP 프레임 조립)**: recv BipBuffer는 미파싱 스트림만 담고, 파서 상태머신이 헤더 4B 누적(분할 처리)
+  → payload를 RefCountedBuffer로 누적 복사. recv 링이 프레임을 통째로 담을 필요 없음(payload > recv 링 허용),
+  maxPayload 상한. **프로토타입 실측**: recv 링 64B < payload 300B, 청크 1~7B, 10만 프레임 무결성·누수 0.
+- **D011 (연결 종료 release 계약)**: `Close()/Dispose()`는 송신 큐 pending·in-flight·조립중 RefCountedBuffer를
+  모두 Release + 이후 enqueue 원자적 reject. 종료 후 `RentedCount==0`. (느린 소비자 끊기 시 누수 방지)
+- 반영: `.claude/review/phase3-framing-and-close.md` 신규, DECISIONS D010·D011, `AGENTS.md §2-7`(프레임 조립)·
+  신규 `§2-8`(종료 계약), `PLAN.md` Phase 2(종료 계약)·Phase 3(프레임 조립 + D010/D011 테스트), TODOS.
+- 검증: D010 프로토타입 실측 통과. 프로덕션 코드 미변경(Codex 구현 대기).
+
+## 2026-06-10 (설계 결정 — Publish payload 소유권, Claude)
+
+### recv→팬아웃 payload 소유권 핸드오프 확정 (D009)
+- 미해결 핵심이던 "파싱한 PUBLISH payload를 어떤 소유권으로 RefCountedBuffer 팬아웃에 넘길지"를 결정.
+  - TCP: recv 링은 프레이밍 전용, payload는 RefCountedBuffer로 **1회 복사** 후 recv 즉시 Consume.
+  - UDP: datagram을 RefCountedBuffer로 **직접 recv**(zero-copy).
+  - 수명: publish 가드 ref → 구독자별 AddRef+enqueue(실패 시 즉시 Release) → publish 마지막 Release.
+- 반영: `.claude/review/phase3-publish-ownership.md` 신규, DECISIONS D009, `AGENTS.md §2-1/§2-5` 복사 불변식
+  문구 정정("구독자당/불필요한 복사 금지, TCP publish 1회 복사 허용"), `PLAN.md` Phase 3, TODOS RefCountedBuffer 항목.
+- `RefCountedBuffer`에 `Span`/`Memory`/`Length`/`SetLength` 필요(복사 대상·송신 뷰)로 명시.
+
+### 테스트 discover 상태 확인
+- `tests/Hps.Buffers.Tests`에 테스트 `.cs`가 없어 `dotnet test`가 0개 discover. 회귀 아님(Phase 1 TDD 미착수).
+  다음 P0(M1·M2 Red 테스트)가 들어가면 discover 시작. D003대로 0개 상태는 green 불인정.
+
+### 검증
+- 설계/문서 작업. 프로덕션 코드 미변경(Codex 구현 대기).
+
+## 2026-06-10 (검토 사이클 — Claude)
+
+### 설계 실측 검증 + 상태 파일 동기화
+- 핵심 자료구조/설계를 임시 하니스로 실측 검증하고 결과를 `.claude/review/`에 기록(하니스는 검토 후 삭제).
+  - `phase1-bipbuffer.md`: **M1**(단일스레드 deadlock)·**M2**(크로스스레드 over-read, SPSC 200만 바이트에서
+    소비자가 미커밋 ~115만 바이트 과독·`Count` 음수) 재현. 두 수정 적용 시 단일·크로스스레드 통과.
+    M2 문구를 "반환 길이 clamp(≠ `_count` 값 보정)"로 정확히 명시.
+  - `phase1-refcounted-pool.md`: 팬아웃 5만 반복·동시 2만 버퍼에서 정확히-1회 반환·누수 0. 설계 승인.
+  - `phase2-transport-bipbuffer.md`: 송신 다중생산자 위험(D1) → MPSC 큐→단일 펌프→SPSC. 버퍼 소유권은 풀 핸들(D2).
+  - `phase3-broker-routing.md`: 빈 토픽 eager-cleanup이 동시 구독과 경합해 약 51% 유실(20만 회 실측).
+    NoCleanup·set-lock은 0 유실. 영리한 lock-free verify-retry는 여전히 틀림(약 50% 유실).
+- 위 결과로 상태 파일을 갱신: BipBuffer must-fix를 1건→2건으로, 신규 결정 DECISIONS D005~D008 추가,
+  `CURRENT_PLAN.md`/`TODOS.md`의 미결 질문(버퍼 소유권 등)을 해소.
+
+### 검증
+- 검증은 임시 콘솔 하니스(`dotnet run`)로 수행. 프로덕션 코드/테스트는 아직 변경하지 않음(Codex 구현 대기).
+- `BipBuffer.cs`는 여전히 초안(수정 전). 다음 P0는 M1·M2를 3색 TDD로 해소하는 것.
+
+### 남은 불확실성
+- M1·M2 수정과 회귀 테스트는 아직 코드에 반영되지 않음(P0_NOW).
+- 라우팅 토픽 키 누적이 실제 문제되는 규모인지는 미정(필요 시에만 sweep).
+
+## 2026-06-10
+
+### 상태 관리 문서 초기화
+- `PLAN.md`와 `AGENTS.md` 기준으로 작업 상태 관리 파일을 추가했다.
+- 사용자 목표를 현재 작업 목표에 반영했다.
+  - 4096 bytes 메시지.
+  - 100 Hz.
+  - 지연 누적 없이 처리.
+- 현재 실행 지점을 Phase 1의 `BipBuffer` must-fix TDD 작업으로 정리했다.
+- `.claude/review/phase1-bipbuffer.md`의 M1 deadlock 지적을 다음 작업의 P0 항목으로 연결했다.
+- 현재 테스트 프로젝트에는 실제 테스트 `.cs` 파일이 없으므로 `dotnet test` 성공만으로 완료 판단하지 않도록 기록했다.
+
+### 검증
+- 문서 작성 작업이므로 빌드/테스트는 새로 실행하지 않았다.
+- 이전 확인 기준으로 `dotnet test HighPerformanceSocket.slnx`는 테스트를 discover하지 못하는 상태였다.
+
+### 남은 불확실성
+- “딜레이 없이”의 정량 기준은 아직 확정되지 않았다.
+- Phase 4에서 p50/p99 latency, 큐 적체, 동시 연결 수, 팬아웃 배율을 포함한 벤치마크 기준으로 구체화해야 한다.

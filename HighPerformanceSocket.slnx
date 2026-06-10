@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Hps.Buffers/Hps.Buffers.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Hps.Buffers.Tests/Hps.Buffers.Tests.csproj" />
+  </Folder>
+</Solution>
