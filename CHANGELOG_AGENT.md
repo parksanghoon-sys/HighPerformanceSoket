@@ -1,5 +1,25 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — PinnedBlockMemoryPool 멀티스레드 스트레스 테스트)
+
+### 작업 단위
+- D013에 따라 `PinnedBlockMemoryPool` 멀티스레드 대여/반환 스트레스 테스트만 별도 리뷰 단위로 진행했다.
+- production code 수정 없이 테스트 보강만 수행했다.
+
+### 테스트
+- 8개 worker를 동시에 시작해 각 10,000회 `Rent()`/`Return(byte[])`을 반복한다.
+- 각 worker는 대여한 블록 길이가 `BlockSize`와 같은지 확인하고, 예외가 발생하면 테스트 스레드로 전달한다.
+- 모든 worker 종료 후 `RentedCount==0`을 검증해 누수와 카운트 경합을 확인한다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기 상태로 갱신했다.
+- `TODOS.md`에서 Pool 멀티스레드 스트레스 테스트를 Completed로 옮기고,
+  다음 리뷰 단위는 `RefCountedBuffer` 최소 참조계수/반환 계약으로 유지했다.
+
+### 검증
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RentAndReturn_WhenCalledFromMultipleThreads_FinishesWithNoLeaks"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 11, 실패 0, 건너뜀 0.
+
 ## 2026-06-10 (Codex — PinnedBlockMemoryPool 최소 API)
 
 ### 작업 단위

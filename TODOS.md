@@ -7,29 +7,18 @@
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` `PinnedBlockMemoryPool`의 멀티스레드 대여/반환 스트레스 테스트를 별도 리뷰 단위로 추가한다.
-  - 무엇이 남았는지: Pool 최소 API는 구현됐지만, `PLAN.md`가 요구한 멀티스레드 대여/반환 안정성 테스트는 아직 없다.
-  - 왜 defer 되었는지: D013에 따라 최소 API 구현과 동시성 스트레스 테스트를 같은 리뷰 단위에 묶지 않는다.
-  - objective: 여러 스레드가 동시에 `Rent()`/`Return(byte[])`을 반복해도 `RentedCount==0`으로 종료되고 예외/누수가 없는지 검증한다.
-  - relevant context: `PinnedBlockMemoryPool`은 `ConcurrentQueue<byte[]>`와 Interlocked 카운트로 스레드 안전을 제공하도록 구현됐다.
-    `.claude/review/phase1-refcounted-pool.md`는 고동시성 해머와 누수 0 검증을 후속 테스트로 요구한다.
-  - 관련 파일/범위: `src/Hps.Buffers/PinnedBlockMemoryPool.cs`, `tests/Hps.Buffers.Tests/PinnedBlockMemoryPoolTests.cs`.
-  - 현재 상태: 최소 API 테스트 4개와 전체 테스트 10개가 통과한다.
-  - known blockers/open questions: 사용자 리뷰 완료 전에는 다음 구현 사이클을 시작하지 않는다.
-  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 thread/task 기반 stress 테스트 Red부터 작성한다.
-
 - [ ] `P1_SOON` `RefCountedBuffer`의 release 책임과 pool 반환 규칙을 구현한다.
   - 무엇이 남았는지: AddRef/Release, 0 도달 시 정확히 1회 반환, 과다 Release 예외, **`Span`/`Memory`/`Length`/`SetLength` 노출**(D009 복사 대상·송신 뷰)이 필요하다.
-  - 왜 defer 되었는지: pool 구현이 선행되어야 실제 반환 경로를 검증할 수 있다.
+  - 왜 defer 되었는지: Pool 최소 API와 멀티스레드 스트레스 테스트가 막 완료됐고, D013에 따라 사용자 리뷰 전에는 다음 기능으로 자동 진행하지 않는다.
   - objective: Phase 3 팬아웃에서 구독자당 복사 없이 참조계수 기반으로 메시지를 공유한다.
   - relevant context: `AGENTS.md`는 구독자별 payload 복사를 금지하고, `PLAN.md`는 `RefCountedBuffer` 1개를 팬아웃에 사용하도록 한다.
     **설계 검토 완료(승인)**: `.claude/review/phase1-refcounted-pool.md`(+`phase3-publish-ownership.md`), DECISIONS D006·D009.
     **필수 계약**: 팬아웃에서 publish 가드 ref 보유 → 구독자별 AddRef+enqueue(실패 시 즉시 Release) → publish 마지막 Release.
     이중 반환/부활 가드 유지. recv→팬아웃 경계 소유권 단위는 RefCountedBuffer 하나(TCP 1회 복사 / UDP 직접 recv).
   - 관련 파일/범위: `src/Hps.Buffers/`, `tests/Hps.Buffers.Tests/`, 이후 `src/Hps.Broker/`.
-  - 현재 상태: 구현 파일 없음.
+  - 현재 상태: 구현 파일 없음. Pool 최소 API와 멀티스레드 대여/반환 스트레스 테스트는 통과한다.
   - known blockers/open questions: (해소) `Release()` 이후 `Memory`/`Span` 접근 금지 — 송신측이 완료까지 ref를 보유(D007).
-  - next step: Pool green 이후 RefCountedBuffer Red 테스트(팬아웃 정확히-1회, 부활/이중반환 가드)를 작성한다.
+  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 RefCountedBuffer Red 테스트(팬아웃 정확히-1회, 부활/이중반환 가드)를 작성한다.
 
 - [ ] `P1_SOON` Phase 2 착수 전에 `ITransport`와 버퍼 소유권 계약을 구체화한다.
   - 무엇이 남았는지: receive buffer, send buffer, send 완료 후 release 책임, backpressure 책임을 인터페이스 수준에서 명확히 해야 한다.
@@ -103,6 +92,13 @@
     대여 카운트 음수 방지 가드를 추가했다.
   - 테스트: block size와 count 추적, 반납 블록 재사용, 잘못된 크기 반환 거부, 0 이하 block size 거부.
   - 검증: `dotnet test HighPerformanceSocket.slnx` → 통과 10, 실패 0, 건너뜀 0.
+
+- [x] `PinnedBlockMemoryPool` 멀티스레드 대여/반환 스트레스 테스트를 별도 리뷰 단위로 추가했다.
+  - 범위: `tests/Hps.Buffers.Tests/PinnedBlockMemoryPoolTests.cs`.
+  - 테스트: 8개 worker가 동시에 시작해 각 10,000회 `Rent()`/`Return(byte[])`을 반복하고,
+    worker 예외 없음과 종료 후 `RentedCount==0`을 검증한다.
+  - production code 수정은 없었다.
+  - 검증: `dotnet test HighPerformanceSocket.slnx` → 통과 11, 실패 0, 건너뜀 0.
 
 - [x] Phase 0 스캐폴딩이 존재한다.
   - 근거: `HighPerformanceSocket.slnx`, `Directory.Build.props`, `src/Hps.Buffers`, `tests/Hps.Buffers.Tests` 확인.

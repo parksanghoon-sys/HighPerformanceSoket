@@ -1,6 +1,8 @@
 using System;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using System.Threading;
+using Hps.Buffers;
 using Xunit;
 
 namespace Hps.Buffers.Tests
@@ -67,6 +69,62 @@ namespace Hps.Buffers.Tests
             {
                 PoolApi.Create(0);
             });
+        }
+
+        // 멀티스레드 계약 테스트: 여러 I/O 워커가 동시에 대여/반환하더라도 풀 내부 큐와 RentedCount 가
+        // 일관성을 잃지 않아야 한다. 종료 시 RentedCount==0 이 아니면 누수나 카운트 경합이 있다는 뜻이다.
+        [Fact]
+        public void RentAndReturn_WhenCalledFromMultipleThreads_FinishesWithNoLeaks()
+        {
+            const int workerCount = 8;
+            const int iterationsPerWorker = 10_000;
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(256);
+            Exception?[] failures = new Exception?[workerCount];
+            Thread[] workers = new Thread[workerCount];
+            int start = 0;
+
+            for (int workerIndex = 0; workerIndex < workerCount; workerIndex++)
+            {
+                int capturedWorkerIndex = workerIndex;
+                workers[workerIndex] = new Thread(delegate()
+                {
+                    try
+                    {
+                        SpinWait spinner = new SpinWait();
+                        while (Volatile.Read(ref start) == 0)
+                            spinner.SpinOnce();
+
+                        for (int iteration = 0; iteration < iterationsPerWorker; iteration++)
+                        {
+                            byte[] block = pool.Rent();
+                            if (block.Length != pool.BlockSize)
+                                throw new InvalidOperationException("대여한 블록 길이는 BlockSize 와 같아야 한다.");
+
+                            block[0] = unchecked((byte)(capturedWorkerIndex + iteration));
+                            pool.Return(block);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        failures[capturedWorkerIndex] = ex;
+                    }
+                });
+
+                workers[workerIndex].Start();
+            }
+
+            Volatile.Write(ref start, 1);
+
+            for (int workerIndex = 0; workerIndex < workers.Length; workerIndex++)
+                Assert.True(workers[workerIndex].Join(TimeSpan.FromSeconds(10)), "worker 가 시간 안에 끝나야 한다.");
+
+            for (int workerIndex = 0; workerIndex < failures.Length; workerIndex++)
+            {
+                if (failures[workerIndex] != null)
+                    throw failures[workerIndex]!;
+            }
+
+            Assert.Equal(0, pool.RentedCount);
         }
 
         private sealed class PoolApi
