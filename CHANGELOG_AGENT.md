@@ -1,5 +1,36 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — PinnedBlockMemoryPool 최소 API)
+
+### 작업 단위
+- D013에 따라 `PinnedBlockMemoryPool` 최소 API와 단일스레드 계약 테스트만 별도 리뷰 단위로 진행했다.
+- `RefCountedBuffer`와 Pool 멀티스레드 스트레스 테스트는 이번 단위에서 제외했다.
+
+### Red
+- `PinnedBlockMemoryPoolTests`를 먼저 추가했다.
+- 타입이 아직 없어서 `Hps.Buffers.PinnedBlockMemoryPool, Hps.Buffers 타입이 존재해야 한다.` 단언 실패로 Red를 확인했다.
+
+### 구현
+- `src/Hps.Buffers/PinnedBlockMemoryPool.cs`를 추가했다.
+- API: `PinnedBlockMemoryPool(int blockSize)`, `BlockSize`, `RentedCount`, `Rent()`, `Return(byte[])`.
+- 새 블록은 `GC.AllocateUninitializedArray<byte>(BlockSize, pinned: true)`로 생성한다.
+- 반납 블록 크기가 `BlockSize`와 다르면 `ArgumentException`으로 거부한다.
+- `RentedCount`가 음수가 되지 않도록 Return 시 대여 카운트 가드를 둔다.
+
+### 테스트
+- block size와 `RentedCount` 추적.
+- 반납 블록 재사용.
+- 잘못된 크기 배열 반환 거부 및 count 보존.
+- 0 이하 block size 거부.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기 상태로 갱신했다.
+- `TODOS.md`에서 Pool 최소 API를 Completed로 옮기고, 멀티스레드 대여/반환 스트레스 테스트를 다음 `P1_SOON` 항목으로 분리했다.
+
+### 검증
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~PinnedBlockMemoryPoolTests"` → 통과 4, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 10, 실패 0, 건너뜀 0.
+
 ## 2026-06-10 (Codex — 테스트 의도 주석 규칙 반영)
 
 ### 작업 단위

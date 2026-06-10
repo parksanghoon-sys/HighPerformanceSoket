@@ -7,16 +7,16 @@
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` `PinnedBlockMemoryPool`의 소유권 모델을 확정하고 구현한다.
-  - 무엇이 남았는지: 고정 블록 풀의 public API와 반환 검증 정책을 결정하고 구현해야 한다.
-  - 왜 defer 되었는지: `BipBuffer` 테스트 보강 단위가 막 완료됐고, D013에 따라 사용자 리뷰 전에는 다음 기능으로 자동 진행하지 않는다.
-  - objective: 모든 I/O 버퍼를 pinned pool에서 대여하고, 누수와 이중 반환을 테스트로 검출한다.
-  - relevant context: `PLAN.md` Phase 1은 `Rent()`/`Return(byte[])`, `BlockSize`, `RentedCount`, POH pinned array를 요구한다.
-    **설계 검토 완료(승인)**: `.claude/review/phase1-refcounted-pool.md`, DECISIONS D006. should-fix: `Return`에서 블록 크기 검증, 풀 보관 상한 옵션, 블록 주소 노출 API(RIO/io_uring 등록용).
-  - 관련 파일/범위: `src/Hps.Buffers/`, `tests/Hps.Buffers.Tests/`.
-  - 현재 상태: 구현 파일 없음. `BipBuffer` M1/M2, deterministic edge, seeded fuzz 테스트는 통과한다.
-  - known blockers/open questions: (해소) raw `byte[]` 반환 + `RentedCount` 누수 감지로 충분함이 실측 확인됨.
-  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 pool API 테스트(Red)를 먼저 작성한다.
+- [ ] `P1_SOON` `PinnedBlockMemoryPool`의 멀티스레드 대여/반환 스트레스 테스트를 별도 리뷰 단위로 추가한다.
+  - 무엇이 남았는지: Pool 최소 API는 구현됐지만, `PLAN.md`가 요구한 멀티스레드 대여/반환 안정성 테스트는 아직 없다.
+  - 왜 defer 되었는지: D013에 따라 최소 API 구현과 동시성 스트레스 테스트를 같은 리뷰 단위에 묶지 않는다.
+  - objective: 여러 스레드가 동시에 `Rent()`/`Return(byte[])`을 반복해도 `RentedCount==0`으로 종료되고 예외/누수가 없는지 검증한다.
+  - relevant context: `PinnedBlockMemoryPool`은 `ConcurrentQueue<byte[]>`와 Interlocked 카운트로 스레드 안전을 제공하도록 구현됐다.
+    `.claude/review/phase1-refcounted-pool.md`는 고동시성 해머와 누수 0 검증을 후속 테스트로 요구한다.
+  - 관련 파일/범위: `src/Hps.Buffers/PinnedBlockMemoryPool.cs`, `tests/Hps.Buffers.Tests/PinnedBlockMemoryPoolTests.cs`.
+  - 현재 상태: 최소 API 테스트 4개와 전체 테스트 10개가 통과한다.
+  - known blockers/open questions: 사용자 리뷰 완료 전에는 다음 구현 사이클을 시작하지 않는다.
+  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 thread/task 기반 stress 테스트 Red부터 작성한다.
 
 - [ ] `P1_SOON` `RefCountedBuffer`의 release 책임과 pool 반환 규칙을 구현한다.
   - 무엇이 남았는지: AddRef/Release, 0 도달 시 정확히 1회 반환, 과다 Release 예외, **`Span`/`Memory`/`Length`/`SetLength` 노출**(D009 복사 대상·송신 뷰)이 필요하다.
@@ -95,6 +95,14 @@
   - 수정: 버퍼가 비어 있고 `read/write`가 0이 아닌 위치에서 만난 경우에는 `minimumSize`보다 작더라도 tail을 먼저 반환한다.
     또한 tail/front 비교는 실제 front 여유(`read - 1`) 기준으로 한다.
   - 검증: `dotnet test HighPerformanceSocket.slnx` → 통과 6, 실패 0, 건너뜀 0.
+
+- [x] `PinnedBlockMemoryPool` 최소 API와 단일스레드 테스트를 별도 리뷰 단위로 구현했다.
+  - 범위: `src/Hps.Buffers/PinnedBlockMemoryPool.cs`, `tests/Hps.Buffers.Tests/PinnedBlockMemoryPoolTests.cs`.
+  - Red: reflection 기반 테스트로 타입 부재를 단언 실패로 확인했다.
+  - 구현: `Rent()`/`Return(byte[])`, `BlockSize`, `RentedCount`, POH pinned 배열 생성, 반환 블록 크기 검증,
+    대여 카운트 음수 방지 가드를 추가했다.
+  - 테스트: block size와 count 추적, 반납 블록 재사용, 잘못된 크기 반환 거부, 0 이하 block size 거부.
+  - 검증: `dotnet test HighPerformanceSocket.slnx` → 통과 10, 실패 0, 건너뜀 0.
 
 - [x] Phase 0 스캐폴딩이 존재한다.
   - 근거: `HighPerformanceSocket.slnx`, `Directory.Build.props`, `src/Hps.Buffers`, `tests/Hps.Buffers.Tests` 확인.

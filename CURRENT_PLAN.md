@@ -28,19 +28,20 @@ Phase 1 — 메모리 계층 `src/Hps.Buffers/`.
   - `phase3-framing-and-close.md` — TCP 프레임 조립(D010)·종료 release 계약(D011)·drop-oldest evict release(D012).
 - `tests/Hps.Buffers.Tests/BipBufferTests.cs`가 추가됐고 M1/M2 회귀 테스트, deterministic edge 테스트,
   seeded fuzz 테스트가 discover된다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 6개를 실행했고 모두 통과했다.
+- `src/Hps.Buffers/PinnedBlockMemoryPool.cs`가 추가됐고 최소 API 테스트가 discover된다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 10개를 실행했고 모두 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `PinnedBlockMemoryPool`의 최소 API와 테스트다.
-이 작업은 `BipBuffer` 완료와 별도 리뷰 단위로 다룬다.
+리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `PinnedBlockMemoryPool`의 멀티스레드 대여/반환 스트레스 테스트다.
+이 작업은 Pool 최소 API 구현과 별도 리뷰 단위로 다룬다.
 
 ## 이번 단위의 검증 경로
 - `dotnet test HighPerformanceSocket.slnx`
-- 테스트 출력에서 `Hps.Buffers.Tests`의 실제 테스트 6개가 discover되고 실행됐는지 확인한다.
-- 결과: 통과 6, 실패 0, 건너뜀 0.
+- 테스트 출력에서 `Hps.Buffers.Tests`의 실제 테스트 10개가 discover되고 실행됐는지 확인한다.
+- 결과: 통과 10, 실패 0, 건너뜀 0.
 
 ## 다음 작업에서 건드리지 않을 범위
 - `RefCountedBuffer`
