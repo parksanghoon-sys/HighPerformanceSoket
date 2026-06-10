@@ -3,21 +3,22 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - D013 리뷰 게이트에 따라 송신 펌프 abandon-leak 방어 handle 구현을 사용자 검토한 뒤 다음 단위로 진행한다.
+  - D013 리뷰 게이트에 따라 TCP listen/connect/accept public 계약 확정을 사용자 검토한 뒤 다음 단위로 진행한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` Phase 2 SAEA 기준선 착수 전에 public listen/connect/accept 연결 모델을 작게 확정한다.
-  - 무엇이 남았는지: 현재 `ITransport`는 lifecycle 과 `TrySend`만 있고, 상위 계층이 어떤 방식으로 listen/connect/accept 된
-    `IConnection`을 얻는지는 아직 계약화되지 않았다.
-  - 왜 defer 되었는지: 이번 사이클은 in-flight completion release 경로만 구현했고, endpoint 모델과 실제 socket I/O는 별도 리뷰 단위로 분리한다.
-  - objective: SAEA loopback TCP/UDP 테스트를 작성하기 전에 연결 생성/수락/종료의 public 계약을 작게 고정해, 이후 구현이 API 흔들림 없이 진행되게 한다.
-  - relevant context: `PLAN.md` Phase 2, DECISIONS D015-D017, `src/Hps.Transport/ITransport.cs`,
-    `src/Hps.Transport/TransportBase.cs`, `src/Hps.Transport/TransportConnection.cs`.
+- [ ] `P1_SOON` `SaeaTransport`의 TCP listen/connect/accept 최소 loopback 기준선을 구현한다.
+  - 무엇이 남았는지: `ITransport.ListenTcpAsync`, `ConnectTcpAsync`, `IConnectionListener.AcceptAsync` 계약은 생겼지만,
+    이를 수행하는 concrete SAEA transport 와 실제 socket listen/connect/accept 동작은 아직 없다.
+  - 왜 defer 되었는지: 이번 사이클은 public 계약만 확정했고, 실제 socket I/O는 리뷰 비용이 큰 별도 기능 단위로 분리한다.
+  - objective: localhost loopback 에서 listener 를 열고 outbound connect 를 수행하면 accept 된 inbound `IConnection`과
+    outbound `IConnection`을 얻을 수 있는 최소 SAEA 기준선을 만든다.
+  - relevant context: `PLAN.md` Phase 2, DECISIONS D015-D018, `src/Hps.Transport/ITransport.cs`,
+    `src/Hps.Transport/IConnectionListener.cs`, `src/Hps.Transport/TransportBase.cs`, `src/Hps.Transport/TransportConnection.cs`.
   - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`.
-  - 현재 상태: `TransportBase.CreateConnection()`은 internal 이며 테스트에서만 사용한다. 실제 listen/connect/accept API와 SAEA 구현은 아직 없다.
-  - known blockers/open questions: API가 너무 넓어지면 리뷰 비용이 커지므로, 첫 단위는 TCP loopback에 필요한 최소 계약만 잡는 편이 안전하다.
-  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 `ITransport` 또는 별도 concrete transport 에 필요한 최소 연결 획득 API를 요구하는 Red 테스트부터 작성한다.
+  - 현재 상태: 연결 계약만 public 이고 SAEA 구현 타입은 없다. `TransportConnection`은 내부 연결 상태와 송신 큐/close 계약을 이미 가진다.
+  - known blockers/open questions: 첫 구현은 TCP accept/connect 수명만 검증하고, 실제 send/recv payload I/O는 다음 단위로 분리하는 편이 안전하다.
+  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 loopback accept/connect Red 테스트를 먼저 작성하고, `SaeaTransport` 최소 구현으로 green 을 만든다.
 
 - [ ] `P2_LATER` Phase 3 브로커 라우팅의 빈 토픽 정리 경합(R1)을 회피해 구현한다.
   - 무엇이 남았는지: `topic → 구독자 set` 라우팅을 빈 토픽 eager-cleanup 없이 구현한다.
@@ -41,6 +42,19 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] Phase 2 SAEA 기준선 착수 전에 TCP public listen/connect/accept 연결 모델을 확정했다.
+  - 범위: `src/Hps.Transport/ITransport.cs`, `src/Hps.Transport/IConnectionListener.cs`, `src/Hps.Transport/TransportBase.cs`,
+    `tests/Hps.Transport.Tests/TransportContractTests.cs`, `tests/Hps.Transport.Tests/TransportSendQueueTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `IConnectionListener` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+  - 구현: `ITransport.ListenTcpAsync(EndPoint, CancellationToken)`와 `ConnectTcpAsync(EndPoint, CancellationToken)`를 추가했다.
+  - 구현: `IConnectionListener`를 추가해 listener 의 `LocalEndPoint`, `AcceptAsync`, `Close`/`Dispose` 계약을 명시했다.
+  - 구현: `TransportBase`가 TCP listen/connect 추상 멤버를 강제하도록 했다.
+  - 테스트: TCP listener/connector/accept 계약이 `IConnection`과 `IConnectionListener`를 통해 노출되고,
+    public 계약이 raw `Memory<byte>` parameter 를 다시 노출하지 않는지 검증했다.
+  - 검증: focused 연결 계약 테스트 → 통과 1, 실패 0, 건너뜀 0. Transport 전체 → 통과 12. 전체 `dotnet test HighPerformanceSocket.slnx`
+    → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 12. `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
 
 - [x] 송신 펌프 abandon-leak 방어를 위해 in-flight handle 경로를 구현했다.
   - 범위: `src/Hps.Transport/TransportConnection.cs`, `tests/Hps.Transport.Tests/TransportSendQueueTests.cs`,

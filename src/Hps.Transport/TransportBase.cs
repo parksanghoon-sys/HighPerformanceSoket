@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Hps.Buffers;
@@ -42,6 +43,12 @@ namespace Hps.Transport
 
             return transportConnection.TryAcceptSend(sendBuffer);
         }
+
+        /// <inheritdoc />
+        public abstract ValueTask<IConnectionListener> ListenTcpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default);
+
+        /// <inheritdoc />
+        public abstract ValueTask<IConnection> ConnectTcpAsync(EndPoint remoteEndPoint, CancellationToken cancellationToken = default);
 
         /// <inheritdoc />
         public abstract ValueTask StartAsync(CancellationToken cancellationToken = default);

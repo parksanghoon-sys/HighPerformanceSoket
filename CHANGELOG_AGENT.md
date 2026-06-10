@@ -1,5 +1,38 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — Transport TCP listen/connect/accept public 계약)
+
+### 작업 단위
+- Phase 2 SAEA 기준선에 들어가기 전에 상위 계층이 TCP 연결을 어떻게 얻는지 public 계약으로 고정했다.
+- 실제 SAEA socket I/O, UDP datagram 계약, send/recv payload 처리는 넣지 않고 연결 획득 모델만 별도 단위로 처리했다.
+
+### Red
+- `TransportContractTests`에 TCP listen/connect/accept 계약 테스트를 추가했다.
+- 구현 전에는 `IConnectionListener` 타입이 없어 `Assert.NotNull`이 실패했다.
+
+### 구현
+- `ITransport.ListenTcpAsync(EndPoint, CancellationToken)`를 추가해 TCP listener 생성 진입점을 명시했다.
+- `ITransport.ConnectTcpAsync(EndPoint, CancellationToken)`를 추가해 outbound TCP 연결 생성 진입점을 명시했다.
+- `IConnectionListener`를 추가해 listener 의 `LocalEndPoint`, `AcceptAsync`, `Close`/`Dispose` 계약을 분리했다.
+- `TransportBase`에 TCP listen/connect 추상 멤버를 추가해 concrete transport 가 같은 계약을 구현하도록 했다.
+
+### 테스트
+- public contract 가 TCP listener, connect, accept 를 `IConnection`/`IConnectionListener` 중심으로 노출하는지 검증했다.
+- listener 계약에 `LocalEndPoint`, `AcceptAsync`, `Close`, `IDisposable`이 있는지 검증했다.
+- 기존 raw `Memory<byte>`/`ReadOnlyMemory<byte>` parameter 금지 검사를 listener 계약까지 확장했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 TCP 연결 계약 확정 상태와 테스트 30개 통과 상태로 갱신했다.
+- `TODOS.md`에서 public 연결 모델 항목을 Completed로 이동하고, 다음 리뷰 단위를 SAEA TCP loopback 기준선으로 남겼다.
+- `DECISIONS.md`에 TCP 연결 획득 계약을 D018로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesTcpListenConnectAcceptModel"` → Red: 실패 1(`IConnectionListener` 없음), Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 12, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 12, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → 문제 없음.
+
 ## 2026-06-11 (Codex — Transport in-flight handle abandon-leak 방어)
 
 ### 작업 단위

@@ -52,31 +52,37 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
   이미 begin 된 in-flight 항목은 `TransportConnection.InFlightSend` handle 이 완료/취소/unwind 경로에서 책임진다.
 - `TransportConnection.TryBeginInFlightSend(out InFlightSend?)`가 추가되어 송신 펌프가 pending 항목을 raw 값으로 가져가지 않고
   dispose 가능한 in-flight handle 로 받는다. handle 은 `Complete()`와 `Dispose()` 모두에서 Transport 소유 ref 를 정확히 한 번 반환한다.
-- `ITransport.StartAsync`/`StopAsync`는 기본 `CancellationToken` 인자를 허용한다. 실제 listen/connect/accept 모델과
-  SAEA 구현은 다음 단위에서 테스트와 함께 확장한다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 29개를 실행했고 모두 통과했다.
+- `ITransport.StartAsync`/`StopAsync`는 기본 `CancellationToken` 인자를 허용한다.
+- `ITransport.ListenTcpAsync(EndPoint, CancellationToken)`와 `ConnectTcpAsync(EndPoint, CancellationToken)`가 추가되어
+  TCP 연결 획득의 public 진입점이 확정됐다.
+- `IConnectionListener`가 추가되어 listener 의 바인딩 endpoint, `AcceptAsync`, `Close`/`Dispose` 수명 경계를 표현한다.
+  UDP datagram 계약은 accept 개념이 없으므로 별도 단위로 남겼다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 30개를 실행했고 모두 통과했다.
 - 재확인: `dotnet build HighPerformanceSocket.slnx`는 경고 0개, 오류 0개로 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 Phase 2 SAEA 기준선으로 들어가기 전, public listen/connect/accept
-연결 모델을 작게 확정하고 그 모델을 요구하는 Red 테스트부터 작성하는 것이다. 실제 대량 송수신, RIO/io_uring, backpressure
-정책은 그 다음 단위로 둔다.
+리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `SaeaTransport`의 TCP listen/connect/accept 기준선이다.
+첫 단위는 loopback 에서 listener 와 outbound connection 이 서로 accept/connect 되는 최소 동작을 Red 테스트로 고정한다.
+실제 대량 송수신, UDP, RIO/io_uring, backpressure 정책은 그 다음 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"`
-  → `TryBeginInFlightSend` 메서드 부재로 `Assert.NotNull` 실패 1개.
-- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"`
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesTcpListenConnectAcceptModel"`
+  → `IConnectionListener` 타입 부재로 `Assert.NotNull` 실패 1개.
+- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesTcpListenConnectAcceptModel"`
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 11개가 discover되고 실행됐는지 확인한다.
-- 결과: focused 통과 7, 실패 0, 건너뜀 0. Transport 전체 통과 11. 전체 통과 29, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- `git diff --check`
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 12개가 discover되고 실행됐는지 확인한다.
+- 결과: focused 통과 1, 실패 0, 건너뜀 0. Transport 전체 통과 12. 전체 통과 30, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
 
 ## 이번 작업에서 건드리지 않은 범위
 - SAEA/RIO/io_uring 실제 소켓 백엔드
-- listen/connect/accept endpoint 모델
+- `ListenTcpAsync`/`ConnectTcpAsync`/`AcceptAsync`의 실제 socket 구현
+- UDP datagram bind/receive/send 계약
 - 실제 송신 펌프 루프와 socket send
 - drop-oldest backpressure evict release
 - Protocol/Broker/Server

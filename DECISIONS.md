@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D018 — TCP 연결 획득은 Listener 기반 Listen/Accept와 Connect로 분리한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `ITransport`는 TCP 연결 획득을 `ListenTcpAsync(EndPoint, CancellationToken)`와
+  `ConnectTcpAsync(EndPoint, CancellationToken)`로 노출한다. `ListenTcpAsync`는 `IConnectionListener`를 반환하고,
+  listener 는 `LocalEndPoint`, `AcceptAsync(CancellationToken)`, `Close`/`Dispose`만 책임진다.
+  accept 또는 connect 로 얻은 연결은 모두 동일한 `IConnection` 수명/송신 계약을 따른다.
+- 근거: listen socket 의 수명과 개별 connection 수명을 분리해야 close/drain 책임이 흐려지지 않는다.
+  또한 `Socket`, `SocketAsyncEventArgs`, RIO, io_uring 같은 backend 세부 타입이 public 계약으로 새면
+  상위 Protocol/Broker 계층이 OS별 구현을 알게 된다. UDP datagram 은 accept 개념이 없으므로 이 TCP 계약에
+  억지로 포함하지 않고 별도 단위에서 추가한다.
+- 영향: 다음 `SaeaTransport` 구현은 이 계약을 기준으로 TCP loopback listen/connect/accept 테스트를 먼저 통과시켜야 한다.
+  listener 가 닫혀도 이미 accept 되어 반환된 연결의 종료는 각 `IConnection.Close()` 경로가 책임진다.
+  포트 0 listen 테스트와 샘플은 요청 endpoint 가 아니라 `IConnectionListener.LocalEndPoint`를 사용해 connect 해야 한다.
+
 ## D017 — in-flight 송신 항목은 handle 의 Complete/Dispose 경로에서 release 한다
 
 - 날짜: 2026-06-10

@@ -1,5 +1,8 @@
 using System;
+using System.Net;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Hps.Buffers;
 using Hps.Transport;
 using Xunit;
@@ -95,6 +98,37 @@ namespace Hps.Transport.Tests
             });
 
             AssertDoesNotExposeRawMemoryParameters(connectionType);
+            AssertDoesNotExposeRawMemoryParameters(transportType);
+        }
+
+        // TCP 연결 획득 계약 테스트: SAEA 기준선을 구현하기 전에 상위 계층이 어떤 public API 로
+        // listen/connect/accept 된 IConnection 을 얻는지 먼저 고정한다. UDP 는 accept 개념이 없으므로 이 계약에 섞지 않는다.
+        [Fact]
+        public void Transport_Contract_ExposesTcpListenConnectAcceptModel()
+        {
+            Type transportType = typeof(ITransport);
+            Type connectionType = typeof(IConnection);
+            Type listenerType = typeof(IConnectionListener);
+
+            MethodInfo? listen = transportType.GetMethod("ListenTcpAsync", new Type[] { typeof(EndPoint), typeof(CancellationToken) });
+            MethodInfo? connect = transportType.GetMethod("ConnectTcpAsync", new Type[] { typeof(EndPoint), typeof(CancellationToken) });
+            MethodInfo? accept = listenerType.GetMethod("AcceptAsync", new Type[] { typeof(CancellationToken) });
+            MethodInfo? close = listenerType.GetMethod("Close", Type.EmptyTypes);
+            PropertyInfo? localEndPoint = listenerType.GetProperty("LocalEndPoint");
+
+            Assert.NotNull(listen);
+            Assert.Equal(typeof(ValueTask<>).MakeGenericType(listenerType), listen!.ReturnType);
+            Assert.NotNull(connect);
+            Assert.Equal(typeof(ValueTask<IConnection>), connect!.ReturnType);
+            Assert.NotNull(accept);
+            Assert.Equal(typeof(ValueTask<IConnection>), accept!.ReturnType);
+            Assert.NotNull(close);
+            Assert.NotNull(localEndPoint);
+            Assert.Equal(typeof(EndPoint), localEndPoint!.PropertyType);
+            Assert.Contains(typeof(IDisposable), listenerType.GetInterfaces());
+
+            AssertDoesNotExposeRawMemoryParameters(connectionType);
+            AssertDoesNotExposeRawMemoryParameters(listenerType);
             AssertDoesNotExposeRawMemoryParameters(transportType);
         }
 

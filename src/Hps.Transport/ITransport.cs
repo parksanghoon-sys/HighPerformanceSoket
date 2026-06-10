@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -7,11 +8,28 @@ namespace Hps.Transport
     /// <summary>
     /// OS별 소켓 백엔드(SAEA/RIO/io_uring)를 상위 계층에서 숨기는 Transport 루트 계약이다.
     ///
-    /// 이번 계약 단위에서는 실제 listen/connect API 를 확정하지 않고, 구현 수명주기와 연결 소유권
-    /// 경계만 먼저 둔다. 구체적인 수락/연결 모델은 SAEA 기준선 구현 단위에서 별도 테스트와 함께 확장한다.
+    /// 이 계약은 backend 구현 타입이나 <c>SocketAsyncEventArgs</c> 같은 세부사항을 노출하지 않고,
+    /// 상위 계층이 TCP listener 와 연결 핸들만 다루게 한다. UDP datagram 수신/송신 계약은 accept 개념이
+    /// 없으므로 별도 단위에서 추가한다.
     /// </summary>
     public interface ITransport : IDisposable
     {
+        /// <summary>
+        /// TCP 수신 대기를 시작하고 accept 가능한 listener 를 반환한다.
+        ///
+        /// 반환된 listener 는 listen socket 수명만 관리한다. accept 된 각 연결의 송신 큐와 수신 조립 버퍼는
+        /// <see cref="IConnection"/> 수명 계약으로 별도 관리된다.
+        /// </summary>
+        ValueTask<IConnectionListener> ListenTcpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 원격 TCP endpoint 로 outbound 연결을 만든다.
+        ///
+        /// 반환된 연결은 inbound accept 연결과 같은 <see cref="IConnection"/> 계약을 따른다. 즉 close 이후
+        /// 송신은 원자적으로 거부되어야 하고, pending/in-flight/조립 중 버퍼는 누수 없이 Release 되어야 한다.
+        /// </summary>
+        ValueTask<IConnection> ConnectTcpAsync(EndPoint remoteEndPoint, CancellationToken cancellationToken = default);
+
         /// <summary>
         /// 지정한 연결로 송신을 시도한다.
         ///

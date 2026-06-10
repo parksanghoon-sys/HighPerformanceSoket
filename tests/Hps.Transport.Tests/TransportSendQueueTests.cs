@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Hps.Buffers;
@@ -179,6 +180,16 @@ namespace Hps.Transport.Tests
 
         private sealed class TestTransport : TransportBase
         {
+            public override ValueTask<IConnectionListener> ListenTcpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override ValueTask<IConnection> ConnectTcpAsync(EndPoint remoteEndPoint, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
+
             public override ValueTask StartAsync(CancellationToken cancellationToken = default)
             {
                 return default(ValueTask);
