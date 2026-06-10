@@ -3,7 +3,7 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - D013 리뷰 게이트에 따라 `RefCountedBuffer` 최소 참조계수/반환 계약 구현을 사용자 검토한 뒤 다음 단위로 진행한다.
+  - D013 리뷰 게이트에 따라 `RefCountedBuffer` Volatile helper 리팩터링을 사용자 검토한 뒤 다음 단위로 진행한다.
 
 ## Deferred Backlog
 
@@ -59,6 +59,12 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] `RefCountedBuffer`의 `Volatile.Read/Write` 호출을 의도 기반 helper로 정리했다.
+  - 범위: `src/Hps.Buffers/RefCountedBuffer.cs`.
+  - 기능 변경 없이 `ReadPublishedLength`, `PublishLength`, `ReadRefCountSnapshot`, `ReadBlockSnapshot`, `IsReturned` helper를 추가했다.
+  - 목적: 호출부가 저수준 memory primitive보다 길이 publish, ref count snapshot, 반환 상태 관측이라는 의도를 드러내도록 한다.
+  - 검증: 리팩터링 전 focused 테스트 → 통과 5. 리팩터링 후 focused 테스트 → 통과 5. 전체 `dotnet test HighPerformanceSocket.slnx` → 통과 16, 실패 0, 건너뜀 0.
 
 - [x] `RefCountedBuffer` 최소 참조계수/반환 계약을 구현했다.
   - 범위: `src/Hps.Buffers/RefCountedBuffer.cs`, `src/Hps.Buffers/PinnedBlockMemoryPool.cs`, `tests/Hps.Buffers.Tests/RefCountedBufferTests.cs`.

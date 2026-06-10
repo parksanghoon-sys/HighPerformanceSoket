@@ -33,6 +33,7 @@ Phase 1 — 메모리 계층 `src/Hps.Buffers/`.
 - `PinnedBlockMemoryPoolTests`는 reflection 기반 `PoolApi` 래퍼 없이 public API를 직접 호출하도록 정리됐다.
 - `src/Hps.Buffers/RefCountedBuffer.cs`가 추가됐고 최소 참조계수/반환 계약 테스트가 discover된다.
 - `PinnedBlockMemoryPool.RentCounted()`가 추가되어 counted buffer 가 마지막 `Release()`에서 풀로 돌아간다.
+- `RefCountedBuffer` 내부의 `Volatile.Read/Write` 호출은 의도 기반 helper로 감싸져 수명/길이 상태 관측 의미가 드러나도록 정리됐다.
 - 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 16개를 실행했고 모두 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
@@ -46,7 +47,7 @@ Phase 1 — 메모리 계층 `src/Hps.Buffers/`.
 - `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RefCountedBufferTests"`
 - `dotnet test HighPerformanceSocket.slnx`
 - 테스트 출력에서 `Hps.Buffers.Tests`의 실제 테스트 16개가 discover되고 실행됐는지 확인한다.
-- 결과: focused 통과 5, 실패 0, 건너뜀 0. 전체 통과 16, 실패 0, 건너뜀 0.
+- 결과: 리팩터링 전 focused 통과 5, 리팩터링 후 focused 통과 5. 전체 통과 16, 실패 0, 건너뜀 0.
 
 ## 다음 작업에서 건드리지 않을 범위
 - `Hps.Transport`

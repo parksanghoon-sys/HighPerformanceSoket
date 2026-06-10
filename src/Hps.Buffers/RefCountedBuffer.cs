@@ -40,7 +40,7 @@ namespace Hps.Buffers
         /// 현재 유효한 payload 길이. 전체 블록 용량과 다를 수 있으며, 송신 경로는 이 값을 기준으로
         /// 실제 전송 범위를 정해야 한다.
         /// </summary>
-        public int Length => Volatile.Read(ref _length);
+        public int Length => ReadPublishedLength();
 
         /// <summary>
         /// 내부 고정 블록 전체를 Memory 로 노출한다. UDP 직접 수신처럼 아직 실제 수신 길이를 모르는
@@ -77,7 +77,7 @@ namespace Hps.Buffers
             if (length < 0 || length > block.Length)
                 throw new ArgumentOutOfRangeException(nameof(length), "Length 는 0 이상이고 블록 크기 이하여야 한다.");
 
-            Volatile.Write(ref _length, length);
+            PublishLength(length);
         }
 
         /// <summary>
@@ -87,8 +87,8 @@ namespace Hps.Buffers
         {
             while (true)
             {
-                int current = Volatile.Read(ref _refCount);
-                if (current <= 0 || Volatile.Read(ref _returned) != 0)
+                int current = ReadRefCountSnapshot();
+                if (current <= 0 || IsReturned())
                     throw new InvalidOperationException("이미 반환된 RefCountedBuffer 는 AddRef 할 수 없다.");
                 if (current == int.MaxValue)
                     throw new InvalidOperationException("RefCountedBuffer 참조계수가 너무 크다.");
@@ -105,7 +105,7 @@ namespace Hps.Buffers
         {
             while (true)
             {
-                int current = Volatile.Read(ref _refCount);
+                int current = ReadRefCountSnapshot();
                 if (current <= 0)
                     throw new InvalidOperationException("RefCountedBuffer 가 이미 반환됐다.");
 
@@ -122,11 +122,36 @@ namespace Hps.Buffers
 
         private byte[] GetLiveBlock()
         {
-            byte[]? block = Volatile.Read(ref _block);
-            if (block == null || Volatile.Read(ref _returned) != 0)
+            byte[]? block = ReadBlockSnapshot();
+            if (block == null || IsReturned())
                 throw new ObjectDisposedException(nameof(RefCountedBuffer), "이미 풀로 반환된 버퍼에는 접근할 수 없다.");
 
             return block;
+        }
+
+        private int ReadPublishedLength()
+        {
+            return Volatile.Read(ref _length);
+        }
+
+        private void PublishLength(int length)
+        {
+            Volatile.Write(ref _length, length);
+        }
+
+        private int ReadRefCountSnapshot()
+        {
+            return Volatile.Read(ref _refCount);
+        }
+
+        private byte[]? ReadBlockSnapshot()
+        {
+            return Volatile.Read(ref _block);
+        }
+
+        private bool IsReturned()
+        {
+            return Volatile.Read(ref _returned) != 0;
         }
 
         private void ReturnToPoolOnce()
@@ -139,7 +164,7 @@ namespace Hps.Buffers
             if (block == null)
                 throw new InvalidOperationException("반환할 버퍼 블록이 없다.");
 
-            Volatile.Write(ref _length, 0);
+            PublishLength(0);
             _pool.Return(block);
         }
     }

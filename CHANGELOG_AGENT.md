@@ -1,5 +1,25 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — RefCountedBuffer Volatile helper 리팩터링)
+
+### 작업 단위
+- 사용자 검토 의견에 따라 `RefCountedBuffer` 내부의 `Volatile.Read/Write` 호출을 읽기 쉬운 helper로 감쌌다.
+- 기능 변경 없이 코드 읽기성을 개선하는 리팩터링 단위로만 진행했다.
+
+### 수정
+- `ReadPublishedLength`, `PublishLength`, `ReadRefCountSnapshot`, `ReadBlockSnapshot`, `IsReturned` helper를 추가했다.
+- public API와 참조계수 알고리즘은 변경하지 않았다.
+- `Interlocked.CompareExchange`/`Exchange`는 참조계수와 정확히-1회 반환 알고리즘의 핵심이므로 `AddRef`/`Release`/반환 경로에 명시적으로 남겼다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 helper 리팩터링 상태와 검증 결과를 반영했다.
+- `TODOS.md`에 이번 리팩터링을 Completed로 기록했고, 다음 리뷰 단위는 `RefCountedBuffer` 동시 Release/fan-out 스트레스 테스트로 유지했다.
+
+### 검증
+- 리팩터링 전 `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RefCountedBufferTests"` → 통과 5, 실패 0, 건너뜀 0.
+- 리팩터링 후 `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RefCountedBufferTests"` → 통과 5, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 16, 실패 0, 건너뜀 0.
+
 ## 2026-06-10 (Codex — RefCountedBuffer 최소 참조계수/반환 계약)
 
 ### 작업 단위
