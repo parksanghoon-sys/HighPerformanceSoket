@@ -1,5 +1,26 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — BipBuffer Volatile helper 리팩터링)
+
+### 작업 단위
+- 사용자 검토 의견에 따라 `BipBuffer` 내부 public 메서드 본문에 직접 보이던 `Volatile.Read/Write` 호출을 helper로 감쌌다.
+- 기능 변경 없이 SPSC cursor/count 상태 관측 의미를 더 읽기 쉽게 만드는 리팩터링 단위로만 진행했다.
+
+### 수정
+- `ReadCommittedCountSnapshot`, `IsCommittedCountZero`, `ReadConsumerCursorSnapshot`, `ReadProducerCursorSnapshot`,
+  `ReadWatermarkSnapshot`, `PublishProducerCursor`, `PublishConsumerCursor` helper를 추가했다.
+- `Interlocked.Add(ref _count, ...)`는 생산자/소비자 간 commit/consume count 변경의 핵심이라 그대로 명시적으로 남겼다.
+- `Volatile.Read/Write` 호출은 helper 영역으로 모았다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 BipBuffer helper 리팩터링 상태와 검증 결과를 반영했다.
+- `TODOS.md`에 이번 리팩터링을 Completed로 기록했고, 다음 리뷰 단위는 `RefCountedBuffer` 동시 Release/fan-out 스트레스 테스트로 유지했다.
+
+### 검증
+- 리팩터링 전 `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~BipBufferTests"` → 통과 6, 실패 0, 건너뜀 0.
+- 리팩터링 후 `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~BipBufferTests"` → 통과 6, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 16, 실패 0, 건너뜀 0.
+
 ## 2026-06-10 (Codex — RefCountedBuffer Volatile helper 리팩터링)
 
 ### 작업 단위

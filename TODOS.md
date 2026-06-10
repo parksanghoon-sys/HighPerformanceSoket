@@ -3,7 +3,7 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - D013 리뷰 게이트에 따라 `RefCountedBuffer` Volatile helper 리팩터링을 사용자 검토한 뒤 다음 단위로 진행한다.
+  - D013 리뷰 게이트에 따라 `BipBuffer` Volatile helper 리팩터링을 사용자 검토한 뒤 다음 단위로 진행한다.
 
 ## Deferred Backlog
 
@@ -59,6 +59,13 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] `BipBuffer`의 `Volatile.Read/Write` 호출을 cursor/count 의미 기반 helper로 정리했다.
+  - 범위: `src/Hps.Buffers/BipBuffer.cs`.
+  - 기능 변경 없이 `ReadCommittedCountSnapshot`, `IsCommittedCountZero`, `ReadConsumerCursorSnapshot`,
+    `ReadProducerCursorSnapshot`, `ReadWatermarkSnapshot`, `PublishProducerCursor`, `PublishConsumerCursor` helper를 추가했다.
+  - 목적: public 메서드 본문에서 저수준 memory primitive보다 SPSC 소유권 경계와 publish/snapshot 의미가 먼저 보이도록 한다.
+  - 검증: 리팩터링 전 focused 테스트 → 통과 6. 리팩터링 후 focused 테스트 → 통과 6. 전체 `dotnet test HighPerformanceSocket.slnx` → 통과 16, 실패 0, 건너뜀 0.
 
 - [x] `RefCountedBuffer`의 `Volatile.Read/Write` 호출을 의도 기반 helper로 정리했다.
   - 범위: `src/Hps.Buffers/RefCountedBuffer.cs`.

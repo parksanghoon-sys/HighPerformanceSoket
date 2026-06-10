@@ -44,10 +44,10 @@ namespace Hps.Buffers
         public int Capacity => _capacity;
 
         /// <summary>현재 읽기 가능한 바이트 수.</summary>
-        public int Count => Volatile.Read(ref _count);
+        public int Count => ReadCommittedCountSnapshot();
 
         /// <summary>비어 있는가.</summary>
-        public bool IsEmpty => Volatile.Read(ref _count) == 0;
+        public bool IsEmpty => IsCommittedCountZero();
 
         /// <summary>
         /// 생산자: 쓰기 가능한 <b>연속</b> 영역을 돌려준다. 길이는 가용 상황에 따라
@@ -56,7 +56,7 @@ namespace Hps.Buffers
         /// </summary>
         public Span<byte> GetWriteSpan(int minimumSize = 1)
         {
-            int read = Volatile.Read(ref _read);
+            int read = ReadConsumerCursorSnapshot();
             int write = _write; // 생산자 소유
 
             if (write < read)
@@ -80,7 +80,7 @@ namespace Hps.Buffers
             int frontFree = read - 1;
             if (frontFree < 0) frontFree = 0;
 
-            if (Volatile.Read(ref _count) == 0)
+            if (IsCommittedCountZero())
             {
                 // 버퍼가 비어 있지만 read/write 가 0이 아닌 위치에서 만난 상태다.
                 // 여기서 앞쪽으로 랩하면 상단 데이터 구간의 길이가 0인 watermark 를 만들고,
@@ -97,8 +97,8 @@ namespace Hps.Buffers
 
             // 앞쪽이 더 크고 꼬리가 부족하다 → 앞쪽으로 랩한다.
             // 데이터 [read, write) 는 그대로 두고, 그 끝을 watermark 로 기록한 뒤 write 를 0 으로.
-            _watermark = write;               // 생산자 소유 (Volatile.Write(_write) 가 release 역할)
-            Volatile.Write(ref _write, 0);
+            _watermark = write;               // 생산자 소유 (PublishProducerCursor 가 release 역할)
+            PublishProducerCursor(0);
             // [0, read-1), read 직전 1바이트 갭. 위 비교에서 frontFree 가 tail 보다 큰 경우만 여기로 온다.
             return _buffer.AsSpan(0, frontFree);
         }
@@ -124,7 +124,7 @@ namespace Hps.Buffers
                 write = 0;
             }
 
-            Volatile.Write(ref _write, write);
+            PublishProducerCursor(write);
         }
 
         /// <summary>
@@ -136,12 +136,12 @@ namespace Hps.Buffers
         /// </summary>
         public ReadOnlySpan<byte> GetReadSpan()
         {
-            int available = Volatile.Read(ref _count);
+            int available = ReadCommittedCountSnapshot();
             if (available == 0)
                 return ReadOnlySpan<byte>.Empty;
 
             int read = _read; // 소비자 소유
-            int write = Volatile.Read(ref _write);
+            int write = ReadProducerCursorSnapshot();
             int contiguous;
 
             if (write > read)
@@ -153,7 +153,7 @@ namespace Hps.Buffers
                 // 랩됨(write < read): 상단 영역 [read, watermark) 를 먼저 읽는다.
                 // write==read 이면서 available>0 인 순간은 생산자가 count 를 먼저 발행하고
                 // write 를 곧 발행하는 짧은 전이일 수 있으므로, 아래 count clamp 가 권위값이다.
-                int wm = Volatile.Read(ref _watermark);
+                int wm = ReadWatermarkSnapshot();
                 contiguous = wm - read;
             }
 
@@ -171,11 +171,11 @@ namespace Hps.Buffers
         {
             if (bytes < 0) throw new ArgumentOutOfRangeException(nameof(bytes));
             if (bytes == 0) return;
-            if (bytes > Volatile.Read(ref _count))
+            if (bytes > ReadCommittedCountSnapshot())
                 throw new InvalidOperationException("Consume 이 읽기 가능한 바이트 수를 초과했다.");
 
             int read = _read;
-            int write = Volatile.Read(ref _write);
+            int write = ReadProducerCursorSnapshot();
             int newRead = read + bytes;
 
             if (write > read)
@@ -186,12 +186,47 @@ namespace Hps.Buffers
             else
             {
                 // 랩됨: 상단 영역 끝(watermark)에 도달하면 앞쪽 영역으로 되돌린다.
-                int wm = Volatile.Read(ref _watermark);
+                int wm = ReadWatermarkSnapshot();
                 if (newRead == wm) newRead = 0;
             }
 
-            Volatile.Write(ref _read, newRead);
+            PublishConsumerCursor(newRead);
             Interlocked.Add(ref _count, -bytes);
+        }
+
+        private int ReadCommittedCountSnapshot()
+        {
+            return Volatile.Read(ref _count);
+        }
+
+        private bool IsCommittedCountZero()
+        {
+            return ReadCommittedCountSnapshot() == 0;
+        }
+
+        private int ReadConsumerCursorSnapshot()
+        {
+            return Volatile.Read(ref _read);
+        }
+
+        private int ReadProducerCursorSnapshot()
+        {
+            return Volatile.Read(ref _write);
+        }
+
+        private int ReadWatermarkSnapshot()
+        {
+            return Volatile.Read(ref _watermark);
+        }
+
+        private void PublishProducerCursor(int write)
+        {
+            Volatile.Write(ref _write, write);
+        }
+
+        private void PublishConsumerCursor(int read)
+        {
+            Volatile.Write(ref _read, read);
         }
     }
 }
