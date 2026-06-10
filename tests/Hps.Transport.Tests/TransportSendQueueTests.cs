@@ -111,7 +111,8 @@ namespace Hps.Transport.Tests
             TransportConnection connection = transport.CreateConnection();
 
             Assert.True(transport.TrySend(connection, sendBuffer));
-            Assert.True(connection.TryDequeueSend(out TransportSendBuffer inFlight));
+            Assert.True(connection.TryBeginInFlightSend(out TransportConnection.InFlightSend? inFlight));
+            Assert.NotNull(inFlight);
             Assert.Equal(0, connection.PendingSendCount);
 
             buffer.Release();
@@ -119,14 +120,14 @@ namespace Hps.Transport.Tests
 
             Assert.Equal(1, pool.RentedCount);
 
-            connection.CompleteInFlightSend(inFlight);
+            inFlight!.Dispose();
             Assert.Equal(0, pool.RentedCount);
         }
 
         // in-flight 완료 Release 테스트: 송신 펌프가 dequeue 한 항목은 close drain 대상이 아니므로,
         // completion callback 이 사용할 명시적 경로에서 Transport 소유 ref 를 정확히 반환해야 한다.
         [Fact]
-        public void CompleteInFlightSend_WhenPumpCompletesDequeuedSend_ReleasesTransportOwnedRef()
+        public void InFlightSend_WhenPumpCompletesDequeuedSend_CompleteReleasesTransportOwnedRef()
         {
             PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
             RefCountedBuffer buffer = pool.RentCounted();
@@ -137,12 +138,41 @@ namespace Hps.Transport.Tests
             TransportConnection connection = transport.CreateConnection();
 
             Assert.True(transport.TrySend(connection, sendBuffer));
-            Assert.True(connection.TryDequeueSend(out TransportSendBuffer inFlight));
+            Assert.True(connection.TryBeginInFlightSend(out TransportConnection.InFlightSend? inFlight));
+            Assert.NotNull(inFlight);
 
             buffer.Release();
             Assert.Equal(1, pool.RentedCount);
 
-            connection.CompleteInFlightSend(inFlight);
+            inFlight!.Complete();
+            inFlight.Dispose();
+
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // 펌프 abandon 누수 방어 테스트: 실제 송신 펌프가 큐에서 항목을 꺼낸 뒤 close/unwind 로 루프를 빠져나가면
+        // completion callback 이 오지 않을 수 있다. in-flight 소유권을 handle 로 감싸 Dispose 경로에서 반드시 반환해야 한다.
+        [Fact]
+        public void InFlightSend_WhenPumpAbandonsAfterClose_DisposePathReleasesTransportOwnedRef()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer buffer = pool.RentCounted();
+            buffer.SetLength(4);
+            buffer.AddRef();
+            TransportSendBuffer sendBuffer = new TransportSendBuffer(buffer, 0, 4);
+            TestTransport transport = new TestTransport();
+            TransportConnection connection = transport.CreateConnection();
+
+            Assert.True(transport.TrySend(connection, sendBuffer));
+            Assert.True(connection.TryBeginInFlightSend(out TransportConnection.InFlightSend? inFlight));
+            Assert.NotNull(inFlight);
+
+            buffer.Release();
+            connection.Close();
+            Assert.Equal(1, pool.RentedCount);
+
+            inFlight!.Dispose();
+            inFlight.Dispose();
 
             Assert.Equal(0, pool.RentedCount);
         }

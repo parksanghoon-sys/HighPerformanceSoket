@@ -1,5 +1,39 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — Transport in-flight handle abandon-leak 방어)
+
+### 작업 단위
+- `REVIEW_2026-06-11.md`의 위험 #1을 반영해, 송신 펌프가 dequeue 이후 close/unwind 로 completion 없이 빠져나가는 abandon-leak 경로를 막았다.
+- 실제 socket send, SAEA 백엔드, listen/connect/accept 모델은 넣지 않고 in-flight 소유권 API만 별도 단위로 처리했다.
+
+### Red
+- `TransportSendQueueTests`에 pump abandon 시나리오를 보호하는 테스트를 추가했다.
+- 구현 전에는 `TryBeginInFlightSend` 메서드가 없어 reflection 기반 `Assert.NotNull`이 실패했다.
+
+### 구현
+- `TransportConnection.TryDequeueSend(out TransportSendBuffer)` raw dequeue API를 제거했다.
+- `TransportConnection.TryBeginInFlightSend(out InFlightSend?)`를 추가해 송신 펌프가 pending 항목을 dispose 가능한 handle 로 받게 했다.
+- `InFlightSend.Complete()`와 `Dispose()`는 같은 release 경로를 타며, `Interlocked.Exchange`로 실제 Release 를 한 번만 수행한다.
+- `Close()`는 여전히 pending 만 drain 한다. 이미 begin 된 in-flight ref 는 펌프 handle 의 completion/unwind 경로가 책임진다.
+
+### 테스트
+- close 이후 completion 없이 펌프가 unwind 되는 abandon 시나리오에서 `Dispose()`가 Transport 소유 ref 를 반환하는지 검증했다.
+- 정상 completion 후 finally/dispose 가 다시 지나가도 이중 Release 가 발생하지 않는지 검증했다.
+- 기존 close/in-flight 경계 테스트를 raw buffer release 에서 handle `Dispose()` 경로로 바꿨다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 in-flight handle 구현 상태와 테스트 29개 통과 상태로 갱신했다.
+- `TODOS.md`에 이번 abandon-leak 방어 작업을 Completed로 기록하고, 다음 리뷰 단위는 Phase 2 연결 모델 확정으로 유지했다.
+- `DECISIONS.md`의 D017을 raw `CompleteInFlightSend` 계약에서 handle 기반 completion/unwind 계약으로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~InFlightSend_WhenPumpAbandonsAfterClose_DisposePathReleasesTransportOwnedRef"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~InFlightSend_WhenPumpCompletesDequeuedSend_CompleteReleasesTransportOwnedRef"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"` → 통과 7, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 11, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 11, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+
 ## 2026-06-10 (Codex — Transport in-flight completion release)
 
 ### 작업 단위

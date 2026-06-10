@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace Hps.Transport
 {
@@ -53,20 +54,20 @@ namespace Hps.Transport
         }
 
         /// <summary>
-        /// 단일 송신 펌프가 pending 큐에서 다음 항목을 가져간다.
-        /// dequeue 에 성공한 항목은 더 이상 close drain 대상이 아니며, 펌프 완료 경로가 Release 해야 한다.
+        /// 단일 송신 펌프가 pending 큐에서 다음 항목을 가져가 in-flight handle 로 감싼다.
+        /// handle 은 완료, 취소, unwind 중 어떤 경로에서도 Dispose/Complete 로 Transport 소유 ref 를 반환한다.
         /// </summary>
-        internal bool TryDequeueSend(out TransportSendBuffer sendBuffer)
+        internal bool TryBeginInFlightSend(out InFlightSend? inFlightSend)
         {
             lock (_gate)
             {
                 if (_closed || _pendingSends.Count == 0)
                 {
-                    sendBuffer = default(TransportSendBuffer);
+                    inFlightSend = null;
                     return false;
                 }
 
-                sendBuffer = _pendingSends.Dequeue();
+                inFlightSend = new InFlightSend(this, _pendingSends.Dequeue());
                 return true;
             }
         }
@@ -75,11 +76,58 @@ namespace Hps.Transport
         /// 송신 펌프가 in-flight 항목의 완료, 취소, 또는 unwind 를 마칠 때 Transport 소유 ref 를 해제한다.
         /// 이 항목은 이미 pending 큐에서 빠져나왔으므로 close drain 이 다시 만지지 않는다.
         /// </summary>
-        internal void CompleteInFlightSend(TransportSendBuffer sendBuffer)
+        private void CompleteInFlightSend(TransportSendBuffer sendBuffer)
         {
             // in-flight 소유권은 단일 송신 펌프가 들고 있으므로 pending 큐 lock 을 다시 잡지 않는다.
             // close 와의 경합에서도 close 는 pending 만 drain 하고, 이미 dequeue 된 ref 는 이 경로에서만 반환된다.
             sendBuffer.Buffer.Release();
+        }
+
+        /// <summary>
+        /// 송신 펌프가 보유하는 단일 in-flight 송신 소유권 handle 이다.
+        /// </summary>
+        internal sealed class InFlightSend : IDisposable
+        {
+            private readonly TransportConnection _connection;
+            private readonly TransportSendBuffer _sendBuffer;
+            private int _released;
+
+            internal InFlightSend(TransportConnection connection, TransportSendBuffer sendBuffer)
+            {
+                _connection = connection;
+                _sendBuffer = sendBuffer;
+            }
+
+            /// <summary>
+            /// 실제 socket send 에 넘길 payload 범위이다. handle 이 살아있는 동안만 사용해야 한다.
+            /// </summary>
+            internal TransportSendBuffer SendBuffer => _sendBuffer;
+
+            /// <summary>
+            /// 정상 completion callback 에서 Transport 소유 ref 를 반환한다.
+            /// </summary>
+            internal void Complete()
+            {
+                ReleaseOnce();
+            }
+
+            /// <summary>
+            /// 송신 펌프가 close, 취소, 예외 unwind 로 completion 전 빠져나갈 때도 ref 를 반환한다.
+            /// </summary>
+            public void Dispose()
+            {
+                ReleaseOnce();
+            }
+
+            private void ReleaseOnce()
+            {
+                // completion 과 unwind/finally 가 모두 지나더라도 실제 Release 는 한 번만 수행한다.
+                // 이중 Dispose 는 펌프 finally 중첩이나 테스트 정리 경로에서 흔히 생길 수 있으므로 idempotent 하게 둔다.
+                if (Interlocked.Exchange(ref _released, 1) != 0)
+                    return;
+
+                _connection.CompleteInFlightSend(_sendBuffer);
+            }
         }
 
         public void Close()

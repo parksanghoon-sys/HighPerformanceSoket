@@ -49,12 +49,12 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 - `TransportBase.TrySend`는 pending 큐에 넣기 전에 `TransportSendBuffer`가 실제 live `RefCountedBuffer`를 가리키는지 확인한다.
   `TransportSendBuffer`는 struct 이므로 `default` 값이 public API로 들어와 close drain 시점에 늦게 실패하지 않게 수락 경계에서 차단한다.
 - `TransportConnection.Close()`는 pending 송신 항목을 drain 하며 각 `RefCountedBuffer`를 Release 한다.
-  송신 펌프가 이미 dequeue 한 in-flight 항목은 close 가 Release 하지 않고 펌프 완료 경로가 책임진다.
-- `TransportConnection.CompleteInFlightSend(TransportSendBuffer)`가 추가되어 송신 펌프가 완료, 취소, unwind 시
-  이미 dequeue 한 in-flight 항목의 Transport 소유 ref 를 반환하는 단일 경로를 제공한다.
+  이미 begin 된 in-flight 항목은 `TransportConnection.InFlightSend` handle 이 완료/취소/unwind 경로에서 책임진다.
+- `TransportConnection.TryBeginInFlightSend(out InFlightSend?)`가 추가되어 송신 펌프가 pending 항목을 raw 값으로 가져가지 않고
+  dispose 가능한 in-flight handle 로 받는다. handle 은 `Complete()`와 `Dispose()` 모두에서 Transport 소유 ref 를 정확히 한 번 반환한다.
 - `ITransport.StartAsync`/`StopAsync`는 기본 `CancellationToken` 인자를 허용한다. 실제 listen/connect/accept 모델과
   SAEA 구현은 다음 단위에서 테스트와 함께 확장한다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 28개를 실행했고 모두 통과했다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 29개를 실행했고 모두 통과했다.
 - 재확인: `dotnet build HighPerformanceSocket.slnx`는 경고 0개, 오류 0개로 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
@@ -67,12 +67,12 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 
 ## 이번 단위의 검증 경로
 - Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"`
-  → `CompleteInFlightSend` 메서드 부재로 `Assert.NotNull` 실패 1개.
+  → `TryBeginInFlightSend` 메서드 부재로 `Assert.NotNull` 실패 1개.
 - Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 10개가 discover되고 실행됐는지 확인한다.
-- 결과: focused 통과 6, 실패 0, 건너뜀 0. Transport 전체 통과 10. 전체 통과 28, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 11개가 discover되고 실행됐는지 확인한다.
+- 결과: focused 통과 7, 실패 0, 건너뜀 0. Transport 전체 통과 11. 전체 통과 29, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
 
 ## 이번 작업에서 건드리지 않은 범위
 - SAEA/RIO/io_uring 실제 소켓 백엔드

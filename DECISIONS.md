@@ -1,17 +1,21 @@
 # DECISIONS.md
 
-## D017 — in-flight 송신 항목은 CompleteInFlightSend 경로에서 release 한다
+## D017 — in-flight 송신 항목은 handle 의 Complete/Dispose 경로에서 release 한다
 
 - 날짜: 2026-06-10
+- 갱신: 2026-06-11 (`TryDequeueSend` raw 값 반환 대신 `InFlightSend` handle 로 abandon-leak 방어)
 - 상태: Accepted
-- 결정: `TransportConnection.TryDequeueSend`로 pending 큐에서 빠져나온 송신 항목은 더 이상 close drain 대상이 아니다.
-  송신 펌프, SAEA completion callback, RIO/io_uring completion callback, 또는 펌프 unwind 경로는
-  `TransportConnection.CompleteInFlightSend(TransportSendBuffer)`를 호출해 해당 `TransportSendBuffer.Buffer`를 정확히 한 번 `Release`한다.
+- 결정: 송신 펌프는 pending 큐에서 raw `TransportSendBuffer`를 직접 꺼내지 않고,
+  `TransportConnection.TryBeginInFlightSend(out InFlightSend?)`로 dispose 가능한 in-flight handle 을 얻는다.
+  정상 completion callback 은 `InFlightSend.Complete()`를 호출하고, close/취소/예외 unwind 경로는 `InFlightSend.Dispose()`를 호출한다.
+  두 경로는 같은 release 경로를 타며 `Interlocked.Exchange`로 해당 `TransportSendBuffer.Buffer`를 정확히 한 번만 `Release`한다.
 - 근거: D016에서 pending 과 in-flight 의 반환 책임을 분리했다. completion callback 마다 직접 `Release`를 흩뿌리면
   close/drain 과의 책임 경계가 다시 흐려지고, 이후 실패/취소/unwind 경로마다 반환 누락이 생기기 쉽다.
-  단일 내부 메서드로 모으면 소켓 백엔드가 달라도 같은 반환 규칙을 재사용할 수 있다.
-- 영향: 이후 실제 송신 펌프나 SAEA/RIO/io_uring 구현은 완료·실패·취소·중단 경로에서 이 메서드를 호출해야 한다.
-  pending 큐 상태를 바꾸지 않는 completion release 이므로 이 메서드는 pending lock 을 잡지 않는다.
+  또한 펌프가 dequeue 후 close 되어 completion 없이 빠져나가면 raw 값만으로는 abandon-leak 를 막기 어렵다.
+  handle 로 감싸면 정상 완료와 unwind/finally 가 같은 idempotent release 규칙을 재사용할 수 있다.
+- 영향: 이후 실제 송신 펌프나 SAEA/RIO/io_uring 구현은 `TryBeginInFlightSend`로 얻은 handle 을 try/finally 범위에서 보유해야 한다.
+  socket completion 에서 `Complete()`를 호출하더라도 finally 의 `Dispose()`가 다시 실행될 수 있으므로 handle release 는 idempotent 해야 한다.
+  `Close()`는 pending 만 drain 하고, 이미 begin 된 in-flight ref 는 handle 이 반환한다.
 
 ## D016 — Transport close 는 pending 만 drain 하고 in-flight 는 펌프 완료 경로가 release 한다
 
@@ -21,8 +25,8 @@
   단, pending 큐에 넣기 전 `TransportSendBuffer`가 live `RefCountedBuffer`를 가리키는지 먼저 확인한다.
   `TransportSendBuffer`는 struct 이므로 생성자를 거치지 않은 default 값이 들어올 수 있고, 이 값은 수락 경계에서 즉시 거부한다.
   `TransportConnection.Close()`는 closed 표시와 pending drain 을 같은 lock 안에서 처리하며, pending queue 에 남은
-  `TransportSendBuffer.Buffer`만 `Release`한다. 송신 펌프가 이미 `TryDequeueSend`로 가져간 in-flight 항목은
-  close 가 release 하지 않고, 이후 펌프 completion 경로가 정확히 한 번 release 한다.
+  `TransportSendBuffer.Buffer`만 `Release`한다. 송신 펌프가 이미 `TryBeginInFlightSend`로 가져간 in-flight 항목은
+  close 가 release 하지 않고, 이후 펌프 handle 의 completion/unwind 경로가 정확히 한 번 release 한다.
 - 근거: D011은 pending 과 in-flight 를 모두 누수 없이 release 하라고 요구하지만, 같은 항목을 close 와 펌프가
   동시에 release 하면 이중 반환이 된다. pending drain 과 pump dequeue 를 같은 lock 으로 직렬화하면 항목의 현재
   소유자가 pending queue 인지 pump 인지 분명해진다.

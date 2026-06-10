@@ -3,7 +3,7 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - D013 리뷰 게이트에 따라 송신 펌프의 in-flight 완료 Release 경로 구현을 사용자 검토한 뒤 다음 단위로 진행한다.
+  - D013 리뷰 게이트에 따라 송신 펌프 abandon-leak 방어 handle 구현을 사용자 검토한 뒤 다음 단위로 진행한다.
 
 ## Deferred Backlog
 
@@ -41,6 +41,20 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] 송신 펌프 abandon-leak 방어를 위해 in-flight handle 경로를 구현했다.
+  - 범위: `src/Hps.Transport/TransportConnection.cs`, `tests/Hps.Transport.Tests/TransportSendQueueTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `TryBeginInFlightSend` 메서드 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+  - 구현: `TryDequeueSend(out TransportSendBuffer)` raw dequeue API를 제거하고,
+    `TryBeginInFlightSend(out InFlightSend?)`가 dispose 가능한 in-flight handle 을 반환하게 했다.
+  - 구현: `InFlightSend.Complete()`와 `Dispose()`는 같은 release 경로를 타며, `Interlocked.Exchange`로 여러 번 호출돼도
+    실제 `RefCountedBuffer.Release()`는 한 번만 수행한다.
+  - 테스트: pump 가 dequeue 이후 close/unwind 로 completion 없이 빠져나가는 abandon 시나리오에서 `Dispose()`가
+    Transport 소유 ref 를 반환해 `RentedCount==0`으로 돌아오는지 검증했다.
+  - 테스트: 정상 completion 후 `Dispose()`가 다시 호출되어도 이중 반환이 발생하지 않는지 검증했다.
+  - 검증: focused `TransportSendQueueTests` → 통과 7, 실패 0, 건너뜀 0. Transport 전체 → 통과 11. 전체 `dotnet test HighPerformanceSocket.slnx`
+    → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 11. `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
 
 - [x] 송신 펌프의 in-flight 완료 Release 경로를 구현했다.
   - 범위: `src/Hps.Transport/TransportConnection.cs`, `tests/Hps.Transport.Tests/TransportSendQueueTests.cs`.
