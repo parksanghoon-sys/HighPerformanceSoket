@@ -77,7 +77,19 @@ namespace Hps.Buffers
             }
 
             int tail = _capacity - write;
-            if (tail >= minimumSize || tail >= read)
+            int frontFree = read - 1;
+            if (frontFree < 0) frontFree = 0;
+
+            if (Volatile.Read(ref _count) == 0)
+            {
+                // 버퍼가 비어 있지만 read/write 가 0이 아닌 위치에서 만난 상태다.
+                // 여기서 앞쪽으로 랩하면 상단 데이터 구간의 길이가 0인 watermark 를 만들고,
+                // 소비자는 아직 read 를 0으로 되돌릴 기회가 없어 front 데이터를 관측하지 못한다.
+                // minimumSize 보다 작더라도 tail 을 먼저 채우면 기존 Consume 경로가 자연스럽게 read 를 0으로 되돌린다.
+                return _buffer.AsSpan(write, tail);
+            }
+
+            if (tail >= minimumSize || tail >= frontFree)
             {
                 // 꼬리에 충분하거나, 앞쪽으로 랩해도 이득이 없으면 꼬리를 그대로 쓴다.
                 return _buffer.AsSpan(write, tail);
@@ -87,8 +99,7 @@ namespace Hps.Buffers
             // 데이터 [read, write) 는 그대로 두고, 그 끝을 watermark 로 기록한 뒤 write 를 0 으로.
             _watermark = write;               // 생산자 소유 (Volatile.Write(_write) 가 release 역할)
             Volatile.Write(ref _write, 0);
-            int frontFree = read - 1;         // [0, read-1), read 직전 1바이트 갭
-            if (frontFree < 0) frontFree = 0;
+            // [0, read-1), read 직전 1바이트 갭. 위 비교에서 frontFree 가 tail 보다 큰 경우만 여기로 온다.
             return _buffer.AsSpan(0, frontFree);
         }
 

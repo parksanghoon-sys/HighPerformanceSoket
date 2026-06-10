@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Hps.Buffers;
 using Xunit;
@@ -90,6 +91,21 @@ namespace Hps.Buffers.Tests
             ReadOnlySpan<byte> frontRead = buffer.GetReadSpan();
             Assert.Equal(4, frontRead.Length);
             AssertBytes(frontRead, 100, 4);
+        }
+
+        [Fact]
+        public void FuzzRandomWriteReadSequences_MatchReferenceQueue()
+        {
+            int[] capacities = new int[] { 2, 3, 4, 8, 17, 64 };
+            int[] seeds = new int[] { 0x1234, 0x5678, 0x1357, 0x2468 };
+
+            for (int capacityIndex = 0; capacityIndex < capacities.Length; capacityIndex++)
+            {
+                for (int seedIndex = 0; seedIndex < seeds.Length; seedIndex++)
+                {
+                    RunFuzzCase(capacities[capacityIndex], seeds[seedIndex]);
+                }
+            }
         }
 
         [Fact]
@@ -200,6 +216,124 @@ namespace Hps.Buffers.Tests
         {
             for (int i = 0; i < length; i++)
                 target[i] = unchecked((byte)(start + i));
+        }
+
+        private static void RunFuzzCase(int capacity, int seed)
+        {
+            const int iterations = 20_000;
+            BipBuffer buffer = new BipBuffer(capacity);
+            Queue<byte> reference = new Queue<byte>();
+            Random random = new Random(seed);
+            int nextValue = 0;
+            string[] recentOperations = new string[32];
+
+            for (int iteration = 0; iteration < iterations; iteration++)
+            {
+                bool shouldWrite = reference.Count == 0 || random.Next(2) == 0;
+
+                if (shouldWrite)
+                {
+                    Span<byte> write = buffer.GetWriteSpan(random.Next(1, capacity));
+                    if (write.Length == 0)
+                    {
+                        RecordOperation(recentOperations, iteration, "write span 0, draining");
+                        DrainOnce(buffer, reference, random, capacity, seed, iteration, recentOperations);
+                    }
+                    else
+                    {
+                        int bytes = random.Next(1, write.Length + 1);
+                        for (int i = 0; i < bytes; i++)
+                        {
+                            byte value = unchecked((byte)nextValue);
+                            write[i] = value;
+                            reference.Enqueue(value);
+                            nextValue++;
+                        }
+
+                        buffer.Commit(bytes);
+                        RecordOperation(
+                            recentOperations,
+                            iteration,
+                            "write span " + write.Length + ", commit " + bytes +
+                            ", reference.Count=" + reference.Count + ", buffer.Count=" + buffer.Count);
+                    }
+                }
+                else
+                {
+                    DrainOnce(buffer, reference, random, capacity, seed, iteration, recentOperations);
+                }
+
+                Assert.Equal(reference.Count, buffer.Count);
+            }
+
+            while (reference.Count > 0)
+            {
+                DrainOnce(buffer, reference, random, capacity, seed, iterations, recentOperations);
+                Assert.Equal(reference.Count, buffer.Count);
+            }
+
+            Assert.True(buffer.IsEmpty);
+        }
+
+        private static void DrainOnce(
+            BipBuffer buffer,
+            Queue<byte> reference,
+            Random random,
+            int capacity,
+            int seed,
+            int iteration,
+            string[] recentOperations)
+        {
+            ReadOnlySpan<byte> read = buffer.GetReadSpan();
+            Assert.True(read.Length <= reference.Count);
+
+            if (read.Length == 0)
+            {
+                Assert.True(
+                    reference.Count == 0,
+                    "GetReadSpan 이 빈 span 을 반환했지만 참조 큐에는 데이터가 남아 있다. " +
+                    "capacity=" + capacity + ", seed=" + seed + ", iteration=" + iteration +
+                    ", reference.Count=" + reference.Count + ", buffer.Count=" + buffer.Count +
+                    ", recent=" + FormatRecentOperations(recentOperations, iteration));
+                return;
+            }
+
+            int bytes = random.Next(1, read.Length + 1);
+            for (int i = 0; i < bytes; i++)
+                Assert.Equal(reference.Dequeue(), read[i]);
+
+            buffer.Consume(bytes);
+            RecordOperation(
+                recentOperations,
+                iteration,
+                "read span " + read.Length + ", consume " + bytes +
+                ", reference.Count=" + reference.Count + ", buffer.Count=" + buffer.Count);
+        }
+
+        private static void RecordOperation(string[] recentOperations, int iteration, string text)
+        {
+            recentOperations[iteration % recentOperations.Length] = iteration + ": " + text;
+        }
+
+        private static string FormatRecentOperations(string[] recentOperations, int iteration)
+        {
+            string result = string.Empty;
+            int start = iteration - recentOperations.Length + 1;
+            if (start < 0) start = 0;
+
+            for (int i = start; i <= iteration; i++)
+            {
+                string item = recentOperations[i % recentOperations.Length];
+                if (item == null)
+                    continue;
+
+                if (result.Length != 0)
+                    result += " | ";
+
+                result += item;
+            }
+
+            return result;
         }
 
         private static void AssertBytes(ReadOnlySpan<byte> actual, int start, int length)

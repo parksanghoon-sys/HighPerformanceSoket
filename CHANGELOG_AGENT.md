@@ -1,5 +1,33 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — BipBuffer seeded fuzz 테스트)
+
+### 작업 단위
+- D013에 따라 `BipBuffer` seeded fuzz 테스트만 별도 리뷰 단위로 진행했다.
+- 테스트는 capacity `2, 3, 4, 8, 17, 64`와 seed 4개 조합에서 20,000회 랜덤 write/read를 실행하고,
+  단순 참조 큐와 바이트 순서 및 `Count`를 비교한다.
+- 실패 시 최근 operation 로그를 메시지에 포함해 재현 조건을 바로 볼 수 있게 했다.
+
+### Red 및 원인
+- Red 확인: `capacity=3, seed=4660, iteration=17`에서 `GetReadSpan()`이 빈 span을 반환했지만
+  참조 큐와 `buffer.Count`에는 1바이트가 남아 있었다.
+- 추가 확인: 첫 수정 후 `capacity=4, seed=4660, iteration=6`에서도 같은 계열이 재현됐다.
+- 원인: 버퍼가 비어 있고 `read == write > 0`인 상태에서 producer가 front로 wrap하면
+  `watermark == read`인 0길이 상단 구간을 만들 수 있다. 이 경우 consumer는 아직 `read`를 0으로
+  되돌릴 기회가 없어 front 데이터를 관측하지 못한다.
+
+### 수정
+- `GetWriteSpan()`에서 버퍼가 비어 있고 cursor가 non-zero 위치에서 만난 경우에는 `minimumSize`보다 작더라도
+  tail을 먼저 반환하도록 했다.
+- tail/front 비교는 실제 front 여유인 `read - 1` 기준으로 바꿨다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기 상태로 갱신했다.
+- `TODOS.md`에서 fuzz 테스트를 Completed로 옮기고, 다음 리뷰 단위는 `PinnedBlockMemoryPool`로 유지했다.
+
+### 검증
+- `dotnet test HighPerformanceSocket.slnx` → 통과 6, 실패 0, 건너뜀 0.
+
 ## 2026-06-10 (Codex — BipBuffer deterministic edge 테스트)
 
 ### 작업 단위

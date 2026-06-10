@@ -26,26 +26,26 @@ Phase 1 — 메모리 계층 `src/Hps.Buffers/`.
   - `phase3-broker-routing.md` — 빈 토픽 eager-cleanup 경합(R1) 금지. (D008)
   - `phase3-publish-ownership.md` — recv→팬아웃 핸드오프(TCP 1회 복사 / UDP 직접 recv). (D009)
   - `phase3-framing-and-close.md` — TCP 프레임 조립(D010)·종료 release 계약(D011)·drop-oldest evict release(D012).
-- `tests/Hps.Buffers.Tests/BipBufferTests.cs`가 추가됐고 M1/M2 회귀 테스트 및 deterministic edge 테스트가 discover된다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 5개를 실행했고 모두 통과했다.
+- `tests/Hps.Buffers.Tests/BipBufferTests.cs`가 추가됐고 M1/M2 회귀 테스트, deterministic edge 테스트,
+  seeded fuzz 테스트가 discover된다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 6개를 실행했고 모두 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `BipBuffer` fuzz 테스트다.
-이 보강은 deterministic edge 테스트와 별도 리뷰 단위로 다룬다.
+리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `PinnedBlockMemoryPool`의 최소 API와 테스트다.
+이 작업은 `BipBuffer` 완료와 별도 리뷰 단위로 다룬다.
 
 ## 이번 단위의 검증 경로
 - `dotnet test HighPerformanceSocket.slnx`
-- 테스트 출력에서 `Hps.Buffers.Tests`의 실제 테스트 5개가 discover되고 실행됐는지 확인한다.
-- 결과: 통과 5, 실패 0, 건너뜀 0.
+- 테스트 출력에서 `Hps.Buffers.Tests`의 실제 테스트 6개가 discover되고 실행됐는지 확인한다.
+- 결과: 통과 6, 실패 0, 건너뜀 0.
 
 ## 다음 작업에서 건드리지 않을 범위
-- `PinnedBlockMemoryPool`
 - `RefCountedBuffer`
 - `Hps.Transport`
 - Protocol/Broker/Server
 - RIO/io_uring 백엔드
 
-위 범위는 BipBuffer must-fix와 테스트가 안정화된 뒤 진행한다.
+위 범위는 `PinnedBlockMemoryPool` 최소 API와 테스트가 안정화된 뒤 진행한다.

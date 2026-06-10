@@ -7,30 +7,16 @@
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` `BipBuffer` fuzz 테스트를 별도 리뷰 단위로 추가한다.
-  - 무엇이 남았는지: M1/M2 핵심 회귀 테스트와 deterministic edge 테스트는 들어갔지만,
-    무작위 write/read 시퀀스를 참조 큐와 비교하는 fuzz 테스트는 아직 필요하다.
-  - 왜 defer 되었는지: D013에 따라 deterministic edge 테스트와 fuzz 테스트를 같은 리뷰 단위에 묶지 않기로 했다.
-  - objective: `BipBuffer`의 랜덤 write/read 시퀀스를 단순 참조 큐와 비교해 wrap, partial commit/consume,
-    watermark 전환이 길게 섞여도 바이트 순서와 Count가 유지되는지 검증한다.
-  - relevant context: `PLAN.md` Phase 1 테스트 요구사항, `.claude/review/phase1-bipbuffer.md`의 "반드시 추가할 테스트",
-    DECISIONS D005 및 D013.
-  - 관련 파일/범위: `tests/Hps.Buffers.Tests/BipBufferTests.cs`, 필요 시 `src/Hps.Buffers/BipBuffer.cs`.
-  - 현재 상태 또는 이미 시도한 접근: M1 결정적 회귀 테스트, M2 SPSC 스트레스 테스트, deterministic edge 테스트는 통과한다.
-    `dotnet test HighPerformanceSocket.slnx` 결과: 통과 5, 실패 0.
-  - known blockers/open questions: 사용자 리뷰 완료 전에는 다음 구현 사이클을 시작하지 않는다.
-  - 가장 자연스러운 next step: 사용자가 계속 진행을 승인하면 seeded fuzz 테스트를 추가하고 필요한 최소 수정만 한다.
-
 - [ ] `P1_SOON` `PinnedBlockMemoryPool`의 소유권 모델을 확정하고 구현한다.
   - 무엇이 남았는지: 고정 블록 풀의 public API와 반환 검증 정책을 결정하고 구현해야 한다.
-  - 왜 defer 되었는지: BipBuffer must-fix와 테스트가 Phase 1의 선행 조건이다.
+  - 왜 defer 되었는지: `BipBuffer` 테스트 보강 단위가 막 완료됐고, D013에 따라 사용자 리뷰 전에는 다음 기능으로 자동 진행하지 않는다.
   - objective: 모든 I/O 버퍼를 pinned pool에서 대여하고, 누수와 이중 반환을 테스트로 검출한다.
   - relevant context: `PLAN.md` Phase 1은 `Rent()`/`Return(byte[])`, `BlockSize`, `RentedCount`, POH pinned array를 요구한다.
     **설계 검토 완료(승인)**: `.claude/review/phase1-refcounted-pool.md`, DECISIONS D006. should-fix: `Return`에서 블록 크기 검증, 풀 보관 상한 옵션, 블록 주소 노출 API(RIO/io_uring 등록용).
   - 관련 파일/범위: `src/Hps.Buffers/`, `tests/Hps.Buffers.Tests/`.
-  - 현재 상태: 구현 파일 없음.
+  - 현재 상태: 구현 파일 없음. `BipBuffer` M1/M2, deterministic edge, seeded fuzz 테스트는 통과한다.
   - known blockers/open questions: (해소) raw `byte[]` 반환 + `RentedCount` 누수 감지로 충분함이 실측 확인됨.
-  - next step: BipBuffer green 이후 pool API 테스트(Red)를 먼저 작성한다.
+  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 pool API 테스트(Red)를 먼저 작성한다.
 
 - [ ] `P1_SOON` `RefCountedBuffer`의 release 책임과 pool 반환 규칙을 구현한다.
   - 무엇이 남았는지: AddRef/Release, 0 도달 시 정확히 1회 반환, 과다 Release 예외, **`Span`/`Memory`/`Length`/`SetLength` 노출**(D009 복사 대상·송신 뷰)이 필요하다.
@@ -99,6 +85,16 @@
     만족하지 못할 때 front wrap 및 watermark 순서 보존.
   - production code 수정은 없었다.
   - 검증: `dotnet test HighPerformanceSocket.slnx` → 통과 5, 실패 0, 건너뜀 0.
+
+- [x] `BipBuffer` seeded fuzz 테스트를 별도 리뷰 단위로 추가했다.
+  - 범위: `src/Hps.Buffers/BipBuffer.cs`, `tests/Hps.Buffers.Tests/BipBufferTests.cs`.
+  - 테스트: capacity 2, 3, 4, 8, 17, 64와 seed 4개 조합에서 20,000회 랜덤 write/read를 실행하고
+    단순 참조 큐와 바이트 순서 및 `Count`를 비교한다.
+  - Red: `capacity=3, seed=4660` 및 `capacity=4, seed=4660`에서 empty non-zero cursor 상태가 front wrap과 만나
+    `GetReadSpan()`이 빈 span을 반환하는 문제가 재현됐다.
+  - 수정: 버퍼가 비어 있고 `read/write`가 0이 아닌 위치에서 만난 경우에는 `minimumSize`보다 작더라도 tail을 먼저 반환한다.
+    또한 tail/front 비교는 실제 front 여유(`read - 1`) 기준으로 한다.
+  - 검증: `dotnet test HighPerformanceSocket.slnx` → 통과 6, 실패 0, 건너뜀 0.
 
 - [x] Phase 0 스캐폴딩이 존재한다.
   - 근거: `HighPerformanceSocket.slnx`, `Directory.Build.props`, `src/Hps.Buffers`, `tests/Hps.Buffers.Tests` 확인.
