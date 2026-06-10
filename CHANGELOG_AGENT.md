@@ -1,5 +1,25 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — PinnedBlockMemoryPool 테스트 직접 API 리팩터링)
+
+### 작업 단위
+- `PinnedBlockMemoryPoolTests`에서 production 타입을 reflection으로 호출하던 `PoolApi` nested class를 제거했다.
+- `PinnedBlockMemoryPool`은 이미 public API가 존재하므로, 현재 테스트는 실제 호출 경로를 직접 검증하는 방식이 더 적합하다.
+- production code 수정은 없었다.
+
+### 수정
+- `PoolApi.Create(...)` 호출을 `new PinnedBlockMemoryPool(...)`로 바꿨다.
+- reflection 전용 `using System.Reflection`, `using System.Runtime.ExceptionServices`를 제거했다.
+- `PoolApi` nested class를 삭제해 테스트가 타입/메서드 존재 여부가 아니라 실제 API 계약을 바로 검증하게 했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 Pool 테스트가 직접 public API를 사용하도록 정리됐음을 반영했다.
+- `TODOS.md`에 이번 리팩터링을 Completed로 기록했고, 다음 리뷰 단위는 `RefCountedBuffer` 최소 참조계수/반환 계약으로 유지했다.
+
+### 검증
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~PinnedBlockMemoryPoolTests"` → 통과 5, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 11, 실패 0, 건너뜀 0.
+
 ## 2026-06-10 (Codex — PinnedBlockMemoryPool 멀티스레드 스트레스 테스트)
 
 ### 작업 단위

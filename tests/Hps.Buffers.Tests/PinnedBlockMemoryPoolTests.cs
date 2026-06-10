@@ -1,6 +1,4 @@
 using System;
-using System.Reflection;
-using System.Runtime.ExceptionServices;
 using System.Threading;
 using Hps.Buffers;
 using Xunit;
@@ -14,7 +12,7 @@ namespace Hps.Buffers.Tests
         [Fact]
         public void RentAndReturn_TrackRentedCountAndBlockSize()
         {
-            PoolApi pool = PoolApi.Create(4096);
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(4096);
 
             Assert.Equal(4096, pool.BlockSize);
             Assert.Equal(0, pool.RentedCount);
@@ -34,7 +32,7 @@ namespace Hps.Buffers.Tests
         [Fact]
         public void Rent_AfterReturn_ReusesReturnedBlock()
         {
-            PoolApi pool = PoolApi.Create(128);
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
             byte[] first = pool.Rent();
             pool.Return(first);
 
@@ -49,7 +47,7 @@ namespace Hps.Buffers.Tests
         [Fact]
         public void Return_WhenBlockSizeDoesNotMatch_ThrowsAndKeepsRentedCount()
         {
-            PoolApi pool = PoolApi.Create(64);
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
 
             ArgumentException exception = Assert.Throws<ArgumentException>(delegate()
             {
@@ -67,7 +65,7 @@ namespace Hps.Buffers.Tests
         {
             Assert.Throws<ArgumentOutOfRangeException>(delegate()
             {
-                PoolApi.Create(0);
+                new PinnedBlockMemoryPool(0);
             });
         }
 
@@ -125,103 +123,6 @@ namespace Hps.Buffers.Tests
             }
 
             Assert.Equal(0, pool.RentedCount);
-        }
-
-        private sealed class PoolApi
-        {
-            private const string TypeName = "Hps.Buffers.PinnedBlockMemoryPool, Hps.Buffers";
-            private readonly object _instance;
-            private readonly Type _type;
-
-            private PoolApi(object instance, Type type)
-            {
-                _instance = instance;
-                _type = type;
-            }
-
-            public int BlockSize => GetIntProperty("BlockSize");
-
-            public int RentedCount => GetIntProperty("RentedCount");
-
-            public static PoolApi Create(int blockSize)
-            {
-                Type type = RequireType();
-                try
-                {
-                    object? instance = Activator.CreateInstance(type, new object[] { blockSize });
-                    if (instance == null)
-                        throw new InvalidOperationException(TypeName + " 인스턴스를 만들 수 있어야 한다.");
-
-                    return new PoolApi(instance, type);
-                }
-                catch (TargetInvocationException ex)
-                {
-                    RethrowInner(ex);
-                    throw;
-                }
-            }
-
-            public byte[] Rent()
-            {
-                object? result = Invoke("Rent");
-                if (result == null)
-                    throw new InvalidOperationException("Rent 는 byte[] 블록을 반환해야 한다.");
-
-                return (byte[])result;
-            }
-
-            public void Return(byte[] block)
-            {
-                Invoke("Return", block);
-            }
-
-            private int GetIntProperty(string propertyName)
-            {
-                PropertyInfo? property = _type.GetProperty(propertyName);
-                if (property == null)
-                    throw new InvalidOperationException(propertyName + " 속성이 존재해야 한다.");
-
-                object? value = property.GetValue(_instance);
-                if (!(value is int))
-                    throw new InvalidOperationException(propertyName + " 속성은 int 값을 반환해야 한다.");
-
-                return (int)value;
-            }
-
-            private object? Invoke(string methodName, params object[] args)
-            {
-                MethodInfo? method = _type.GetMethod(methodName);
-                if (method == null)
-                    throw new InvalidOperationException(methodName + " 메서드가 존재해야 한다.");
-
-                try
-                {
-                    return method.Invoke(_instance, args);
-                }
-                catch (TargetInvocationException ex)
-                {
-                    RethrowInner(ex);
-                    throw;
-                }
-            }
-
-            private static Type RequireType()
-            {
-                Type? type = Type.GetType(TypeName);
-                Assert.True(type != null, TypeName + " 타입이 존재해야 한다.");
-                if (type == null)
-                    throw new InvalidOperationException(TypeName + " 타입이 존재해야 한다.");
-
-                return type;
-            }
-
-            private static void RethrowInner(TargetInvocationException ex)
-            {
-                if (ex.InnerException == null)
-                    return;
-
-                ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
-            }
         }
     }
 }

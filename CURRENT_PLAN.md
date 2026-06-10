@@ -30,6 +30,7 @@ Phase 1 — 메모리 계층 `src/Hps.Buffers/`.
   seeded fuzz 테스트가 discover된다.
 - `src/Hps.Buffers/PinnedBlockMemoryPool.cs`가 추가됐고 최소 API 테스트가 discover된다.
 - `PinnedBlockMemoryPool` 멀티스레드 대여/반환 스트레스 테스트가 추가됐다.
+- `PinnedBlockMemoryPoolTests`는 reflection 기반 `PoolApi` 래퍼 없이 public API를 직접 호출하도록 정리됐다.
 - 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 11개를 실행했고 모두 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
@@ -40,9 +41,10 @@ Phase 1 — 메모리 계층 `src/Hps.Buffers/`.
 이 작업은 Pool 스트레스 테스트와 별도 리뷰 단위로 다룬다.
 
 ## 이번 단위의 검증 경로
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~PinnedBlockMemoryPoolTests"`
 - `dotnet test HighPerformanceSocket.slnx`
 - 테스트 출력에서 `Hps.Buffers.Tests`의 실제 테스트 11개가 discover되고 실행됐는지 확인한다.
-- 결과: 통과 11, 실패 0, 건너뜀 0.
+- 결과: focused 통과 5, 실패 0, 건너뜀 0. 전체 통과 11, 실패 0, 건너뜀 0.
 
 ## 다음 작업에서 건드리지 않을 범위
 - `Hps.Transport`
