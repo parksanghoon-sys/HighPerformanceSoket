@@ -8,6 +8,8 @@ namespace Hps.Buffers.Tests
 {
     public sealed class BipBufferTests
     {
+        // 1바이트 갭 불변식 때문에 실제로 쓸 수 있는 최대 용량은 Capacity - 1 이어야 한다.
+        // 이 테스트는 full/empty 구분용 갭을 실수로 덮어쓰지 않는지 보호한다.
         [Fact]
         public void GetWriteSpan_WhenBufferUsesCapacityMinusOne_ReportsNoMoreWritableSpace()
         {
@@ -26,6 +28,8 @@ namespace Hps.Buffers.Tests
             AssertBytes(read, 0, 7);
         }
 
+        // M1 회귀 테스트: 꼬리 영역을 물리 끝까지 채운 뒤 모두 소비해 read 가 0으로 돌아와도
+        // 빈 버퍼가 다시 쓰기 가능해야 한다. `_write == capacity` 상태 저장으로 인한 교착을 막는다.
         [Fact]
         public void GetWriteSpan_WhenTailCommitReachedPhysicalEndAndBufferBecameEmpty_AllowsWritingAgain()
         {
@@ -47,6 +51,8 @@ namespace Hps.Buffers.Tests
             Assert.True(buffer.GetWriteSpan().Length > 0);
         }
 
+        // 부분 commit 계약 테스트: 생산자가 받은 span 전체가 아니라 실제 commit 한 prefix만 소비자에게
+        // 보여야 한다. 미커밋 영역 노출은 이후 프레이밍 파서의 데이터 손상으로 이어진다.
         [Fact]
         public void Commit_WhenOnlyPartOfWriteSpanIsCommitted_ExposesOnlyCommittedPrefix()
         {
@@ -68,6 +74,8 @@ namespace Hps.Buffers.Tests
             Assert.Equal(1, buffer.Count);
         }
 
+        // tail 이 요청 최소 크기를 만족하지 못할 때 front wrap 으로 넘어가더라도,
+        // 기존 tail 데이터가 먼저 읽히고 그 다음 front 데이터가 읽히는 watermark 순서를 검증한다.
         [Fact]
         public void GetWriteSpan_WhenTailCannotSatisfyMinimumSize_WrapsToFrontAndPreservesWatermarkOrder()
         {
@@ -93,6 +101,8 @@ namespace Hps.Buffers.Tests
             AssertBytes(frontRead, 100, 4);
         }
 
+        // 단일스레드 fuzz: 랜덤 write/read/partial consume 시퀀스를 참조 Queue 와 비교한다.
+        // 작은 capacity 와 고정 seed 조합으로 wrap, empty non-zero cursor, watermark 전환 회귀를 재현 가능하게 잡는다.
         [Fact]
         public void FuzzRandomWriteReadSequences_MatchReferenceQueue()
         {
@@ -108,6 +118,8 @@ namespace Hps.Buffers.Tests
             }
         }
 
+        // M2 회귀 테스트: SPSC 환경에서 소비자가 커밋되지 않은 바이트를 관측하거나 Count 를 음수로
+        // 떨어뜨리지 않아야 한다. `_count` 기준 read span clamp 의 동시성 계약을 보호한다.
         [Fact]
         public void SpscStress_DoesNotExposeUncommittedBytesOrDriveCountNegative()
         {
@@ -218,6 +230,8 @@ namespace Hps.Buffers.Tests
                 target[i] = unchecked((byte)(start + i));
         }
 
+        // BipBuffer 의 공개 동작을 단순 Queue 모델과 계속 대조해, 내부 커서 상태를 몰라도
+        // 바이트 순서와 Count 불변식이 깨지는 지점을 재현 가능한 seed/iteration 으로 남긴다.
         private static void RunFuzzCase(int capacity, int seed)
         {
             const int iterations = 20_000;
@@ -275,6 +289,8 @@ namespace Hps.Buffers.Tests
             Assert.True(buffer.IsEmpty);
         }
 
+        // fuzz 실패 시 최근 operation 로그를 함께 남겨, 같은 seed 로 재실행하지 않아도
+        // 어떤 write/read 전환에서 공개 계약이 깨졌는지 바로 볼 수 있게 한다.
         private static void DrainOnce(
             BipBuffer buffer,
             Queue<byte> reference,

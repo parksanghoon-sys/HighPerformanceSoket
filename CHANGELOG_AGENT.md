@@ -1,5 +1,15 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — 테스트 의도 주석 규칙 반영)
+
+### 작업 단위
+- 사용자 지시에 따라 테스트에도 무엇을 검증하는지 주석으로 남기는 규칙을 `AGENT_RULES.md`에 추가했다.
+- 장기 결정으로 DECISIONS D014를 추가했다.
+- `BipBufferTests.cs`의 각 테스트에 보호하는 불변식, 회귀 사례, 경계 조건, 동시성 가정을 설명하는 주석을 추가했다.
+
+### 검증
+- `dotnet test HighPerformanceSocket.slnx` → 통과 6, 실패 0, 건너뜀 0.
+
 ## 2026-06-10 (Codex — BipBuffer seeded fuzz 테스트)
 
 ### 작업 단위
