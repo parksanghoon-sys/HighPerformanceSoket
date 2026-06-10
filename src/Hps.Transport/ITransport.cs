@@ -29,12 +29,12 @@ namespace Hps.Transport
         /// Transport 구현을 시작한다. 내부 워커, 등록 버퍼, completion queue 같은 backend 자원은
         /// 이 수명주기 안에서 준비되어야 한다.
         /// </summary>
-        ValueTask StartAsync(CancellationToken cancellationToken);
+        ValueTask StartAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Transport 구현을 중지하고 더 이상 새 연결/송신을 받지 않는다. 구현은 보유 중인 연결을 닫아
         /// <see cref="IConnection.Close"/> 계약을 만족시켜야 한다.
         /// </summary>
-        ValueTask StopAsync(CancellationToken cancellationToken);
+        ValueTask StopAsync(CancellationToken cancellationToken = default);
     }
 }

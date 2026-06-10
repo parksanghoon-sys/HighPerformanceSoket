@@ -1,5 +1,43 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — Transport 송신 큐 close/drain release)
+
+### 작업 단위
+- `ITransport.TrySend`가 수락한 pending 송신 항목을 close 시 누수 없이 release 하는 최소 큐 골격을 구현했다.
+- 실제 소켓 I/O, SAEA 백엔드, completion callback 은 넣지 않고 pending queue 와 close/drain 소유권만 별도 단위로 처리했다.
+
+### Red
+- `TransportSendQueueTests`에 `TransportBase` 타입 존재 테스트를 먼저 추가해 타입 부재 단언 실패를 확인했다.
+- `default(TransportSendBuffer)`가 `TrySend`에서 예외 없이 pending 큐에 들어갈 수 있음을 `Assert.Throws` 실패로 확인했다.
+
+### 구현
+- `TransportBase`를 추가해 `ITransport.TrySend(IConnection, TransportSendBuffer)`의 공통 소유권 판정을 구현했다.
+- `TransportConnection`을 내부 연결 상태로 추가하고 pending 송신 큐, close reject, close drain 을 구현했다.
+- `Close()`는 closed 표시와 pending drain 을 같은 lock 안에서 처리해 close 이후 새 send 가 drain 을 빠져나가지 못하게 했다.
+- 송신 펌프가 `TryDequeueSend`로 가져간 in-flight 항목은 close 가 release 하지 않도록 pending 과 분리했다.
+- `TransportBase.TrySend`는 pending 큐에 넣기 전에 `TransportSendBuffer`가 live `RefCountedBuffer`를 가리키는지 확인한다.
+  생성자를 거치지 않은 default 요청이나 이미 반환된 버퍼를 close drain 시점까지 지연시키지 않기 위한 방어다.
+- 테스트 접근을 위해 `InternalsVisibleTo("Hps.Transport.Tests")`를 추가했다.
+- `ITransport.StartAsync`/`StopAsync`는 기존 작업 중 반영된 기본 `CancellationToken` 인자를 유지했다.
+
+### 테스트
+- open 연결에서 `TrySend` 성공 후 publish 가드 ref 를 Release 해도 close 전까지 pool 이 반환되지 않고, close drain 에서 반환되는지 검증했다.
+- closed 연결에서 `TrySend`가 false 를 반환하면 Transport 가 ref 소유권을 가져가지 않아 호출자가 Release 해야 함을 검증했다.
+- `default(TransportSendBuffer)`가 pending 큐에 들어가지 않고 수락 경계에서 즉시 거부되는지 검증했다.
+- `Close()`를 두 번 호출해도 pending 항목이 한 번만 Release 되는지 검증했다.
+- 송신 펌프가 dequeue 한 in-flight 항목은 close 가 Release 하지 않고 펌프 완료 경로가 Release 해야 함을 검증했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 Transport pending queue/close drain 구현 상태와 테스트 27개 통과 상태로 갱신했다.
+- `TODOS.md`에서 이번 close/drain 작업을 Completed로 이동하고, 다음 리뷰 단위를 in-flight send completion Release 경로로 남겼다.
+- `DECISIONS.md`에 pending 과 in-flight release 책임 분리를 D016으로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"` → 통과 5, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 9, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 9, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+
 ## 2026-06-10 (Codex — Transport 버퍼 소유권 계약)
 
 ### 작업 단위

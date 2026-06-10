@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D016 — Transport close 는 pending 만 drain 하고 in-flight 는 펌프 완료 경로가 release 한다
+
+- 날짜: 2026-06-10
+- 상태: Accepted
+- 결정: `TransportBase.TrySend`가 수락한 송신 항목은 내부 `TransportConnection` pending queue 에 들어간다.
+  단, pending 큐에 넣기 전 `TransportSendBuffer`가 live `RefCountedBuffer`를 가리키는지 먼저 확인한다.
+  `TransportSendBuffer`는 struct 이므로 생성자를 거치지 않은 default 값이 들어올 수 있고, 이 값은 수락 경계에서 즉시 거부한다.
+  `TransportConnection.Close()`는 closed 표시와 pending drain 을 같은 lock 안에서 처리하며, pending queue 에 남은
+  `TransportSendBuffer.Buffer`만 `Release`한다. 송신 펌프가 이미 `TryDequeueSend`로 가져간 in-flight 항목은
+  close 가 release 하지 않고, 이후 펌프 completion 경로가 정확히 한 번 release 한다.
+- 근거: D011은 pending 과 in-flight 를 모두 누수 없이 release 하라고 요구하지만, 같은 항목을 close 와 펌프가
+  동시에 release 하면 이중 반환이 된다. pending drain 과 pump dequeue 를 같은 lock 으로 직렬화하면 항목의 현재
+  소유자가 pending queue 인지 pump 인지 분명해진다.
+- 영향: 다음 Phase 2 단위는 in-flight completion release 경로를 구현해야 한다. SAEA/RIO/io_uring completion callback 은
+  이 경로를 재사용해야 하며, drop-oldest evict release(D012)는 별도 backpressure 단위로 구현한다.
+
 ## D015 — Transport 송신 시도 계약은 ITransport.TrySend 기반으로 한다
 
 - 날짜: 2026-06-10

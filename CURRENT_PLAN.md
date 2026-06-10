@@ -44,31 +44,39 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
   실패 시 호출자가 Release 해야 한다는 소유권 경계를 XML doc으로 명시한다.
 - `IConnection`은 연결 핸들/수명 계약에 집중하도록 `Close()`/`Dispose()`만 노출한다. 송신 큐나 펌프 같은
   Transport 내부 구현 세부사항은 `IConnection` public API 에 노출하지 않는다.
-- `ITransport`는 현재 lifecycle 계약(`StartAsync`/`StopAsync`/`Dispose`)만 둔다. 실제 listen/connect/accept 모델과
+- `TransportBase`가 `ITransport.TrySend`의 공통 소유권 판정을 구현한다. 이 구현은 내부 `TransportConnection`이 만든
+  연결만 받으며, open 연결이면 pending 송신 큐에 넣고 closed 연결이면 false 를 반환한다.
+- `TransportBase.TrySend`는 pending 큐에 넣기 전에 `TransportSendBuffer`가 실제 live `RefCountedBuffer`를 가리키는지 확인한다.
+  `TransportSendBuffer`는 struct 이므로 `default` 값이 public API로 들어와 close drain 시점에 늦게 실패하지 않게 수락 경계에서 차단한다.
+- `TransportConnection.Close()`는 pending 송신 항목을 drain 하며 각 `RefCountedBuffer`를 Release 한다.
+  송신 펌프가 이미 dequeue 한 in-flight 항목은 close 가 Release 하지 않고 펌프 완료 경로가 책임진다.
+- `ITransport.StartAsync`/`StopAsync`는 기본 `CancellationToken` 인자를 허용한다. 실제 listen/connect/accept 모델과
   SAEA 구현은 다음 단위에서 테스트와 함께 확장한다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 22개를 실행했고 모두 통과했다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 27개를 실행했고 모두 통과했다.
 - 재확인: `dotnet build HighPerformanceSocket.slnx`는 경고 0개, 오류 0개로 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `ITransport.TrySend`를 만족하는 최소 송신 큐와
-close/drain release 계약을 작게 구현하고 테스트하는 것이다. 실제 소켓 I/O나 SAEA 루프백 echo 는 그 다음 단위로 둔다.
+리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 송신 펌프가 dequeue 한 in-flight 항목의 완료 Release 경로를
+작게 구현하고 테스트하는 것이다. 실제 소켓 I/O나 SAEA 루프백 echo 는 그 다음 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportContractTests"`
-  → `Hps.Transport.TransportSendBuffer` 타입 부재로 단언 실패 1개.
-- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportContractTests"`
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"`
+  → `Hps.Transport.TransportBase` 타입 부재로 단언 실패 1개. 이후 `default(TransportSendBuffer)` 수락 방어 테스트도
+  `Assert.Throws` 실패로 확인했다.
+- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 4개가 discover되고 실행됐는지 확인한다.
-- 결과: focused 통과 4, 실패 0, 건너뜀 0. 전체 통과 22, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 9개가 discover되고 실행됐는지 확인한다.
+- 결과: focused 통과 5, 실패 0, 건너뜀 0. Transport 전체 통과 9. 전체 통과 27, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
 
 ## 이번 작업에서 건드리지 않은 범위
 - SAEA/RIO/io_uring 실제 소켓 백엔드
 - listen/connect/accept endpoint 모델
-- 송신 큐/송신 펌프 구현
+- 송신 펌프 완료 처리와 실제 socket send
+- drop-oldest backpressure evict release
 - Protocol/Broker/Server
 
 위 범위는 사용자 리뷰 후 다음 단일 작업 단위에서 필요 범위만 다시 확인하고 진행한다.
