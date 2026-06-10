@@ -1,5 +1,40 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — RefCountedBuffer 최소 참조계수/반환 계약)
+
+### 작업 단위
+- D013에 따라 `RefCountedBuffer`의 최소 참조계수/반환 계약만 별도 리뷰 단위로 진행했다.
+- 고동시성 fan-out/release 해머 테스트는 다음 보강 단위로 분리했다.
+
+### Red
+- `RefCountedBufferTests`를 먼저 추가했다.
+- 컴파일 실패가 아니라 단언 실패가 되도록 임시 reflection helper를 사용했다.
+- `PinnedBlockMemoryPool.RentCounted 메서드가 존재해야 한다.` 실패 5개로 Red를 확인했다.
+
+### 구현
+- `src/Hps.Buffers/RefCountedBuffer.cs`를 추가했다.
+- `PinnedBlockMemoryPool.RentCounted()`를 추가해 기존 `Rent()`/`Return(byte[])` 경로를 재사용하도록 했다.
+- `RefCountedBuffer`는 생성 ref=1로 시작하고, `AddRef()`/`Release()`를 Interlocked 기반으로 처리한다.
+- 마지막 `Release()`가 0에 도달하면 내부 블록을 풀에 정확히 1회 반환한다.
+- 이미 반환된 버퍼의 과다 `Release()`와 반환 후 `AddRef()` 부활을 계약 위반으로 거부한다.
+- `Memory`/`Span`은 전체 블록을 노출하고, `Length`/`SetLength(int)`는 유효 payload 길이를 별도로 관리한다.
+
+### 테스트
+- counted buffer 대여 시 `RentedCount` 증가, `Memory`/`Span` 전체 블록 노출, `Length` 갱신, 마지막 `Release()` 반환.
+- 균형 잡힌 `AddRef()`/`Release()`에서 마지막 Release 전에는 반환되지 않고 마지막 Release 에서만 반환.
+- 과다 `Release()` 예외 및 풀 카운트 보존.
+- 반환 후 `AddRef()` 부활 거부.
+- `SetLength` 음수/용량 초과 거부 및 기존 길이 보존.
+- Green 후 테스트를 직접 public API 호출 방식으로 리팩터링해 reflection helper를 제거했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 RefCountedBuffer 최소 계약 구현과 테스트 16개 통과 상태를 반영했다.
+- `TODOS.md`에서 최소 계약 구현을 Completed로 옮기고, 동시 Release/fan-out 스트레스 테스트를 다음 `P1_SOON` 항목으로 분리했다.
+
+### 검증
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RefCountedBufferTests"` → 통과 5, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 16, 실패 0, 건너뜀 0.
+
 ## 2026-06-10 (Codex — PinnedBlockMemoryPool 테스트 직접 API 리팩터링)
 
 ### 작업 단위

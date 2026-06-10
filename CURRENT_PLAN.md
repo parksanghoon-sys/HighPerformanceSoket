@@ -31,24 +31,26 @@ Phase 1 — 메모리 계층 `src/Hps.Buffers/`.
 - `src/Hps.Buffers/PinnedBlockMemoryPool.cs`가 추가됐고 최소 API 테스트가 discover된다.
 - `PinnedBlockMemoryPool` 멀티스레드 대여/반환 스트레스 테스트가 추가됐다.
 - `PinnedBlockMemoryPoolTests`는 reflection 기반 `PoolApi` 래퍼 없이 public API를 직접 호출하도록 정리됐다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 11개를 실행했고 모두 통과했다.
+- `src/Hps.Buffers/RefCountedBuffer.cs`가 추가됐고 최소 참조계수/반환 계약 테스트가 discover된다.
+- `PinnedBlockMemoryPool.RentCounted()`가 추가되어 counted buffer 가 마지막 `Release()`에서 풀로 돌아간다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 16개를 실행했고 모두 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `RefCountedBuffer`의 최소 참조계수/반환 계약 구현이다.
-이 작업은 Pool 스트레스 테스트와 별도 리뷰 단위로 다룬다.
+리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트 보강이다.
+이 작업은 최소 API 구현과 별도 리뷰 단위로 다룬다.
 
 ## 이번 단위의 검증 경로
-- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~PinnedBlockMemoryPoolTests"`
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RefCountedBufferTests"`
 - `dotnet test HighPerformanceSocket.slnx`
-- 테스트 출력에서 `Hps.Buffers.Tests`의 실제 테스트 11개가 discover되고 실행됐는지 확인한다.
-- 결과: focused 통과 5, 실패 0, 건너뜀 0. 전체 통과 11, 실패 0, 건너뜀 0.
+- 테스트 출력에서 `Hps.Buffers.Tests`의 실제 테스트 16개가 discover되고 실행됐는지 확인한다.
+- 결과: focused 통과 5, 실패 0, 건너뜀 0. 전체 통과 16, 실패 0, 건너뜀 0.
 
 ## 다음 작업에서 건드리지 않을 범위
 - `Hps.Transport`
 - Protocol/Broker/Server
 - RIO/io_uring 백엔드
 
-위 범위는 `RefCountedBuffer` 최소 참조계수/반환 계약이 안정화된 뒤 진행한다.
+위 범위는 `RefCountedBuffer` 동시성 보강과 Phase 1 완료 기준이 정리된 뒤 진행한다.

@@ -56,6 +56,15 @@ namespace Hps.Buffers
         }
 
         /// <summary>
+        /// 팬아웃 payload 공유에 사용할 참조계수 버퍼를 대여한다. 반환 책임은
+        /// <see cref="RefCountedBuffer.Release"/> 가 맡으며, 마지막 참조 해제 시 내부 블록이 이 풀로 돌아온다.
+        /// </summary>
+        public RefCountedBuffer RentCounted()
+        {
+            return new RefCountedBuffer(this, Rent());
+        }
+
+        /// <summary>
         /// 대여했던 블록을 풀에 반납한다. 다른 크기의 배열은 풀 불변식을 깨므로 거부한다.
         /// </summary>
         public void Return(byte[] block)
