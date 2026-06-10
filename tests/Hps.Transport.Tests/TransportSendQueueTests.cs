@@ -119,7 +119,31 @@ namespace Hps.Transport.Tests
 
             Assert.Equal(1, pool.RentedCount);
 
-            inFlight.Buffer.Release();
+            connection.CompleteInFlightSend(inFlight);
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // in-flight 완료 Release 테스트: 송신 펌프가 dequeue 한 항목은 close drain 대상이 아니므로,
+        // completion callback 이 사용할 명시적 경로에서 Transport 소유 ref 를 정확히 반환해야 한다.
+        [Fact]
+        public void CompleteInFlightSend_WhenPumpCompletesDequeuedSend_ReleasesTransportOwnedRef()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer buffer = pool.RentCounted();
+            buffer.SetLength(4);
+            buffer.AddRef();
+            TransportSendBuffer sendBuffer = new TransportSendBuffer(buffer, 0, 4);
+            TestTransport transport = new TestTransport();
+            TransportConnection connection = transport.CreateConnection();
+
+            Assert.True(transport.TrySend(connection, sendBuffer));
+            Assert.True(connection.TryDequeueSend(out TransportSendBuffer inFlight));
+
+            buffer.Release();
+            Assert.Equal(1, pool.RentedCount);
+
+            connection.CompleteInFlightSend(inFlight);
+
             Assert.Equal(0, pool.RentedCount);
         }
 

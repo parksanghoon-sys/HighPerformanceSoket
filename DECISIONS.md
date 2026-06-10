@@ -1,5 +1,18 @@
 # DECISIONS.md
 
+## D017 — in-flight 송신 항목은 CompleteInFlightSend 경로에서 release 한다
+
+- 날짜: 2026-06-10
+- 상태: Accepted
+- 결정: `TransportConnection.TryDequeueSend`로 pending 큐에서 빠져나온 송신 항목은 더 이상 close drain 대상이 아니다.
+  송신 펌프, SAEA completion callback, RIO/io_uring completion callback, 또는 펌프 unwind 경로는
+  `TransportConnection.CompleteInFlightSend(TransportSendBuffer)`를 호출해 해당 `TransportSendBuffer.Buffer`를 정확히 한 번 `Release`한다.
+- 근거: D016에서 pending 과 in-flight 의 반환 책임을 분리했다. completion callback 마다 직접 `Release`를 흩뿌리면
+  close/drain 과의 책임 경계가 다시 흐려지고, 이후 실패/취소/unwind 경로마다 반환 누락이 생기기 쉽다.
+  단일 내부 메서드로 모으면 소켓 백엔드가 달라도 같은 반환 규칙을 재사용할 수 있다.
+- 영향: 이후 실제 송신 펌프나 SAEA/RIO/io_uring 구현은 완료·실패·취소·중단 경로에서 이 메서드를 호출해야 한다.
+  pending 큐 상태를 바꾸지 않는 completion release 이므로 이 메서드는 pending lock 을 잡지 않는다.
+
 ## D016 — Transport close 는 pending 만 drain 하고 in-flight 는 펌프 완료 경로가 release 한다
 
 - 날짜: 2026-06-10

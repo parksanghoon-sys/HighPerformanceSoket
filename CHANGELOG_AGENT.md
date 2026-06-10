@@ -1,5 +1,37 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-10 (Codex — Transport in-flight completion release)
+
+### 작업 단위
+- 송신 펌프가 pending 큐에서 dequeue 한 in-flight 항목을 완료/취소/unwind 시 반환하는 최소 release 경로를 구현했다.
+- 실제 socket send, SAEA 백엔드, listen/connect/accept 모델은 넣지 않고 completion ownership 경계만 별도 단위로 처리했다.
+
+### Red
+- `TransportSendQueueTests`에 `CompleteInFlightSend` 메서드 존재와 release 동작을 요구하는 테스트를 먼저 추가했다.
+- 구현 전에는 reflection 기반 `Assert.NotNull`이 실패해 completion release 경로가 아직 없음을 확인했다.
+
+### 구현
+- `TransportConnection.CompleteInFlightSend(TransportSendBuffer)`를 추가했다.
+- 이 메서드는 이미 `TryDequeueSend`로 pending 큐에서 빠져나온 항목의 Transport 소유 ref 를 `Release`한다.
+- pending 큐 상태를 변경하지 않으므로 `_gate` lock 을 잡지 않는다. close 는 pending 만 drain 하고 in-flight 는 펌프 완료 경로가 책임진다는 D016 경계를 유지한다.
+
+### 테스트
+- close 이후에도 이미 dequeue 된 in-flight 항목은 close 가 반환하지 않고, `CompleteInFlightSend`가 반환하는지 검증했다.
+- close 없이 정상 completion 만으로도 Transport 소유 ref 가 반환되어 `RentedCount==0`으로 돌아오는지 검증했다.
+- Red 확인 뒤 테스트는 reflection 을 제거하고 internal API 직접 호출 방식으로 리팩터링했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 in-flight completion release 구현 상태와 테스트 28개 통과 상태로 갱신했다.
+- `TODOS.md`에서 이번 in-flight completion release 작업을 Completed로 이동하고, 다음 리뷰 단위를 Phase 2 연결 모델 확정으로 남겼다.
+- `DECISIONS.md`에 completion callback 이 사용할 단일 in-flight release 경로를 D017로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~CompleteInFlightSend_WhenPumpCompletesDequeuedSend_ReleasesTransportOwnedRef"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"` → 통과 6, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 10, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 10, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+
 ## 2026-06-10 (Codex — Transport 송신 큐 close/drain release)
 
 ### 작업 단위

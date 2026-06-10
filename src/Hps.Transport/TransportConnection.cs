@@ -71,6 +71,17 @@ namespace Hps.Transport
             }
         }
 
+        /// <summary>
+        /// 송신 펌프가 in-flight 항목의 완료, 취소, 또는 unwind 를 마칠 때 Transport 소유 ref 를 해제한다.
+        /// 이 항목은 이미 pending 큐에서 빠져나왔으므로 close drain 이 다시 만지지 않는다.
+        /// </summary>
+        internal void CompleteInFlightSend(TransportSendBuffer sendBuffer)
+        {
+            // in-flight 소유권은 단일 송신 펌프가 들고 있으므로 pending 큐 lock 을 다시 잡지 않는다.
+            // close 와의 경합에서도 close 는 pending 만 drain 하고, 이미 dequeue 된 ref 는 이 경로에서만 반환된다.
+            sendBuffer.Buffer.Release();
+        }
+
         public void Close()
         {
             lock (_gate)
