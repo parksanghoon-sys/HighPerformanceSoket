@@ -93,7 +93,13 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 - `.claude/review/phase2-udp-datagram.md` 검토는 UDP 기준선을 승인했고, S1 소유권 이전 순서 개선과 S2 UDP send pump/배압 후속 항목을 남겼다.
 - S1은 반영됐다. UDP receive loop 는 handler 호출 전에 local `datagram` 참조를 끊어, handler 가 소유권을 받은 뒤 예외를 던져도
   loop catch 가 같은 `RefCountedBuffer`를 다시 Release 하지 않는다.
-- S2와 UDP receive backpressure 질문은 별도 설계 단위가 필요하므로 `TODOS.md`의 Deferred Backlog 로 이월했다.
+- S2는 UDP send 직렬화와 receive backpressure 질문으로 나눴다. send 직렬화는 이번 단위에서 처리하고,
+  receive backpressure 질문은 별도 설계 단위가 필요하므로 `TODOS.md`의 Deferred Backlog 로 유지한다.
+- S2 중 UDP send 직렬화는 반영됐다. `TrySendTo`는 datagram 마다 `Task.Run`을 만들지 않고 endpoint pending queue 에
+  `TransportSendBuffer`를 넣으며, bind 된 endpoint 당 단일 UDP send pump 가 queue 를 drain 한다.
+- UDP endpoint 가 닫히면 아직 pump 가 보내지 않은 queued datagram 의 Transport 소유 ref 를 close 경로에서 drain 하므로
+  endpoint close 전후 경합에서도 `RefCountedBuffer`가 누수되지 않는다.
+- UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 계속 Deferred Backlog 로 둔다.
 - Phase 2 backend selector 최소 계약이 추가됐다. `TransportFactory.CreateDefault()`는 상위 계층이 concrete backend 를 직접 new 하지 않도록
   `ITransport` 생성 진입점을 제공하며, 현재는 모든 환경에서 `SaeaTransport`로 fallback 한다.
 - 실제 OS/capability probe 와 RIO/io_uring 선택 로직은 아직 구현하지 않았다. factory 위치만 먼저 고정해 이후 backend 교체 지점을 만든다.
@@ -106,23 +112,28 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 다음 후보는 `.claude/review/phase2-udp-datagram.md`의 S2를 더 작게 쪼갠
-UDP endpoint send 직렬화 기준선이다. receive backpressure 정책은 fan-out/backpressure 결정과 맞물리므로 별도 단위로 둔다.
+리뷰 후 계속 진행 지시가 있으면 UDP receive backpressure 정책(Q1)을 바로 설계할지, Phase 2의 남은 loopback 안정성/동시성 기준선을
+먼저 보강할지 실제 코드와 `PLAN.md` 기준으로 다시 판단한다. receive backpressure 정책은 fan-out/backpressure 결정과 맞물리므로
+성급히 구현하지 않고 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- 파일 이동 전용 refactor 이므로 새 behavior Red 테스트는 추가하지 않는다.
-- 기존 focused 테스트 대신 Transport 전체와 솔루션 전체 테스트를 회귀 게이트로 사용한다.
+- Red: `UdpSendTo_WhenEndpointClosesBeforePumpSends_DrainsQueuedDatagramRef`가 `SaeaUdpEndpoint.PendingSendCount`
+  부재로 실패하는지 확인한다.
+- Green: endpoint pending queue 와 단일 UDP send pump 를 추가한 뒤 같은 테스트가 통과하는지 확인한다.
+- Refactor: Red 단계 reflection 확인을 제거하고 internal API 직접 검증으로 바꾼 뒤 focused 테스트를 재실행한다.
+- 기존 UDP send loopback 테스트와 함께 실행해 실제 datagram 전송과 Transport 소유 ref 반환이 유지되는지 확인한다.
 - `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 22개가 discover되고 실행됐는지 확인한다.
-- 결과: Transport 전체 통과 22. 전체 통과 40, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 23개가 discover되고 실행됐는지 확인한다.
+- 결과: Transport 전체 통과 23. 전체 통과 41, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
   `git diff --check`는 whitespace 오류 없이 통과해야 한다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
 - 실제 OS/capability probe 와 RIO/io_uring backend 선택 로직
+- UDP receive backpressure 정책
 - drop-oldest backpressure evict release
 - Protocol/Broker/Server
 

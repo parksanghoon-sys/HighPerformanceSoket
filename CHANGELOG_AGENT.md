@@ -1,5 +1,41 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — UDP endpoint send 직렬화)
+
+### 작업 단위
+- `.claude/review/phase2-udp-datagram.md`의 S2 중 UDP send 의 datagram별 `Task.Run` 생성을 제거했다.
+- 범위는 endpoint별 pending send queue 와 단일 send pump, close 전 queued datagram drain 으로 제한했다.
+  UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 별도 backlog 로 유지했다.
+
+### Red
+- `SaeaTransportTests`에 `UdpSendTo_WhenEndpointClosesBeforePumpSends_DrainsQueuedDatagramRef`를 추가했다.
+- 구현 전에는 `SaeaUdpEndpoint.PendingSendCount`가 없어 `Assert.NotNull` 단언 실패가 발생했다.
+
+### 구현
+- `SaeaUdpEndpoint`에 pending send queue, send signal, `PendingSendCount`, `TryAcceptSend`, `TryBeginSend`를 추가했다.
+- `SaeaTransport.TrySendTo`는 live buffer 검증 후 endpoint queue 에 송신 요청을 수락시키며, datagram마다 별도 `Task.Run`을 만들지 않는다.
+- `BindUdpAsync`는 endpoint별 단일 UDP send loop 를 시작한다. loop 는 queued datagram 을 순차적으로 `SendToAsync`로 보내고,
+  기존 `SendUdpDatagramAsync` finally 경로에서 Transport 소유 ref 를 정확히 한 번 Release 한다.
+- `SaeaUdpEndpoint.Close()`는 아직 pump 가 가져가지 않은 queued datagram 을 drain 하고 각 `RefCountedBuffer`를 Release 한다.
+
+### 테스트
+- Red 단계에서는 pending queue 관측 지점 부재를 reflection 으로 확인했다.
+- Green 후에는 테스트를 internal API 직접 검증으로 리팩터링해 endpoint queue 상태와 close drain 결과를 명확히 단언했다.
+- 기존 UDP send loopback 테스트와 함께 실행해 실제 datagram 전송, offset/length 범위, completion Release 계약이 유지되는지 확인했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 UDP send 직렬화 반영 상태와 다음 리뷰 대기 지점으로 갱신했다.
+- `TODOS.md`에서 combined UDP send/receive backlog 를 receive backpressure 항목으로 축소하고, send 직렬화 완료 항목을 추가했다.
+- `DECISIONS.md`에 UDP send 는 endpoint별 pending queue 와 단일 pump 로 처리한다는 D028을 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpSendTo_WhenEndpointClosesBeforePumpSends_DrainsQueuedDatagramRef"` → Red: `PendingSendCount` 부재 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- Green 후 테스트 리팩터링: UDP focused 테스트 2개 통과, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 23, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — Hps.Transport 폴더 구조 분리)
 
 ### 작업 단위

@@ -129,6 +129,7 @@ namespace Hps.Transport
                 udpEndpoint = new SaeaUdpEndpoint(this, socket);
                 RegisterUdpEndpoint(udpEndpoint);
                 StartUdpReceiveLoop(udpEndpoint);
+                StartUdpSendLoop(udpEndpoint);
                 socket = null!;
 
                 return new ValueTask<IUdpEndpoint>(udpEndpoint);
@@ -159,12 +160,7 @@ namespace Hps.Transport
             if (udpEndpoint.IsClosed)
                 return false;
 
-            _ = Task.Run(delegate()
-            {
-                return SendUdpDatagramAsync(udpEndpoint, remoteEndPoint, sendBuffer);
-            });
-
-            return true;
+            return udpEndpoint.TryAcceptSend(remoteEndPoint, sendBuffer);
         }
 
         /// <inheritdoc />
@@ -242,6 +238,33 @@ namespace Hps.Transport
             {
                 return UdpReceiveLoopAsync(udpEndpoint);
             });
+        }
+
+        private void StartUdpSendLoop(SaeaUdpEndpoint udpEndpoint)
+        {
+            // UDP 는 연결이 없지만 endpoint 단위로 단일 송신 pump 를 둔다.
+            // TrySendTo 호출마다 독립 Task 를 만들면 고빈도 publish 에서 thread-pool 이 송신 큐 역할을 하게 되므로,
+            // pending queue -> 단일 pump 경계로 직렬화해 TCP 송신 경로와 같은 소유권 반환 규율을 유지한다.
+            _ = Task.Run(delegate()
+            {
+                return UdpSendLoopAsync(udpEndpoint);
+            });
+        }
+
+        private async Task UdpSendLoopAsync(SaeaUdpEndpoint udpEndpoint)
+        {
+            while (true)
+            {
+                await udpEndpoint.WaitForSendSignalAsync().ConfigureAwait(false);
+
+                while (udpEndpoint.TryBeginSend(out SaeaUdpEndpoint.UdpSendRequest sendRequest))
+                {
+                    await SendUdpDatagramAsync(udpEndpoint, sendRequest.RemoteEndPoint, sendRequest.SendBuffer).ConfigureAwait(false);
+                }
+
+                if (udpEndpoint.IsClosed)
+                    return;
+            }
         }
 
         private async Task UdpReceiveLoopAsync(SaeaUdpEndpoint udpEndpoint)

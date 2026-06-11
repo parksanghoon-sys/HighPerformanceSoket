@@ -328,6 +328,51 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // UDP send 직렬화 회귀 테스트: TrySendTo 는 datagram 마다 독립 작업을 만들지 않고
+        // endpoint 단위 pending queue 에 소유권을 넣어야 한다. pump 가 보내기 전에 endpoint 가 닫히면 queued ref 를 drain 해야 누수가 없다.
+        [Fact]
+        public void UdpSendTo_WhenEndpointClosesBeforePumpSends_DrainsQueuedDatagramRef()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            RefCountedBuffer buffer = pool.RentCounted();
+            SaeaUdpEndpoint? udpEndpoint = null;
+
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                Socket? socket = null;
+
+                try
+                {
+                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                    udpEndpoint = new SaeaUdpEndpoint(transport, socket);
+                    socket = null;
+
+                    byte[] payload = new byte[] { 41, 42, 43 };
+                    payload.CopyTo(buffer.Span);
+                    buffer.SetLength(payload.Length);
+                    buffer.AddRef();
+
+                    TransportSendBuffer sendBuffer = new TransportSendBuffer(buffer, 0, payload.Length);
+                    Assert.True(transport.TrySendTo(udpEndpoint, new IPEndPoint(IPAddress.Loopback, 9), sendBuffer));
+                    Assert.Equal(1, udpEndpoint.PendingSendCount);
+
+                    buffer.Release();
+                    Assert.Equal(1, pool.RentedCount);
+
+                    udpEndpoint.Close();
+
+                    Assert.Equal(0, udpEndpoint.PendingSendCount);
+                    Assert.Equal(0, pool.RentedCount);
+                }
+                finally
+                {
+                    udpEndpoint?.Close();
+                    socket?.Dispose();
+                }
+            }
+        }
+
         private static async Task<ReceivedPayload> WaitForReceivedPayloadAsync(Task<ReceivedPayload> receivedTask)
         {
             Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));

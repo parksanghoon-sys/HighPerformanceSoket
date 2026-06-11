@@ -1,5 +1,19 @@
 # DECISIONS.md
 
+## D028 — UDP send 는 endpoint별 pending queue 와 단일 pump 로 직렬화한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `ITransport.TrySendTo`가 true 를 반환할 때 Transport 는 `TransportSendBuffer`의 ref 1개를 소유하되,
+  datagram 마다 독립 `Task.Run`을 만들지 않는다. `SaeaUdpEndpoint`가 endpoint 단위 pending send queue 를 보유하고,
+  bind 된 endpoint 당 단일 send pump 가 queue 를 순차적으로 drain 한다. endpoint close 는 아직 pump 가 가져가지 않은
+  queued datagram 을 drain 하며 각 `RefCountedBuffer`를 정확히 한 번 `Release()`한다.
+- 근거: UDP 는 연결이 없어 TCP `TransportConnection`을 그대로 쓸 수 없지만, 고빈도 publish 에서 datagram 마다 task 를 만들면
+  thread-pool 이 사실상의 unbounded send queue 가 된다. endpoint별 queue 와 단일 pump 는 S2 검토 의견의 thread-pool flooding
+  위험을 줄이고, TCP 송신 경로와 같은 pending/in-flight/close 소유권 경계를 제공한다.
+- 영향: SAEA 기준선의 UDP send 는 endpoint queue 를 거친다. 이후 RIO/io_uring UDP backend 도 `TrySendTo` 성공 후
+  completion/drop/close 중 정확히 한 경로에서 ref 를 반환해야 한다. UDP receive backpressure 정책은 별도 결정으로 남긴다.
+
 ## D027 — Hps.Transport 파일은 Abstractions/Runtime/Saea 책임 축으로 배치한다
 
 - 날짜: 2026-06-11

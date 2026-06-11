@@ -8,16 +8,18 @@
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` UDP endpoint send 직렬화와 receive backpressure 정책을 설계·구현한다.
-  - 무엇이 남았는지: 현재 UDP send 기준선은 datagram 마다 `Task.Run`으로 `SendToAsync`를 실행하고, UDP receive 는 handler/fan-out 이 느릴 때마다 풀에서 새 `RefCountedBuffer`를 계속 대여할 수 있다.
-  - 왜 defer 되었는지: 이번 사이클은 Phase 2 backend selector 최소 계약만 닫았다. endpoint별 pump, queue, drop/close 정책은 성능·배압 설계 범위가 커서 별도 단위가 필요하다.
-  - objective: 고빈도 UDP send 에서 thread-pool flooding 을 피하고, 느린 UDP publish handler/fan-out 에서 풀 대여가 무제한 증가하지 않도록 endpoint 단위 직렬화와 drop/close/backpressure 정책을 정한다.
+- [ ] `P1_SOON` UDP receive backpressure 정책을 설계·구현한다.
+  - 무엇이 남았는지: UDP receive 는 handler/fan-out 이 느릴 때마다 풀에서 새 `RefCountedBuffer`를 계속 대여할 수 있다.
+    UDP send 는 endpoint pending queue 와 단일 send pump 로 직렬화됐으므로 이 항목의 남은 범위가 아니다.
+  - 왜 defer 되었는지: receive backpressure 는 Phase 3 fan-out/backpressure 정책과 맞물린다. drop-oldest, drop-newest,
+    endpoint close 중 어떤 정책을 기본값으로 둘지 결정하지 않은 상태에서 Transport 단독 구현으로 고정하면 이후 Broker 정책과 충돌할 수 있다.
+  - objective: 느린 UDP publish handler/fan-out 에서 풀 대여가 무제한 증가하지 않도록 endpoint 또는 fan-out 경계의 drop/close/backpressure 정책을 정한다.
   - relevant context: `.claude/review/phase2-udp-datagram.md` S2/Q1, AGENTS.md 아키텍처 불변식 5, DECISIONS D012, D024,
     `src/Hps.Transport/SaeaTransport.cs`, `src/Hps.Transport/SaeaUdpEndpoint.cs`.
   - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`, 이후 Phase 3 Broker fan-out 정책.
-  - 현재 상태: 4096 bytes × 100 Hz 기준선에는 현재 구현이 충분하지만, Phase 4 벤치 전에 endpoint별 send pump 또는 bounded queue 정책을 검증해야 한다.
+  - 현재 상태: 4096 bytes × 100 Hz 기준선에는 현재 구현이 충분하지만, Phase 4 벤치 전에 UDP receive backlog 또는 pool growth 정책을 검증해야 한다.
   - known blockers/open questions: UDP 는 네트워크 레벨 배압이 없으므로 느린 handler 에 대해 drop-oldest, drop-newest, endpoint close 중 어떤 정책을 기본값으로 둘지 결정해야 한다.
-  - next step: Phase 2 backend selector 이후 또는 Phase 3 fan-out 진입 전에 UDP endpoint send/receive queue 정책을 Red 테스트로 먼저 고정한다.
+  - next step: Phase 3 fan-out 진입 전 UDP receive handler 지연 상황을 Red 테스트로 먼저 고정하고, 정책 결정이 필요하면 `DECISIONS.md`에 남긴다.
 
 - [ ] `P2_LATER` Phase 3 브로커 라우팅의 빈 토픽 정리 경합(R1)을 회피해 구현한다.
   - 무엇이 남았는지: `topic → 구독자 set` 라우팅을 빈 토픽 eager-cleanup 없이 구현한다.
@@ -41,6 +43,19 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] UDP endpoint send 를 endpoint별 pending queue 와 단일 pump 로 직렬화했다.
+  - 범위: `src/Hps.Transport/Saea/SaeaTransport.cs`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,
+    `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `UdpSendTo_WhenEndpointClosesBeforePumpSends_DrainsQueuedDatagramRef`가 `SaeaUdpEndpoint.PendingSendCount`
+    부재 단언 실패로 실패하는 것을 확인했다.
+  - 구현: `TrySendTo`는 datagram 마다 `Task.Run`을 만들지 않고 `SaeaUdpEndpoint` pending queue 에 송신 요청을 넣는다.
+  - 구현: bind 된 endpoint 마다 단일 UDP send pump 를 시작해 queued datagram 을 순차적으로 `SendToAsync`로 전송하고,
+    기존 completion/unwind 경로에서 Transport 소유 ref 를 Release 한다.
+  - 구현: endpoint close 는 아직 pump 가 가져가지 않은 queued datagram 의 ref 를 drain 하므로 close 전 송신 대기 항목이 누수되지 않는다.
+  - 테스트: pump 없는 internal endpoint 로 queued 상태를 고정하고 close drain 후 `RentedCount==0`을 검증했다.
+  - 검증: focused Red 실패 1, Green 통과 1. UDP focused 통과 2. Transport 전체 통과 23.
 
 - [x] `Hps.Transport`와 `Hps.Transport.Tests` 폴더 구조를 책임별로 분리했다.
   - 범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`, `AGENTS.md`, `CURRENT_PLAN.md`, `TODOS.md`,
