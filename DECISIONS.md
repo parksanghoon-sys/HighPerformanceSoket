@@ -1,5 +1,20 @@
 # DECISIONS.md
 
+## D033 — Broker subscription routing 은 NoCleanup topic entry 로 시작한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: Phase 3 Broker 의 첫 라우팅 테이블은 `SubscriptionTable`로 두며, topic 별 `IConnection` 구독자 set 을
+  `ConcurrentDictionary`로 관리한다. `Subscribe`는 topic entry 를 `GetOrAdd`로 만들고, `Unsubscribe`는 connection 만 제거한다.
+  구독자 set 이 비어도 topic entry 를 즉시 제거하지 않는다(NoCleanup). Publish fan-out 이 사용할 snapshot 경계는
+  `CopySubscribers(string, IConnection[])`로 제공해 caller 가 준비한 배열에 현재 구독자를 복사하고 전체 구독자 수를 반환한다.
+- 근거: `.claude/review/phase3-broker-routing.md`의 R1 실측에서 빈 topic eager-cleanup 과 동시 subscribe 가 겹치면
+  새 구독자가 제거된 set 에 들어가 라우팅 테이블에서 유실됐다. NoCleanup 은 hot path 에 추가 lock 을 넣지 않으면서
+  해당 경합을 제거한다. connection 은 handle identity 가 중요하므로 reference equality 로 비교한다.
+- 영향: topic key 누적이 실제 문제가 되기 전까지 즉시 cleanup 을 추가하지 않는다. 필요해지면 "비어 있고 일정 시간 미사용"인
+  entry 만 별도 안전 sweep 으로 제거하는 단위를 설계한다. 다음 Broker 단위는 이 routing table 위에서 publish fan-out,
+  송신 enqueue 실패 release, 느린 소비자 정책을 붙인다.
+
 ## D032 — TCP frame handler dispatch 실패는 frame 회수 후 connection close 로 정리한다
 
 - 날짜: 2026-06-11

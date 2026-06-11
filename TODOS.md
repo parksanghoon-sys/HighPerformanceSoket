@@ -3,7 +3,7 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - `TcpFrameReceiveHandler`의 close 1회 통지와 `OnFrame` 예외 시 frame 회수 방어를 완료했다.
+  - `SubscriptionTable`로 Broker subscription routing table 을 완료했다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
 ## Deferred Backlog
@@ -34,17 +34,6 @@
   - known blockers/open questions: UDP 는 네트워크 레벨 배압이 없으므로 느린 handler 에 대해 drop-oldest, drop-newest, endpoint close 중 어떤 정책을 기본값으로 둘지 결정해야 한다.
   - next step: Phase 3 fan-out 진입 전 UDP receive handler 지연 상황을 Red 테스트로 먼저 고정하고, 정책 결정이 필요하면 `DECISIONS.md`에 남긴다.
 
-- [ ] `P2_LATER` Phase 3 브로커 라우팅의 빈 토픽 정리 경합(R1)을 회피해 구현한다.
-  - 무엇이 남았는지: `topic → 구독자 set` 라우팅을 빈 토픽 eager-cleanup 없이 구현한다.
-  - 왜 defer 되었는지: Phase 1~2가 선행이며, 라우팅은 Phase 3 범위다.
-  - objective: 동시 구독/해지 하에서 구독 유실 없이 pub/sub 팬아웃을 라우팅한다.
-  - relevant context: `.claude/review/phase3-broker-routing.md`, DECISIONS D008. 기본 NoCleanup(+주기적 안전 sweep),
-    즉시 정리 필요 시 set 인스턴스 락. 영리한 lock-free eager-cleanup은 실측에서 틀림(약 50% 유실).
-  - 관련 파일/범위: `src/Hps.Broker/`, `tests/Hps.Broker.Tests/`.
-  - 현재 상태: 프로젝트 없음.
-  - known blockers/open questions: 토픽 키 누적이 실제로 문제되는 규모인지(필요 시에만 sweep 도입).
-  - next step: Phase 3 착수 시 R1 타깃 경합 회귀 테스트("Y 구독"‖"X 해지 후 Y 잔존")부터 작성한다.
-
 - [ ] `P2_LATER` 4096 bytes × 100 Hz 목표를 Phase 4 벤치마크 기준으로 정량화한다.
   - 무엇이 남았는지: p50/p99 latency, 허용 큐 적체, 측정 시간, 동시 연결 수, TCP/UDP별 기준을 정해야 한다.
   - 왜 defer 되었는지: 벤치마크 하니스는 Phase 4 범위이며 Phase 1~3 기능 흐름이 선행되어야 한다.
@@ -56,6 +45,17 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] Broker subscription routing table 을 구현했다.
+  - 범위: `src/Hps.Broker/`, `tests/Hps.Broker.Tests/`, `HighPerformanceSocket.slnx`, `CURRENT_PLAN.md`,
+    `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `SubscriptionTable` 타입 부재와 routing API 부재를 reflection 기반 단언 실패로 확인했다.
+  - Red: no-op stub 에서 subscribe, unsubscribe, snapshot copy, D008 R1 동시 subscribe-vs-unsubscribe 테스트가 실패하는 것을 확인했다.
+  - 구현: `topic -> connection set`을 `ConcurrentDictionary`로 관리하고, connection 은 reference equality 로 비교한다.
+  - 구현: D008에 따라 구독자 set 이 비어도 topic entry 를 즉시 제거하지 않는 NoCleanup 정책을 적용했다.
+  - 테스트: Green 후 reflection 테스트를 제거하고 직접 public API 테스트 4개만 남겼다.
+  - 검증: focused `BrokerRoutingTests` 통과 4, Broker 전체 통과 4, 솔루션 전체 통과 71,
+    빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] TCP frame receive handler 수명/예외 경계를 보강했다.
   - 범위: `src/Hps.Protocol/`, `tests/Hps.Protocol.Tests/`, `CURRENT_PLAN.md`, `TODOS.md`,

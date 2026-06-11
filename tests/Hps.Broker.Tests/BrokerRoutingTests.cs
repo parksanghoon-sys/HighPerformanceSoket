@@ -1,0 +1,121 @@
+using System.Threading;
+using System.Threading.Tasks;
+using Hps.Transport;
+using Xunit;
+
+namespace Hps.Broker.Tests
+{
+    public sealed class BrokerRoutingTests
+    {
+        // 기본 구독 라우팅 테스트: 하나의 connection 이 특정 topic 에 subscribe 되면
+        // 같은 topic snapshot 에만 나타나고 다른 topic 에는 섞이지 않아야 fan-out topic 격리가 유지된다.
+        [Fact]
+        public void Subscribe_WhenConnectionSubscribes_AddsOnlyThatTopic()
+        {
+            SubscriptionTable table = new SubscriptionTable();
+            FakeConnection alpha = new FakeConnection();
+            FakeConnection beta = new FakeConnection();
+
+            bool added = table.Subscribe("alpha", alpha);
+            bool addedAgain = table.Subscribe("alpha", alpha);
+            table.Subscribe("beta", beta);
+
+            IConnection[] subscribers = new IConnection[4];
+            int total = table.CopySubscribers("alpha", subscribers);
+
+            Assert.True(added);
+            Assert.False(addedAgain);
+            Assert.True(table.IsSubscribed("alpha", alpha));
+            Assert.False(table.IsSubscribed("alpha", beta));
+            Assert.Equal(1, table.CountSubscribers("alpha"));
+            Assert.Equal(1, total);
+            Assert.Same(alpha, subscribers[0]);
+        }
+
+        // 해지 테스트: unsubscribe 는 지정 topic 의 지정 connection 만 제거해야 한다.
+        // 제거 후 빈 topic entry 를 즉시 지우지 않는 NoCleanup 정책은 내부 구현 사항이며, public 관측은 구독자 0명이다.
+        [Fact]
+        public void Unsubscribe_WhenConnectionLeaves_RemovesOnlyThatSubscription()
+        {
+            SubscriptionTable table = new SubscriptionTable();
+            FakeConnection alpha = new FakeConnection();
+            FakeConnection beta = new FakeConnection();
+
+            table.Subscribe("topic", alpha);
+            table.Subscribe("topic", beta);
+
+            bool removed = table.Unsubscribe("topic", alpha);
+            bool removedAgain = table.Unsubscribe("topic", alpha);
+
+            Assert.True(removed);
+            Assert.False(removedAgain);
+            Assert.False(table.IsSubscribed("topic", alpha));
+            Assert.True(table.IsSubscribed("topic", beta));
+            Assert.Equal(1, table.CountSubscribers("topic"));
+        }
+
+        // snapshot 복사 테스트: publish fan-out 은 caller 가 준비한 배열에 현재 구독자를 복사해 사용할 수 있어야 한다.
+        // 반환값은 전체 구독자 수이고, destination 이 작으면 복사 가능한 앞부분만 채워 재시도 크기를 판단할 수 있게 한다.
+        [Fact]
+        public void CopySubscribers_WhenDestinationIsSmaller_ReturnsTotalSubscriberCount()
+        {
+            SubscriptionTable table = new SubscriptionTable();
+            FakeConnection first = new FakeConnection();
+            FakeConnection second = new FakeConnection();
+            table.Subscribe("topic", first);
+            table.Subscribe("topic", second);
+            IConnection[] destination = new IConnection[1];
+
+            int total = table.CopySubscribers("topic", destination);
+
+            Assert.Equal(2, total);
+            Assert.NotNull(destination[0]);
+        }
+
+        // D008 R1 회귀 테스트: 빈 topic 을 즉시 제거하는 eager-cleanup 은
+        // "새 구독 추가"와 "기존 마지막 구독 해지"가 겹칠 때 새 구독을 제거된 set 에 넣어 유실시킬 수 있다.
+        [Fact]
+        public async Task SubscribeAndUnsubscribe_WhenTopicBecomesEmptyConcurrently_DoesNotLoseNewSubscriber()
+        {
+            const int Iterations = 20000;
+
+            for (int iteration = 0; iteration < Iterations; iteration++)
+            {
+                SubscriptionTable table = new SubscriptionTable();
+                FakeConnection existing = new FakeConnection();
+                FakeConnection incoming = new FakeConnection();
+                table.Subscribe("topic", existing);
+
+                using (ManualResetEventSlim start = new ManualResetEventSlim(false))
+                {
+                    Task subscribeTask = Task.Run(delegate()
+                    {
+                        start.Wait();
+                        table.Subscribe("topic", incoming);
+                    });
+                    Task unsubscribeTask = Task.Run(delegate()
+                    {
+                        start.Wait();
+                        table.Unsubscribe("topic", existing);
+                    });
+
+                    start.Set();
+                    await Task.WhenAll(subscribeTask, unsubscribeTask);
+                }
+
+                Assert.True(table.IsSubscribed("topic", incoming), "iteration=" + iteration);
+            }
+        }
+
+        private sealed class FakeConnection : IConnection
+        {
+            public void Close()
+            {
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+    }
+}

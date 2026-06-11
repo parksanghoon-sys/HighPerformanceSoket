@@ -1,5 +1,35 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — Broker subscription routing table)
+
+### 작업 단위
+- Phase 3 Broker 의 첫 단위로 `src/Hps.Broker`와 `tests/Hps.Broker.Tests` 프로젝트를 추가했다.
+- 범위는 topic 별 subscription routing table 로 제한했다. publish fan-out, command handler, backpressure 는 포함하지 않았다.
+
+### Red
+- Broker 프로젝트/`SubscriptionTable` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- `Subscribe`/`Unsubscribe`/`IsSubscribed`/`CountSubscribers`/`CopySubscribers` API 부재를 reflection 기반 테스트의 단언 실패로 확인했다.
+- 직접 public API 동작 테스트는 no-op stub 에서 구독 추가, 해지, snapshot 복사, D008 R1 동시 subscribe-vs-unsubscribe 경계를 만족하지 못해 실패했다.
+
+### 구현
+- `SubscriptionTable`을 추가해 `topic -> connection set` 라우팅을 관리한다.
+- D008에 따라 구독자 set 이 비어도 topic entry 를 즉시 제거하지 않는 NoCleanup 정책을 적용했다.
+- connection 비교는 reference equality 로 고정했다. 같은 connection handle 만 같은 구독자로 취급한다.
+- `CopySubscribers`는 caller 제공 배열에 가능한 만큼 복사하고, 반환값으로 전체 구독자 수를 알려 fan-out caller 가 재시도 크기를 판단할 수 있게 했다.
+- 테스트는 Green 후 reflection 계약 테스트를 제거하고 직접 public API 테스트만 남겼다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D033으로 Broker subscription routing 결정을 기록했다.
+- `TODOS.md`의 기존 Broker routing deferred 항목은 완료로 이동했다.
+- `CURRENT_PLAN.md`를 routing table 완료 및 사용자 리뷰 대기 상태로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerRoutingTests"` → Red: 타입 부재 실패 1 → API 부재 실패 1/통과 1 → 동작 Red 실패 4/통과 2 → Green 통과 6 → 리팩터 후 통과 4.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj` → 통과 4, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Broker.Tests` 통과 4 + `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — TCP frame receive handler hardening)
 
 ### 작업 단위

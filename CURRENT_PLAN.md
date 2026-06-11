@@ -134,27 +134,31 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
   connection 별 1회만 알린다. close 통지 표식은 weak marker 로 관리해 단명 connection 을 강하게 붙잡지 않는다.
 - `ITcpFrameHandler.OnFrame`이 예외를 던지면 frame 을 수락하지 못한 것으로 보고 어댑터가 `RefCountedBuffer`를 Release 한 뒤
   connection 을 닫는다.
-- Broker routing, subscription table, Server wiring 은 아직 후속 단위로 남아 있다.
+- `src/Hps.Broker`와 `tests/Hps.Broker.Tests` 프로젝트가 추가됐다.
+- `SubscriptionTable`이 추가되어 topic 별 `IConnection` 구독자 set 을 관리한다. D008에 따라 빈 topic entry 는 즉시 제거하지 않는
+  NoCleanup 정책을 사용하며, 동시 subscribe-vs-unsubscribe R1 경합 테스트를 영구 회귀로 고정했다.
+- Broker publish fan-out, command handler, backpressure, Server wiring 은 아직 후속 단위로 남아 있다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 Broker routing 계약부터 시작할지, Server wiring 전에 필요한 추가 Protocol 응답/에러 경계를
-먼저 둘지 `PLAN.md`와 리뷰 의견 기준으로 다시 판단한다.
+리뷰 후 계속 진행 지시가 있으면 `SubscriptionTable` 위에 publish fan-out 을 붙일지, command handler 를 먼저 둘지
+`PLAN.md`와 리뷰 의견 기준으로 다시 판단한다.
 UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 성급히 구현하지 않고 별도 설계 단위로 둔다.
 D010 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 `TODOS.md` Deferred Backlog 에서 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- `TcpFrameReceiveHandler`의 close 1회 통지와 handler 예외 시 frame 회수/connection close 를 Red 로 먼저 확인한다.
-- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpFrameReceiveHandlerTests"`
-- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj`
+- `SubscriptionTable` 타입/API 부재를 Red 로 먼저 확인한다.
+- 기본 subscribe/unsubscribe, snapshot 복사, D008 R1 동시 subscribe-vs-unsubscribe 유실 방지를 테스트로 확인한다.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerRoutingTests"`
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
-- 테스트 출력에서 `Hps.Buffers.Tests`, `Hps.Transport.Tests`, `Hps.Protocol.Tests`가 모두 discover되고 실행되는지 확인한다.
-- 결과: focused `TcpFrameReceiveHandlerTests` 통과 7. Protocol 전체 통과 23.
-  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23,
+- 테스트 출력에서 `Hps.Broker.Tests`, `Hps.Buffers.Tests`, `Hps.Transport.Tests`, `Hps.Protocol.Tests`가 모두 discover되고 실행되는지 확인한다.
+- 결과: focused `BrokerRoutingTests` 통과 4. Broker 전체 통과 4.
+  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Broker.Tests` 통과 4 + `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23,
   실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
   `git diff --check`는 whitespace 오류 없이 통과했다.
 
@@ -163,7 +167,7 @@ D010 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 `TODOS.md` De
 - 실제 OS/capability probe 와 RIO/io_uring backend 선택 로직
 - UDP receive backpressure 정책
 - drop-oldest backpressure evict release
-- Broker routing, subscription table, Server, samples
+- Broker publish fan-out, command handler, backpressure, Server, samples
 - protocol error 응답 또는 malformed command 처리 정책
 - 실제 Server 에 `TcpFrameReceiveHandler`를 등록하는 wiring
 - D010 랜덤 적대적 fuzz 대량 회귀 테스트
