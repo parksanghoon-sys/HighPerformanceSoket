@@ -1,5 +1,18 @@
 # DECISIONS.md
 
+## D035 — Broker publish fan-out 은 같은 RefCountedBuffer 안의 payload range 를 전송할 수 있어야 한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `BrokerPublisher`는 기존 전체 payload publish 외에 `Publish(string, RefCountedBuffer, int offset, int length)`를 제공한다.
+  이 overload 는 같은 `RefCountedBuffer` 안의 지정된 offset/length 범위만 `TransportSendBuffer`로 전달한다. 범위는 구독자 snapshot
+  전에 검증하며, 구독자가 0명인 topic 이라도 잘못된 offset/length 는 즉시 `ArgumentOutOfRangeException`으로 거부한다.
+- 근거: TCP command frame 은 현재 `PUBLISH <topic> <payload>` 전체가 하나의 `RefCountedBuffer`로 조립된다. command handler 가
+  실제 payload 만 fan-out 하려면 같은 buffer 의 payload slice 를 전송해야 하며, 여기서 새 `RefCountedBuffer`로 복사하면
+  D009의 TCP publish 1회 복사 원칙을 깨고 추가 관리힙/I/O buffer 소유권 경계를 만든다.
+- 영향: 다음 command handler 단위는 `TcpCommandDecoder`가 계산한 payload slice 를 이 ranged publish overload 로 넘겨야 한다.
+  `BrokerPublisher`는 여전히 publish guard ref 를 해제하지 않으므로 handler 는 Publish 반환 뒤 원본 frame ref 를 Release 해야 한다.
+
 ## D034 — Broker publish fan-out 은 구독자별 AddRef 후 Transport.TrySend 계약을 따른다
 
 - 날짜: 2026-06-11

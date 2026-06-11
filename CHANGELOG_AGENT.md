@@ -1,5 +1,35 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — Broker publish payload range)
+
+### 작업 단위
+- `BrokerPublisher`가 같은 `RefCountedBuffer` 안의 일부 offset/length 범위만 fan-out 할 수 있게 했다.
+- 범위는 command handler 선행 조건인 payload slice 전송 계약으로 제한했다.
+- TCP command handler, protocol error 응답, Server wiring 은 포함하지 않았다.
+
+### Red
+- `Publish(string, RefCountedBuffer, int, int)` overload 부재를 reflection 기반 단언 실패로 확인했다.
+- overload no-op stub 에서 payload range fan-out 이 수락 수 0으로 실패하는 것을 확인했다.
+- 잘못된 offset/length 가 0-subscriber topic 에서 예외 없이 묻히는 실패를 확인했다.
+
+### 구현
+- 기존 `Publish(string, RefCountedBuffer)`는 `offset=0`, `length=payload.Length`로 ranged overload 에 위임한다.
+- ranged overload 는 구독자 snapshot 전에 offset/length 를 payload length 기준으로 검증한다.
+- 구독자별 send 는 기존 AddRef/TrySend/false-release 계약을 유지하면서 `TransportSendBuffer(payload, offset, length)`를 전달한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D035로 Broker publish payload range 결정을 기록했다.
+- `CURRENT_PLAN.md`를 payload range 완료 및 command handler 선행 조건 해소 상태로 갱신했다.
+- `TODOS.md` Completed에 이번 단위를 추가했다.
+
+### 검증
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerPublisherTests"` → Red: overload 부재 실패 1/통과 3 → Green 통과 4 → Red: range 동작 실패 2/통과 4 → Green 통과 6.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj` → 통과 10, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Broker.Tests` 통과 10 + `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — Claude 검토 조치 현황 문서화)
 
 ### 작업 단위

@@ -32,10 +32,13 @@ namespace Hps.Broker.Tests
 
             ConstructorInfo? constructor = publisherType!.GetConstructor(new Type[] { typeof(SubscriptionTable), typeof(ITransport) });
             MethodInfo? publish = publisherType.GetMethod("Publish", new Type[] { typeof(string), typeof(RefCountedBuffer) });
+            MethodInfo? rangedPublish = publisherType.GetMethod("Publish", new Type[] { typeof(string), typeof(RefCountedBuffer), typeof(int), typeof(int) });
 
             Assert.NotNull(constructor);
             Assert.NotNull(publish);
             Assert.Equal(typeof(int), publish!.ReturnType);
+            Assert.NotNull(rangedPublish);
+            Assert.Equal(typeof(int), rangedPublish!.ReturnType);
         }
 
         // fan-out 성공 경로는 payload 를 구독자 수만큼 복사하지 않고 같은 RefCountedBuffer 에 AddRef 한 뒤
@@ -104,6 +107,55 @@ namespace Hps.Broker.Tests
 
             transport.ReleaseAcceptedBuffers();
             payload.Release();
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // TCP command frame 은 `PUBLISH topic payload` 전체가 하나의 RefCountedBuffer 안에 들어온다.
+        // command handler 가 추가 복사 없이 payload 부분만 fan-out 하려면 BrokerPublisher 가 offset/length 범위를 그대로 TransportSendBuffer 에 넘겨야 한다.
+        [Fact]
+        public void Publish_WhenPayloadRangeIsSpecified_SendsOnlyThatRange()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer frame = pool.RentCounted();
+            frame.SetLength(12);
+
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            FakeConnection subscriber = new FakeConnection();
+            subscriptions.Subscribe("topic", subscriber);
+
+            FakeTransport transport = new FakeTransport();
+            BrokerPublisher publisher = new BrokerPublisher(subscriptions, transport);
+
+            int accepted = publisher.Publish("topic", frame, 8, 4);
+
+            Assert.Equal(1, accepted);
+            Assert.Single(transport.AcceptedSends);
+            Assert.Same(frame, transport.AcceptedSends[0].Buffer.Buffer);
+            Assert.Equal(8, transport.AcceptedSends[0].Buffer.Offset);
+            Assert.Equal(4, transport.AcceptedSends[0].Buffer.Length);
+
+            transport.ReleaseAcceptedBuffers();
+            frame.Release();
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // 잘못된 payload slice 는 구독자가 없더라도 호출자 버그이므로 즉시 거부해야 한다.
+        // 그렇지 않으면 command handler 의 offset 계산 오류가 0-subscriber topic 에서 조용히 묻혀 이후 fan-out 시점에만 드러난다.
+        [Fact]
+        public void Publish_WhenPayloadRangeIsInvalid_ThrowsBeforeFanOut()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer frame = pool.RentCounted();
+            frame.SetLength(5);
+
+            BrokerPublisher publisher = new BrokerPublisher(new SubscriptionTable(), new FakeTransport());
+
+            Assert.Throws<ArgumentOutOfRangeException>(delegate()
+            {
+                publisher.Publish("topic", frame, 4, 2);
+            });
+
+            frame.Release();
             Assert.Equal(0, pool.RentedCount);
         }
 

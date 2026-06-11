@@ -39,16 +39,31 @@ namespace Hps.Broker
             if (payload == null)
                 throw new ArgumentNullException(nameof(payload));
 
+            return Publish(topic, payload, 0, payload.Length);
+        }
+
+        /// <summary>
+        /// 지정 topic 의 현재 구독자에게 payload buffer 안의 일부 범위만 전송한다.
+        ///
+        /// TCP command frame 처럼 명령, 토픽, 실제 payload 가 같은 <paramref name="payload"/> 안에 같이 있을 때
+        /// 추가 복사 없이 실제 payload slice 만 fan-out 하기 위한 진입점이다.
+        /// </summary>
+        public int Publish(string topic, RefCountedBuffer payload, int offset, int length)
+        {
+            if (payload == null)
+                throw new ArgumentNullException(nameof(payload));
+
+            ValidatePayloadRange(payload, offset, length);
+
             IConnection[] subscribers = RentSubscriberSnapshotBuffer(topic);
             try
             {
                 int subscriberCount = CopySubscribersIntoSnapshot(topic, ref subscribers);
                 int acceptedCount = 0;
-                int payloadLength = payload.Length;
 
                 for (int index = 0; index < subscriberCount; index++)
                 {
-                    if (TrySendToSubscriber(subscribers[index], payload, payloadLength))
+                    if (TrySendToSubscriber(subscribers[index], payload, offset, length))
                         acceptedCount++;
                 }
 
@@ -86,15 +101,24 @@ namespace Hps.Broker
             }
         }
 
+        private static void ValidatePayloadRange(RefCountedBuffer payload, int offset, int length)
+        {
+            int payloadLength = payload.Length;
+            if (offset < 0 || offset > payloadLength)
+                throw new ArgumentOutOfRangeException(nameof(offset), "Offset 은 payload 길이 안에 있어야 한다.");
+            if (length < 0 || length > payloadLength - offset)
+                throw new ArgumentOutOfRangeException(nameof(length), "Length 는 Offset 이후 payload 범위 안에 있어야 한다.");
+        }
+
         // 구독자별 ref 는 Transport 가 TrySend true 를 반환했을 때만 Transport 소유가 된다.
         // false 또는 생성/전송 중 예외 경로에서는 Broker 가 방금 추가한 ref 를 되돌려 publish guard ref 만 남긴다.
-        private bool TrySendToSubscriber(IConnection subscriber, RefCountedBuffer payload, int payloadLength)
+        private bool TrySendToSubscriber(IConnection subscriber, RefCountedBuffer payload, int offset, int length)
         {
             payload.AddRef();
             bool accepted = false;
             try
             {
-                TransportSendBuffer sendBuffer = new TransportSendBuffer(payload, 0, payloadLength);
+                TransportSendBuffer sendBuffer = new TransportSendBuffer(payload, offset, length);
                 accepted = _transport.TrySend(subscriber, sendBuffer);
                 return accepted;
             }

@@ -140,6 +140,8 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - `BrokerPublisher`가 추가되어 `SubscriptionTable` snapshot 을 구독자별 `ITransport.TrySend` 호출로 fan-out 한다.
   구독자마다 같은 `RefCountedBuffer`에 `AddRef`하고, Transport 가 거부한 구독자 ref 는 즉시 `Release`한다.
   publish guard ref 는 caller 가 계속 소유하므로 Publish 반환 뒤 caller 가 직접 `Release`해야 한다.
+- `BrokerPublisher`는 같은 `RefCountedBuffer` 안의 offset/length payload range 를 fan-out 할 수 있다.
+  TCP command frame 의 `PUBLISH <topic> <payload>` 버퍼에서 payload slice 만 추가 복사 없이 전송하기 위한 선행 조건이다.
 - `.claude/review/review-status-2026-06-11.md`가 추가되어 기존 Claude 검토 의견의 현재 조치 여부를 정리했다.
   기존 `.claude/review/*.md` 원문은 당시 스냅샷으로 보존하고, 현재 작업 트리와 어긋나는 오래된 평가는
   review status 문서에서 superseded 로 해석한다.
@@ -149,23 +151,23 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 TCP command 를 `SubscriptionTable`/`BrokerPublisher`에 연결하는 command handler 를 둘지,
-Server wiring 을 먼저 둘지 `PLAN.md`와 리뷰 의견 기준으로 다시 판단한다.
+리뷰 후 계속 진행 지시가 있으면 TCP command 를 `SubscriptionTable`/`BrokerPublisher`에 연결하는 command handler 를 우선 검토한다.
+payload range fan-out 선행 조건은 완료됐으므로, command handler 는 `SUBSCRIBE`는 routing table 에 연결하고 `PUBLISH`는 payload slice 를 ranged publish 로 넘기는 방향이 자연스럽다.
 UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 성급히 구현하지 않고 별도 설계 단위로 둔다.
 D010 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 `TODOS.md` Deferred Backlog 에서 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- `BrokerPublisher` 타입 부재를 Red 로 먼저 확인한다.
-- `BrokerPublisher(SubscriptionTable, ITransport)`와 `Publish(string, RefCountedBuffer)` 계약 부재를 Red 로 확인한다.
-- 구독자별 같은 payload ref fan-out, `TrySend` false 구독자 ref 즉시 Release 를 테스트로 확인한다.
+- `BrokerPublisher.Publish(string, RefCountedBuffer, int, int)` overload 부재를 Red 로 확인한다.
+- range overload no-op 상태에서 payload slice fan-out 과 잘못된 range 즉시 거부가 실패하는 것을 확인한다.
+- 구독자별 같은 buffer ref fan-out, offset/length 보존, `TrySend` false 구독자 ref 즉시 Release 를 테스트로 확인한다.
 - `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerPublisherTests"`
 - `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
 - 테스트 출력에서 `Hps.Broker.Tests`, `Hps.Buffers.Tests`, `Hps.Transport.Tests`, `Hps.Protocol.Tests`가 모두 discover되고 실행되는지 확인한다.
-- 결과: focused `BrokerPublisherTests` Red/Green 완료 후 최종 통과 4. Broker 전체 통과 8.
-  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Broker.Tests` 통과 8 + `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23,
+- 결과: focused `BrokerPublisherTests` Red/Green 완료 후 최종 통과 6. Broker 전체 통과 10.
+  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Broker.Tests` 통과 10 + `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23,
   실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
   `git diff --check`는 whitespace 오류 없이 통과했다.
 

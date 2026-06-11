@@ -4,6 +4,7 @@
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
   - `BrokerPublisher`로 Broker publish fan-out 소유권 경계를 완료했다.
+  - `BrokerPublisher`가 payload range 를 추가 복사 없이 fan-out 할 수 있게 됐다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
@@ -46,6 +47,16 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] Broker publish payload range 를 구현했다.
+  - 범위: `src/Hps.Broker/BrokerPublisher.cs`, `tests/Hps.Broker.Tests/BrokerPublisherTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `Publish(string, RefCountedBuffer, int, int)` overload 부재를 reflection 기반 단언 실패로 확인했다.
+  - Red: no-op overload 에서 payload range fan-out 과 잘못된 range 즉시 거부가 실패하는 것을 확인했다.
+  - 구현: 기존 full publish 는 ranged publish 로 위임하고, ranged publish 는 구독자 snapshot 전에 offset/length 를 검증한다.
+  - 구현: 구독자별 send 는 기존 AddRef/TrySend/false-release 계약을 유지하면서 `TransportSendBuffer`에 offset/length 를 그대로 전달한다.
+  - 검증: focused `BrokerPublisherTests` 통과 6, Broker 전체 통과 10, 솔루션 전체 통과 77,
+    빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] Claude 검토 의견 조치 현황을 문서화했다.
   - 범위: `.claude/review/review-status-2026-06-11.md`, `.claude/review/README.md`,
