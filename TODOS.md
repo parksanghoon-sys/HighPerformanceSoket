@@ -4,6 +4,7 @@
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
   - `BrokerPublisher`로 Broker publish fan-out 소유권 경계를 완료했다.
+  - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
 ## Deferred Backlog
@@ -45,6 +46,14 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] Claude 검토 의견 조치 현황을 문서화했다.
+  - 범위: `.claude/review/review-status-2026-06-11.md`, `.claude/review/README.md`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 구현: 기존 Claude 검토 원문은 삭제하지 않고 보존했다.
+  - 구현: 현재 작업 트리 기준으로 must-fix 해소 여부, 오래된 종합 리뷰의 superseded 상태,
+    남은 비차단 항목을 별도 review status 문서에 정리했다.
+  - 검증: 솔루션 전체 테스트 통과 75, 빌드 경고 0/오류 0, `git diff --check` whitespace 오류 없음.
 
 - [x] Broker publish fan-out 을 구현했다.
   - 범위: `src/Hps.Broker/BrokerPublisher.cs`, `src/Hps.Broker/Hps.Broker.csproj`,

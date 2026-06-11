@@ -140,6 +140,9 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - `BrokerPublisher`가 추가되어 `SubscriptionTable` snapshot 을 구독자별 `ITransport.TrySend` 호출로 fan-out 한다.
   구독자마다 같은 `RefCountedBuffer`에 `AddRef`하고, Transport 가 거부한 구독자 ref 는 즉시 `Release`한다.
   publish guard ref 는 caller 가 계속 소유하므로 Publish 반환 뒤 caller 가 직접 `Release`해야 한다.
+- `.claude/review/review-status-2026-06-11.md`가 추가되어 기존 Claude 검토 의견의 현재 조치 여부를 정리했다.
+  기존 `.claude/review/*.md` 원문은 당시 스냅샷으로 보존하고, 현재 작업 트리와 어긋나는 오래된 평가는
+  review status 문서에서 superseded 로 해석한다.
 - Broker command handler, backpressure, Server wiring 은 아직 후속 단위로 남아 있다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 

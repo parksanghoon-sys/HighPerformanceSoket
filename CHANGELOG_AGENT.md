@@ -1,5 +1,28 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — Claude 검토 조치 현황 문서화)
+
+### 작업 단위
+- 사용자가 요청한 `.claude/review/` 검토 의견 확인 결과를 문서로 남겼다.
+- 기존 Claude 검토 문서는 삭제하지 않고 보존했다.
+- 범위는 review status 문서와 상태 문서 연결로 제한했고, production/test code 는 수정하지 않았다.
+
+### 조치
+- `.claude/review/review-status-2026-06-11.md`를 추가했다.
+- `REVIEW_2026-06-11.md`가 현재 작업 트리 기준으로는 오래된 스냅샷임을 명시했다.
+- must-fix/should-fix/O 항목별 현재 조치 여부와 남은 비차단 항목을 정리했다.
+- `.claude/review/README.md`에 현재 조치 현황 문서 링크와 보존 원칙을 추가했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 review status 문서가 추가됐고 기존 검토 원문은 보존한다는 현재 상태를 기록했다.
+- `TODOS.md`의 Completed에 이번 문서화 작업을 추가했다.
+
+### 검증
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Broker.Tests` 통과 8 + `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — Broker publish fan-out)
 
 ### 작업 단위
