@@ -126,37 +126,39 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
   완성 frame 을 `ITcpFrameHandler`로 전달한다.
 - `TcpFrameReceiveHandler`는 `PayloadTooLarge`를 받으면 D010 계약대로 connection 을 닫고 상위 close handler 에 알린다.
   Transport close 알림을 받으면 조립 중 partial payload 를 Dispose 해 D011 종료 누수 0 경계를 지킨다.
-- 실제 command codec, Broker, Server wiring 은 아직 후속 단위로 남아 있다.
+- `TcpCommandDecoder`가 추가되어 TCP frame payload 를 `SUBSCRIBE <topic>` 또는 `PUBLISH <topic> <payload>` command 로 해석한다.
+  topic/payload 는 원본 frame 의 span view 이며, malformed input 은 예외 없이 `TcpCommandDecodeError`로 보고한다.
+- Broker routing, subscription table, Server wiring 은 아직 후속 단위로 남아 있다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 TCP command codec 계약부터 시작할지, Server wiring 전에 필요한 추가 Protocol 경계를
+리뷰 후 계속 진행 지시가 있으면 Broker routing 계약부터 시작할지, Server wiring 전에 필요한 추가 Protocol 응답/에러 경계를
 먼저 둘지 `PLAN.md`와 리뷰 의견 기준으로 다시 판단한다.
 UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 성급히 구현하지 않고 별도 설계 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- `TcpFrameReceiveHandler` 타입 부재를 Red 로 먼저 확인한다.
-- Transport receive handler 로 등록 가능한 public API, raw chunk→frame 전달, partial close release,
-  `PayloadTooLarge` close 정책을 테스트로 확인한다.
-- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpFrameReceiveHandlerTests"`
+- `TcpCommandDecoder` 타입 부재와 command API 부재를 Red 로 먼저 확인한다.
+- subscribe/publish 성공 경계, publish payload 보존, malformed frame 의 error 반환을 테스트로 확인한다.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpCommandDecoderTests"`
 - `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
 - 테스트 출력에서 `Hps.Buffers.Tests`, `Hps.Transport.Tests`, `Hps.Protocol.Tests`가 모두 discover되고 실행되는지 확인한다.
-- 결과: focused `TcpFrameReceiveHandlerTests` 통과 5. Protocol 전체 통과 12.
-  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 12,
+- 결과: focused `TcpCommandDecoderTests` 통과 9. Protocol 전체 통과 21.
+  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 21,
   실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
-  `git diff --check`는 whitespace 오류 없이 통과했다. Git의 LF↔CRLF 안내 경고만 출력됐다.
+  `git diff --check`는 whitespace 오류 없이 통과했다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
 - 실제 OS/capability probe 와 RIO/io_uring backend 선택 로직
 - UDP receive backpressure 정책
 - drop-oldest backpressure evict release
-- TCP command codec, Broker, Server, samples
+- Broker routing, subscription table, Server, samples
+- protocol error 응답 또는 malformed command 처리 정책
 - 실제 Server 에 `TcpFrameReceiveHandler`를 등록하는 wiring
 
 위 범위는 사용자 리뷰 후 다음 단일 작업 단위에서 필요 범위만 다시 확인하고 진행한다.

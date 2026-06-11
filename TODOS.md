@@ -3,7 +3,7 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - `TcpFrameReceiveHandler`로 Transport raw TCP chunk 를 frame callback 으로 변환하는 어댑터를 완료했다.
+  - `TcpCommandDecoder`로 TCP frame payload 를 `SUBSCRIBE`/`PUBLISH` command 로 해석하는 단위를 완료했다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
 ## Deferred Backlog
@@ -43,6 +43,19 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] TCP command decoder 를 구현했다.
+  - 범위: `src/Hps.Protocol/`, `tests/Hps.Protocol.Tests/`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `TcpCommandDecoder` 타입 부재와 `TcpCommand`/`TcpCommandKind`/`TcpCommandDecodeError`/`TryDecode`
+    계약 부재를 reflection 기반 단언 실패로 확인했다.
+  - Red: 동작 테스트 8개는 스텁 decoder 에서 subscribe/publish 성공, publish payload 보존,
+    malformed frame 별 error 반환을 만족하지 못해 실패했다.
+  - 구현: `SUBSCRIBE <topic>`과 `PUBLISH <topic> <payload>`를 해석하고, malformed input 은 예외 대신
+    `TcpCommandDecodeError`로 반환한다.
+  - 구현: `TcpCommand`는 `readonly ref struct` span view 이므로 topic/payload 를 복사하지 않고 frame 수명 안에서만 사용된다.
+  - 검증: focused `TcpCommandDecoderTests` 통과 9, Protocol 전체 통과 21, 솔루션 전체 통과 65,
+    빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] TCP receive frame 어댑터를 구현했다.
   - 범위: `src/Hps.Protocol/`, `tests/Hps.Protocol.Tests/`, `CURRENT_PLAN.md`, `TODOS.md`,

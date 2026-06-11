@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D031 — TCP command decode 는 frame payload 의 span view 로 해석한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: TCP frame payload 의 첫 token 은 ASCII command 로 해석한다. 현재 command 는 `SUBSCRIBE <topic>`과
+  `PUBLISH <topic> <payload>` 두 가지로 제한한다. topic 은 비어 있지 않은 단일 token 이며 공백을 포함하지 않는다.
+  `PUBLISH`의 payload 는 두 번째 공백 뒤의 나머지 전체 byte 로 유지하며, 비어 있을 수 있고 payload 내부 공백도 보존한다.
+  `TcpCommand`는 원본 frame 을 복사하지 않는 `readonly ref struct` span view 이므로 caller 는 frame buffer 를 Release 하기 전
+  동기 범위에서만 사용해야 한다. malformed input 은 정상 흐름 제어이므로 예외 대신 `false`와 `TcpCommandDecodeError`로 반환한다.
+- 근거: TCP 프레이밍은 이미 소유권 있는 `RefCountedBuffer` frame 을 만든다(D029/D030). command decode 단계에서 topic/payload 를
+  다시 복사하면 pub/sub fan-out 전에 불필요한 관리힙 복사가 생긴다. `ref struct` view 로 제한하면 frame 수명 밖 저장을
+  컴파일러가 막아 소유권 경계를 더 명확하게 만든다.
+- 영향: 이후 Broker/Server wiring 은 `TcpFrameReceiveHandler`가 넘긴 frame 을 decode 한 뒤, command lifetime 안에서 topic 을
+  라우팅 키로 해석하거나 필요한 경우 명시적으로 복사해야 한다. 실제 subscription table, publish fan-out, protocol error 응답은
+  후속 Phase 3 단위로 남긴다.
+
 ## D030 — TCP raw receive 는 TcpFrameReceiveHandler 어댑터가 frame 콜백으로 변환한다
 
 - 날짜: 2026-06-11

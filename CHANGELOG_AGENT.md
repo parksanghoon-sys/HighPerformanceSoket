@@ -1,5 +1,36 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — TCP command decoder)
+
+### 작업 단위
+- Phase 3의 TCP frame payload 를 broker command 로 해석하는 작은 Protocol 단위를 구현했다.
+- `SUBSCRIBE <topic>`과 `PUBLISH <topic> <payload>`만 다룬다.
+- `TcpCommand`는 topic/payload 를 복사하지 않고 frame 내부 span view 로 노출한다.
+- Broker routing, subscription table, Server wiring, protocol error 응답은 포함하지 않았다.
+
+### Red
+- `TcpCommandDecoder` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- `TcpCommand`, `TcpCommandKind`, `TcpCommandDecodeError`, `TryDecode` 계약 부재를 reflection 기반 테스트의 단언 실패로 확인했다.
+- 직접 동작 테스트 8개는 스텁 decoder 가 모든 입력을 false 로 반환해 subscribe/publish 성공 경계와 malformed error 경계를 만족하지 못해 실패했다.
+
+### 구현
+- `TcpCommandKind`에 `Subscribe`, `Publish` command 종류를 추가했다.
+- `TcpCommandDecodeError`로 empty frame, unknown command, missing topic, invalid topic, missing publish payload separator 를 구분했다.
+- `TcpCommand`를 `readonly ref struct`로 두어 topic/payload 가 원본 frame span 을 가리키는 수명 경계를 코드로 강제했다.
+- `TcpCommandDecoder.TryDecode`는 예외 없이 `false + error`로 malformed input 을 보고한다.
+- `PUBLISH` payload 는 topic 뒤 두 번째 공백 이후의 나머지 전체 byte 로 유지해 payload 내부 공백과 임의 byte 를 보존한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D031로 TCP command decode 문법과 span view 소유권 결정을 기록했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`를 decoder 완료 및 사용자 리뷰 대기 상태로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpCommandDecoderTests"` → Red: 실패 1 → Green 통과 1 → Red: 실패 1/통과 1 → Green 통과 2 → Red: 실패 8/통과 3 → 최종 통과 9.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 21, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 21, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음.
+
 ## 2026-06-11 (Codex — TCP receive frame 어댑터)
 
 ### 작업 단위
