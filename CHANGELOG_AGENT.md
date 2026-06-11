@@ -1,5 +1,35 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — TCP 프레임 조립기 기본 계약)
+
+### 작업 단위
+- Phase 3 첫 Protocol 단위로 `Hps.Protocol`과 `Hps.Protocol.Tests` 프로젝트를 추가했다.
+- TCP 4바이트 big-endian length-prefix frame 을 connection 단위로 조립하는 `TcpFrameAssembler` 기본 계약을 구현했다.
+- 범위는 fragmented header/payload 조립, maxPayload 초과 거부, partial payload dispose 반환으로 제한했다.
+
+### Red
+- `TcpFrameAssembler` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- `TryReadFrame` API 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- 직접 public API 테스트 3개는 스텁 구현에서 `NeedMoreData`만 반환하거나 partial buffer 를 대여하지 않아 단언 실패했다.
+
+### 구현
+- `TcpFrameReadStatus`를 추가했다: `NeedMoreData`, `FrameReady`, `PayloadTooLarge`.
+- `TcpFrameAssembler`는 header 4바이트를 누적하고, payload length 가 허용 범위이면 `RefCountedBuffer`를 대여해 payload 를 누적 복사한다.
+- frame 완성 시 `SetLength` 후 caller 에 buffer 소유권을 넘기고, 내부 상태를 다음 frame 을 받을 수 있게 초기화한다.
+- 조립 중인 payload 가 있으면 `Dispose()`에서 정확히 한 번 `Release()`한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D029로 TCP 프레임 조립 API와 소유권 경계를 기록했다.
+- `CURRENT_PLAN.md`를 Phase 3 진입 상태로 갱신했다.
+- `TODOS.md`에 완료 항목과 후속 frame edge/fuzz coverage backlog 를 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpFrameAssemblerTests"` → Red: 실패 3, 통과 1. Green: 통과 4.
+- 리팩터 후 `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 3, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 3, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — TCP 동시 연결 echo 통합 테스트)
 
 ### 작업 단위

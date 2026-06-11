@@ -8,6 +8,21 @@
 
 ## Deferred Backlog
 
+- [ ] `P1_SOON` TCP frame assembler edge/fuzz coverage 를 보강한다.
+  - 무엇이 남았는지: `TcpFrameAssembler`는 현재 fragmented header/payload, maxPayload 초과, partial dispose 반환을 검증한다.
+    아직 여러 frame 이 하나의 TCP chunk 에 붙는 경우, 0 length frame, header/payload 적대적 chunk fuzz, consumed 값으로 남은 bytes 를 재호출하는 loop 는 별도 테스트로 고정하지 않았다.
+  - 왜 defer 되었는지: Phase 3 첫 단위는 Protocol 프로젝트 생성과 기본 per-connection frame 조립 계약에 집중했다.
+    모든 D010 fuzz 케이스를 한 커밋에 묶으면 리뷰 범위가 커진다.
+  - objective: D010 frame fuzz 요구를 단계적으로 충족하고, Transport receive chunk 경계와 무관하게 TCP frame 이 정확히 복원되는지 검증한다.
+  - relevant context: `src/Hps.Protocol/TcpFrameAssembler.cs`, `tests/Hps.Protocol.Tests/TcpFrameAssemblerTests.cs`,
+    `.claude/review/phase3-framing-and-close.md`, DECISIONS D010, D029.
+  - 관련 파일/범위: `src/Hps.Protocol/`, `tests/Hps.Protocol.Tests/`.
+  - 현재 상태: 기본 상태머신과 partial release 는 구현됐다. 다중 frame/zero-length/fuzz 는 미검증이다.
+  - known blockers/open questions: `TryReadFrame`를 caller loop 에서 반복 호출하는 사용 패턴을 command codec 과 함께 고정할지,
+    frame assembler 테스트에서 먼저 고정할지 결정해야 한다.
+  - next step: 다중 frame 이 한 chunk 에 들어온 입력에서 첫 호출의 `consumed`가 첫 frame 끝을 가리키고,
+    남은 slice 를 두 번째 호출에 넘기면 다음 frame 이 완성되는 테스트부터 작성한다.
+
 - [ ] `P1_SOON` UDP receive backpressure 정책을 설계·구현한다.
   - 무엇이 남았는지: UDP receive 는 handler/fan-out 이 느릴 때마다 풀에서 새 `RefCountedBuffer`를 계속 대여할 수 있다.
     UDP send 는 endpoint pending queue 와 단일 send pump 로 직렬화됐으므로 이 항목의 남은 범위가 아니다.
@@ -43,6 +58,16 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] TCP 프레임 조립기 기본 계약을 구현했다.
+  - 범위: `src/Hps.Protocol/`, `tests/Hps.Protocol.Tests/`, `HighPerformanceSocket.slnx`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `TcpFrameAssembler` 타입 부재와 `TryReadFrame` API 부재를 reflection 기반 단언 실패로 확인했다.
+  - Red: 동작 테스트 3개는 스텁 구현에서 frame 을 만들지 못하거나 maxPayload/Dispose 경계를 지키지 못해 실패했다.
+  - 구현: `TcpFrameAssembler`가 TCP 4바이트 big-endian length header 를 누적하고 payload 를 `RefCountedBuffer`로 복사한다.
+  - 구현: 완성된 frame 은 caller 가 Release 해야 하며, 조립 중 Dispose 되면 partial payload ref 를 반환한다.
+  - 테스트: fragmented header/payload 조립, maxPayload 초과 시 buffer 미대여, partial payload dispose 반환을 검증했다.
+  - 검증: Protocol focused Red/Green 완료. 리팩터 후 Protocol 전체 통과 3, 솔루션 전체 통과 47, 빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] TCP 동시 연결 echo 통합 테스트를 추가했다.
   - 범위: `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.

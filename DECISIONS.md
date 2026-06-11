@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D029 — TCP 프레임 조립은 TcpFrameAssembler per-connection 상태 객체로 시작한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: Phase 3 Protocol 계층의 첫 TCP 프레이밍 단위는 `TcpFrameAssembler`로 둔다.
+  assembler 는 connection 마다 하나씩 생성되는 상태 객체이며, `TryReadFrame(ReadOnlySpan<byte>, out int consumed, out RefCountedBuffer? frame)`로
+  Transport 가 전달한 raw byte chunk 를 소비한다. 4바이트 big-endian payload length header 를 누적한 뒤,
+  payload 는 `PinnedBlockMemoryPool.RentCounted()`로 얻은 `RefCountedBuffer`에 복사한다.
+  `FrameReady`가 반환되면 frame 소유권은 caller 에게 넘어가며 caller 가 `Release()` 해야 한다.
+  payload 조립 중 connection 이 닫히면 `Dispose()`가 partial payload buffer 를 반환한다.
+- 근거: Transport receive buffer 는 borrowed view 라 콜백 밖으로 저장할 수 없다(D020). 따라서 TCP publish payload 는
+  Protocol 계층에서 소유권 있는 `RefCountedBuffer`로 한 번 복사해야 한다(D009/D010). 이 객체를 connection 단위로 두면
+  header 분할, payload 분할, close 시 partial release 책임을 한 곳에 모을 수 있다.
+- 영향: 현재 기준선은 fragmented header/payload, maxPayload 초과 거부, partial payload dispose 반환을 검증한다.
+  여러 frame 이 한 chunk 에 붙는 경우, 0 length frame, 적대적 chunk fuzz, 실제 command codec 연결은 후속 Phase 3 단위에서 확장한다.
+
 ## D028 — UDP send 는 endpoint별 pending queue 와 단일 pump 로 직렬화한다
 
 - 날짜: 2026-06-11
