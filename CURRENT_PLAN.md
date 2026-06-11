@@ -38,6 +38,10 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 - `RefCountedBuffer` 내부의 `Volatile.Read/Write` 호출은 의도 기반 helper로 감싸져 수명/길이 상태 관측 의미가 드러나도록 정리됐다.
 - `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트가 추가되어 구독자 수 가변 fan-out과 다수 buffer in-flight 반환을 검증한다.
 - `src/Hps.Transport`와 `tests/Hps.Transport.Tests` 프로젝트가 추가됐다.
+- `src/Hps.Transport` 폴더 구조가 `Abstractions/`, `Runtime/`, `Saea/`로 분리됐다.
+  namespace 는 그대로 `Hps.Transport`를 유지해 public API 와 기존 using 은 바꾸지 않는다.
+- `tests/Hps.Transport.Tests` 폴더 구조가 `Contracts/`, `Runtime/`, `Saea/`로 분리됐다.
+  테스트 파일도 production 책임 축과 같은 방향으로 배치한다.
 - `TransportSendBuffer`가 `RefCountedBuffer + offset + length` 기반 송신 요청 범위를 표현한다.
   raw `Memory<byte>`를 public send 계약에 노출하지 않는다.
 - `ITransport.TrySend(IConnection, TransportSendBuffer)`는 send 수락 성공 시 Transport가 버퍼 참조 1개를 소유하고,
@@ -93,6 +97,8 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 - Phase 2 backend selector 최소 계약이 추가됐다. `TransportFactory.CreateDefault()`는 상위 계층이 concrete backend 를 직접 new 하지 않도록
   `ITransport` 생성 진입점을 제공하며, 현재는 모든 환경에서 `SaeaTransport`로 fallback 한다.
 - 실제 OS/capability probe 와 RIO/io_uring 선택 로직은 아직 구현하지 않았다. factory 위치만 먼저 고정해 이후 backend 교체 지점을 만든다.
+- 파일 이동 전용 구조 정리 단위로 `Hps.Transport`와 `Hps.Transport.Tests`의 파일을 책임별 하위 폴더로 옮겼다.
+  동작과 namespace 는 바꾸지 않았고, SDK-style project 의 recursive compile include 에 맡긴다.
 - 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 40개를 실행했고 모두 통과했다.
 - 재확인: `dotnet build HighPerformanceSocket.slnx`는 경고 0개, 오류 0개로 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
@@ -104,16 +110,14 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 UDP endpoint send 직렬화 기준선이다. receive backpressure 정책은 fan-out/backpressure 결정과 맞물리므로 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportFactory_CreateDefault_ReturnsSaeaFallbackAsITransport"`
-  → `TransportFactory` 타입 부재 단언 실패 1개.
-- Green: 위 focused 테스트 통과.
-- Refactor: focused 테스트를 reflection 기반 존재 확인에서 직접 `TransportFactory.CreateDefault()` 호출로 정리한 뒤 다시 통과 확인.
+- 파일 이동 전용 refactor 이므로 새 behavior Red 테스트는 추가하지 않는다.
+- 기존 focused 테스트 대신 Transport 전체와 솔루션 전체 테스트를 회귀 게이트로 사용한다.
 - `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
 - 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 22개가 discover되고 실행됐는지 확인한다.
-- 결과: focused factory 테스트 통과. Transport 전체 통과 22. 전체 통과 40, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- 결과: Transport 전체 통과 22. 전체 통과 40, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
   `git diff --check`는 whitespace 오류 없이 통과해야 한다.
 
 ## 이번 작업에서 건드리지 않은 범위

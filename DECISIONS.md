@@ -1,5 +1,19 @@
 # DECISIONS.md
 
+## D027 — Hps.Transport 파일은 Abstractions/Runtime/Saea 책임 축으로 배치한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `src/Hps.Transport`의 flat 파일 배치를 `Abstractions/`, `Runtime/`, `Saea/` 하위 폴더로 분리한다.
+  `Abstractions/`에는 public 계약, receive/send buffer view, handler, endpoint 타입을 둔다.
+  `Runtime/`에는 backend 공통 기반인 `TransportBase`, connection 상태/큐인 `TransportConnection`, 기본 생성 진입점인 `TransportFactory`를 둔다.
+  `Saea/`에는 크로스플랫폼 SAEA/raw Socket 기준선 구현과 그 내부 listener/UDP endpoint 를 둔다.
+  테스트도 같은 책임 축으로 `Contracts/`, `Runtime/`, `Saea/`에 배치한다.
+- 근거: Phase 2가 진행되면서 TCP/UDP public 계약, 공통 소유권 런타임, SAEA 구현이 같은 폴더에 섞여 탐색 비용이 커졌다.
+  namespace 를 바꾸면 public API 와 using 변경이 불필요하게 커지므로, 이번 구조 정리는 파일 경로만 바꾸고 namespace 는 유지한다.
+- 영향: 이후 새 Transport public 계약은 `Abstractions/`, backend 공통 소유권/생성 로직은 `Runtime/`, SAEA 기준선 세부 구현은 `Saea/`에 추가한다.
+  RIO/io_uring은 별도 프로젝트에 둘 계획을 유지한다.
+
 ## D026 — 기본 Transport 생성 진입점은 TransportFactory.CreateDefault 로 둔다
 
 - 날짜: 2026-06-11

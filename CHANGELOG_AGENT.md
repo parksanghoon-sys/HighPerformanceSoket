@@ -1,5 +1,30 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — Hps.Transport 폴더 구조 분리)
+
+### 작업 단위
+- 보기 어려워진 `src/Hps.Transport` flat 파일 배치를 책임별 하위 폴더로 분리했다.
+- 동작, namespace, public API 는 바꾸지 않는 파일 이동 전용 refactor 로 제한했다.
+
+### 구조
+- `src/Hps.Transport/Abstractions`: `ITransport`, `IConnection`, listener/handler/endpoint 계약, `TransportSendBuffer`, `TransportReceiveBuffer`.
+- `src/Hps.Transport/Runtime`: `TransportBase`, `TransportConnection`, `TransportFactory`.
+- `src/Hps.Transport/Saea`: `SaeaTransport`, `SaeaConnectionListener`, `SaeaUdpEndpoint`.
+- `tests/Hps.Transport.Tests/Contracts`: public 계약 테스트.
+- `tests/Hps.Transport.Tests/Runtime`: 공통 queue/ownership runtime 테스트.
+- `tests/Hps.Transport.Tests/Saea`: SAEA loopback/backend 기준선 테스트.
+
+### 상태 갱신
+- `AGENTS.md`의 프로젝트 레이아웃에 `Hps.Transport` 하위 폴더 책임을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`를 새 구조 기준으로 갱신했다.
+- `DECISIONS.md`에는 D027로 이후 파일 추가 위치 규칙을 남겼다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 22, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 22, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — TransportFactory SAEA fallback 기준선)
 
 ### 작업 단위

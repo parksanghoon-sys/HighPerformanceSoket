@@ -50,6 +50,9 @@ Span 기반으로 **메모리 복사를 최소화**한 고성능 TCP/UDP **pub/s
 ```
 src/Hps.Buffers/           메모리 계층: PinnedBlockMemoryPool, BipBuffer, RefCountedBuffer
 src/Hps.Transport/         ITransport/IConnection 추상화 + SaeaTransport(크로스플랫폼 기준선)
+  Abstractions/            public Transport 계약: ITransport/IConnection/버퍼 view/handler/endpoint
+  Runtime/                 공통 런타임: TransportBase, TransportConnection, TransportFactory
+  Saea/                    크로스플랫폼 SAEA/raw Socket 기준선 구현
 src/Hps.Transport.Rio/     Windows RIO 백엔드 (P/Invoke)
 src/Hps.Transport.IoUring/ Linux io_uring 백엔드 (P/Invoke)
 src/Hps.Protocol/          프레이밍/코덱

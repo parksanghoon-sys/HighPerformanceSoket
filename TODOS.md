@@ -3,7 +3,7 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - Phase 2 backend selector 최소 계약은 `TransportFactory.CreateDefault()` SAEA fallback 으로 구현·검증했다.
+  - `Hps.Transport`와 `Hps.Transport.Tests` 파일 구조를 책임별 하위 폴더로 분리했다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
 ## Deferred Backlog
@@ -41,6 +41,17 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] `Hps.Transport`와 `Hps.Transport.Tests` 폴더 구조를 책임별로 분리했다.
+  - 범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`, `AGENTS.md`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - 구조: `src/Hps.Transport/Abstractions`에는 public 계약과 buffer view 를 배치했다.
+  - 구조: `src/Hps.Transport/Runtime`에는 `TransportBase`, `TransportConnection`, `TransportFactory`를 배치했다.
+  - 구조: `src/Hps.Transport/Saea`에는 `SaeaTransport`, listener, UDP endpoint 구현을 배치했다.
+  - 구조: `tests/Hps.Transport.Tests`도 `Contracts`, `Runtime`, `Saea`로 나눠 production 책임 축과 맞췄다.
+  - 구현: namespace 는 그대로 `Hps.Transport`/`Hps.Transport.Tests`를 유지해 public API 와 using churn 을 만들지 않았다.
+  - 검증: Transport 전체 → 통과 22. 전체 `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 22.
+    `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
 
 - [x] Phase 2 backend selector 최소 계약을 구현했다.
   - 범위: `src/Hps.Transport/TransportFactory.cs`, `tests/Hps.Transport.Tests/TransportContractTests.cs`,
