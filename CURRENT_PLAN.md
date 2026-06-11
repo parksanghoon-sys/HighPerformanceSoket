@@ -93,6 +93,9 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
   이 기준선은 Protocol/Broker fan-out 이전의 Transport datagram 경계만 검증한다.
 - `SaeaTransport`의 UDP loopback 기준선이 추가됐다. 외부 UDP socket 이 보낸 datagram 은 handler 로 전달되고,
   `TrySendTo`로 보낸 `TransportSendBuffer`는 원격 UDP socket 에 도착한 뒤 Transport 소유 ref 가 반환된다.
+- UDP echo loopback 통합 테스트가 추가됐다. datagram handler 가 받은 owned `RefCountedBuffer`에 send ref 를 추가한 뒤
+  같은 endpoint 의 `TrySendTo`로 되돌려 보내면 client socket 이 동일 payload 를 받는다.
+- UDP echo 통합 테스트는 기존 UDP receive loop 와 endpoint send pump 구현만으로 통과했으므로 production code 변경은 없었다.
 - `.claude/review/phase2-udp-datagram.md` 검토는 UDP 기준선을 승인했고, S1 소유권 이전 순서 개선과 S2 UDP send pump/배압 후속 항목을 남겼다.
 - S1은 반영됐다. UDP receive loop 는 handler 호출 전에 local `datagram` 참조를 끊어, handler 가 소유권을 받은 뒤 예외를 던져도
   loop catch 가 같은 `RefCountedBuffer`를 다시 Release 하지 않는다.
@@ -115,20 +118,19 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 UDP echo loopback 통합 기준선을 추가할지, Phase 2의 동시 연결 안정성 기준선을 보강할지
-실제 코드와 `PLAN.md` 기준으로 다시 판단한다. UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로
-성급히 구현하지 않고 별도 설계 단위로 둔다.
+리뷰 후 계속 진행 지시가 있으면 Phase 2의 동시 연결 안정성 기준선을 보강할지, 실제 코드와 `PLAN.md` 기준으로 다시 판단한다.
+UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 성급히 구현하지 않고 별도 설계 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- TCP echo 통합 테스트를 추가한다. 이 테스트는 production code 추가가 아니라 기존 receive/send pump 의 결합 동작을 고정한다.
+- UDP echo 통합 테스트를 추가한다. 이 테스트는 production code 추가가 아니라 기존 UDP receive/send pump 의 결합 동작을 고정한다.
 - focused 실행에서 기존 production code 가 이미 기준을 만족하는지 확인한다.
 - `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 24개가 discover되고 실행됐는지 확인한다.
-- 결과: Transport 전체 통과 24. 전체 통과 42, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
-  `git diff --check`는 whitespace 오류 없이 통과해야 한다.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 25개가 discover되고 실행됐는지 확인한다.
+- 결과: Transport 전체 통과 25. 전체 통과 43, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+  `git diff --check`는 whitespace 오류 없이 통과했다. Git의 LF↔CRLF 안내 경고만 출력됐다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화

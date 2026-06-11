@@ -1,5 +1,28 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — UDP echo loopback 통합 테스트)
+
+### 작업 단위
+- Phase 2 완료 기준의 UDP loopback echo 왕복을 작은 test-only 단위로 고정했다.
+- 범위는 `SaeaTransportTests`의 통합 테스트와 상태 문서 갱신으로 제한했다. production code 는 변경하지 않았다.
+
+### 테스트
+- `UdpEcho_WhenDatagramHandlerQueuesResponse_ClientReceivesSamePayload`를 추가했다.
+- 테스트 handler 는 UDP receive 로 받은 owned `RefCountedBuffer`에 Transport 송신 ref 를 먼저 추가하고,
+  같은 `IUdpEndpoint`의 `TrySendTo`로 원격 endpoint 에 되돌려 보낸다.
+- `TrySendTo` 성공 뒤 handler guard ref 를 Release 하고, send pump completion 이 남은 ref 를 반환하는 경계를 실제 socket 왕복으로 검증한다.
+
+### 결과
+- focused 실행에서 기존 UDP receive loop + endpoint send pump 구현만으로 echo 왕복이 통과했다.
+- 따라서 이번 단위는 production 변경 없이 통합 회귀 테스트만 추가했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpEcho_WhenDatagramHandlerQueuesResponse_ClientReceivesSamePayload"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 25, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 25, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — TCP echo loopback 통합 테스트)
 
 ### 작업 단위

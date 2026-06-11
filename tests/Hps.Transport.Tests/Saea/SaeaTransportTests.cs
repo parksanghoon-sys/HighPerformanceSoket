@@ -284,6 +284,46 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // UDP echo 통합 테스트: UDP handler 가 받은 owned RefCountedBuffer 를 같은 endpoint 의 TrySendTo 로
+        // 되돌려 보내면 receive loop, datagram 소유권, UDP send pump 가 함께 동작해 client socket 이 동일 payload 를 받아야 한다.
+        [Fact]
+        public async Task UdpEcho_WhenDatagramHandlerQueuesResponse_ClientReceivesSamePayload()
+        {
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                EchoingDatagramHandler datagramHandler = new EchoingDatagramHandler(transport);
+                transport.SetDatagramHandler(datagramHandler);
+                await transport.StartAsync();
+
+                IUdpEndpoint? udpEndpoint = null;
+                Socket? client = null;
+
+                try
+                {
+                    udpEndpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(udpEndpoint.LocalEndPoint);
+
+                    client = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    client.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+
+                    byte[] payload = new byte[] { 71, 72, 73, 74 };
+                    int sent = await client.SendToAsync(new ArraySegment<byte>(payload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(payload.Length, sent);
+
+                    ReceivedSocketDatagram echoed = await ReceiveUdpDatagramAsync(client, payload.Length);
+
+                    Assert.Equal(payload, echoed.Payload);
+                    Assert.Equal(boundEndPoint, echoed.RemoteEndPoint);
+                }
+                finally
+                {
+                    client?.Dispose();
+                    udpEndpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         // UDP handler 예외 회귀 테스트: handler 호출 시점에 datagram 소유권은 이미 handler 로 넘어간 상태여야 한다.
         // public receive API 는 background loop 예외를 노출하지 않으므로, 이 테스트만 private loop 를 직접 실행해
         // handler 가 Release 후 예외를 던져도 Transport 가 같은 RefCountedBuffer 를 두 번째로 Release 하지 않는지 고정한다.
@@ -606,6 +646,37 @@ namespace Hps.Transport.Tests
                 byte[] payload = datagram.Span.Slice(0, datagram.Length).ToArray();
                 datagram.Release();
                 _received.TrySetResult(new ReceivedDatagram(endpoint, remoteEndPoint, payload));
+            }
+
+            public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
+            {
+            }
+        }
+
+        private sealed class EchoingDatagramHandler : ITransportDatagramHandler
+        {
+            private readonly SaeaTransport _transport;
+
+            internal EchoingDatagramHandler(SaeaTransport transport)
+            {
+                _transport = transport;
+            }
+
+            public void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+            {
+                // handler 는 datagram 의 guard ref 를 소유한다. echo send 를 수락시키려면 Transport 몫 ref 를
+                // 먼저 AddRef 한 뒤 TrySendTo 에 넘기고, handler guard ref 는 즉시 Release 해야 한다.
+                datagram.AddRef();
+                TransportSendBuffer sendBuffer = new TransportSendBuffer(datagram, 0, datagram.Length);
+
+                if (_transport.TrySendTo(endpoint, remoteEndPoint, sendBuffer))
+                {
+                    datagram.Release();
+                    return;
+                }
+
+                datagram.Release();
+                datagram.Release();
             }
 
             public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
