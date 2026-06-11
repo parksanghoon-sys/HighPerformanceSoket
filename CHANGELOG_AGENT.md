@@ -1,5 +1,28 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — TCP 동시 연결 echo 통합 테스트)
+
+### 작업 단위
+- Phase 2 테스트 기준의 동시 연결 안정성을 TCP echo loopback 통합 테스트로 보강했다.
+- 범위는 `SaeaTransportTests`의 테스트 추가와 상태 문서 갱신으로 제한했다. production code 는 변경하지 않았다.
+
+### 테스트
+- `TcpEcho_WhenMultipleClientsSendConcurrently_EchoesEachPayloadAndReturnsBuffers`를 추가했다.
+- 테스트는 loopback listener 에 8개 raw TCP client 를 연결하고, 각 accepted `IConnection`의 receive/send pump 가 동시에 echo 왕복을 처리하는지 검증한다.
+- client 별 payload 를 다르게 만들어 connection 간 응답 섞임을 단언으로 드러내고, echo buffer pool 이 `RentedCount==0`으로 돌아오는지 확인한다.
+- 모든 inbound connection 을 닫은 뒤 transport 내부 추적 수가 0으로 돌아와 단명 connection churn 의 누수 회귀도 함께 방어한다.
+
+### 결과
+- focused 실행에서 기존 TCP receive pump + send pump + connection tracking 구현만으로 동시 echo 왕복이 통과했다.
+- 따라서 이번 단위는 production 변경 없이 통합 회귀 테스트만 추가했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TcpEcho_WhenMultipleClientsSendConcurrently_EchoesEachPayloadAndReturnsBuffers"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 26, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — UDP echo loopback 통합 테스트)
 
 ### 작업 단위

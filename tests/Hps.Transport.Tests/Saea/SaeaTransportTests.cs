@@ -147,6 +147,78 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // TCP 동시 연결 echo 기준선 테스트: Phase 2 완료 조건은 단일 연결 echo 뿐 아니라 여러 연결의
+        // receive/send pump 가 서로의 pending queue, socket, RefCountedBuffer 반환 경계를 침범하지 않는지도 포함한다.
+        [Fact]
+        public async Task TcpEcho_WhenMultipleClientsSendConcurrently_EchoesEachPayloadAndReturnsBuffers()
+        {
+            const int ConnectionCount = 8;
+            PinnedBlockMemoryPool echoPool = new PinnedBlockMemoryPool(64);
+
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                EchoingReceiveHandler receiveHandler = new EchoingReceiveHandler(transport, echoPool);
+                transport.SetReceiveHandler(receiveHandler);
+                await transport.StartAsync();
+
+                IConnectionListener? listener = null;
+                IConnection?[] inboundConnections = new IConnection?[ConnectionCount];
+                Socket?[] clients = new Socket?[ConnectionCount];
+
+                try
+                {
+                    listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(listener.LocalEndPoint);
+
+                    for (int index = 0; index < ConnectionCount; index++)
+                    {
+                        Socket client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                        client.NoDelay = true;
+                        clients[index] = client;
+
+                        ValueTask<IConnection> accept = listener.AcceptAsync();
+                        await client.ConnectAsync(boundEndPoint);
+                        inboundConnections[index] = await accept;
+                    }
+
+                    Assert.Equal(ConnectionCount, GetTrackedConnectionCount(transport));
+
+                    Task[] echoTasks = new Task[ConnectionCount];
+                    for (int index = 0; index < ConnectionCount; index++)
+                    {
+                        Socket client = clients[index]!;
+                        byte[] payload = CreateConcurrentEchoPayload(index);
+                        echoTasks[index] = SendAndReceiveEchoAsync(client, payload);
+                    }
+
+                    await WaitForAllTasksAsync(echoTasks);
+                    await WaitForRentedCountAsync(echoPool, 0);
+
+                    for (int index = 0; index < inboundConnections.Length; index++)
+                    {
+                        inboundConnections[index]?.Close();
+                    }
+
+                    Assert.Equal(0, GetTrackedConnectionCount(transport));
+                }
+                finally
+                {
+                    for (int index = 0; index < clients.Length; index++)
+                    {
+                        clients[index]?.Dispose();
+                    }
+
+                    for (int index = 0; index < inboundConnections.Length; index++)
+                    {
+                        inboundConnections[index]?.Close();
+                    }
+
+                    listener?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         // 연결 수명 회귀 테스트: accepted connection 이 Close 된 뒤 transport 내부 추적 목록에 남으면
         // 단명 연결 churn 환경에서 TransportConnection 과 dispose 된 Socket 참조가 transport 수명 내내 누적된다.
         [Fact]
@@ -478,6 +550,37 @@ namespace Hps.Transport.Tests
 
             Assert.Same(receiveTask, completedTask);
             return await receiveTask;
+        }
+
+        private static async Task SendAndReceiveEchoAsync(Socket socket, byte[] payload)
+        {
+            int sent = await socket.SendAsync(new ArraySegment<byte>(payload), SocketFlags.None);
+            Assert.Equal(payload.Length, sent);
+
+            byte[] echoed = await ReceiveExactAsync(socket, payload.Length);
+            Assert.Equal(payload, echoed);
+        }
+
+        private static async Task WaitForAllTasksAsync(Task[] tasks)
+        {
+            Task allTasks = Task.WhenAll(tasks);
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(allTasks, timeoutTask);
+
+            Assert.Same(allTasks, completedTask);
+            await allTasks;
+        }
+
+        private static byte[] CreateConcurrentEchoPayload(int index)
+        {
+            // 연결별 payload 를 다르게 만들어 echo 가 다른 connection 의 응답과 섞이는 회귀를 눈에 띄게 한다.
+            return new byte[]
+            {
+                (byte)(80 + index),
+                (byte)(90 + index),
+                (byte)(100 + index),
+                (byte)(110 + index)
+            };
         }
 
         private static async Task<ReceivedDatagram> WaitForReceivedDatagramAsync(Task<ReceivedDatagram> receivedTask)

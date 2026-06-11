@@ -44,6 +44,14 @@
 
 ## Completed
 
+- [x] TCP 동시 연결 echo 통합 테스트를 추가했다.
+  - 범위: `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 목적: Phase 2 테스트 기준의 동시 연결 안정성을 receive pump 와 send pump 의 실제 loopback echo 왕복으로 검증한다.
+  - 테스트: 8개 raw TCP client 를 같은 listener 에 연결하고, 각 accepted `IConnection`이 서로 다른 payload 를 동시에 echo 받는지 확인했다.
+  - 테스트: echo buffer pool 이 `RentedCount==0`으로 돌아오고, 모든 inbound connection close 뒤 transport tracking count 가 0인지 확인했다.
+  - 결과: 기존 production code 가 기준을 이미 만족해 production code 수정은 없었다.
+  - 검증: focused TCP 동시 echo 테스트 통과 1, Transport 전체 통과 26, 솔루션 전체 통과 44, 빌드 경고 0/오류 0, `git diff --check` 통과.
+
 - [x] UDP echo loopback 통합 테스트를 추가했다.
   - 범위: `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
   - 목적: Phase 2 완료 기준의 UDP loopback echo 왕복을 receive loop 와 endpoint send pump 결합 경로로 검증한다.

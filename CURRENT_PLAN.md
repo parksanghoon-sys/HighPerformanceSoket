@@ -85,6 +85,9 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 - TCP echo loopback 통합 테스트가 추가됐다. receive handler 가 borrowed chunk 를 자신의 `RefCountedBuffer`로 복사한 뒤
   같은 connection 에 `TrySend`하면 실제 client socket 이 동일 payload 를 다시 받는다.
 - echo 통합 테스트는 기존 recv pump 와 send pump 구현만으로 통과했으므로 production code 변경은 없었다.
+- TCP 동시 연결 echo 통합 테스트가 추가됐다. loopback listener 에 8개 client 를 연결하고 각 connection 이
+  동시에 서로 다른 payload 를 echo 받아, connection별 receive/send pump 와 RefCountedBuffer 반환 경계가 독립적으로 유지되는지 검증한다.
+- 동시 echo 테스트는 기존 TCP receive pump, send pump, connection tracking 구현만으로 통과했으므로 production code 변경은 없었다.
 - `TransportConnection`은 pending 큐가 빈 상태에서 새 항목이 들어오거나 close 로 pump 를 깨워야 할 때만 send signal 을 보낸다.
   pending drain 과 in-flight release 계약(D016, D017)은 유지된다.
 - UDP datagram public 계약이 추가됐다. UDP 는 TCP accept 모델과 분리된 `IUdpEndpoint` 수명 핸들을 사용하고,
@@ -118,18 +121,18 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 Phase 2의 동시 연결 안정성 기준선을 보강할지, 실제 코드와 `PLAN.md` 기준으로 다시 판단한다.
+리뷰 후 계속 진행 지시가 있으면 Phase 3의 첫 단위로 TCP 프레이밍/Protocol 계약을 시작할지, 실제 코드와 `PLAN.md` 기준으로 다시 판단한다.
 UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 성급히 구현하지 않고 별도 설계 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- UDP echo 통합 테스트를 추가한다. 이 테스트는 production code 추가가 아니라 기존 UDP receive/send pump 의 결합 동작을 고정한다.
+- TCP 동시 연결 echo 통합 테스트를 추가한다. 이 테스트는 production code 추가가 아니라 기존 TCP receive/send pump 와 connection tracking 의 결합 동작을 고정한다.
 - focused 실행에서 기존 production code 가 이미 기준을 만족하는지 확인한다.
 - `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 25개가 discover되고 실행됐는지 확인한다.
-- 결과: Transport 전체 통과 25. 전체 통과 43, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 26개가 discover되고 실행됐는지 확인한다.
+- 결과: Transport 전체 통과 26. 전체 통과 44, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
   `git diff --check`는 whitespace 오류 없이 통과했다. Git의 LF↔CRLF 안내 경고만 출력됐다.
 
 ## 이번 작업에서 건드리지 않은 범위
