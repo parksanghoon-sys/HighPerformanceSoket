@@ -1,5 +1,31 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — TCP 프레임 조립기 edge/fuzz 테스트 보강)
+
+### 작업 단위
+- `.claude/review/phase3-frame-assembler.md`의 should-add 항목 중 `TcpFrameAssembler` 단위 테스트 보강만 처리했다.
+- 범위는 `tests/Hps.Protocol.Tests/TcpFrameAssemblerTests.cs`의 테스트 추가와 상태 문서 갱신으로 제한했다.
+- production code 는 변경하지 않았다.
+
+### 테스트
+- 0 length frame 이 `FrameReady`로 완성되고 caller 가 Release 할 소유권 있는 빈 `RefCountedBuffer`를 받는지 검증했다.
+- 하나의 TCP chunk 에 여러 frame 이 붙었을 때 첫 호출이 첫 frame 길이까지만 `consumed`로 보고하고,
+  caller 가 remaining slice 로 재호출해 다음 frame 을 읽는 계약을 검증했다.
+- `payloadLength == maxPayloadLength`가 성공하는지 검증해 최대 payload 경계의 오프바이원 회귀를 막았다.
+- 결정적 fuzz 테스트로 24개 frame 을 1/2/7/3/11/5/1/13/4바이트 패턴 chunk 로 쪼개고,
+  consumed 기반 caller loop 가 참조 payload 목록과 같은 순서·내용으로 복원하는지 확인했다.
+
+### 결과
+- 추가 테스트는 기존 `TcpFrameAssembler` 구현으로 즉시 통과했다.
+- 따라서 이번 단위는 D010 회귀 테스트 고정이며 구현 변경은 없었다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpFrameAssemblerTests"` → 통과 7, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 7, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 7, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — TCP 프레임 조립기 기본 계약)
 
 ### 작업 단위

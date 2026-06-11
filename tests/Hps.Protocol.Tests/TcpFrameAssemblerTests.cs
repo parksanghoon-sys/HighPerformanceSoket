@@ -1,4 +1,6 @@
 using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
 using Hps.Buffers;
 using Hps.Protocol;
 using Xunit;
@@ -68,6 +70,144 @@ namespace Hps.Protocol.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // 0바이트 payload 경계 테스트: TCP length-prefix 에서 빈 메시지도 합법 frame 이므로
+        // payload 복사 없이 즉시 완성하되 caller 가 Release 할 소유권 있는 buffer 를 받아야 한다.
+        [Fact]
+        public void TryReadFrame_WhenPayloadLengthIsZero_ReturnsEmptyOwnedFrame()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            TcpFrameAssembler assembler = new TcpFrameAssembler(pool, 8);
+            RefCountedBuffer? frame;
+            int consumed;
+
+            TcpFrameReadStatus status = assembler.TryReadFrame(new byte[] { 0, 0, 0, 0 }, out consumed, out frame);
+
+            Assert.Equal(TcpFrameReadStatus.FrameReady, status);
+            Assert.Equal(4, consumed);
+            Assert.NotNull(frame);
+
+            try
+            {
+                Assert.Equal(0, frame!.Length);
+                Assert.Equal(1, pool.RentedCount);
+            }
+            finally
+            {
+                frame?.Release();
+            }
+
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // caller loop 계약 테스트: 하나의 TCP receive chunk 에 frame 이 여러 개 붙어도
+        // TryReadFrame 은 첫 frame 까지만 소비하고, caller 가 remaining slice 로 재호출해 다음 frame 을 읽어야 한다.
+        [Fact]
+        public void TryReadFrame_WhenMultipleFramesShareOneChunk_ConsumesOnlyFirstFrame()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            TcpFrameAssembler assembler = new TcpFrameAssembler(pool, 8);
+            byte[] firstPayload = new byte[] { 1, 2, 3 };
+            byte[] secondPayload = new byte[] { 9, 8 };
+            byte[] firstFrame = CreateWireFrame(firstPayload);
+            byte[] secondFrame = CreateWireFrame(secondPayload);
+            byte[] combined = Combine(firstFrame, secondFrame);
+            RefCountedBuffer? frame;
+            int consumed;
+
+            TcpFrameReadStatus firstStatus = assembler.TryReadFrame(combined, out consumed, out frame);
+
+            Assert.Equal(TcpFrameReadStatus.FrameReady, firstStatus);
+            Assert.Equal(firstFrame.Length, consumed);
+            AssertFramePayload(pool, frame, firstPayload);
+
+            TcpFrameReadStatus secondStatus = assembler.TryReadFrame(new ReadOnlySpan<byte>(combined, consumed, combined.Length - consumed), out consumed, out frame);
+
+            Assert.Equal(TcpFrameReadStatus.FrameReady, secondStatus);
+            Assert.Equal(secondFrame.Length, consumed);
+            AssertFramePayload(pool, frame, secondPayload);
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // maxPayload 정확 경계 테스트: 초과는 거부하지만 maxPayloadLength 와 같은 길이는 허용해야
+        // 구성에서 정한 최대 메시지 크기(예: 4096B)를 오프바이원 없이 사용할 수 있다.
+        [Fact]
+        public void TryReadFrame_WhenPayloadLengthEqualsMax_ReturnsFrame()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(8);
+            TcpFrameAssembler assembler = new TcpFrameAssembler(pool, 8);
+            byte[] payload = new byte[] { 10, 20, 30, 40, 50, 60, 70, 80 };
+            RefCountedBuffer? frame;
+            int consumed;
+
+            TcpFrameReadStatus status = assembler.TryReadFrame(CreateWireFrame(payload), out consumed, out frame);
+
+            Assert.Equal(TcpFrameReadStatus.FrameReady, status);
+            Assert.Equal(12, consumed);
+            AssertFramePayload(pool, frame, payload);
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // 결정적 fuzz 테스트: header/payload/다중 frame 을 작은 chunk 로 적대적으로 쪼개도
+        // consumed 기반 caller loop 가 참조 payload 목록과 같은 순서·내용으로 frame 을 복원해야 한다.
+        [Fact]
+        public void TryReadFrame_WhenChunksAreFragmentedDeterministically_PreservesAllFramesAndReturnsBuffers()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            TcpFrameAssembler assembler = new TcpFrameAssembler(pool, 32);
+            byte[][] expectedPayloads = CreateDeterministicPayloads(24, 32);
+            byte[] stream = CreateWireStream(expectedPayloads);
+            int[] chunkPattern = new int[] { 1, 2, 7, 3, 11, 5, 1, 13, 4 };
+            List<byte[]> actualPayloads = new List<byte[]>();
+            int streamOffset = 0;
+            int patternIndex = 0;
+
+            while (streamOffset < stream.Length)
+            {
+                int chunkLength = Math.Min(chunkPattern[patternIndex % chunkPattern.Length], stream.Length - streamOffset);
+                ReadOnlySpan<byte> chunk = new ReadOnlySpan<byte>(stream, streamOffset, chunkLength);
+                int chunkOffset = 0;
+
+                while (chunkOffset < chunk.Length)
+                {
+                    RefCountedBuffer? frame;
+                    int consumed;
+                    TcpFrameReadStatus status = assembler.TryReadFrame(chunk.Slice(chunkOffset), out consumed, out frame);
+
+                    Assert.True(consumed > 0 || status == TcpFrameReadStatus.FrameReady);
+                    chunkOffset += consumed;
+
+                    if (status == TcpFrameReadStatus.NeedMoreData)
+                    {
+                        Assert.Null(frame);
+                        break;
+                    }
+
+                    Assert.Equal(TcpFrameReadStatus.FrameReady, status);
+                    Assert.NotNull(frame);
+
+                    try
+                    {
+                        actualPayloads.Add(frame!.Span.Slice(0, frame.Length).ToArray());
+                    }
+                    finally
+                    {
+                        frame?.Release();
+                    }
+                }
+
+                streamOffset += chunkLength;
+                patternIndex++;
+            }
+
+            Assert.Equal(expectedPayloads.Length, actualPayloads.Count);
+            for (int i = 0; i < expectedPayloads.Length; i++)
+            {
+                Assert.Equal(expectedPayloads[i], actualPayloads[i]);
+            }
+
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         // 연결 종료 소유권 테스트: frame payload 조립 중 connection 이 닫히면 assembler 가 들고 있던
         // partial RefCountedBuffer 를 Dispose 경로에서 반환해야 D011 종료 누수 0 계약을 지킬 수 있다.
         [Fact]
@@ -87,6 +227,81 @@ namespace Hps.Protocol.Tests
             assembler.Dispose();
 
             Assert.Equal(0, pool.RentedCount);
+        }
+
+        // frame payload 내용뿐 아니라 caller 가 받은 소유권을 Release 했을 때 풀 누수가 없어지는지 함께 확인한다.
+        private static void AssertFramePayload(PinnedBlockMemoryPool pool, RefCountedBuffer? frame, byte[] expectedPayload)
+        {
+            Assert.NotNull(frame);
+
+            try
+            {
+                Assert.Equal(expectedPayload.Length, frame!.Length);
+                Assert.Equal(expectedPayload, frame.Span.Slice(0, frame.Length).ToArray());
+                Assert.Equal(1, pool.RentedCount);
+            }
+            finally
+            {
+                frame?.Release();
+            }
+        }
+
+        // 테스트 입력은 production wire format 과 같은 4바이트 big-endian length prefix 로 만든다.
+        private static byte[] CreateWireFrame(byte[] payload)
+        {
+            byte[] frame = new byte[4 + payload.Length];
+            BinaryPrimitives.WriteInt32BigEndian(frame.AsSpan(0, 4), payload.Length);
+            payload.CopyTo(frame, 4);
+            return frame;
+        }
+
+        // 다중 frame chunk 테스트와 fuzz 테스트가 같은 참조 stream 을 사용하도록 frame 배열을 단일 byte stream 으로 붙인다.
+        private static byte[] CreateWireStream(byte[][] payloads)
+        {
+            int totalLength = 0;
+            for (int i = 0; i < payloads.Length; i++)
+            {
+                totalLength += 4 + payloads[i].Length;
+            }
+
+            byte[] stream = new byte[totalLength];
+            int offset = 0;
+            for (int i = 0; i < payloads.Length; i++)
+            {
+                byte[] frame = CreateWireFrame(payloads[i]);
+                frame.CopyTo(stream, offset);
+                offset += frame.Length;
+            }
+
+            return stream;
+        }
+
+        // 한 receive chunk 에 frame 이 연속으로 붙는 경계를 명확히 만들기 위한 작은 결합 helper 이다.
+        private static byte[] Combine(byte[] first, byte[] second)
+        {
+            byte[] combined = new byte[first.Length + second.Length];
+            first.CopyTo(combined, 0);
+            second.CopyTo(combined, first.Length);
+            return combined;
+        }
+
+        // 랜덤 대신 결정적 payload 집합을 써서 실패 시 frame index 와 byte index 를 재현 가능하게 만든다.
+        private static byte[][] CreateDeterministicPayloads(int count, int maxPayloadLength)
+        {
+            byte[][] payloads = new byte[count][];
+            for (int frameIndex = 0; frameIndex < payloads.Length; frameIndex++)
+            {
+                int length = (frameIndex * 7) % (maxPayloadLength + 1);
+                byte[] payload = new byte[length];
+                for (int byteIndex = 0; byteIndex < payload.Length; byteIndex++)
+                {
+                    payload[byteIndex] = unchecked((byte)(frameIndex * 31 + byteIndex * 17));
+                }
+
+                payloads[frameIndex] = payload;
+            }
+
+            return payloads;
         }
     }
 }
