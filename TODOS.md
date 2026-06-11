@@ -3,26 +3,23 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - 사용자 리뷰에서 발견된 `SaeaTransport` connection tracking 누수는 해소했다.
+  - `SaeaTransport` TCP send pump 기준선은 구현·검증했다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` `SaeaTransport` TCP send pump 가 pending `TransportSendBuffer`를 실제 socket 으로 보내고 ref 를 반환하는 최소 loopback 기준선을 구현한다.
-  - 무엇이 남았는지: `ITransport.TrySend`가 pending queue 에 `TransportSendBuffer`를 enqueue 하고 in-flight handle 이 ref 반환을 담당하지만,
-    `SaeaTransport`가 그 pending 항목을 socket send 로 drain 하는 구현은 아직 없다.
-  - 왜 defer 되었는지: 이번 사이클은 TCP recv pump 가 receive handler 로 raw byte chunk 를 전달하는 기준선만 구현했고,
-    송신 펌프와 in-flight completion 경로는 별도 리뷰 단위로 분리한다.
-  - objective: accepted connection 에 `TrySend`로 enqueue 한 작은 payload 가 raw socket client 로 도착하고,
-    send completion 후 Transport 소유 ref 가 반환되는 최소 기준선을 만든다.
-  - relevant context: `PLAN.md` Phase 2, DECISIONS D007, D011, D015-D017, D019-D021,
-    `src/Hps.Transport/TransportConnection.cs`, `src/Hps.Transport/TransportSendBuffer.cs`,
-    `src/Hps.Transport/SaeaTransport.cs`, `tests/Hps.Transport.Tests/TransportSendQueueTests.cs`.
+- [ ] `P1_SOON` UDP datagram public 계약과 `SaeaTransport` UDP loopback 기준선을 구현한다.
+  - 무엇이 남았는지: Phase 2는 TCP + UDP Transport 기준선을 요구하지만 현재 public 계약과 concrete 구현은 TCP listen/connect/accept/send/receive 에만 있다.
+  - 왜 defer 되었는지: 이번 사이클은 TCP send pump 의 pending → socket send → in-flight release 경계만 검증 가능한 단위로 닫았다.
+  - objective: UDP는 accept 개념이 없으므로 TCP listener 모델과 섞지 않고, bind/send/receive datagram 경계를 `ITransport` 뒤에 둘 최소 계약을 확정한다.
+    이후 loopback datagram 테스트로 1 datagram = 1 message 전제와 pinned/pooled buffer 경계를 검증한다.
+  - relevant context: `PLAN.md` Phase 2, AGENTS.md 아키텍처 불변식 6~7, DECISIONS D009, D020-D023,
+    `src/Hps.Transport/ITransport.cs`, `src/Hps.Transport/TransportBase.cs`, `src/Hps.Transport/SaeaTransport.cs`.
   - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`.
-  - 현재 상태: recv pump 는 handler 를 호출한다. send pump 는 아직 없으므로 `TrySend` 성공 후 실제 socket write 가 발생하지 않는다.
-  - known blockers/open questions: 첫 send pump 는 프레이밍 없이 `TransportSendBuffer.Offset/Length` 범위만 보내야 한다.
-    drop-oldest backpressure 와 명시적 SAEA completion 최적화는 이후 단위로 분리한다.
-  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 accepted connection `TrySend` → raw socket client receive Red 테스트부터 작성한다.
+  - 현재 상태: TCP raw send/receive 는 loopback 에서 동작한다. UDP 계약/구현은 아직 없다.
+  - known blockers/open questions: UDP receive 를 borrowed callback 으로 먼저 둘지, D009의 직접 `RefCountedBuffer` recv 를 Phase 3 전부터 노출할지 결정이 필요하다.
+    첫 단위에서는 public 계약을 과도하게 넓히지 않도록 최소 loopback datagram 기준부터 잡는다.
+  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 UDP datagram public contract Red 테스트를 작성한다.
 
 - [ ] `P2_LATER` Phase 3 브로커 라우팅의 빈 토픽 정리 경합(R1)을 회피해 구현한다.
   - 무엇이 남았는지: `topic → 구독자 set` 라우팅을 빈 토픽 eager-cleanup 없이 구현한다.
@@ -46,6 +43,17 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] `SaeaTransport` TCP send pump 가 pending `TransportSendBuffer`를 실제 socket 으로 보내고 ref 를 반환하는 최소 loopback 기준선을 구현했다.
+  - 범위: `src/Hps.Transport/SaeaTransport.cs`, `src/Hps.Transport/TransportConnection.cs`,
+    `tests/Hps.Transport.Tests/SaeaTransportTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: accepted connection 에 `TrySend`한 payload 가 raw client socket 으로 도착하지 않아 receive timeout 단언 실패로 확인했다.
+  - 구현: `TransportConnection`에 pending send signal 을 추가해 빈 큐에서 첫 항목이 들어오거나 close 될 때 단일 send loop 를 깨운다.
+  - 구현: `SaeaTransport`가 connection 생성 시 send loop 를 시작하고, `TryBeginInFlightSend`로 얻은 handle 을 socket send completion/unwind 경로에서 완료 또는 Dispose 한다.
+  - 테스트: `TransportSendBuffer.Offset/Length` 범위만 raw socket client 로 전송되는지, publish guard ref 해제 후 send completion 이 Transport 소유 ref 를 반환해 `RentedCount==0`이 되는지 검증했다.
+  - 검증: focused send pump 테스트 → Red 실패 1, Green 통과 1. Transport 전체 → 통과 17. 전체 `dotnet test HighPerformanceSocket.slnx`
+    → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 17. `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
 
 - [x] `SaeaTransport`에서 닫힌 connection 이 transport 추적 목록에 남는 누수를 수정했다.
   - 범위: `src/Hps.Transport/SaeaTransport.cs`, `src/Hps.Transport/TransportConnection.cs`,

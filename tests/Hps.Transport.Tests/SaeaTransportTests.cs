@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Hps.Buffers;
 using Hps.Transport;
 using Xunit;
 
@@ -138,6 +139,61 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // TCP send pump 기준선 테스트: TrySend 가 accepted connection 의 pending 큐에 넣은 payload 는
+        // 실제 socket 으로 전송되고, completion 뒤 Transport 가 소유한 RefCountedBuffer ref 를 반환해야 한다.
+        [Fact]
+        public async Task SendPump_WhenTrySendAcceptedConnection_SendsRequestedPayloadAndReleasesRef()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            RefCountedBuffer buffer = pool.RentCounted();
+
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                await transport.StartAsync();
+
+                IConnectionListener? listener = null;
+                IConnection? inbound = null;
+                Socket? client = null;
+
+                try
+                {
+                    listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(listener.LocalEndPoint);
+
+                    client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    client.NoDelay = true;
+
+                    ValueTask<IConnection> accept = listener.AcceptAsync();
+                    await client.ConnectAsync(boundEndPoint);
+                    inbound = await accept;
+
+                    byte[] expected = new byte[] { 2, 3, 4, 5 };
+                    buffer.Span[0] = 99;
+                    expected.CopyTo(buffer.Span.Slice(2));
+                    buffer.Span[6] = 100;
+                    buffer.SetLength(7);
+                    buffer.AddRef();
+
+                    TransportSendBuffer sendBuffer = new TransportSendBuffer(buffer, 2, expected.Length);
+                    Assert.True(transport.TrySend(inbound, sendBuffer));
+
+                    buffer.Release();
+
+                    byte[] received = await ReceiveExactAsync(client, expected.Length);
+                    Assert.Equal(expected, received);
+
+                    await WaitForRentedCountAsync(pool, 0);
+                }
+                finally
+                {
+                    client?.Dispose();
+                    inbound?.Close();
+                    listener?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         private static async Task<ReceivedPayload> WaitForReceivedPayloadAsync(Task<ReceivedPayload> receivedTask)
         {
             Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
@@ -145,6 +201,48 @@ namespace Hps.Transport.Tests
 
             Assert.Same(receivedTask, completedTask);
             return await receivedTask;
+        }
+
+        private static async Task<byte[]> ReceiveExactAsync(Socket socket, int length)
+        {
+            Task<byte[]> receiveTask = ReceiveExactCoreAsync(socket, length);
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(receiveTask, timeoutTask);
+
+            Assert.Same(receiveTask, completedTask);
+            return await receiveTask;
+        }
+
+        private static async Task<byte[]> ReceiveExactCoreAsync(Socket socket, int length)
+        {
+            byte[] received = new byte[length];
+            int offset = 0;
+
+            while (offset < length)
+            {
+                int count = await socket.ReceiveAsync(new ArraySegment<byte>(received, offset, length - offset), SocketFlags.None);
+                if (count == 0)
+                    throw new InvalidOperationException("송신 pump 검증 중 원격 연결이 먼저 닫혔다.");
+
+                offset += count;
+            }
+
+            return received;
+        }
+
+        private static async Task WaitForRentedCountAsync(PinnedBlockMemoryPool pool, int expected)
+        {
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+
+            while (DateTime.UtcNow < deadline)
+            {
+                if (pool.RentedCount == expected)
+                    return;
+
+                await Task.Delay(10);
+            }
+
+            Assert.Equal(expected, pool.RentedCount);
         }
 
         private static int GetTrackedConnectionCount(SaeaTransport transport)

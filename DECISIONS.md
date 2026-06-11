@@ -1,5 +1,22 @@
 # DECISIONS.md
 
+## D023 — SAEA TCP send 기준선은 connection별 단일 raw Socket loop 로 pending 을 drain 한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `SaeaTransport`의 첫 TCP send 구현은 connection 생성 시 단일 send loop 를 시작하고,
+  `TransportConnection.WaitForSendSignalAsync()`로 pending 항목 또는 close 신호를 기다린다.
+  pending 항목은 `TransportConnection.TryBeginInFlightSend(out InFlightSend?)`로만 가져오며,
+  실제 socket send 가 끝나면 `InFlightSend.Complete()`를 호출한다. socket dispose, socket error, close unwind 로
+  completion 까지 가지 못한 항목은 `using`/`Dispose()` 경로가 Transport 소유 ref 를 반환한다.
+  첫 기준선은 프레이밍 없이 `TransportSendBuffer.Offset/Length` 범위만 전송한다.
+- 근거: D015-D017에서 이미 송신 소유권은 `ITransport.TrySend` 성공 시 Transport 가 ref 1개를 소유하고,
+  pending 과 in-flight 반환 책임을 분리하는 것으로 정했다. concrete SAEA 구현은 이 경계를 우회하지 않고
+  실제 socket I/O만 붙여야 한다. 또한 `RefCountedBuffer.Memory`는 전체 블록을 노출하므로 send pump 는 반드시
+  `TransportSendBuffer`의 범위만 전송해 Length 바깥 바이트가 새지 않게 해야 한다.
+- 영향: 이후 명시적인 SocketAsyncEventArgs, RIO, io_uring completion 구현도 raw `TransportSendBuffer`를 직접 release 하지 말고
+  `InFlightSend` handle 의 `Complete()`/`Dispose()` 경로를 재사용해야 한다. backpressure, drop-oldest, 프레이밍은 별도 단위로 남긴다.
+
 ## D022 — 닫힌 SAEA connection 은 transport 추적 목록에서 즉시 제거한다
 
 - 날짜: 2026-06-11

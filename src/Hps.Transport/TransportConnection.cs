@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Hps.Transport
 {
@@ -14,6 +15,7 @@ namespace Hps.Transport
     {
         private readonly object _gate;
         private readonly Queue<TransportSendBuffer> _pendingSends;
+        private readonly SemaphoreSlim _sendSignal;
         private readonly IDisposable? _transportResource;
         private readonly Action<TransportConnection>? _onClosed;
         private bool _closed;
@@ -32,6 +34,7 @@ namespace Hps.Transport
         {
             _gate = new object();
             _pendingSends = new Queue<TransportSendBuffer>();
+            _sendSignal = new SemaphoreSlim(0);
             _transportResource = transportResource;
             _onClosed = onClosed;
         }
@@ -57,14 +60,23 @@ namespace Hps.Transport
         /// </summary>
         internal bool TryAcceptSend(TransportSendBuffer sendBuffer)
         {
+            bool shouldWakePump;
+
             lock (_gate)
             {
                 if (_closed)
                     return false;
 
+                shouldWakePump = _pendingSends.Count == 0;
                 _pendingSends.Enqueue(sendBuffer);
-                return true;
             }
+
+            // 빈 큐에서 첫 항목이 들어올 때만 깨워도 단일 펌프가 drain 하면서 뒤따라온 항목을 모두 처리한다.
+            // 매 enqueue 마다 깨우면 불필요한 signal 토큰이 쌓여 hot path 관측 비용이 커진다.
+            if (shouldWakePump)
+                _sendSignal.Release();
+
+            return true;
         }
 
         /// <summary>
@@ -83,6 +95,28 @@ namespace Hps.Transport
 
                 inFlightSend = new InFlightSend(this, _pendingSends.Dequeue());
                 return true;
+            }
+        }
+
+        /// <summary>
+        /// 송신 펌프가 pending 항목이 생기거나 close 로 루프를 종료해야 할 때까지 기다린다.
+        /// </summary>
+        internal Task WaitForSendSignalAsync()
+        {
+            return _sendSignal.WaitAsync();
+        }
+
+        /// <summary>
+        /// 송신 펌프가 깨어난 뒤 종료 여부를 확인하기 위한 close 상태 스냅샷이다.
+        /// </summary>
+        internal bool IsClosed
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _closed;
+                }
             }
         }
 
@@ -168,6 +202,10 @@ namespace Hps.Transport
                 transportResource = _transportResource;
                 onClosed = _onClosed;
             }
+
+            // pending 이 비어 펌프가 대기 중일 수 있으므로 close 도 wake-up 신호를 보낸다.
+            // 펌프는 깨어난 뒤 IsClosed 를 확인하고 루프를 빠져나간다.
+            _sendSignal.Release();
 
             // close callback 과 socket dispose 는 외부 코드로 나가는 작업이므로 connection lock 밖에서 수행한다.
             // transport tracking 제거를 먼저 수행해 dispose 가 잠깐 블록되더라도 닫힌 연결 참조가 목록에 남지 않게 한다.

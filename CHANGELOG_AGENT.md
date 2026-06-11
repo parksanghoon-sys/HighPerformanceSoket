@@ -1,5 +1,39 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — SaeaTransport TCP send pump 기준선)
+
+### 작업 단위
+- `SaeaTransport`가 `ITransport.TrySend`로 enqueue 된 `TransportSendBuffer`를 실제 TCP socket 으로 전송하는 최소 기준선을 구현했다.
+- 범위는 raw TCP payload send 와 in-flight ref 반환으로 제한했다. 프레이밍, UDP, backpressure, 명시적 SocketAsyncEventArgs 최적화는 포함하지 않았다.
+
+### Red
+- `SaeaTransportTests`에 accepted connection 으로 `TrySend`한 payload 가 raw socket client 로 도착하고,
+  send completion 뒤 `RefCountedBuffer`가 풀로 반환되는지 검증하는 테스트를 추가했다.
+- 구현 전에는 send pump 가 없어 client receive 가 5초 안에 완료되지 않아 timeout 단언 실패가 발생했다.
+
+### 구현
+- `TransportConnection`에 pending send signal 을 추가했다. 빈 큐에서 첫 항목이 enqueue 되거나 close 로 펌프를 깨워야 할 때만 signal 을 보낸다.
+- `SaeaTransport`가 connection 생성 시 send loop 를 시작하게 했다.
+- send loop 는 `TryBeginInFlightSend`로 in-flight handle 을 얻고, `TransportSendBuffer.Offset/Length` 범위만 socket 으로 전송한다.
+- send completion 은 `InFlightSend.Complete()`를 호출하고, socket error/close/unwind 경로는 `Dispose()`가 Transport 소유 ref 를 반환한다.
+
+### 테스트
+- payload 앞뒤에 sentry byte 를 둔 뒤 `TransportSendBuffer`의 offset/length 범위만 client 가 받는지 검증했다.
+- publish guard ref 를 먼저 `Release()`한 뒤에도 send completion 전에는 풀로 돌아가지 않고, completion 뒤 `RentedCount==0`이 되는지 검증했다.
+- 테스트에는 TCP send pump 가 보호해야 하는 socket write 와 ref 반환 의도를 한국어 주석으로 남겼다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 TCP send pump 기준선과 테스트 35개 통과 상태로 갱신했다.
+- `TODOS.md`에서 TCP send pump 항목을 Completed 로 옮기고, 다음 후보를 UDP datagram public 계약/SAEA 기준선으로 남겼다.
+- `DECISIONS.md`에 TCP send pump 의 raw Socket baseline 과 in-flight handle 재사용 결정을 D023으로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~SendPump_WhenTrySendAcceptedConnection_SendsRequestedPayloadAndReleasesRef"` → Red: timeout 단언 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 17, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → 문제 없음.
+
 ## 2026-06-11 (Codex — SaeaTransport connection unregister 누수 수정)
 
 ### 작업 단위

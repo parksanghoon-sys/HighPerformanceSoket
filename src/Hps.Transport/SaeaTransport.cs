@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Hps.Buffers;
@@ -11,8 +12,8 @@ namespace Hps.Transport
     /// <summary>
     /// 크로스플랫폼 기준선 Transport 구현이다.
     ///
-    /// 이름은 SAEA 기준선을 나타내지만, 현재 구현은 TCP listen/connect/accept 와 최소 receive chunk 전달만 다룬다.
-    /// 명시적인 SocketAsyncEventArgs 기반 send/recv 펌프와 프레이밍은 후속 단위에서 붙인다.
+    /// 이름은 SAEA 기준선을 나타내지만, 현재 구현은 TCP listen/connect/accept 와 최소 send/receive chunk 전달만 다룬다.
+    /// 명시적인 SocketAsyncEventArgs 기반 최적화와 프레이밍은 후속 단위에서 붙인다.
     /// </summary>
     public sealed class SaeaTransport : TransportBase
     {
@@ -147,6 +148,7 @@ namespace Hps.Transport
             {
                 RegisterConnection(connection);
                 StartReceiveLoop(connection, socket);
+                StartSendLoop(connection, socket);
                 return connection;
             }
             catch
@@ -164,6 +166,78 @@ namespace Hps.Transport
             {
                 return ReceiveLoopAsync(connection, socket);
             });
+        }
+
+        private void StartSendLoop(TransportConnection connection, Socket socket)
+        {
+            // 송신도 현재는 SocketAsyncEventArgs completion pump 가 아니라 baseline raw Socket loop 이다.
+            // 다만 pending -> in-flight handle -> completion Release 경계는 이후 SAEA/RIO/io_uring 구현이 그대로 재사용한다.
+            _ = Task.Run(delegate()
+            {
+                return SendLoopAsync(connection, socket);
+            });
+        }
+
+        private async Task SendLoopAsync(TransportConnection connection, Socket socket)
+        {
+            while (true)
+            {
+                await connection.WaitForSendSignalAsync().ConfigureAwait(false);
+
+                while (connection.TryBeginInFlightSend(out TransportConnection.InFlightSend? inFlightSend))
+                {
+                    TransportConnection.InFlightSend inFlight = inFlightSend!;
+
+                    using (inFlight)
+                    {
+                        try
+                        {
+                            await SendInFlightAsync(socket, inFlight.SendBuffer).ConfigureAwait(false);
+                            inFlight.Complete();
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            return;
+                        }
+                        catch (SocketException)
+                        {
+                            NotifyConnectionClosed(connection);
+                            return;
+                        }
+                    }
+                }
+
+                if (connection.IsClosed)
+                    return;
+            }
+        }
+
+        private static async Task SendInFlightAsync(Socket socket, TransportSendBuffer sendBuffer)
+        {
+            int offset = sendBuffer.Offset;
+            int remaining = sendBuffer.Length;
+
+            while (remaining != 0)
+            {
+                ArraySegment<byte> segment = GetSocketSendSegment(sendBuffer, offset, remaining);
+                int sent = await socket.SendAsync(segment, SocketFlags.None).ConfigureAwait(false);
+                if (sent == 0)
+                    throw new SocketException((int)SocketError.ConnectionReset);
+
+                offset += sent;
+                remaining -= sent;
+            }
+        }
+
+        private static ArraySegment<byte> GetSocketSendSegment(TransportSendBuffer sendBuffer, int offset, int length)
+        {
+            Memory<byte> memory = sendBuffer.Buffer.Memory.Slice(offset, length);
+            ArraySegment<byte> segment;
+
+            if (!MemoryMarshal.TryGetArray(memory, out segment))
+                throw new InvalidOperationException("SAEA 기준선 송신은 pinned byte[] 기반 RefCountedBuffer 만 지원한다.");
+
+            return segment;
         }
 
         private async Task ReceiveLoopAsync(TransportConnection connection, Socket socket)
