@@ -1,0 +1,209 @@
+using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
+using Hps.Buffers;
+using Hps.Transport;
+using Xunit;
+
+namespace Hps.Broker.Tests
+{
+    public sealed class BrokerPublisherTests
+    {
+        // Broker publish fan-out 진입점은 SubscriptionTable 스냅샷을 읽고 Transport send 계약으로 넘기는 경계다.
+        // 아직 구현이 없을 때 먼저 실패시켜, 이후 production code가 이 공개 진입점을 실제로 제공하는지 확인한다.
+        [Fact]
+        public void BrokerPublisher_Contract_Exists()
+        {
+            Type? publisherType = Type.GetType("Hps.Broker.BrokerPublisher, Hps.Broker");
+
+            Assert.NotNull(publisherType);
+        }
+
+        // publish fan-out API는 routing table과 transport 계약 사이의 얇은 연결점이어야 한다.
+        // 생성자와 Publish 시그니처를 먼저 고정해, 이후 테스트가 컴파일 우회 없이 실제 공개 API를 검증하게 만든다.
+        [Fact]
+        public void BrokerPublisher_Contract_ExposesPublishEntryPoint()
+        {
+            Type? publisherType = Type.GetType("Hps.Broker.BrokerPublisher, Hps.Broker");
+            Assert.NotNull(publisherType);
+
+            ConstructorInfo? constructor = publisherType!.GetConstructor(new Type[] { typeof(SubscriptionTable), typeof(ITransport) });
+            MethodInfo? publish = publisherType.GetMethod("Publish", new Type[] { typeof(string), typeof(RefCountedBuffer) });
+
+            Assert.NotNull(constructor);
+            Assert.NotNull(publish);
+            Assert.Equal(typeof(int), publish!.ReturnType);
+        }
+
+        // fan-out 성공 경로는 payload 를 구독자 수만큼 복사하지 않고 같은 RefCountedBuffer 에 AddRef 한 뒤
+        // Transport 로 넘겨야 한다. publish guard ref 는 caller 가 유지하므로 Publish 직후에는 caller 가 아직 Release 해야 한다.
+        [Fact]
+        public void Publish_WhenTopicHasSubscribers_SendsSamePayloadReferenceToEachSubscriber()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer payload = pool.RentCounted();
+            payload.Span[0] = 10;
+            payload.Span[1] = 20;
+            payload.Span[2] = 30;
+            payload.SetLength(3);
+
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            FakeConnection first = new FakeConnection();
+            FakeConnection second = new FakeConnection();
+            FakeConnection otherTopic = new FakeConnection();
+            subscriptions.Subscribe("topic", first);
+            subscriptions.Subscribe("topic", second);
+            subscriptions.Subscribe("other", otherTopic);
+
+            FakeTransport transport = new FakeTransport();
+            BrokerPublisher publisher = new BrokerPublisher(subscriptions, transport);
+
+            int accepted = publisher.Publish("topic", payload);
+
+            Assert.Equal(2, accepted);
+            Assert.Equal(2, transport.AcceptedSends.Count);
+            Assert.All(transport.AcceptedSends, delegate(CapturedSend send)
+            {
+                Assert.Same(payload, send.Buffer.Buffer);
+                Assert.Equal(0, send.Buffer.Offset);
+                Assert.Equal(3, send.Buffer.Length);
+            });
+
+            transport.ReleaseAcceptedBuffers();
+            payload.Release();
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // TrySend false 는 Transport 가 해당 ref 를 소유하지 않았다는 뜻이다. Broker 가 거부된 구독자 ref 를 즉시 Release 하지 않으면
+        // caller guard 와 성공한 send ref 를 모두 해제한 뒤에도 pool 로 돌아가지 않아 단명 연결 fan-out 에서 누수가 된다.
+        [Fact]
+        public void Publish_WhenTransportRejectsSubscriber_ReleasesRejectedSubscriberReference()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer payload = pool.RentCounted();
+            payload.SetLength(5);
+
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            FakeConnection acceptedConnection = new FakeConnection();
+            FakeConnection rejectedConnection = new FakeConnection();
+            subscriptions.Subscribe("topic", acceptedConnection);
+            subscriptions.Subscribe("topic", rejectedConnection);
+
+            FakeTransport transport = new FakeTransport();
+            transport.RejectConnection = rejectedConnection;
+            BrokerPublisher publisher = new BrokerPublisher(subscriptions, transport);
+
+            int accepted = publisher.Publish("topic", payload);
+
+            Assert.Equal(1, accepted);
+            Assert.Single(transport.AcceptedSends);
+            Assert.Same(acceptedConnection, transport.AcceptedSends[0].Connection);
+
+            transport.ReleaseAcceptedBuffers();
+            payload.Release();
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        private sealed class CapturedSend
+        {
+            internal CapturedSend(IConnection connection, TransportSendBuffer buffer)
+            {
+                Connection = connection;
+                Buffer = buffer;
+            }
+
+            internal IConnection Connection { get; }
+
+            internal TransportSendBuffer Buffer { get; }
+        }
+
+        private sealed class FakeConnection : IConnection
+        {
+            public void Close()
+            {
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+
+        private sealed class FakeTransport : ITransport
+        {
+            private readonly List<CapturedSend> _acceptedSends;
+
+            internal FakeTransport()
+            {
+                _acceptedSends = new List<CapturedSend>();
+            }
+
+            internal IConnection? RejectConnection { get; set; }
+
+            internal List<CapturedSend> AcceptedSends => _acceptedSends;
+
+            public void SetReceiveHandler(ITransportReceiveHandler receiveHandler)
+            {
+            }
+
+            public void SetDatagramHandler(ITransportDatagramHandler datagramHandler)
+            {
+            }
+
+            public ValueTask<IConnectionListener> ListenTcpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
+
+            public ValueTask<IConnection> ConnectTcpAsync(EndPoint remoteEndPoint, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
+
+            public ValueTask<IUdpEndpoint> BindUdpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
+
+            public bool TrySend(IConnection connection, TransportSendBuffer sendBuffer)
+            {
+                if (object.ReferenceEquals(connection, RejectConnection))
+                    return false;
+
+                _acceptedSends.Add(new CapturedSend(connection, sendBuffer));
+                return true;
+            }
+
+            public bool TrySendTo(IUdpEndpoint endpoint, EndPoint remoteEndPoint, TransportSendBuffer sendBuffer)
+            {
+                throw new NotImplementedException();
+            }
+
+            public ValueTask StartAsync(CancellationToken cancellationToken = default)
+            {
+                return default;
+            }
+
+            public ValueTask StopAsync(CancellationToken cancellationToken = default)
+            {
+                return default;
+            }
+
+            public void Dispose()
+            {
+            }
+
+            internal void ReleaseAcceptedBuffers()
+            {
+                for (int index = 0; index < _acceptedSends.Count; index++)
+                {
+                    _acceptedSends[index].Buffer.Buffer.Release();
+                }
+
+                _acceptedSends.Clear();
+            }
+        }
+    }
+}

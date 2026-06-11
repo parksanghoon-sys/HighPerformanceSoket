@@ -1,5 +1,37 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — Broker publish fan-out)
+
+### 작업 단위
+- `SubscriptionTable` 위에 publish fan-out 진입점 `BrokerPublisher`를 추가했다.
+- 범위는 구독자 snapshot → 구독자별 `AddRef` → `ITransport.TrySend` → 거부 ref 즉시 반환까지로 제한했다.
+- command handler, Server wiring, backpressure/drop-oldest 정책은 포함하지 않았다.
+
+### Red
+- `BrokerPublisher` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- `BrokerPublisher(SubscriptionTable, ITransport)` 생성자와 `Publish(string, RefCountedBuffer)` 계약 부재를 reflection 기반 단언 실패로 확인했다.
+- no-op stub 에서 구독자 2명 fan-out 이 수락 수 0으로 실패했고, Transport 거부 구독자 경계도 수락 수 0으로 실패했다.
+
+### 구현
+- `BrokerPublisher.Publish`가 `SubscriptionTable.CopySubscribers`로 현재 구독자 snapshot 을 읽는다.
+- snapshot 배열은 `ArrayPool<IConnection>`에서 대여하고, 구독자 수가 배열보다 크면 더 큰 배열로 재시도한다.
+- 구독자마다 같은 `RefCountedBuffer`에 `AddRef()`한 뒤 `TransportSendBuffer(payload, 0, payload.Length)`로 `ITransport.TrySend`를 호출한다.
+- `TrySend`가 false 를 반환하거나 전송 시도 중 예외가 나면 Broker 가 방금 추가한 구독자 ref 를 즉시 `Release()`한다.
+- publish guard ref 는 caller 소유로 유지한다. BrokerPublisher 는 Publish 반환 시 caller ref 를 해제하지 않는다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D034로 Broker publish fan-out 소유권 결정을 기록했다.
+- `CURRENT_PLAN.md`를 publish fan-out 완료 및 사용자 리뷰 대기 상태로 갱신했다.
+- `TODOS.md`에 publish fan-out 완료 항목을 추가하고 다음 구현 후보는 리뷰 후 진행하도록 남겼다.
+
+### 검증
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerPublisherTests"` → Red: 타입 부재 실패 1 → 계약 부재 실패 1/통과 1 → 동작 Red 실패 2/통과 2 → Green 통과 4.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerPublisherTests"` → 최종 통과 4, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj` → 통과 8, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Broker.Tests` 통과 8 + `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — Broker subscription routing table)
 
 ### 작업 단위

@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D034 — Broker publish fan-out 은 구독자별 AddRef 후 Transport.TrySend 계약을 따른다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `BrokerPublisher.Publish(string, RefCountedBuffer)`는 `SubscriptionTable`의 현재 구독자 snapshot 을 읽고,
+  구독자마다 같은 `RefCountedBuffer`에 `AddRef()`를 수행한 뒤 `ITransport.TrySend(IConnection, TransportSendBuffer)`로 넘긴다.
+  `TrySend`가 `true`를 반환하면 Transport 가 해당 구독자 ref 1개를 소유한다. `false`를 반환하거나 send buffer 생성/전송 중
+  예외가 발생하면 Broker 가 방금 추가한 구독자 ref 를 즉시 `Release()`한다. Publish 호출자가 보유한 publish guard ref 는
+  이 메서드가 해제하지 않으며, 호출자가 Publish 반환 뒤 직접 `Release()`해야 한다.
+- 근거: D009의 publish guard ref 모델과 `ITransport.TrySend` 소유권 계약을 그대로 결합하면 Broker fan-out 이 payload 를
+  구독자 수만큼 복사하지 않고도 느린/닫힌 구독자에 대한 ref 누수를 피할 수 있다. `SubscriptionTable.CopySubscribers`는
+  전체 구독자 수를 반환하므로, 최초 배열이 작으면 더 큰 `ArrayPool<IConnection>` buffer 로 snapshot 을 재시도한다.
+- 영향: 이번 결정은 구독자별 송신 시도와 ref 반환 경계만 다룬다. drop-oldest/backpressure 정책, command handler,
+  Server wiring, protocol error 응답은 별도 단위에서 결정한다. BrokerPublisher 는 publish guard 를 유지하므로 후속
+  `TcpFrameReceiveHandler`/command handler wiring 은 Publish 호출 후 원본 frame ref 를 해제하는 책임을 명시해야 한다.
+
 ## D033 — Broker subscription routing 은 NoCleanup topic entry 로 시작한다
 
 - 날짜: 2026-06-11

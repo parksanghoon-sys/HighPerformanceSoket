@@ -3,7 +3,7 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - `SubscriptionTable`로 Broker subscription routing table 을 완료했다.
+  - `BrokerPublisher`로 Broker publish fan-out 소유권 경계를 완료했다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
 ## Deferred Backlog
@@ -45,6 +45,19 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] Broker publish fan-out 을 구현했다.
+  - 범위: `src/Hps.Broker/BrokerPublisher.cs`, `src/Hps.Broker/Hps.Broker.csproj`,
+    `tests/Hps.Broker.Tests/BrokerPublisherTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `BrokerPublisher` 타입 부재와 생성자/`Publish` 계약 부재를 reflection 기반 단언 실패로 확인했다.
+  - Red: no-op stub 에서 구독자 2명 fan-out 과 Transport 거부 구독자 경계가 기대 수락 수를 반환하지 못해 실패했다.
+  - 구현: `SubscriptionTable.CopySubscribers` snapshot 을 `ArrayPool<IConnection>`으로 받아 구독자별 `AddRef` 후
+    `ITransport.TrySend`로 넘긴다.
+  - 구현: `TrySend` false 또는 send buffer 생성/전송 예외 경로에서는 Broker 가 방금 추가한 구독자 ref 를 즉시 `Release`한다.
+  - 구현: publish guard ref 는 caller 소유로 유지해, command handler/Server wiring 이 Publish 반환 뒤 원본 ref 를 해제해야 한다.
+  - 검증: focused `BrokerPublisherTests` 통과 4, Broker 전체 통과 8, 솔루션 전체 통과 75,
+    빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] Broker subscription routing table 을 구현했다.
   - 범위: `src/Hps.Broker/`, `tests/Hps.Broker.Tests/`, `HighPerformanceSocket.slnx`, `CURRENT_PLAN.md`,
