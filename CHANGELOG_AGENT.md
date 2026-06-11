@@ -1,5 +1,39 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — TransportFactory SAEA fallback 기준선)
+
+### 작업 단위
+- Phase 2 backend selector 최소 계약으로 `TransportFactory.CreateDefault()`를 추가했다.
+- 범위는 상위 계층이 concrete backend 를 직접 선택하지 않도록 `ITransport` 생성 진입점을 만드는 데 한정했다.
+  실제 OS/capability probe, RIO/io_uring backend 선택, backend 옵션은 포함하지 않았다.
+
+### Red
+- `TransportContractTests`에 기본 Transport factory 계약 테스트를 추가했다.
+- 구현 전에는 `TransportFactory` 타입이 없어 `Assert.NotNull` 단언 실패가 발생했다.
+
+### 구현
+- `TransportFactory` 정적 클래스를 추가했다.
+- `CreateDefault()`는 현재 모든 환경에서 크로스플랫폼 기준선인 `SaeaTransport`를 `ITransport`로 반환한다.
+- XML doc에는 현재 fallback 성격과 이후 backend probe 확장 위치임을 명시했다.
+
+### 테스트
+- Red 단계에서는 타입 부재를 확인하기 위해 reflection 으로 factory 존재를 검사했다.
+- Green 이후에는 테스트를 직접 `TransportFactory.CreateDefault()` 호출로 리팩터링해 public API 사용 형태를 고정했다.
+- 반환값이 `ITransport`로 사용 가능하고 현재 fallback 이 `SaeaTransport`인지 검증했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 backend selector 최소 계약 완료와 테스트 40개 기준으로 갱신했다.
+- `TODOS.md`에서 backend selector 항목을 Completed 로 옮기고, 다음 후보로 UDP endpoint send 직렬화/backpressure 항목을 유지했다.
+- `DECISIONS.md`에 기본 Transport 생성 진입점을 D026으로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportFactory_CreateDefault_ReturnsSaeaFallbackAsITransport"` → Red: `TransportFactory` 타입 부재 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- Green 후 테스트 리팩터링: 같은 focused 테스트 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 22, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 22, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — UDP datagram receive 소유권 이전 순서 수정)
 
 ### 작업 단위

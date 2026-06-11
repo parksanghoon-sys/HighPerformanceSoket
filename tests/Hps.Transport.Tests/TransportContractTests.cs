@@ -212,6 +212,17 @@ namespace Hps.Transport.Tests
             AssertDoesNotExposeRawMemoryParameters(transportType);
         }
 
+        // backend selector 최소 계약 테스트: 상위 계층은 OS별 backend 구현을 직접 new 하지 않고
+        // factory 를 통해 ITransport 만 받아야 한다. 현재 단계에서는 모든 환경에서 SAEA 기준선으로 fallback 한다.
+        [Fact]
+        public void TransportFactory_CreateDefault_ReturnsSaeaFallbackAsITransport()
+        {
+            using (ITransport transport = TransportFactory.CreateDefault())
+            {
+                Assert.IsType<SaeaTransport>(transport);
+            }
+        }
+
         private static void AssertDoesNotExposeRawMemoryParameters(Type contractType)
         {
             Assert.DoesNotContain(contractType.GetMethods(), delegate(MethodInfo method)

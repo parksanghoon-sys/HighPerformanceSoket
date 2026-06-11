@@ -3,26 +3,14 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - UDP datagram handler 예외 시 receive loop 이중 Release 가능성을 제거했다.
+  - Phase 2 backend selector 최소 계약은 `TransportFactory.CreateDefault()` SAEA fallback 으로 구현·검증했다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` Phase 2 backend selector 최소 계약을 구현한다.
-  - 무엇이 남았는지: OS/capability probe 기반 Transport selector/factory 가 없어 현재 호출자는 concrete `SaeaTransport`를 직접 선택해야 한다.
-  - 왜 defer 되었는지: 이번 사이클은 UDP datagram public 계약과 `SaeaTransport` loopback 기준선까지만 리뷰 가능한 단위로 닫았다.
-  - objective: 상위 계층이 OS별 backend 세부 구현을 알지 않도록 `ITransport` 생성 진입점을 만들고, 현재는 모든 환경에서 `SaeaTransport`로 fallback 하는 최소 기준선을 검증한다.
-  - relevant context: `PLAN.md` Phase 2, AGENTS.md 아키텍처 불변식 6, DECISIONS D018-D024,
-    `src/Hps.Transport/SaeaTransport.cs`, 미래 `src/Hps.Transport.Rio/`, 미래 `src/Hps.Transport.IoUring/`.
-  - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`.
-  - 현재 상태: TCP listen/connect/accept/send/receive 와 UDP bind/send/receive 는 `SaeaTransport` loopback 기준선으로 동작한다.
-  - known blockers/open questions: public API 이름을 `TransportFactory.CreateDefault()` 같은 정적 factory 로 둘지, 별도 selector 타입으로 둘지는 아직 정하지 않았다.
-    첫 단위에서는 외부 NuGet 의존성 없이 SAEA fallback 을 검증하는 최소 계약만 잡는다.
-  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 selector/factory 가 `ITransport`를 반환하고 현재 환경에서 `SaeaTransport` fallback 을 선택한다는 Red 테스트를 작성한다.
-
 - [ ] `P1_SOON` UDP endpoint send 직렬화와 receive backpressure 정책을 설계·구현한다.
   - 무엇이 남았는지: 현재 UDP send 기준선은 datagram 마다 `Task.Run`으로 `SendToAsync`를 실행하고, UDP receive 는 handler/fan-out 이 느릴 때마다 풀에서 새 `RefCountedBuffer`를 계속 대여할 수 있다.
-  - 왜 defer 되었는지: 이번 리뷰 대응 단위는 S1 소유권 이전 순서만 고치는 작은 정확성 수정으로 제한했다. endpoint별 pump, queue, drop/close 정책은 성능·배압 설계 범위가 커서 별도 단위가 필요하다.
+  - 왜 defer 되었는지: 이번 사이클은 Phase 2 backend selector 최소 계약만 닫았다. endpoint별 pump, queue, drop/close 정책은 성능·배압 설계 범위가 커서 별도 단위가 필요하다.
   - objective: 고빈도 UDP send 에서 thread-pool flooding 을 피하고, 느린 UDP publish handler/fan-out 에서 풀 대여가 무제한 증가하지 않도록 endpoint 단위 직렬화와 drop/close/backpressure 정책을 정한다.
   - relevant context: `.claude/review/phase2-udp-datagram.md` S2/Q1, AGENTS.md 아키텍처 불변식 5, DECISIONS D012, D024,
     `src/Hps.Transport/SaeaTransport.cs`, `src/Hps.Transport/SaeaUdpEndpoint.cs`.
@@ -53,6 +41,14 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] Phase 2 backend selector 최소 계약을 구현했다.
+  - 범위: `src/Hps.Transport/TransportFactory.cs`, `tests/Hps.Transport.Tests/TransportContractTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `TransportFactory` 타입 부재를 reflection 기반 contract 테스트의 `Assert.NotNull` 실패로 확인했다.
+  - 구현: `TransportFactory.CreateDefault()` 정적 factory 를 추가하고 현재는 모든 환경에서 `SaeaTransport`를 `ITransport`로 반환하게 했다.
+  - 테스트: Green 후 테스트를 직접 public API 호출로 리팩터링해 `ITransport` 반환값이 현재 SAEA fallback 인지 검증했다.
+  - 검증: focused factory 테스트 → Red 실패 1, Green 통과 1. Transport 전체 → 통과 22.
 
 - [x] UDP datagram handler 예외 시 receive loop 이중 Release 가능성을 제거했다.
   - 범위: `src/Hps.Transport/SaeaTransport.cs`, `tests/Hps.Transport.Tests/SaeaTransportTests.cs`,

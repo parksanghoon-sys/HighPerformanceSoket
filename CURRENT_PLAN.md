@@ -90,33 +90,35 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 - S1은 반영됐다. UDP receive loop 는 handler 호출 전에 local `datagram` 참조를 끊어, handler 가 소유권을 받은 뒤 예외를 던져도
   loop catch 가 같은 `RefCountedBuffer`를 다시 Release 하지 않는다.
 - S2와 UDP receive backpressure 질문은 별도 설계 단위가 필요하므로 `TODOS.md`의 Deferred Backlog 로 이월했다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 39개를 실행했고 모두 통과했다.
+- Phase 2 backend selector 최소 계약이 추가됐다. `TransportFactory.CreateDefault()`는 상위 계층이 concrete backend 를 직접 new 하지 않도록
+  `ITransport` 생성 진입점을 제공하며, 현재는 모든 환경에서 `SaeaTransport`로 fallback 한다.
+- 실제 OS/capability probe 와 RIO/io_uring 선택 로직은 아직 구현하지 않았다. factory 위치만 먼저 고정해 이후 backend 교체 지점을 만든다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 40개를 실행했고 모두 통과했다.
 - 재확인: `dotnet build HighPerformanceSocket.slnx`는 경고 0개, 오류 0개로 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 Phase 2의 backend selector 최소 계약이다.
-목표는 OS/capability probe 결과에 따라 concrete transport 를 고르되, 현재는 모든 환경에서 `SaeaTransport` 로
-폴백하는 작은 factory/selector 기준선을 만드는 것이다. RIO/io_uring 실제 backend, TCP 프레이밍,
-Protocol/Broker, backpressure 정책은 그 다음 Phase 또는 별도 단위로 둔다.
+리뷰 후 계속 진행 지시가 있으면 다음 후보는 `.claude/review/phase2-udp-datagram.md`의 S2를 더 작게 쪼갠
+UDP endpoint send 직렬화 기준선이다. receive backpressure 정책은 fan-out/backpressure 결정과 맞물리므로 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenHandlerThrowsAfterTakingOwnership_DoesNotReleaseDatagramAgain"`
-  → handler 가 Release 후 던진 예외가 receive loop 의 두 번째 Release 로 인한 `InvalidOperationException`에 덮여 실패.
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportFactory_CreateDefault_ReturnsSaeaFallbackAsITransport"`
+  → `TransportFactory` 타입 부재 단언 실패 1개.
 - Green: 위 focused 테스트 통과.
+- Refactor: focused 테스트를 reflection 기반 존재 확인에서 직접 `TransportFactory.CreateDefault()` 호출로 정리한 뒤 다시 통과 확인.
 - `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 21개가 discover되고 실행됐는지 확인한다.
-- 결과: focused S1 회귀 테스트 통과. Transport 전체 통과 21. 전체 통과 39, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 22개가 discover되고 실행됐는지 확인한다.
+- 결과: focused factory 테스트 통과. Transport 전체 통과 22. 전체 통과 40, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
   `git diff --check`는 whitespace 오류 없이 통과해야 한다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
-- OS/capability 기반 backend selector
+- 실제 OS/capability probe 와 RIO/io_uring backend 선택 로직
 - drop-oldest backpressure evict release
 - Protocol/Broker/Server
 

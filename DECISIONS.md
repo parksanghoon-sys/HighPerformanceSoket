@@ -1,5 +1,19 @@
 # DECISIONS.md
 
+## D026 — 기본 Transport 생성 진입점은 TransportFactory.CreateDefault 로 둔다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: 상위 계층은 concrete backend 를 직접 선택하지 않고 `TransportFactory.CreateDefault()`를 통해
+  `ITransport`를 얻는다. 현재 Phase 2 기준선에서는 RIO/io_uring capability probe 가 없으므로 모든 환경에서
+  `SaeaTransport`를 반환한다. 반환 instance 의 수명은 호출자가 소유하며 `Dispose()` 해야 한다.
+- 근거: AGENTS 아키텍처 불변식 6은 OS별 backend 를 `ITransport` 뒤에 숨기도록 요구한다. 지금 바로
+  `ITransportSelector` 같은 별도 abstraction 을 추가하면 probe 대상과 옵션이 아직 없는 상태에서 타입만 늘어난다.
+  정적 factory 하나는 상위 계층의 `new SaeaTransport()` 의존을 줄이면서, 이후 Windows RIO와 Linux io_uring probe 를
+  같은 위치에 추가할 수 있는 가장 작은 계약이다.
+- 영향: `src/Hps.Transport.Rio/`와 `src/Hps.Transport.IoUring/`이 실제 구현되기 전까지는 factory 가 SAEA fallback 을 유지한다.
+  이후 backend probe 를 추가할 때도 public 호출자는 `ITransport`만 보게 하며, 테스트는 현재 fallback 계약과 미래 capability 분기 계약을 나눠 검증한다.
+
 ## D025 — UDP datagram handler 호출 시점에 receive loop 의 Release 책임을 끊는다
 
 - 날짜: 2026-06-11
