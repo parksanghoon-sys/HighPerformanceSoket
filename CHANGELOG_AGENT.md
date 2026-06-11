@@ -1,5 +1,39 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — SaeaTransport connection unregister 누수 수정)
+
+### 작업 단위
+- 사용자 리뷰에서 지적된 `SaeaTransport._connections` 등록 해제 누락을 수정했다.
+- 범위는 닫힌 connection 의 transport 추적 참조 제거와 close 시 socket dispose lock 분리로 제한했다.
+  TCP send pump, 프레이밍, UDP, backpressure 는 포함하지 않았다.
+
+### Red
+- `SaeaTransportTests`에 accepted connection 을 `Close()`한 뒤 transport 내부 tracking count 가 0으로 돌아오는지 검증하는 회귀 테스트를 추가했다.
+- 구현 전에는 `_connections`에 닫힌 connection 이 남아 `Expected: 0`, `Actual: 1` 단언 실패가 발생했다.
+
+### 구현
+- `TransportConnection`에 close callback 을 추가해 첫 `Close()` 성공 경로에서만 transport 에 등록 해제를 알린다.
+- `SaeaTransport`는 connection 생성 시 `UnregisterConnection` callback 을 넘기고, 개별 connection close 시 `_connections`에서 제거한다.
+- `TransportConnection.Close()`는 pending drain 과 closed 표시를 lock 안에서 끝낸 뒤,
+  unregister callback 과 backend socket dispose 를 lock 밖에서 수행하도록 정리했다.
+
+### 테스트
+- raw socket client 로 listener 에 연결해 transport 가 추적하는 accepted connection 하나를 만든다.
+- accepted `IConnection.Close()` 이후 transport 내부 추적 목록 count 가 0으로 감소하는지 검증했다.
+- 테스트에는 목적 주석을 남겨 단명 connection churn 에서 닫힌 socket 참조가 누적되는 회귀를 막는다는 의도를 명시했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 connection tracking 누수 해소와 테스트 34개 통과 상태로 갱신했다.
+- `TODOS.md`에 이번 누수 수정 단위를 Completed 로 기록하고, 다음 구현 단위는 계속 TCP send pump 기준선으로 남겼다.
+- `DECISIONS.md`에 닫힌 SAEA connection unregister 와 dispose lock 분리를 D022로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Close_WhenAcceptedConnectionIsClosed_RemovesTransportTrackingReference"` → Red: 실패 1(`Expected: 0`, `Actual: 1`), Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 16, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 16, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → 문제 없음.
+
 ## 2026-06-11 (Codex — SaeaTransport TCP recv pump 기준선)
 
 ### 작업 단위

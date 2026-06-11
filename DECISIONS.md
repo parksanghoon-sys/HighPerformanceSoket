@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D022 — 닫힌 SAEA connection 은 transport 추적 목록에서 즉시 제거한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `SaeaTransport`가 만든 `TransportConnection`은 `Close()`가 처음 성공할 때 transport unregister callback 을 호출한다.
+  이 callback 은 `_connections` 추적 목록에서 해당 connection 을 제거한다. `StopCore()`가 이미 snapshot 을 만들고 목록을 비운 뒤
+  connection 을 닫는 경로에서는 remove 가 no-op 이므로 같은 idempotent close 계약을 유지한다.
+  `TransportConnection.Close()`는 closed 표시와 pending send drain 만 connection lock 안에서 처리하고,
+  unregister callback 과 backend socket dispose 는 lock 밖에서 수행한다.
+- 근거: listener 는 `Close()`에서 transport 목록에서 제거되지만 connection 은 등록만 되고 제거되지 않아,
+  단명 TCP 연결이 반복되는 서버에서 닫힌 `TransportConnection`과 dispose 된 `Socket` 참조가 transport 수명 내내 누적될 수 있었다.
+  이 문제는 send/recv pump 의 후속 범위가 아니라 이미 등록된 자원의 수명 대칭이 깨진 결함이므로 다음 기능 전에 해소해야 한다.
+  또한 socket dispose 는 backend 외부 호출이므로 connection lock 안에서 오래 머무르지 않게 분리한다.
+- 영향: 이후 accept loop 와 connect churn 테스트는 개별 connection close 후 transport 추적 수가 감소한다는 전제를 가진다.
+  송신 pending/in-flight release 계약(D016, D017)은 그대로 유지하며, unregister 는 buffer 소유권 release 를 대체하지 않는다.
+
 ## D021 — SAEA TCP recv 기준선은 pinned block 으로 raw chunk 만 전달한다
 
 - 날짜: 2026-06-11

@@ -1,6 +1,8 @@
 using System;
+using System.Collections;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Hps.Transport;
@@ -96,6 +98,46 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // 연결 수명 회귀 테스트: accepted connection 이 Close 된 뒤 transport 내부 추적 목록에 남으면
+        // 단명 연결 churn 환경에서 TransportConnection 과 dispose 된 Socket 참조가 transport 수명 내내 누적된다.
+        [Fact]
+        public async Task Close_WhenAcceptedConnectionIsClosed_RemovesTransportTrackingReference()
+        {
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                await transport.StartAsync();
+
+                IConnectionListener? listener = null;
+                IConnection? inbound = null;
+                Socket? client = null;
+
+                try
+                {
+                    listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(listener.LocalEndPoint);
+
+                    client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    ValueTask<IConnection> accept = listener.AcceptAsync();
+
+                    await client.ConnectAsync(boundEndPoint);
+                    inbound = await accept;
+
+                    Assert.Equal(1, GetTrackedConnectionCount(transport));
+
+                    inbound.Close();
+
+                    Assert.Equal(0, GetTrackedConnectionCount(transport));
+                }
+                finally
+                {
+                    client?.Dispose();
+                    inbound?.Close();
+                    listener?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         private static async Task<ReceivedPayload> WaitForReceivedPayloadAsync(Task<ReceivedPayload> receivedTask)
         {
             Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
@@ -103,6 +145,17 @@ namespace Hps.Transport.Tests
 
             Assert.Same(receivedTask, completedTask);
             return await receivedTask;
+        }
+
+        private static int GetTrackedConnectionCount(SaeaTransport transport)
+        {
+            // 이 테스트는 public contract 가 아니라 transport 내부 수명 추적 누수를 보호한다.
+            // 별도 진단 API를 만들지 않기 위해 private 목록만 white-box 로 읽고, 생산 코드 경계는 건드리지 않는다.
+            FieldInfo? field = typeof(SaeaTransport).GetField("_connections", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(field);
+
+            ICollection? connections = Assert.IsAssignableFrom<ICollection>(field!.GetValue(transport));
+            return connections.Count;
         }
 
         private sealed class CapturingReceiveHandler : ITransportReceiveHandler

@@ -15,6 +15,7 @@ namespace Hps.Transport
         private readonly object _gate;
         private readonly Queue<TransportSendBuffer> _pendingSends;
         private readonly IDisposable? _transportResource;
+        private readonly Action<TransportConnection>? _onClosed;
         private bool _closed;
 
         internal TransportConnection()
@@ -23,10 +24,16 @@ namespace Hps.Transport
         }
 
         internal TransportConnection(IDisposable? transportResource)
+            : this(transportResource, null)
+        {
+        }
+
+        internal TransportConnection(IDisposable? transportResource, Action<TransportConnection>? onClosed)
         {
             _gate = new object();
             _pendingSends = new Queue<TransportSendBuffer>();
             _transportResource = transportResource;
+            _onClosed = onClosed;
         }
 
         /// <summary>
@@ -139,6 +146,9 @@ namespace Hps.Transport
 
         public void Close()
         {
+            IDisposable? transportResource;
+            Action<TransportConnection>? onClosed;
+
             lock (_gate)
             {
                 if (_closed)
@@ -155,10 +165,17 @@ namespace Hps.Transport
                     pending.Buffer.Release();
                 }
 
-                // 연결이 실제 socket 같은 backend 자원을 감싸는 경우, public Close 계약이 그 자원 수명까지
-                // 함께 닫아야 한다. 아직 recv 조립 버퍼는 없지만, 이후 추가될 때도 이 close 경로에 묶인다.
-                _transportResource?.Dispose();
+                transportResource = _transportResource;
+                onClosed = _onClosed;
             }
+
+            // close callback 과 socket dispose 는 외부 코드로 나가는 작업이므로 connection lock 밖에서 수행한다.
+            // transport tracking 제거를 먼저 수행해 dispose 가 잠깐 블록되더라도 닫힌 연결 참조가 목록에 남지 않게 한다.
+            onClosed?.Invoke(this);
+
+            // 연결이 실제 socket 같은 backend 자원을 감싸는 경우, public Close 계약이 그 자원 수명까지
+            // 함께 닫아야 한다. 아직 recv 조립 버퍼는 없지만, 이후 추가될 때도 이 close 경로에 묶인다.
+            transportResource?.Dispose();
         }
 
         public void Dispose()

@@ -69,7 +69,11 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 - `SaeaTransport`의 TCP recv pump 최소 기준선이 추가됐다. accepted TCP socket 이 받은 raw byte chunk 를
   pinned receive block 에 읽고, `ITransportReceiveHandler.OnReceived`에 borrowed `TransportReceiveBuffer`로 전달한다.
 - recv pump 는 아직 프레이밍을 하지 않는다. D010의 TCP frame 조립과 D009의 payload `RefCountedBuffer` 복사는 Phase 3 범위다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 33개를 실행했고 모두 통과했다.
+- 사용자 리뷰에서 발견된 `SaeaTransport` connection tracking 누수를 수정했다. accepted/outbound connection 이 `Close()`되면
+  `TransportConnection` close callback 으로 transport 의 `_connections` 추적 목록에서 즉시 제거된다.
+- `TransportConnection.Close()`는 pending drain 과 closed 표시만 connection lock 안에서 처리하고, unregister callback 과 socket dispose 는
+  lock 밖에서 수행한다. dispose 가 지연되어도 같은 connection 의 `TrySend`/관측자가 불필요하게 대기하지 않는다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 34개를 실행했고 모두 통과했다.
 - 재확인: `dotnet build HighPerformanceSocket.slnx`는 경고 0개, 오류 0개로 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
@@ -83,15 +87,15 @@ connection 으로 전송된 작은 payload 를 받는 흐름으로 제한한다.
 프레이밍, UDP, RIO/io_uring, backpressure 정책은 그 다음 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ReceivePump_WhenRawClientSendsBytes_DeliversBorrowedChunkToHandler"`
-  → receive handler 가 호출되지 않아 timeout 단언 실패 1개.
-- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ReceivePump_WhenRawClientSendsBytes_DeliversBorrowedChunkToHandler"`
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Close_WhenAcceptedConnectionIsClosed_RemovesTransportTrackingReference"`
+  → `Close()` 이후 transport 내부 추적 connection 수가 1로 남아 단언 실패 1개.
+- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Close_WhenAcceptedConnectionIsClosed_RemovesTransportTrackingReference"`
 - `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 15개가 discover되고 실행됐는지 확인한다.
-- 결과: focused 통과 1, 실패 0, 건너뜀 0. Transport 전체 통과 15. 전체 통과 33, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 16개가 discover되고 실행됐는지 확인한다.
+- 결과: focused 통과 1, 실패 0, 건너뜀 0. Transport 전체 통과 16. 전체 통과 34, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 펌프

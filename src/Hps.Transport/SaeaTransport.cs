@@ -141,7 +141,7 @@ namespace Hps.Transport
 
         private TransportConnection CreateSocketConnection(Socket socket)
         {
-            TransportConnection connection = new TransportConnection(socket);
+            TransportConnection connection = new TransportConnection(socket, UnregisterConnection);
 
             try
             {
@@ -242,6 +242,16 @@ namespace Hps.Transport
             {
                 EnsureRunningLocked();
                 _connections.Add(connection);
+            }
+        }
+
+        private void UnregisterConnection(TransportConnection connection)
+        {
+            lock (_gate)
+            {
+                // StopCore 가 이미 snapshot 을 뜨고 목록을 비운 뒤 close 하는 경로에서도 이 호출은 안전하다.
+                // 개별 Close 경로에서는 listener 의 unregister 와 동일하게 transport 수명 추적 참조를 즉시 제거한다.
+                _connections.Remove(connection);
             }
         }
 

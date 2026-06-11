@@ -3,7 +3,8 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - D013 리뷰 게이트에 따라 `SaeaTransport` TCP recv pump 기준선을 사용자 검토한 뒤 다음 단위로 진행한다.
+  - 사용자 리뷰에서 발견된 `SaeaTransport` connection tracking 누수는 해소했다.
+  - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
 ## Deferred Backlog
 
@@ -45,6 +46,17 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] `SaeaTransport`에서 닫힌 connection 이 transport 추적 목록에 남는 누수를 수정했다.
+  - 범위: `src/Hps.Transport/SaeaTransport.cs`, `src/Hps.Transport/TransportConnection.cs`,
+    `tests/Hps.Transport.Tests/SaeaTransportTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: accepted `IConnection.Close()` 이후 transport 내부 `_connections` count 가 1로 남아 단언 실패하는 테스트로 확인했다.
+  - 구현: `TransportConnection`에 close callback 을 추가하고 `SaeaTransport`가 `UnregisterConnection`을 연결해 개별 connection close 시 추적 목록에서 제거한다.
+  - 구현: pending drain 과 closed 표시는 connection lock 안에서 유지하되, unregister callback 과 backend socket dispose 는 lock 밖에서 수행한다.
+  - 테스트: raw socket client 로 accepted connection 하나를 만들고 close 한 뒤 transport tracking count 가 0으로 돌아오는지 검증했다.
+  - 검증: focused unregister 테스트 → Red 실패 1, Green 통과 1. Transport 전체 → 통과 16. 전체 `dotnet test HighPerformanceSocket.slnx`
+    → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 16. `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
 
 - [x] `SaeaTransport` TCP recv pump 가 receive handler 로 byte stream 조각을 전달하는 최소 loopback 기준선을 구현했다.
   - 범위: `src/Hps.Transport/SaeaTransport.cs`, `tests/Hps.Transport.Tests/SaeaTransportTests.cs`,
