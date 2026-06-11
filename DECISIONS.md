@@ -1,5 +1,20 @@
 # DECISIONS.md
 
+## D037 — Broker TCP frame handler 는 command decode 결과를 routing/fan-out 으로 연결한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `BrokerTcpFrameHandler`를 `ITcpFrameHandler` 구현체로 추가한다. `SUBSCRIBE` command 는 topic 을
+  routing key string 으로 복사해 `SubscriptionTable.Subscribe`에 연결하고, `PUBLISH` command 는
+  `TcpCommand.PayloadOffset`과 `Payload.Length`를 사용해 `BrokerPublisher.Publish(topic, frame, offset, length)`로 넘긴다.
+  `OnConnectionClosed`는 `SubscriptionTable.UnsubscribeAll`을 호출한다.
+- 근거: TCP frame payload 는 `PUBLISH <topic> <payload>` 전체가 하나의 `RefCountedBuffer`에 들어 있으므로,
+  handler 가 payload 를 새 버퍼로 복사하면 D009의 TCP publish 1회 복사 원칙을 깨게 된다. payload span만으로는
+  원본 buffer offset 을 알 수 없으므로 `TcpCommand`가 `PayloadOffset`을 제공하고, Broker는 command 문법을 다시 계산하지 않는다.
+- 영향: handler 는 `OnFrame`에서 frame 소유권을 수락한 뒤 항상 내부에서 `Release`한다. malformed command 는 현재
+  protocol error 응답이 없으므로 frame 을 회수하고 connection 을 닫는다. Server host 가 `TcpFrameReceiveHandler`와
+  이 handler 를 실제 Transport 에 등록하는 작업은 다음 별도 단위로 남긴다.
+
 ## D036 — Broker subscription table 은 connection-wide cleanup API 를 제공한다
 
 - 날짜: 2026-06-11

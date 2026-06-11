@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Hps.Broker\Hps.Broker.csproj" />
+    <ProjectReference Include="..\..\src\Hps.Protocol\Hps.Protocol.csproj" />
   </ItemGroup>
 
 </Project>

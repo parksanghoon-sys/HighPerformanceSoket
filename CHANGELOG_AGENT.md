@@ -1,5 +1,41 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — Broker TCP command handler)
+
+### 작업 단위
+- TCP frame payload command 를 Broker subscribe/publish/close cleanup 으로 연결하는 `BrokerTcpFrameHandler`를 추가했다.
+- 범위는 command handler 와 payload offset 선행 계약으로 제한했다.
+- Server host wiring, samples, backpressure, protocol error 응답 프레임은 포함하지 않았다.
+
+### Red
+- `TcpCommand.PayloadOffset` property 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- `PayloadOffset` 기본값 0 상태에서 `PUBLISH alpha <payload>`의 실제 payload 시작 offset 14 단언이 실패했다.
+- `BrokerTcpFrameHandler` 타입/생성자/`ITcpFrameHandler` 구현 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- no-op handler 에서 subscribe 등록, publish payload range fan-out, close cleanup, malformed command close/release 테스트가 실패했다.
+
+### 구현
+- `TcpCommand`에 `PayloadOffset`을 추가하고, `TcpCommandDecoder`가 `PUBLISH` payload 시작 offset 을 계산해 넘긴다.
+- `Hps.Broker`가 `Hps.Protocol`을 참조하도록 하고 `BrokerTcpFrameHandler`를 추가했다.
+- `BrokerTcpFrameHandler.OnFrame`은 `SUBSCRIBE`를 `SubscriptionTable.Subscribe`로, `PUBLISH`를
+  `BrokerPublisher.Publish(topic, frame, command.PayloadOffset, command.Payload.Length)`로 연결한다.
+- `OnConnectionClosed`는 `SubscriptionTable.UnsubscribeAll`을 호출한다.
+- malformed command 는 현재 protocol error response 가 없으므로 frame 을 Release 한 뒤 connection 을 닫는 최소 정책으로 정리했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D037로 Broker TCP frame handler 결정을 기록했다.
+- `CURRENT_PLAN.md`를 command handler 완료 및 Server wiring 대기 상태로 갱신했다.
+- `TODOS.md` Completed에 이번 단위를 추가하고 다음 후보를 `Hps.Server` 최소 host/wiring 으로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpCommandDecoderTests"` → Red: payload offset 계약 부재 실패 1/통과 9 → 계약 Green 통과 10 → offset 동작 Red 실패 2/통과 8 → Green 통과 10.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerTcpFrameHandlerTests"` → Red: handler 계약 부재 실패 1 → 계약 Green 통과 1 → 동작 Red 실패 4/통과 1 → Green 통과 5.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 24, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj` → 통과 17, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17 +
+  `Hps.Transport.Tests` 통과 26 + `Hps.Buffers.Tests` 통과 18, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — Broker connection cleanup API)
 
 ### 작업 단위

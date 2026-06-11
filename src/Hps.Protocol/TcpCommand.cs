@@ -12,15 +12,25 @@ namespace Hps.Protocol
     {
         private readonly ReadOnlySpan<byte> _topic;
         private readonly ReadOnlySpan<byte> _payload;
+        private readonly int _payloadOffset;
 
         /// <summary>
         /// command 종류와 topic/payload span view 를 지정한다.
         /// </summary>
         public TcpCommand(TcpCommandKind kind, ReadOnlySpan<byte> topic, ReadOnlySpan<byte> payload)
+            : this(kind, topic, payload, 0)
+        {
+        }
+
+        /// <summary>
+        /// command 종류, topic/payload span view, payload 시작 offset 을 지정한다.
+        /// </summary>
+        public TcpCommand(TcpCommandKind kind, ReadOnlySpan<byte> topic, ReadOnlySpan<byte> payload, int payloadOffset)
         {
             Kind = kind;
             _topic = topic;
             _payload = payload;
+            _payloadOffset = payloadOffset;
         }
 
         /// <summary>
@@ -37,5 +47,10 @@ namespace Hps.Protocol
         /// publish payload 이다. `SUBSCRIBE`에서는 빈 span 이고, `PUBLISH`에서는 topic 뒤 공백 이후의 나머지 전체이다.
         /// </summary>
         public ReadOnlySpan<byte> Payload => _payload;
+
+        /// <summary>
+        /// 원본 frame payload 시작부터 <see cref="Payload"/> 가 시작되는 byte offset 이다.
+        /// </summary>
+        public int PayloadOffset => _payloadOffset;
     }
 }

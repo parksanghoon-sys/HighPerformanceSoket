@@ -6,10 +6,11 @@
   - `BrokerPublisher`로 Broker publish fan-out 소유권 경계를 완료했다.
   - `BrokerPublisher`가 payload range 를 추가 복사 없이 fan-out 할 수 있게 됐다.
   - `SubscriptionTable.UnsubscribeAll(IConnection)`으로 Broker 라우팅 테이블의 connection-wide cleanup API를 완료했다.
+  - `BrokerTcpFrameHandler`가 TCP command decode 결과를 Broker subscribe/publish/close cleanup 으로 연결한다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
-  - 다음 후보: TCP command handler 가 `SUBSCRIBE`/`PUBLISH`를 Broker에 연결하고, `OnConnectionClosed`에서
-    `SubscriptionTable.UnsubscribeAll`을 호출하도록 결선한다.
+  - 다음 후보: `Hps.Server` 최소 host/wiring 단위에서 `TransportFactory`, `TcpFrameReceiveHandler`,
+    `BrokerTcpFrameHandler`를 실제 socket 흐름에 연결한다.
 
 ## Deferred Backlog
 
@@ -64,6 +65,21 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] Broker TCP frame command handler 를 구현했다.
+  - 범위: `src/Hps.Protocol/TcpCommand.cs`, `src/Hps.Protocol/TcpCommandDecoder.cs`,
+    `src/Hps.Broker/BrokerTcpFrameHandler.cs`, `src/Hps.Broker/Hps.Broker.csproj`,
+    `tests/Hps.Protocol.Tests/TcpCommandDecoderTests.cs`, `tests/Hps.Broker.Tests/BrokerTcpFrameHandlerTests.cs`,
+    `tests/Hps.Broker.Tests/Hps.Broker.Tests.csproj`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `TcpCommand.PayloadOffset` 부재를 reflection 기반 단언 실패로 확인했다.
+  - Red: `PayloadOffset` 기본값 0 상태에서 `PUBLISH alpha <payload>`의 실제 payload 시작 offset 14 단언 실패를 확인했다.
+  - Red: `BrokerTcpFrameHandler` 타입/생성자/`ITcpFrameHandler` 구현 부재를 확인했다.
+  - Red: no-op handler 에서 subscribe 등록, publish payload range fan-out, close cleanup, malformed frame close/release 가 실패하는 것을 확인했다.
+  - 구현: `BrokerTcpFrameHandler.OnFrame`은 command 를 decode 해 subscribe/publish 로 연결하고, 수락한 frame guard ref 를 항상 Release 한다.
+  - 구현: `OnConnectionClosed`는 `SubscriptionTable.UnsubscribeAll`을 호출하며, malformed command 는 frame 을 회수하고 connection 을 닫는다.
+  - 검증: focused `TcpCommandDecoderTests` 통과 10, focused `BrokerTcpFrameHandlerTests` 통과 5,
+    Protocol 전체 통과 24, Broker 전체 통과 17, 솔루션 전체 통과 85, 빌드 경고 0/오류 0,
+    `git diff --check` 통과.
 
 - [x] Broker subscription connection-wide cleanup API 를 구현했다.
   - 범위: `src/Hps.Broker/SubscriptionTable.cs`, `tests/Hps.Broker.Tests/BrokerRoutingTests.cs`,

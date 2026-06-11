@@ -45,12 +45,13 @@ namespace Hps.Protocol
 
             ReadOnlySpan<byte> commandName = frame.Slice(0, commandSeparator);
             ReadOnlySpan<byte> commandBody = frame.Slice(commandSeparator + 1);
+            int commandBodyOffset = commandSeparator + 1;
 
             if (IsSubscribeCommand(commandName))
                 return TryDecodeSubscribe(commandBody, out command, out error);
 
             if (IsPublishCommand(commandName))
-                return TryDecodePublish(commandBody, out command, out error);
+                return TryDecodePublish(commandBody, commandBodyOffset, out command, out error);
 
             error = TcpCommandDecodeError.UnknownCommand;
             return false;
@@ -78,7 +79,7 @@ namespace Hps.Protocol
             return true;
         }
 
-        private static bool TryDecodePublish(ReadOnlySpan<byte> commandBody, out TcpCommand command, out TcpCommandDecodeError error)
+        private static bool TryDecodePublish(ReadOnlySpan<byte> commandBody, int commandBodyOffset, out TcpCommand command, out TcpCommandDecodeError error)
         {
             command = default(TcpCommand);
 
@@ -103,8 +104,9 @@ namespace Hps.Protocol
 
             ReadOnlySpan<byte> topic = commandBody.Slice(0, payloadSeparator);
             ReadOnlySpan<byte> payload = commandBody.Slice(payloadSeparator + 1);
+            int payloadOffset = commandBodyOffset + payloadSeparator + 1;
 
-            command = new TcpCommand(TcpCommandKind.Publish, topic, payload);
+            command = new TcpCommand(TcpCommandKind.Publish, topic, payload, payloadOffset);
             error = TcpCommandDecodeError.None;
             return true;
         }
