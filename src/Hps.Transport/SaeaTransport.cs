@@ -259,8 +259,12 @@ namespace Hps.Transport
                         udpEndpoint.CreateReceiveRemoteEndPoint()).ConfigureAwait(false);
 
                     datagram.SetLength(result.ReceivedBytes);
-                    DispatchDatagramReceived(udpEndpoint, result.RemoteEndPoint, datagram);
+
+                    // handler 호출 시점부터 datagram 의 Release 책임은 handler 계약으로 넘어간다.
+                    // 호출 뒤에 null 로 끊으면 handler 예외 경로에서 loop catch 가 같은 ref 를 다시 Release 할 수 있다.
+                    RefCountedBuffer ownedDatagram = datagram;
                     datagram = null;
+                    DispatchDatagramReceived(udpEndpoint, result.RemoteEndPoint, ownedDatagram);
                 }
                 catch (ObjectDisposedException)
                 {

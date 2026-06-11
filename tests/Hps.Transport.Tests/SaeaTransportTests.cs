@@ -236,6 +236,47 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // UDP handler 예외 회귀 테스트: handler 호출 시점에 datagram 소유권은 이미 handler 로 넘어간 상태여야 한다.
+        // public receive API 는 background loop 예외를 노출하지 않으므로, 이 테스트만 private loop 를 직접 실행해
+        // handler 가 Release 후 예외를 던져도 Transport 가 같은 RefCountedBuffer 를 두 번째로 Release 하지 않는지 고정한다.
+        [Fact]
+        public async Task UdpReceive_WhenHandlerThrowsAfterTakingOwnership_DoesNotReleaseDatagramAgain()
+        {
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                ThrowingAfterReleaseDatagramHandler datagramHandler = new ThrowingAfterReleaseDatagramHandler();
+                transport.SetDatagramHandler(datagramHandler);
+
+                Socket? receiveSocket = null;
+                SaeaUdpEndpoint? udpEndpoint = null;
+                Socket? sender = null;
+
+                try
+                {
+                    receiveSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    receiveSocket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                    udpEndpoint = new SaeaUdpEndpoint(transport, receiveSocket);
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(udpEndpoint.LocalEndPoint);
+
+                    Task receiveLoop = InvokeUdpReceiveLoop(transport, udpEndpoint);
+
+                    sender = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    byte[] payload = new byte[] { 31, 32, 33 };
+                    int sent = await sender.SendToAsync(new ArraySegment<byte>(payload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(payload.Length, sent);
+
+                    Exception exception = await WaitForTaskExceptionAsync(receiveLoop);
+                    Assert.IsType<DatagramHandlerFailureException>(exception);
+                }
+                finally
+                {
+                    sender?.Dispose();
+                    udpEndpoint?.Close();
+                    receiveSocket?.Dispose();
+                }
+            }
+        }
+
         // UDP send 기준선 테스트: TrySendTo 가 true 를 반환하면 Transport 가 datagram ref 를 소유하고
         // 실제 UDP socket send 이후 완료 경로에서 Release 해야 한다. 전송 범위는 TransportSendBuffer 의 offset/length 로 제한한다.
         [Fact]
@@ -336,6 +377,24 @@ namespace Hps.Transport.Tests
             return new ReceivedSocketDatagram(result.RemoteEndPoint, payload);
         }
 
+        private static Task InvokeUdpReceiveLoop(SaeaTransport transport, SaeaUdpEndpoint udpEndpoint)
+        {
+            MethodInfo? method = typeof(SaeaTransport).GetMethod("UdpReceiveLoopAsync", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(method);
+
+            object? result = method!.Invoke(transport, new object[] { udpEndpoint });
+            return Assert.IsAssignableFrom<Task>(result);
+        }
+
+        private static async Task<Exception> WaitForTaskExceptionAsync(Task task)
+        {
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(task, timeoutTask);
+
+            Assert.Same(task, completedTask);
+            return await Assert.ThrowsAnyAsync<Exception>(async () => await task);
+        }
+
         private static async Task<byte[]> ReceiveExactCoreAsync(Socket socket, int length)
         {
             byte[] received = new byte[length];
@@ -423,6 +482,23 @@ namespace Hps.Transport.Tests
             public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
             {
             }
+        }
+
+        private sealed class ThrowingAfterReleaseDatagramHandler : ITransportDatagramHandler
+        {
+            public void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+            {
+                datagram.Release();
+                throw new DatagramHandlerFailureException();
+            }
+
+            public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
+            {
+            }
+        }
+
+        private sealed class DatagramHandlerFailureException : Exception
+        {
         }
 
         private sealed class ReceivedPayload

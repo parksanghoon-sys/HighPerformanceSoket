@@ -1,5 +1,20 @@
 # DECISIONS.md
 
+## D025 — UDP datagram handler 호출 시점에 receive loop 의 Release 책임을 끊는다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `SaeaTransport` UDP receive loop 는 `RefCountedBuffer.SetLength` 이후 handler 를 호출하기 전에
+  local `datagram` 참조를 null 로 끊고, 별도 `ownedDatagram` 값으로 `DispatchDatagramReceived`에 넘긴다.
+  handler 가 등록되어 있으면 호출 시점부터 datagram Release 책임은 `ITransportDatagramHandler` 계약으로 넘어간다.
+  handler 가 없으면 `DispatchDatagramReceived`가 즉시 Release 한다. socket receive 전 예외, socket dispose, socket error 처럼
+  handler 로 이전되기 전의 실패만 receive loop catch 가 Release 한다.
+- 근거: D024에서 UDP handler 는 owned `RefCountedBuffer`를 받는다고 결정했다. 그런데 dispatch 호출 뒤에야 local 참조를 null 로 끊으면,
+  handler 가 버퍼를 Release 한 뒤 예외를 던지는 경우 receive loop catch 가 같은 ref 를 다시 Release 하려 한다.
+  `RefCountedBuffer`의 이중 반환 가드가 손상은 막지만, 원래 handler 예외가 double-release 예외로 덮이고 소유권 경계가 흐려진다.
+- 영향: 이후 SAEA/RIO/io_uring UDP receive 구현은 handler 호출을 소유권 이전 지점으로 취급해야 한다.
+  handler 예외 정책은 별도 안정화 단위에서 다룰 수 있지만, 이미 넘긴 datagram 을 Transport catch 경로가 다시 Release 해서는 안 된다.
+
 ## D024 — UDP datagram 은 IUdpEndpoint 와 RefCountedBuffer 소유권 handler 로 분리한다
 
 - 날짜: 2026-06-11

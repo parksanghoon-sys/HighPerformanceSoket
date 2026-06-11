@@ -3,7 +3,7 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - `SaeaTransport` UDP datagram 계약과 loopback 기준선은 구현·검증했다.
+  - UDP datagram handler 예외 시 receive loop 이중 Release 가능성을 제거했다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
 ## Deferred Backlog
@@ -19,6 +19,17 @@
   - known blockers/open questions: public API 이름을 `TransportFactory.CreateDefault()` 같은 정적 factory 로 둘지, 별도 selector 타입으로 둘지는 아직 정하지 않았다.
     첫 단위에서는 외부 NuGet 의존성 없이 SAEA fallback 을 검증하는 최소 계약만 잡는다.
   - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 selector/factory 가 `ITransport`를 반환하고 현재 환경에서 `SaeaTransport` fallback 을 선택한다는 Red 테스트를 작성한다.
+
+- [ ] `P1_SOON` UDP endpoint send 직렬화와 receive backpressure 정책을 설계·구현한다.
+  - 무엇이 남았는지: 현재 UDP send 기준선은 datagram 마다 `Task.Run`으로 `SendToAsync`를 실행하고, UDP receive 는 handler/fan-out 이 느릴 때마다 풀에서 새 `RefCountedBuffer`를 계속 대여할 수 있다.
+  - 왜 defer 되었는지: 이번 리뷰 대응 단위는 S1 소유권 이전 순서만 고치는 작은 정확성 수정으로 제한했다. endpoint별 pump, queue, drop/close 정책은 성능·배압 설계 범위가 커서 별도 단위가 필요하다.
+  - objective: 고빈도 UDP send 에서 thread-pool flooding 을 피하고, 느린 UDP publish handler/fan-out 에서 풀 대여가 무제한 증가하지 않도록 endpoint 단위 직렬화와 drop/close/backpressure 정책을 정한다.
+  - relevant context: `.claude/review/phase2-udp-datagram.md` S2/Q1, AGENTS.md 아키텍처 불변식 5, DECISIONS D012, D024,
+    `src/Hps.Transport/SaeaTransport.cs`, `src/Hps.Transport/SaeaUdpEndpoint.cs`.
+  - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`, 이후 Phase 3 Broker fan-out 정책.
+  - 현재 상태: 4096 bytes × 100 Hz 기준선에는 현재 구현이 충분하지만, Phase 4 벤치 전에 endpoint별 send pump 또는 bounded queue 정책을 검증해야 한다.
+  - known blockers/open questions: UDP 는 네트워크 레벨 배압이 없으므로 느린 handler 에 대해 drop-oldest, drop-newest, endpoint close 중 어떤 정책을 기본값으로 둘지 결정해야 한다.
+  - next step: Phase 2 backend selector 이후 또는 Phase 3 fan-out 진입 전에 UDP endpoint send/receive queue 정책을 Red 테스트로 먼저 고정한다.
 
 - [ ] `P2_LATER` Phase 3 브로커 라우팅의 빈 토픽 정리 경합(R1)을 회피해 구현한다.
   - 무엇이 남았는지: `topic → 구독자 set` 라우팅을 빈 토픽 eager-cleanup 없이 구현한다.
@@ -42,6 +53,16 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] UDP datagram handler 예외 시 receive loop 이중 Release 가능성을 제거했다.
+  - 범위: `src/Hps.Transport/SaeaTransport.cs`, `tests/Hps.Transport.Tests/SaeaTransportTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: handler 가 `RefCountedBuffer`를 Release 한 뒤 예외를 던지면 receive loop 가 같은 datagram 을 다시 Release 하여
+    handler 예외가 `InvalidOperationException`으로 덮이는 실패를 확인했다.
+  - 구현: UDP receive loop 에서 handler 호출 전에 `ownedDatagram`으로 소유권을 옮기고 local `datagram`을 null 로 끊어,
+    handler 예외 경로에서 catch 가 이미 이전된 ref 를 다시 만지지 않게 했다.
+  - 테스트: private receive loop 를 white-box 로 실행해 background loop 예외를 직접 관측하고, handler 예외가 double-release 예외로 덮이지 않는지 검증했다.
+  - 검증: focused S1 회귀 테스트 → Red 실패 1, Green 통과 1. Transport 전체 → 통과 21.
 
 - [x] UDP datagram public 계약과 `SaeaTransport` UDP loopback 기준선을 구현했다.
   - 범위: `src/Hps.Transport/ITransport.cs`, `src/Hps.Transport/ITransportDatagramHandler.cs`,

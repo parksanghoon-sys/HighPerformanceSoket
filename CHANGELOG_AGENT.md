@@ -1,5 +1,36 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — UDP datagram receive 소유권 이전 순서 수정)
+
+### 작업 단위
+- `.claude/review/phase2-udp-datagram.md`의 S1 should-fix 를 반영해 UDP receive loop 의 datagram 소유권 이전 시점을 명확히 했다.
+- 범위는 handler 호출 전 local ref 차단과 회귀 테스트로 제한했다. UDP send pump/배압 정책(S2/Q1)은 별도 backlog 로 이월했다.
+
+### Red
+- `SaeaTransportTests`에 handler 가 받은 `RefCountedBuffer`를 Release 한 뒤 예외를 던지는 회귀 테스트를 추가했다.
+- 구현 전에는 receive loop catch 가 같은 datagram 을 다시 Release 하면서 원래 handler 예외가 `InvalidOperationException`으로 덮였다.
+
+### 구현
+- `UdpReceiveLoopAsync`에서 `SetLength` 후 `ownedDatagram`으로 소유권을 옮기고, handler dispatch 전에 local `datagram`을 null 로 끊었다.
+- 이 순서로 handler 호출 시점부터 Release 책임이 `ITransportDatagramHandler` 계약으로 넘어가며, handler 예외 경로에서 loop catch 가 이미 이전된 ref 를 다시 만지지 않는다.
+
+### 테스트
+- public receive API 는 background loop 예외를 노출하지 않으므로, 이번 회귀 테스트는 private receive loop 를 reflection 으로 직접 실행한다.
+- handler 가 Release 후 던진 고유 예외가 double-release 예외로 덮이지 않는지 검증한다.
+- 테스트 주석에는 white-box 테스트가 필요한 이유와 보호하는 소유권 경계를 한국어로 남겼다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 S1 반영 상태와 테스트 39개 기준으로 갱신했다.
+- `TODOS.md`에 S1 완료 항목을 추가하고, S2/Q1을 UDP endpoint send 직렬화와 receive backpressure 정책 backlog 로 남겼다.
+- `DECISIONS.md`에 UDP datagram handler 호출 시점의 소유권 이전 결정을 D025로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenHandlerThrowsAfterTakingOwnership_DoesNotReleaseDatagramAgain"` → Red: `InvalidOperationException`으로 예외가 덮여 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 21, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 21, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — UDP datagram 계약과 SAEA 기준선)
 
 ### 작업 단위

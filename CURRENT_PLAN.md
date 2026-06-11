@@ -86,7 +86,11 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
   이 기준선은 Protocol/Broker fan-out 이전의 Transport datagram 경계만 검증한다.
 - `SaeaTransport`의 UDP loopback 기준선이 추가됐다. 외부 UDP socket 이 보낸 datagram 은 handler 로 전달되고,
   `TrySendTo`로 보낸 `TransportSendBuffer`는 원격 UDP socket 에 도착한 뒤 Transport 소유 ref 가 반환된다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 38개를 실행했고 모두 통과했다.
+- `.claude/review/phase2-udp-datagram.md` 검토는 UDP 기준선을 승인했고, S1 소유권 이전 순서 개선과 S2 UDP send pump/배압 후속 항목을 남겼다.
+- S1은 반영됐다. UDP receive loop 는 handler 호출 전에 local `datagram` 참조를 끊어, handler 가 소유권을 받은 뒤 예외를 던져도
+  loop catch 가 같은 `RefCountedBuffer`를 다시 Release 하지 않는다.
+- S2와 UDP receive backpressure 질문은 별도 설계 단위가 필요하므로 `TODOS.md`의 Deferred Backlog 로 이월했다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 39개를 실행했고 모두 통과했다.
 - 재확인: `dotnet build HighPerformanceSocket.slnx`는 경고 0개, 오류 0개로 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
@@ -99,20 +103,16 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 Protocol/Broker, backpressure 정책은 그 다음 Phase 또는 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesUdpDatagramModelWithoutTcpConnection"`
-  → `IUdpEndpoint` 타입 부재 단언 실패 1개.
-- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenSocketSendsDatagram_DeliversOwnedRefCountedBuffer"`
-  → `BindUdpAsync` NotImplemented 실패 1개.
-- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpSendTo_WhenTrySendToBoundEndpoint_SendsRequestedDatagramAndReleasesRef"`
-  → `TrySendTo` NotImplemented 실패 1개.
-- Green: 위 focused 테스트 3개 각각 통과.
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenHandlerThrowsAfterTakingOwnership_DoesNotReleaseDatagramAgain"`
+  → handler 가 Release 후 던진 예외가 receive loop 의 두 번째 Release 로 인한 `InvalidOperationException`에 덮여 실패.
+- Green: 위 focused 테스트 통과.
 - `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 20개가 discover되고 실행됐는지 확인한다.
-- 결과: focused UDP 계약/수신/송신 테스트 각각 통과. Transport 전체 통과 20. 전체 통과 38, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
-  `git diff --check`는 whitespace 오류 없이 통과했으며 LF→CRLF 안내 경고만 출력됐다.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 21개가 discover되고 실행됐는지 확인한다.
+- 결과: focused S1 회귀 테스트 통과. Transport 전체 통과 21. 전체 통과 39, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+  `git diff --check`는 whitespace 오류 없이 통과해야 한다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
