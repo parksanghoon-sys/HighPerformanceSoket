@@ -1,5 +1,49 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — UDP datagram 계약과 SAEA 기준선)
+
+### 작업 단위
+- UDP datagram public 계약을 TCP connection/listener 모델과 분리하고, `SaeaTransport`의 UDP loopback bind/send/receive 기준선을 구현했다.
+- 범위는 `IUdpEndpoint`, datagram handler, UDP bind/send/receive 와 ref 반환 검증으로 제한했다.
+  UDP 신뢰성/순서 보장/혼잡 제어, backend selector, RIO/io_uring 구현은 포함하지 않았다.
+
+### Red
+- `TransportContractTests`에 UDP endpoint/datagram handler 계약 테스트를 추가했다.
+  구현 전에는 `IUdpEndpoint` 타입이 없어 `Assert.NotNull` 단언 실패가 발생했다.
+- `SaeaTransportTests`에 UDP receive loopback 테스트를 추가했다.
+  구현 전에는 `BindUdpAsync`가 `NotImplementedException`을 던졌다.
+- `SaeaTransportTests`에 UDP send loopback 테스트를 추가했다.
+  구현 전에는 `TrySendTo`가 `NotImplementedException`을 던졌다.
+
+### 구현
+- `IUdpEndpoint`를 추가해 UDP local endpoint 의 수명과 `LocalEndPoint`를 표현했다.
+- `ITransportDatagramHandler`를 추가해 UDP receive 가 owned `RefCountedBuffer`를 handler 로 넘기도록 했다.
+- `ITransport`에 `SetDatagramHandler`, `BindUdpAsync`, `TrySendTo`를 추가했다.
+- `TransportBase`는 datagram handler 등록과 snapshot 을 공통 처리하고, 기존 테스트용 subclass 가 깨지지 않도록 UDP 메서드는 기본 `NotImplementedException` 구현을 제공한다.
+- `SaeaUdpEndpoint`를 추가해 UDP socket 과 transport unregister 경계를 캡슐화했다.
+- `SaeaTransport`는 UDP endpoint 를 bind 하고 receive loop 에서 pinned counted buffer 를 직접 대여해 datagram handler 로 전달한다.
+- `TrySendTo`는 `TransportSendBuffer.Offset/Length` 범위만 UDP socket 으로 전송하고, true 반환 뒤 Transport 소유 ref 를 completion/unwind 경로에서 반환한다.
+
+### 테스트
+- UDP public 계약이 TCP accept 모델과 섞이지 않고, raw `Memory<byte>`/`ReadOnlyMemory<byte>`를 public datagram 계약에 노출하지 않는지 검증했다.
+- 외부 UDP socket 이 보낸 datagram 이 handler 로 전달되고, handler 가 받은 `RefCountedBuffer`를 직접 Release 하는지 검증했다.
+- `TrySendTo`가 offset/length 범위만 원격 UDP socket 에 보내며, publish guard ref 해제 뒤 Transport 소유 ref 가 반환되어 `RentedCount==0`으로 돌아오는지 검증했다.
+- 테스트에는 각 테스트가 보호하는 UDP datagram 소유권과 1 datagram = 1 message 의도를 한국어 주석으로 남겼다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 UDP datagram 기준선과 테스트 38개 통과 상태로 갱신했다.
+- `TODOS.md`에서 UDP datagram 항목을 Completed 로 옮기고, 다음 후보를 Phase 2 backend selector 최소 계약으로 남겼다.
+- `DECISIONS.md`에 UDP datagram 과 `RefCountedBuffer` handler 소유권 결정을 D024로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesUdpDatagramModelWithoutTcpConnection"` → Red: `IUdpEndpoint` 타입 부재 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenSocketSendsDatagram_DeliversOwnedRefCountedBuffer"` → Red: `BindUdpAsync` `NotImplementedException` 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpSendTo_WhenTrySendToBoundEndpoint_SendsRequestedDatagramAndReleasesRef"` → Red: `TrySendTo` `NotImplementedException` 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 20, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 20, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — SaeaTransport TCP send pump 기준선)
 
 ### 작업 단위

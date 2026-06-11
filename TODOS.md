@@ -3,23 +3,22 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - `SaeaTransport` TCP send pump 기준선은 구현·검증했다.
+  - `SaeaTransport` UDP datagram 계약과 loopback 기준선은 구현·검증했다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` UDP datagram public 계약과 `SaeaTransport` UDP loopback 기준선을 구현한다.
-  - 무엇이 남았는지: Phase 2는 TCP + UDP Transport 기준선을 요구하지만 현재 public 계약과 concrete 구현은 TCP listen/connect/accept/send/receive 에만 있다.
-  - 왜 defer 되었는지: 이번 사이클은 TCP send pump 의 pending → socket send → in-flight release 경계만 검증 가능한 단위로 닫았다.
-  - objective: UDP는 accept 개념이 없으므로 TCP listener 모델과 섞지 않고, bind/send/receive datagram 경계를 `ITransport` 뒤에 둘 최소 계약을 확정한다.
-    이후 loopback datagram 테스트로 1 datagram = 1 message 전제와 pinned/pooled buffer 경계를 검증한다.
-  - relevant context: `PLAN.md` Phase 2, AGENTS.md 아키텍처 불변식 6~7, DECISIONS D009, D020-D023,
-    `src/Hps.Transport/ITransport.cs`, `src/Hps.Transport/TransportBase.cs`, `src/Hps.Transport/SaeaTransport.cs`.
+- [ ] `P1_SOON` Phase 2 backend selector 최소 계약을 구현한다.
+  - 무엇이 남았는지: OS/capability probe 기반 Transport selector/factory 가 없어 현재 호출자는 concrete `SaeaTransport`를 직접 선택해야 한다.
+  - 왜 defer 되었는지: 이번 사이클은 UDP datagram public 계약과 `SaeaTransport` loopback 기준선까지만 리뷰 가능한 단위로 닫았다.
+  - objective: 상위 계층이 OS별 backend 세부 구현을 알지 않도록 `ITransport` 생성 진입점을 만들고, 현재는 모든 환경에서 `SaeaTransport`로 fallback 하는 최소 기준선을 검증한다.
+  - relevant context: `PLAN.md` Phase 2, AGENTS.md 아키텍처 불변식 6, DECISIONS D018-D024,
+    `src/Hps.Transport/SaeaTransport.cs`, 미래 `src/Hps.Transport.Rio/`, 미래 `src/Hps.Transport.IoUring/`.
   - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`.
-  - 현재 상태: TCP raw send/receive 는 loopback 에서 동작한다. UDP 계약/구현은 아직 없다.
-  - known blockers/open questions: UDP receive 를 borrowed callback 으로 먼저 둘지, D009의 직접 `RefCountedBuffer` recv 를 Phase 3 전부터 노출할지 결정이 필요하다.
-    첫 단위에서는 public 계약을 과도하게 넓히지 않도록 최소 loopback datagram 기준부터 잡는다.
-  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 UDP datagram public contract Red 테스트를 작성한다.
+  - 현재 상태: TCP listen/connect/accept/send/receive 와 UDP bind/send/receive 는 `SaeaTransport` loopback 기준선으로 동작한다.
+  - known blockers/open questions: public API 이름을 `TransportFactory.CreateDefault()` 같은 정적 factory 로 둘지, 별도 selector 타입으로 둘지는 아직 정하지 않았다.
+    첫 단위에서는 외부 NuGet 의존성 없이 SAEA fallback 을 검증하는 최소 계약만 잡는다.
+  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 selector/factory 가 `ITransport`를 반환하고 현재 환경에서 `SaeaTransport` fallback 을 선택한다는 Red 테스트를 작성한다.
 
 - [ ] `P2_LATER` Phase 3 브로커 라우팅의 빈 토픽 정리 경합(R1)을 회피해 구현한다.
   - 무엇이 남았는지: `topic → 구독자 set` 라우팅을 빈 토픽 eager-cleanup 없이 구현한다.
@@ -43,6 +42,23 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] UDP datagram public 계약과 `SaeaTransport` UDP loopback 기준선을 구현했다.
+  - 범위: `src/Hps.Transport/ITransport.cs`, `src/Hps.Transport/ITransportDatagramHandler.cs`,
+    `src/Hps.Transport/IUdpEndpoint.cs`, `src/Hps.Transport/SaeaTransport.cs`, `src/Hps.Transport/SaeaUdpEndpoint.cs`,
+    `src/Hps.Transport/TransportBase.cs`, `tests/Hps.Transport.Tests/TransportContractTests.cs`,
+    `tests/Hps.Transport.Tests/SaeaTransportTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: UDP endpoint/datagram handler 계약 부재는 reflection 기반 contract 테스트의 `IUdpEndpoint` 타입 부재 실패로 확인했다.
+  - Red: UDP receive 기준선은 `BindUdpAsync`가 `NotImplementedException`을 던지는 실패로 확인했다.
+  - Red: UDP send 기준선은 `TrySendTo`가 `NotImplementedException`을 던지는 실패로 확인했다.
+  - 구현: UDP는 TCP accept 모델과 분리해 `IUdpEndpoint` 수명 핸들을 사용하고, `BindUdpAsync`/`TrySendTo`/`SetDatagramHandler`로 bind/send/receive 경계를 노출한다.
+  - 구현: `SaeaTransport`는 UDP socket 을 bind 하고 receive loop 에서 pinned counted buffer 를 직접 대여해 datagram handler 에 `RefCountedBuffer` 소유권을 넘긴다.
+  - 구현: `TrySendTo` 성공 시 Transport 가 `TransportSendBuffer`의 ref 를 소유하고, UDP socket send completion/unwind 경로에서 정확히 한 번 Release 한다.
+  - 테스트: UDP receive 가 1 datagram = 1 message 로 handler 에 도착하고 handler 가 받은 `RefCountedBuffer`를 Release 하는지 검증했다.
+  - 테스트: UDP send 가 `TransportSendBuffer.Offset/Length` 범위만 전송하고 publish guard ref 해제 뒤 send completion 에서 `RentedCount==0`으로 돌아오는지 검증했다.
+  - 검증: focused UDP 계약/수신/송신 테스트 각각 Red 실패 1회와 Green 통과 1회. Transport 전체 → 통과 20. 전체 `dotnet test HighPerformanceSocket.slnx`
+    → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 20. `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
 
 - [x] `SaeaTransport` TCP send pump 가 pending `TransportSendBuffer`를 실제 socket 으로 보내고 ref 를 반환하는 최소 loopback 기준선을 구현했다.
   - 범위: `src/Hps.Transport/SaeaTransport.cs`, `src/Hps.Transport/TransportConnection.cs`,

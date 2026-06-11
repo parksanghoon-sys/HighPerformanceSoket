@@ -1,5 +1,25 @@
 # DECISIONS.md
 
+## D024 — UDP datagram 은 IUdpEndpoint 와 RefCountedBuffer 소유권 handler 로 분리한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: UDP public 계약은 TCP listener/connection accept 모델과 섞지 않고 `IUdpEndpoint` 수명 핸들로 분리한다.
+  `ITransport.BindUdpAsync(EndPoint, CancellationToken)`는 local UDP endpoint 를 만들고,
+  `ITransport.TrySendTo(IUdpEndpoint, EndPoint, TransportSendBuffer)`는 원격 endpoint 로 datagram 을 보낸다.
+  수신은 `ITransport.SetDatagramHandler(ITransportDatagramHandler)`로 등록한 handler 에
+  `OnDatagramReceived(IUdpEndpoint, EndPoint, RefCountedBuffer)`를 호출하는 방식으로 전달한다.
+  handler 는 전달받은 `RefCountedBuffer`의 소유권을 가지며, 처리가 끝나면 직접 `Release()`해야 한다.
+  `TrySendTo`가 true 를 반환하면 Transport 가 `TransportSendBuffer.Buffer`의 ref 1개를 소유하고 send completion, socket error,
+  close unwind 중 하나의 경로에서 정확히 한 번 `Release()`한다. false 를 반환하면 호출자가 Release 책임을 유지한다.
+- 근거: UDP는 accept 된 connection 이 없고, `1 datagram = 1 message` 이므로 TCP byte stream receive callback 과 같은 borrowed span 계약을
+  억지로 재사용하면 소유권 경계가 흐려진다. D009에서 UDP publish 는 datagram 을 `RefCountedBuffer`로 직접 recv 하는 zero-copy 경로를
+  선택했으므로 Transport datagram handler 가 처음부터 owned counted buffer 를 받는 것이 이후 Protocol/Broker fan-out 경계와 맞다.
+  OS별 backend 는 계속 `ITransport` 뒤에 숨겨야 하므로 public 계약에는 `Socket`이나 `SocketAsyncEventArgs` 같은 backend 타입을 노출하지 않는다.
+- 영향: `SaeaTransport` 기준선은 UDP socket 을 bind 하고 receive loop 에서 pinned counted block 을 직접 대여해 handler 로 넘긴다.
+  이후 RIO/io_uring backend 도 같은 `IUdpEndpoint`/`ITransportDatagramHandler` 계약을 구현해야 한다. UDP 신뢰성, 순서 보장, 혼잡 제어는
+  여전히 범위 밖이며, backend selector 는 다음 Phase 2 단위에서 SAEA fallback 기준선으로 다룬다.
+
 ## D023 — SAEA TCP send 기준선은 connection별 단일 raw Socket loop 로 pending 을 drain 한다
 
 - 날짜: 2026-06-11

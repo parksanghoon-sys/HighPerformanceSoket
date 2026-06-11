@@ -15,6 +15,7 @@ namespace Hps.Transport
     public abstract class TransportBase : ITransport
     {
         private ITransportReceiveHandler? _receiveHandler;
+        private ITransportDatagramHandler? _datagramHandler;
 
         /// <summary>
         /// 새 내부 연결 상태를 만든다. 이후 listen/accept/connect 구현은 이 연결을 <see cref="IConnection"/>
@@ -34,6 +35,15 @@ namespace Hps.Transport
             Volatile.Write(ref _receiveHandler, receiveHandler);
         }
 
+        /// <inheritdoc />
+        public void SetDatagramHandler(ITransportDatagramHandler datagramHandler)
+        {
+            if (datagramHandler == null)
+                throw new ArgumentNullException(nameof(datagramHandler));
+
+            Volatile.Write(ref _datagramHandler, datagramHandler);
+        }
+
         /// <summary>
         /// receive pump 가 현재 등록된 handler 를 관측한다.
         /// handler 등록과 pump 시작은 서로 다른 스레드에서 일어날 수 있으므로 Volatile snapshot 으로 읽는다.
@@ -41,6 +51,15 @@ namespace Hps.Transport
         internal ITransportReceiveHandler? ReadReceiveHandlerSnapshot()
         {
             return Volatile.Read(ref _receiveHandler);
+        }
+
+        /// <summary>
+        /// UDP receive pump 가 현재 등록된 datagram handler 를 관측한다.
+        /// handler 등록과 pump 시작은 서로 다른 스레드에서 일어날 수 있으므로 Volatile snapshot 으로 읽는다.
+        /// </summary>
+        internal ITransportDatagramHandler? ReadDatagramHandlerSnapshot()
+        {
+            return Volatile.Read(ref _datagramHandler);
         }
 
         /// <summary>
@@ -69,6 +88,18 @@ namespace Hps.Transport
 
         /// <inheritdoc />
         public abstract ValueTask<IConnection> ConnectTcpAsync(EndPoint remoteEndPoint, CancellationToken cancellationToken = default);
+
+        /// <inheritdoc />
+        public virtual ValueTask<IUdpEndpoint> BindUdpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc />
+        public virtual bool TrySendTo(IUdpEndpoint endpoint, EndPoint remoteEndPoint, TransportSendBuffer sendBuffer)
+        {
+            throw new NotImplementedException();
+        }
 
         /// <inheritdoc />
         public abstract ValueTask StartAsync(CancellationToken cancellationToken = default);

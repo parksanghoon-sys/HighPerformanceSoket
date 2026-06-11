@@ -23,6 +23,7 @@ namespace Hps.Transport
         private readonly object _gate;
         private readonly List<SaeaConnectionListener> _listeners;
         private readonly List<TransportConnection> _connections;
+        private readonly List<SaeaUdpEndpoint> _udpEndpoints;
         private readonly PinnedBlockMemoryPool _receivePool;
         private bool _started;
         private bool _stopped;
@@ -32,6 +33,7 @@ namespace Hps.Transport
             _gate = new object();
             _listeners = new List<SaeaConnectionListener>();
             _connections = new List<TransportConnection>();
+            _udpEndpoints = new List<SaeaUdpEndpoint>();
             _receivePool = new PinnedBlockMemoryPool(ReceiveBlockSize);
         }
 
@@ -110,6 +112,62 @@ namespace Hps.Transport
         }
 
         /// <inheritdoc />
+        public override ValueTask<IUdpEndpoint> BindUdpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
+        {
+            if (localEndPoint == null)
+                throw new ArgumentNullException(nameof(localEndPoint));
+
+            cancellationToken.ThrowIfCancellationRequested();
+            EnsureRunning();
+
+            Socket socket = CreateUdpSocket(localEndPoint);
+            SaeaUdpEndpoint? udpEndpoint = null;
+
+            try
+            {
+                socket.Bind(localEndPoint);
+                udpEndpoint = new SaeaUdpEndpoint(this, socket);
+                RegisterUdpEndpoint(udpEndpoint);
+                StartUdpReceiveLoop(udpEndpoint);
+                socket = null!;
+
+                return new ValueTask<IUdpEndpoint>(udpEndpoint);
+            }
+            finally
+            {
+                socket?.Dispose();
+            }
+        }
+
+        /// <inheritdoc />
+        public override bool TrySendTo(IUdpEndpoint endpoint, EndPoint remoteEndPoint, TransportSendBuffer sendBuffer)
+        {
+            if (endpoint == null)
+                throw new ArgumentNullException(nameof(endpoint));
+            if (remoteEndPoint == null)
+                throw new ArgumentNullException(nameof(remoteEndPoint));
+
+            SaeaUdpEndpoint? udpEndpoint = endpoint as SaeaUdpEndpoint;
+            if (udpEndpoint == null)
+                throw new ArgumentException("이 Transport 구현이 생성한 UDP endpoint 만 사용할 수 있다.", nameof(endpoint));
+
+            // TCP TrySend 와 같은 소유권 경계다. Transport 가 true 를 반환하기 전에 live buffer 여부를 확인해
+            // default(TransportSendBuffer) 나 이미 반환된 버퍼가 background send task 로 넘어가지 않게 한다.
+            RefCountedBuffer buffer = sendBuffer.Buffer;
+            _ = buffer.Memory;
+
+            if (udpEndpoint.IsClosed)
+                return false;
+
+            _ = Task.Run(delegate()
+            {
+                return SendUdpDatagramAsync(udpEndpoint, remoteEndPoint, sendBuffer);
+            });
+
+            return true;
+        }
+
+        /// <inheritdoc />
         public override ValueTask StopAsync(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -140,6 +198,14 @@ namespace Hps.Transport
             }
         }
 
+        internal void UnregisterUdpEndpoint(SaeaUdpEndpoint udpEndpoint)
+        {
+            lock (_gate)
+            {
+                _udpEndpoints.Remove(udpEndpoint);
+            }
+        }
+
         private TransportConnection CreateSocketConnection(Socket socket)
         {
             TransportConnection connection = new TransportConnection(socket, UnregisterConnection);
@@ -166,6 +232,53 @@ namespace Hps.Transport
             {
                 return ReceiveLoopAsync(connection, socket);
             });
+        }
+
+        private void StartUdpReceiveLoop(SaeaUdpEndpoint udpEndpoint)
+        {
+            // UDP 는 1 datagram = 1 message 이므로 TCP stream 조립용 borrowed receive block 과 다르게
+            // RefCountedBuffer 를 직접 대여해 handler 로 소유권을 넘긴다(D009의 UDP 직접 recv 기준선).
+            _ = Task.Run(delegate()
+            {
+                return UdpReceiveLoopAsync(udpEndpoint);
+            });
+        }
+
+        private async Task UdpReceiveLoopAsync(SaeaUdpEndpoint udpEndpoint)
+        {
+            while (true)
+            {
+                RefCountedBuffer? datagram = _receivePool.RentCounted();
+
+                try
+                {
+                    ArraySegment<byte> receiveSegment = GetRefCountedBlockSegment(datagram, 0, _receivePool.BlockSize);
+                    SocketReceiveFromResult result = await udpEndpoint.Socket.ReceiveFromAsync(
+                        receiveSegment,
+                        SocketFlags.None,
+                        udpEndpoint.CreateReceiveRemoteEndPoint()).ConfigureAwait(false);
+
+                    datagram.SetLength(result.ReceivedBytes);
+                    DispatchDatagramReceived(udpEndpoint, result.RemoteEndPoint, datagram);
+                    datagram = null;
+                }
+                catch (ObjectDisposedException)
+                {
+                    datagram?.Release();
+                    return;
+                }
+                catch (SocketException)
+                {
+                    datagram?.Release();
+                    NotifyUdpEndpointClosed(udpEndpoint);
+                    return;
+                }
+                catch
+                {
+                    datagram?.Release();
+                    throw;
+                }
+            }
         }
 
         private void StartSendLoop(TransportConnection connection, Socket socket)
@@ -229,13 +342,41 @@ namespace Hps.Transport
             }
         }
 
+        private static async Task SendUdpDatagramAsync(SaeaUdpEndpoint udpEndpoint, EndPoint remoteEndPoint, TransportSendBuffer sendBuffer)
+        {
+            RefCountedBuffer buffer = sendBuffer.Buffer;
+
+            try
+            {
+                ArraySegment<byte> segment = GetRefCountedBlockSegment(buffer, sendBuffer.Offset, sendBuffer.Length);
+                int sent = await udpEndpoint.Socket.SendToAsync(segment, SocketFlags.None, remoteEndPoint).ConfigureAwait(false);
+                if (sent != sendBuffer.Length)
+                    throw new SocketException((int)SocketError.MessageSize);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (SocketException)
+            {
+            }
+            finally
+            {
+                buffer.Release();
+            }
+        }
+
         private static ArraySegment<byte> GetSocketSendSegment(TransportSendBuffer sendBuffer, int offset, int length)
         {
-            Memory<byte> memory = sendBuffer.Buffer.Memory.Slice(offset, length);
+            return GetRefCountedBlockSegment(sendBuffer.Buffer, offset, length);
+        }
+
+        private static ArraySegment<byte> GetRefCountedBlockSegment(RefCountedBuffer buffer, int offset, int length)
+        {
+            Memory<byte> memory = buffer.Memory.Slice(offset, length);
             ArraySegment<byte> segment;
 
             if (!MemoryMarshal.TryGetArray(memory, out segment))
-                throw new InvalidOperationException("SAEA 기준선 송신은 pinned byte[] 기반 RefCountedBuffer 만 지원한다.");
+                throw new InvalidOperationException("SAEA 기준선은 pinned byte[] 기반 RefCountedBuffer 만 지원한다.");
 
             return segment;
         }
@@ -301,12 +442,42 @@ namespace Hps.Transport
             connection.Close();
         }
 
+        private void DispatchDatagramReceived(SaeaUdpEndpoint udpEndpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+        {
+            ITransportDatagramHandler? datagramHandler = ReadDatagramHandlerSnapshot();
+            if (datagramHandler == null)
+            {
+                datagram.Release();
+                return;
+            }
+
+            datagramHandler.OnDatagramReceived(udpEndpoint, remoteEndPoint, datagram);
+        }
+
+        private void NotifyUdpEndpointClosed(SaeaUdpEndpoint udpEndpoint)
+        {
+            ITransportDatagramHandler? datagramHandler = ReadDatagramHandlerSnapshot();
+            if (datagramHandler != null)
+                datagramHandler.OnDatagramEndpointClosed(udpEndpoint);
+
+            udpEndpoint.Close();
+        }
+
         private void RegisterListener(SaeaConnectionListener listener)
         {
             lock (_gate)
             {
                 EnsureRunningLocked();
                 _listeners.Add(listener);
+            }
+        }
+
+        private void RegisterUdpEndpoint(SaeaUdpEndpoint udpEndpoint)
+        {
+            lock (_gate)
+            {
+                EnsureRunningLocked();
+                _udpEndpoints.Add(udpEndpoint);
             }
         }
 
@@ -333,6 +504,7 @@ namespace Hps.Transport
         {
             SaeaConnectionListener[] listeners;
             TransportConnection[] connections;
+            SaeaUdpEndpoint[] udpEndpoints;
 
             lock (_gate)
             {
@@ -342,8 +514,10 @@ namespace Hps.Transport
                 _stopped = true;
                 listeners = _listeners.ToArray();
                 connections = _connections.ToArray();
+                udpEndpoints = _udpEndpoints.ToArray();
                 _listeners.Clear();
                 _connections.Clear();
+                _udpEndpoints.Clear();
             }
 
             // Close/Dispose 는 각 객체 내부에서 idempotent 하게 처리한다.
@@ -356,6 +530,11 @@ namespace Hps.Transport
             for (int index = 0; index < connections.Length; index++)
             {
                 connections[index].Close();
+            }
+
+            for (int index = 0; index < udpEndpoints.Length; index++)
+            {
+                udpEndpoints[index].Close();
             }
         }
 
@@ -370,7 +549,7 @@ namespace Hps.Transport
         private void EnsureRunningLocked()
         {
             if (!_started)
-                throw new InvalidOperationException("Transport 를 시작한 뒤에 TCP 작업을 수행해야 한다.");
+                throw new InvalidOperationException("Transport 를 시작한 뒤에 작업을 수행해야 한다.");
 
             if (_stopped)
                 throw new ObjectDisposedException(nameof(SaeaTransport));
@@ -383,6 +562,15 @@ namespace Hps.Transport
                 throw new NotSupportedException("TCP endpoint 의 AddressFamily 를 확인할 수 없다.");
 
             return new Socket(addressFamily, SocketType.Stream, ProtocolType.Tcp);
+        }
+
+        private static Socket CreateUdpSocket(EndPoint endPoint)
+        {
+            AddressFamily addressFamily = endPoint.AddressFamily;
+            if (addressFamily == AddressFamily.Unspecified || addressFamily == AddressFamily.Unknown)
+                throw new NotSupportedException("UDP endpoint 의 AddressFamily 를 확인할 수 없다.");
+
+            return new Socket(addressFamily, SocketType.Dgram, ProtocolType.Udp);
         }
 
         private static void ConfigureTcpConnectionSocket(Socket socket)

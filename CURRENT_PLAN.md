@@ -80,32 +80,42 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
   `ArraySegment<byte>`를 얻어 socket 으로 넘기며, 중간 payload 복사는 추가하지 않는다.
 - `TransportConnection`은 pending 큐가 빈 상태에서 새 항목이 들어오거나 close 로 pump 를 깨워야 할 때만 send signal 을 보낸다.
   pending drain 과 in-flight release 계약(D016, D017)은 유지된다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 35개를 실행했고 모두 통과했다.
+- UDP datagram public 계약이 추가됐다. UDP 는 TCP accept 모델과 분리된 `IUdpEndpoint` 수명 핸들을 사용하고,
+  `ITransport.BindUdpAsync`/`TrySendTo`/`SetDatagramHandler` 로 bind, send, receive 경계를 노출한다.
+- UDP receive 는 D009를 반영해 `RefCountedBuffer`를 직접 대여하고, datagram handler 가 해당 ref 소유권을 받아 직접 Release 한다.
+  이 기준선은 Protocol/Broker fan-out 이전의 Transport datagram 경계만 검증한다.
+- `SaeaTransport`의 UDP loopback 기준선이 추가됐다. 외부 UDP socket 이 보낸 datagram 은 handler 로 전달되고,
+  `TrySendTo`로 보낸 `TransportSendBuffer`는 원격 UDP socket 에 도착한 뒤 Transport 소유 ref 가 반환된다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 38개를 실행했고 모두 통과했다.
 - 재확인: `dotnet build HighPerformanceSocket.slnx`는 경고 0개, 오류 0개로 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 Phase 2의 남은 UDP datagram public 계약과 SAEA 기준선이다.
-TCP는 raw send/receive loopback 기준선이 생겼으므로, UDP는 accept 개념 없이 bind/send/receive 를 어떻게
-`ITransport` 뒤에 둘지 먼저 작은 계약 테스트로 확정한 뒤 concrete loopback datagram 테스트로 연결한다.
-TCP 프레이밍, Protocol/Broker, RIO/io_uring, backpressure 정책은 그 다음 단위로 둔다.
+리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 Phase 2의 backend selector 최소 계약이다.
+목표는 OS/capability probe 결과에 따라 concrete transport 를 고르되, 현재는 모든 환경에서 `SaeaTransport` 로
+폴백하는 작은 factory/selector 기준선을 만드는 것이다. RIO/io_uring 실제 backend, TCP 프레이밍,
+Protocol/Broker, backpressure 정책은 그 다음 Phase 또는 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~SendPump_WhenTrySendAcceptedConnection_SendsRequestedPayloadAndReleasesRef"`
-  → client receive 가 5초 안에 완료되지 않아 timeout 단언 실패 1개.
-- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~SendPump_WhenTrySendAcceptedConnection_SendsRequestedPayloadAndReleasesRef"`
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesUdpDatagramModelWithoutTcpConnection"`
+  → `IUdpEndpoint` 타입 부재 단언 실패 1개.
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenSocketSendsDatagram_DeliversOwnedRefCountedBuffer"`
+  → `BindUdpAsync` NotImplemented 실패 1개.
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpSendTo_WhenTrySendToBoundEndpoint_SendsRequestedDatagramAndReleasesRef"`
+  → `TrySendTo` NotImplemented 실패 1개.
+- Green: 위 focused 테스트 3개 각각 통과.
 - `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 17개가 discover되고 실행됐는지 확인한다.
-- 결과: focused 통과 1, 실패 0, 건너뜀 0. Transport 전체 통과 17. 전체 통과 35, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 20개가 discover되고 실행됐는지 확인한다.
+- 결과: focused UDP 계약/수신/송신 테스트 각각 통과. Transport 전체 통과 20. 전체 통과 38, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+  `git diff --check`는 whitespace 오류 없이 통과했으며 LF→CRLF 안내 경고만 출력됐다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
-- UDP datagram bind/receive/send 계약
 - OS/capability 기반 backend selector
 - drop-oldest backpressure evict release
 - Protocol/Broker/Server

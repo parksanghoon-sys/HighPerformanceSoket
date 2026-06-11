@@ -9,8 +9,7 @@ namespace Hps.Transport
     /// OS별 소켓 백엔드(SAEA/RIO/io_uring)를 상위 계층에서 숨기는 Transport 루트 계약이다.
     ///
     /// 이 계약은 backend 구현 타입이나 <c>SocketAsyncEventArgs</c> 같은 세부사항을 노출하지 않고,
-    /// 상위 계층이 TCP listener 와 연결 핸들만 다루게 한다. UDP datagram 수신/송신 계약은 accept 개념이
-    /// 없으므로 별도 단위에서 추가한다.
+    /// 상위 계층이 TCP listener/연결 핸들과 UDP endpoint 핸들만 다루게 한다.
     /// </summary>
     public interface ITransport : IDisposable
     {
@@ -21,6 +20,14 @@ namespace Hps.Transport
         /// 유효하다. 상위 계층이 데이터를 보관해야 하면 자신의 소유권 버퍼로 복사해야 한다.
         /// </summary>
         void SetReceiveHandler(ITransportReceiveHandler receiveHandler);
+
+        /// <summary>
+        /// UDP datagram 을 받을 handler 를 등록한다.
+        ///
+        /// UDP receive 는 datagram 단위이므로 TCP byte stream 과 달리 <see cref="ITransportDatagramHandler"/> 에
+        /// <see cref="Hps.Buffers.RefCountedBuffer"/> 소유권을 직접 넘긴다. handler 는 받은 버퍼를 반드시 Release 해야 한다.
+        /// </summary>
+        void SetDatagramHandler(ITransportDatagramHandler datagramHandler);
 
         /// <summary>
         /// TCP 수신 대기를 시작하고 accept 가능한 listener 를 반환한다.
@@ -39,6 +46,14 @@ namespace Hps.Transport
         ValueTask<IConnection> ConnectTcpAsync(EndPoint remoteEndPoint, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// UDP datagram 송수신을 위한 로컬 endpoint 를 bind 한다.
+        ///
+        /// UDP 는 TCP accept 개념이 없으므로 반환값은 연결이 아니라 bind 된 endpoint 수명 핸들이다.
+        /// 포트 0을 넘기면 반환된 <see cref="IUdpEndpoint.LocalEndPoint"/> 로 실제 포트를 확인해야 한다.
+        /// </summary>
+        ValueTask<IUdpEndpoint> BindUdpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// 지정한 연결로 송신을 시도한다.
         ///
         /// 반환값이 <c>true</c> 이면 Transport 구현은 <paramref name="sendBuffer"/> 의 버퍼 참조 1개를
@@ -50,6 +65,15 @@ namespace Hps.Transport
         /// 원자적으로 보여야 한다.
         /// </summary>
         bool TrySend(IConnection connection, TransportSendBuffer sendBuffer);
+
+        /// <summary>
+        /// 지정한 UDP endpoint 에서 원격 endpoint 로 datagram 송신을 시도한다.
+        ///
+        /// 반환값이 <c>true</c> 이면 Transport 구현은 <paramref name="sendBuffer"/> 의 버퍼 참조 1개를
+        /// 소유한다. UDP send 완료, drop, endpoint close unwind 중 정확히 한 경로에서 Release 해야 한다.
+        /// 반환값이 <c>false</c> 이면 Transport 는 소유권을 가져가지 않았으므로 호출자가 즉시 Release 해야 한다.
+        /// </summary>
+        bool TrySendTo(IUdpEndpoint endpoint, EndPoint remoteEndPoint, TransportSendBuffer sendBuffer);
 
         /// <summary>
         /// Transport 구현을 시작한다. 내부 워커, 등록 버퍼, completion queue 같은 backend 자원은

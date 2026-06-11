@@ -194,6 +194,99 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // UDP receive 기준선 테스트: UDP 는 TCP stream 조각이 아니라 datagram 하나가 메시지 하나다.
+        // Transport 는 datagram 을 RefCountedBuffer 로 직접 받아 handler 에 소유권을 넘기고, handler 가 Release 해야 한다.
+        [Fact]
+        public async Task UdpReceive_WhenSocketSendsDatagram_DeliversOwnedRefCountedBuffer()
+        {
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                CapturingDatagramHandler datagramHandler = new CapturingDatagramHandler();
+                transport.SetDatagramHandler(datagramHandler);
+                await transport.StartAsync();
+
+                IUdpEndpoint? udpEndpoint = null;
+                Socket? client = null;
+
+                try
+                {
+                    udpEndpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(udpEndpoint.LocalEndPoint);
+                    Assert.NotEqual(0, boundEndPoint.Port);
+
+                    client = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    client.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+
+                    byte[] payload = new byte[] { 11, 12, 13, 14 };
+                    int sent = await client.SendToAsync(new ArraySegment<byte>(payload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(payload.Length, sent);
+
+                    ReceivedDatagram received = await WaitForReceivedDatagramAsync(datagramHandler.ReceivedTask);
+
+                    Assert.Same(udpEndpoint, received.Endpoint);
+                    Assert.Equal(payload, received.Payload);
+                    Assert.Equal(client.LocalEndPoint, received.RemoteEndPoint);
+                }
+                finally
+                {
+                    client?.Dispose();
+                    udpEndpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
+        // UDP send 기준선 테스트: TrySendTo 가 true 를 반환하면 Transport 가 datagram ref 를 소유하고
+        // 실제 UDP socket send 이후 완료 경로에서 Release 해야 한다. 전송 범위는 TransportSendBuffer 의 offset/length 로 제한한다.
+        [Fact]
+        public async Task UdpSendTo_WhenTrySendToBoundEndpoint_SendsRequestedDatagramAndReleasesRef()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            RefCountedBuffer buffer = pool.RentCounted();
+
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                await transport.StartAsync();
+
+                IUdpEndpoint? udpEndpoint = null;
+                Socket? receiver = null;
+
+                try
+                {
+                    udpEndpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(udpEndpoint.LocalEndPoint);
+
+                    receiver = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    receiver.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint receiverEndPoint = Assert.IsType<IPEndPoint>(receiver.LocalEndPoint);
+
+                    byte[] expected = new byte[] { 21, 22, 23 };
+                    buffer.Span[0] = 55;
+                    expected.CopyTo(buffer.Span.Slice(4));
+                    buffer.Span[7] = 56;
+                    buffer.SetLength(8);
+                    buffer.AddRef();
+
+                    TransportSendBuffer sendBuffer = new TransportSendBuffer(buffer, 4, expected.Length);
+                    Assert.True(transport.TrySendTo(udpEndpoint, receiverEndPoint, sendBuffer));
+
+                    buffer.Release();
+
+                    ReceivedSocketDatagram received = await ReceiveUdpDatagramAsync(receiver, expected.Length);
+                    Assert.Equal(expected, received.Payload);
+                    Assert.Equal(boundEndPoint, received.RemoteEndPoint);
+
+                    await WaitForRentedCountAsync(pool, 0);
+                }
+                finally
+                {
+                    receiver?.Dispose();
+                    udpEndpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         private static async Task<ReceivedPayload> WaitForReceivedPayloadAsync(Task<ReceivedPayload> receivedTask)
         {
             Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
@@ -211,6 +304,36 @@ namespace Hps.Transport.Tests
 
             Assert.Same(receiveTask, completedTask);
             return await receiveTask;
+        }
+
+        private static async Task<ReceivedDatagram> WaitForReceivedDatagramAsync(Task<ReceivedDatagram> receivedTask)
+        {
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(receivedTask, timeoutTask);
+
+            Assert.Same(receivedTask, completedTask);
+            return await receivedTask;
+        }
+
+        private static async Task<ReceivedSocketDatagram> ReceiveUdpDatagramAsync(Socket socket, int maxLength)
+        {
+            Task<ReceivedSocketDatagram> receiveTask = ReceiveUdpDatagramCoreAsync(socket, maxLength);
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(receiveTask, timeoutTask);
+
+            Assert.Same(receiveTask, completedTask);
+            return await receiveTask;
+        }
+
+        private static async Task<ReceivedSocketDatagram> ReceiveUdpDatagramCoreAsync(Socket socket, int maxLength)
+        {
+            byte[] receiveBuffer = new byte[maxLength];
+            EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+            SocketReceiveFromResult result = await socket.ReceiveFromAsync(new ArraySegment<byte>(receiveBuffer), SocketFlags.None, remoteEndPoint);
+            byte[] payload = new byte[result.ReceivedBytes];
+            Array.Copy(receiveBuffer, payload, payload.Length);
+
+            return new ReceivedSocketDatagram(result.RemoteEndPoint, payload);
         }
 
         private static async Task<byte[]> ReceiveExactCoreAsync(Socket socket, int length)
@@ -278,6 +401,30 @@ namespace Hps.Transport.Tests
             }
         }
 
+        private sealed class CapturingDatagramHandler : ITransportDatagramHandler
+        {
+            private readonly TaskCompletionSource<ReceivedDatagram> _received;
+
+            internal CapturingDatagramHandler()
+            {
+                _received = new TaskCompletionSource<ReceivedDatagram>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            internal Task<ReceivedDatagram> ReceivedTask => _received.Task;
+
+            public void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+            {
+                // UDP datagram 은 handler 가 소유권을 받은 RefCountedBuffer 이므로, 테스트도 payload 를 복사한 뒤 즉시 Release 한다.
+                byte[] payload = datagram.Span.Slice(0, datagram.Length).ToArray();
+                datagram.Release();
+                _received.TrySetResult(new ReceivedDatagram(endpoint, remoteEndPoint, payload));
+            }
+
+            public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
+            {
+            }
+        }
+
         private sealed class ReceivedPayload
         {
             internal ReceivedPayload(IConnection connection, byte[] payload)
@@ -287,6 +434,35 @@ namespace Hps.Transport.Tests
             }
 
             internal IConnection Connection { get; }
+
+            internal byte[] Payload { get; }
+        }
+
+        private sealed class ReceivedDatagram
+        {
+            internal ReceivedDatagram(IUdpEndpoint endpoint, EndPoint remoteEndPoint, byte[] payload)
+            {
+                Endpoint = endpoint;
+                RemoteEndPoint = remoteEndPoint;
+                Payload = payload;
+            }
+
+            internal IUdpEndpoint Endpoint { get; }
+
+            internal EndPoint RemoteEndPoint { get; }
+
+            internal byte[] Payload { get; }
+        }
+
+        private sealed class ReceivedSocketDatagram
+        {
+            internal ReceivedSocketDatagram(EndPoint remoteEndPoint, byte[] payload)
+            {
+                RemoteEndPoint = remoteEndPoint;
+                Payload = payload;
+            }
+
+            internal EndPoint RemoteEndPoint { get; }
 
             internal byte[] Payload { get; }
         }

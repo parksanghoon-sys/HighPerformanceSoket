@@ -172,6 +172,46 @@ namespace Hps.Transport.Tests
             AssertDoesNotExposeRawMemoryProperties(receiveBufferType);
         }
 
+        // UDP datagram 계약 테스트: UDP 는 accept 된 연결이 없으므로 TCP listener/connection 모델에 억지로 끼우지 않는다.
+        // 또한 D009에 따라 수신 datagram 은 복사 없이 RefCountedBuffer 소유권으로 handler 에 전달되어야 한다.
+        [Fact]
+        public void Transport_Contract_ExposesUdpDatagramModelWithoutTcpConnection()
+        {
+            Type transportType = typeof(ITransport);
+            Type? udpEndpointType = Type.GetType("Hps.Transport.IUdpEndpoint, Hps.Transport");
+            Type? datagramHandlerType = Type.GetType("Hps.Transport.ITransportDatagramHandler, Hps.Transport");
+
+            Assert.NotNull(udpEndpointType);
+            Assert.NotNull(datagramHandlerType);
+
+            MethodInfo? setDatagramHandler = transportType.GetMethod("SetDatagramHandler", new Type[] { datagramHandlerType! });
+            MethodInfo? bindUdp = transportType.GetMethod("BindUdpAsync", new Type[] { typeof(EndPoint), typeof(CancellationToken) });
+            MethodInfo? trySendTo = transportType.GetMethod("TrySendTo", new Type[] { udpEndpointType!, typeof(EndPoint), typeof(TransportSendBuffer) });
+            MethodInfo? close = udpEndpointType!.GetMethod("Close", Type.EmptyTypes);
+            PropertyInfo? localEndPoint = udpEndpointType.GetProperty("LocalEndPoint");
+            MethodInfo? onDatagramReceived = datagramHandlerType!.GetMethod("OnDatagramReceived", new Type[] { udpEndpointType, typeof(EndPoint), typeof(RefCountedBuffer) });
+            MethodInfo? onDatagramEndpointClosed = datagramHandlerType.GetMethod("OnDatagramEndpointClosed", new Type[] { udpEndpointType });
+
+            Assert.NotNull(setDatagramHandler);
+            Assert.Equal(typeof(void), setDatagramHandler!.ReturnType);
+            Assert.NotNull(bindUdp);
+            Assert.Equal(typeof(ValueTask<>).MakeGenericType(udpEndpointType), bindUdp!.ReturnType);
+            Assert.NotNull(trySendTo);
+            Assert.Equal(typeof(bool), trySendTo!.ReturnType);
+            Assert.NotNull(close);
+            Assert.NotNull(localEndPoint);
+            Assert.Equal(typeof(EndPoint), localEndPoint!.PropertyType);
+            Assert.Contains(typeof(IDisposable), udpEndpointType.GetInterfaces());
+            Assert.NotNull(onDatagramReceived);
+            Assert.Equal(typeof(void), onDatagramReceived!.ReturnType);
+            Assert.NotNull(onDatagramEndpointClosed);
+            Assert.Equal(typeof(void), onDatagramEndpointClosed!.ReturnType);
+
+            AssertDoesNotExposeRawMemoryParameters(udpEndpointType);
+            AssertDoesNotExposeRawMemoryParameters(datagramHandlerType);
+            AssertDoesNotExposeRawMemoryParameters(transportType);
+        }
+
         private static void AssertDoesNotExposeRawMemoryParameters(Type contractType)
         {
             Assert.DoesNotContain(contractType.GetMethods(), delegate(MethodInfo method)
