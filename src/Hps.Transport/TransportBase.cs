@@ -14,6 +14,8 @@ namespace Hps.Transport
     /// </summary>
     public abstract class TransportBase : ITransport
     {
+        private ITransportReceiveHandler? _receiveHandler;
+
         /// <summary>
         /// 새 내부 연결 상태를 만든다. 이후 listen/accept/connect 구현은 이 연결을 <see cref="IConnection"/>
         /// 으로 상위 계층에 넘긴다.
@@ -21,6 +23,24 @@ namespace Hps.Transport
         internal TransportConnection CreateConnection()
         {
             return new TransportConnection();
+        }
+
+        /// <inheritdoc />
+        public void SetReceiveHandler(ITransportReceiveHandler receiveHandler)
+        {
+            if (receiveHandler == null)
+                throw new ArgumentNullException(nameof(receiveHandler));
+
+            Volatile.Write(ref _receiveHandler, receiveHandler);
+        }
+
+        /// <summary>
+        /// receive pump 가 현재 등록된 handler 를 관측한다.
+        /// handler 등록과 pump 시작은 서로 다른 스레드에서 일어날 수 있으므로 Volatile snapshot 으로 읽는다.
+        /// </summary>
+        internal ITransportReceiveHandler? ReadReceiveHandlerSnapshot()
+        {
+            return Volatile.Read(ref _receiveHandler);
         }
 
         /// <summary>

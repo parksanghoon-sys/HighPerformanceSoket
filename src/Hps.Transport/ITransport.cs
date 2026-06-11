@@ -15,6 +15,14 @@ namespace Hps.Transport
     public interface ITransport : IDisposable
     {
         /// <summary>
+        /// socket recv 로 들어온 byte stream 과 연결 종료 알림을 받을 handler 를 등록한다.
+        ///
+        /// Transport 는 handler 를 동기적으로 호출하며, 전달되는 <see cref="TransportReceiveBuffer"/> 는 콜백 동안만
+        /// 유효하다. 상위 계층이 데이터를 보관해야 하면 자신의 소유권 버퍼로 복사해야 한다.
+        /// </summary>
+        void SetReceiveHandler(ITransportReceiveHandler receiveHandler);
+
+        /// <summary>
         /// TCP 수신 대기를 시작하고 accept 가능한 listener 를 반환한다.
         ///
         /// 반환된 listener 는 listen socket 수명만 관리한다. accept 된 각 연결의 송신 큐와 수신 조립 버퍼는

@@ -132,6 +132,46 @@ namespace Hps.Transport.Tests
             AssertDoesNotExposeRawMemoryParameters(transportType);
         }
 
+        // 수신 전달 계약 테스트: Transport 는 socket recv 버퍼를 상위 계층에 raw Memory 로 넘기지 않고,
+        // 동기 콜백 동안만 유효한 ref struct view 로 전달해야 한다. 그래야 recv ring/pinned buffer 수명이 밖으로 새지 않는다.
+        [Fact]
+        public void Transport_Contract_ExposesBorrowedReceiveDeliveryBoundary()
+        {
+            Type transportType = typeof(ITransport);
+            Type connectionType = typeof(IConnection);
+            Type receiveHandlerType = typeof(ITransportReceiveHandler);
+            Type receiveBufferType = typeof(TransportReceiveBuffer);
+
+            Assert.True(receiveBufferType.IsByRefLike);
+
+            MethodInfo? setReceiveHandler = transportType.GetMethod("SetReceiveHandler", new Type[] { receiveHandlerType });
+            MethodInfo? onReceived = receiveHandlerType.GetMethod("OnReceived", new Type[] { typeof(IConnection), receiveBufferType });
+            MethodInfo? onConnectionClosed = receiveHandlerType.GetMethod("OnConnectionClosed", new Type[] { typeof(IConnection) });
+            PropertyInfo? span = receiveBufferType.GetProperty("Span");
+            PropertyInfo? length = receiveBufferType.GetProperty("Length");
+
+            Assert.NotNull(setReceiveHandler);
+            Assert.Equal(typeof(void), setReceiveHandler!.ReturnType);
+            Assert.NotNull(onReceived);
+            Assert.Equal(typeof(void), onReceived!.ReturnType);
+            Assert.NotNull(onConnectionClosed);
+            Assert.Equal(typeof(void), onConnectionClosed!.ReturnType);
+            Assert.NotNull(span);
+            Assert.Equal(typeof(ReadOnlySpan<byte>), span!.PropertyType);
+            Assert.NotNull(length);
+            Assert.Equal(typeof(int), length!.PropertyType);
+
+            byte[] sample = new byte[] { 1, 2, 3 };
+            TransportReceiveBuffer receiveBuffer = new TransportReceiveBuffer(sample);
+            Assert.Equal(3, receiveBuffer.Length);
+            Assert.Equal(2, receiveBuffer.Span[1]);
+
+            AssertDoesNotExposeRawMemoryParameters(connectionType);
+            AssertDoesNotExposeRawMemoryParameters(receiveHandlerType);
+            AssertDoesNotExposeRawMemoryParameters(transportType);
+            AssertDoesNotExposeRawMemoryProperties(receiveBufferType);
+        }
+
         private static void AssertDoesNotExposeRawMemoryParameters(Type contractType)
         {
             Assert.DoesNotContain(contractType.GetMethods(), delegate(MethodInfo method)
@@ -145,6 +185,15 @@ namespace Hps.Transport.Tests
                 }
 
                 return false;
+            });
+        }
+
+        private static void AssertDoesNotExposeRawMemoryProperties(Type contractType)
+        {
+            Assert.DoesNotContain(contractType.GetProperties(), delegate(PropertyInfo property)
+            {
+                Type propertyType = property.PropertyType;
+                return propertyType == typeof(Memory<byte>) || propertyType == typeof(ReadOnlyMemory<byte>);
             });
         }
     }

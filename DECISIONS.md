@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D020 — Transport 수신 전달은 borrowed ref struct 콜백으로 제한한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: Transport 수신 경계는 `ITransport.SetReceiveHandler(ITransportReceiveHandler)`로 등록한 단일 handler 에
+  `TransportReceiveBuffer`를 동기 전달하는 방식으로 한다. `TransportReceiveBuffer`는 `readonly ref struct`이며
+  `ReadOnlySpan<byte>`와 `Length`만 노출한다. handler 는 콜백이 반환되기 전까지 span 을 즉시 처리해야 하며,
+  콜백 이후에도 필요한 데이터는 Protocol 계층이 자신의 소유권 버퍼로 복사한다. 연결 종료 알림은
+  `ITransportReceiveHandler.OnConnectionClosed(IConnection)`로 전달해 조립 중인 버퍼 release 시점을 제공한다.
+- 근거: receive ring 또는 pinned receive block 을 `Memory<byte>`로 public 계약에 넘기면 상위 계층이 콜백 밖으로
+  저장할 수 있어 Transport 의 버퍼 재사용/반환 책임이 흐려진다. `ref struct` borrowed view 는 async/heap 저장을
+  언어 차원에서 막아 D010의 TCP parser 가 즉시 소비하거나 D009의 payload buffer 로 복사하는 흐름을 강제한다.
+- 영향: 다음 `SaeaTransport` recv pump 구현은 socket recv 결과를 이 handler 로 전달해야 한다. 이 단계에서는 raw TCP
+  byte stream chunk 전달까지만 담당하고, 프레이밍/메시지 조립/팬아웃 소유권은 Phase 3의 Protocol/Broker 단위에서 처리한다.
+  public `IConnection`에는 receive 메서드를 추가하지 않는다.
+
 ## D019 — SAEA TCP 기준선은 socket 수명을 TransportConnection.Close에 묶는다
 
 - 날짜: 2026-06-11

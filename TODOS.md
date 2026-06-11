@@ -3,24 +3,25 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - D013 리뷰 게이트에 따라 `SaeaTransport` TCP loopback listen/connect/accept 기준선을 사용자 검토한 뒤 다음 단위로 진행한다.
+  - D013 리뷰 게이트에 따라 Transport receive delivery 계약을 사용자 검토한 뒤 다음 단위로 진행한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` TCP payload I/O 전에 Transport 수신 전달 계약과 receive buffer 소유권을 작게 확정한다.
-  - 무엇이 남았는지: 송신은 `ITransport.TrySend(IConnection, TransportSendBuffer)`로 계약화됐지만,
-    socket recv 로 들어온 payload 를 Protocol 계층에 어떤 callback/queue/handler 형태로 넘길지는 아직 public 계약이 없다.
-  - 왜 defer 되었는지: 이번 사이클은 `SaeaTransport`가 실제 loopback TCP 연결을 만들 수 있는지까지만 검증했고,
-    payload 수신/송신 계약은 별도 리뷰 단위로 분리한다.
-  - objective: TCP recv pump 구현 전에 pinned pool 에서 대여한 receive buffer 또는 `RefCountedBuffer`를 상위 계층으로 넘기는
-    소유권 경계를 Red 테스트로 고정한다.
-  - relevant context: `PLAN.md` Phase 2, DECISIONS D007, D009, D010, D011, D015-D019,
-    `src/Hps.Transport/ITransport.cs`, `src/Hps.Transport/TransportSendBuffer.cs`, `src/Hps.Transport/SaeaTransport.cs`.
+- [ ] `P1_SOON` `SaeaTransport` TCP recv pump 가 receive handler 로 byte stream 조각을 전달하는 최소 loopback 기준선을 구현한다.
+  - 무엇이 남았는지: `ITransportReceiveHandler`와 borrowed `TransportReceiveBuffer` 계약은 생겼지만,
+    실제 socket recv 결과가 handler 로 전달되는 구현은 아직 없다.
+  - 왜 defer 되었는지: 이번 사이클은 public receive delivery 계약과 소유권 경계만 확정했고,
+    실제 socket recv loop 와 pinned block 사용은 별도 리뷰 단위로 분리한다.
+  - objective: raw socket client 가 loopback listener 로 보낸 작은 byte 배열을 accepted `IConnection`의 receive handler 가
+    borrowed `TransportReceiveBuffer`로 관측하는 최소 기준선을 만든다.
+  - relevant context: `PLAN.md` Phase 2, DECISIONS D007, D009, D010, D011, D015-D020,
+    `src/Hps.Transport/ITransport.cs`, `src/Hps.Transport/ITransportReceiveHandler.cs`,
+    `src/Hps.Transport/TransportReceiveBuffer.cs`, `src/Hps.Transport/SaeaTransport.cs`.
   - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`.
-  - 현재 상태: `SaeaTransport`는 listener/connect/accept 로 양쪽 `IConnection`을 만들 수 있다. 실제 receive pump 와 Protocol 전달 표면은 없다.
-  - known blockers/open questions: TCP는 D010에 따라 recv ring → 프레이밍 → `RefCountedBuffer` 조립이 필요하므로,
-    Transport 가 raw bytes 를 넘길지, frame-ready buffer 를 넘길지 경계를 넓히기 전에 현재 Phase 2 책임을 다시 좁혀야 한다.
-  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 receive delivery 계약을 요구하는 Red 테스트부터 작성한다.
+  - 현재 상태: receive handler 는 등록할 수 있지만 호출되지 않는다. `SaeaTransport`는 아직 payload send/recv pump 를 갖지 않는다.
+  - known blockers/open questions: 첫 recv pump 는 프레이밍을 하지 말고 raw TCP byte stream chunk 전달까지만 담당해야 한다.
+    Protocol 조립(D010)과 publish payload 소유권(D009)은 Phase 3에서 별도 처리한다.
+  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 raw socket client → accepted connection receive handler Red 테스트부터 작성한다.
 
 - [ ] `P2_LATER` Phase 3 브로커 라우팅의 빈 토픽 정리 경합(R1)을 회피해 구현한다.
   - 무엇이 남았는지: `topic → 구독자 set` 라우팅을 빈 토픽 eager-cleanup 없이 구현한다.
@@ -44,6 +45,20 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] TCP payload I/O 전에 Transport 수신 전달 계약과 receive buffer 소유권을 확정했다.
+  - 범위: `src/Hps.Transport/ITransport.cs`, `src/Hps.Transport/ITransportReceiveHandler.cs`,
+    `src/Hps.Transport/TransportReceiveBuffer.cs`, `src/Hps.Transport/TransportBase.cs`,
+    `tests/Hps.Transport.Tests/TransportContractTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `ITransportReceiveHandler`/`TransportReceiveBuffer` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+  - 구현: `ITransport.SetReceiveHandler(ITransportReceiveHandler)`를 추가했다.
+  - 구현: `ITransportReceiveHandler.OnReceived(IConnection, TransportReceiveBuffer)`와 `OnConnectionClosed(IConnection)` 계약을 추가했다.
+  - 구현: `TransportReceiveBuffer`를 `readonly ref struct`로 추가해 `ReadOnlySpan<byte>` borrowed view 와 `Length`만 노출한다.
+  - 구현: `TransportBase`가 receive handler 등록과 snapshot helper 를 공통 처리한다.
+  - 테스트: receive handler/borrowed buffer 계약이 raw `Memory<byte>`/`ReadOnlyMemory<byte>` parameter/property 를 노출하지 않고,
+    `TransportReceiveBuffer`가 byref-like 타입으로 `Span`/`Length`를 제공하는지 검증했다.
+  - 검증: focused receive 계약 테스트 → 통과 1, 실패 0, 건너뜀 0. Transport 전체 → 통과 14. 전체 `dotnet test HighPerformanceSocket.slnx`
+    → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 14. `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
 
 - [x] `SaeaTransport`의 TCP listen/connect/accept 최소 loopback 기준선을 구현했다.
   - 범위: `src/Hps.Transport/SaeaTransport.cs`, `src/Hps.Transport/SaeaConnectionListener.cs`,

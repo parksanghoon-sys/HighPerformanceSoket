@@ -1,5 +1,38 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — Transport receive delivery 계약)
+
+### 작업 단위
+- TCP payload I/O 구현 전에 Transport 가 상위 계층으로 recv byte stream 을 전달하는 public 계약을 확정했다.
+- 실제 socket recv pump, 프레이밍, `RefCountedBuffer` payload 조립은 넣지 않고 borrowed receive boundary 만 별도 단위로 처리했다.
+
+### Red
+- `TransportContractTests`에 receive handler 와 borrowed receive buffer 계약 테스트를 추가했다.
+- 구현 전에는 `ITransportReceiveHandler`/`TransportReceiveBuffer` 타입이 없어 `Assert.NotNull`이 실패했다.
+
+### 구현
+- `ITransport.SetReceiveHandler(ITransportReceiveHandler)`를 추가했다.
+- `ITransportReceiveHandler`를 추가해 `OnReceived(IConnection, TransportReceiveBuffer)`와 `OnConnectionClosed(IConnection)`를 정의했다.
+- `TransportReceiveBuffer`를 `readonly ref struct`로 추가해 콜백 동안만 유효한 `ReadOnlySpan<byte>` view 와 `Length`만 노출하게 했다.
+- `TransportBase`에 receive handler 저장과 recv pump 용 snapshot helper 를 추가했다.
+
+### 테스트
+- receive delivery 계약이 `IConnection` public API 가 아니라 `ITransport` handler 경계에 있는지 검증했다.
+- `TransportReceiveBuffer`가 byref-like 타입이며 `Span`/`Length`를 제공하는지 검증했다.
+- handler/transport/receive buffer 계약이 raw `Memory<byte>`/`ReadOnlyMemory<byte>` parameter/property 를 노출하지 않는지 검증했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 receive delivery 계약 확정 상태와 테스트 32개 통과 상태로 갱신했다.
+- `TODOS.md`에서 receive delivery 계약을 Completed로 옮기고, 다음 리뷰 단위를 `SaeaTransport` TCP recv pump 기준선으로 남겼다.
+- `DECISIONS.md`에 borrowed receive delivery 경계를 D020으로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesBorrowedReceiveDeliveryBoundary"` → Red: 실패 1(`ITransportReceiveHandler`/`TransportReceiveBuffer` 없음), Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 14, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 14, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → 문제 없음.
+
 ## 2026-06-11 (Codex — SaeaTransport TCP loopback 연결 기준선)
 
 ### 작업 단위
