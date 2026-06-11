@@ -50,6 +50,30 @@ namespace Hps.Broker
         }
 
         /// <summary>
+        /// 지정 connection 을 모든 topic 구독 set 에서 제거하고 실제 제거된 구독 수를 반환한다.
+        ///
+        /// 이 API 는 Transport/Protocol 계층이 연결 종료를 통지했을 때 topic 이름을 알 수 없는 상태에서도
+        /// Broker 라우팅 테이블에 남은 dead connection 참조를 정리하기 위한 경계다. D008 NoCleanup 정책에 따라
+        /// topic entry 자체는 제거하지 않고, 각 topic 의 connection set 에서만 대상 connection 을 제거한다.
+        /// </summary>
+        public int UnsubscribeAll(IConnection connection)
+        {
+            ValidateConnection(connection);
+
+            int removed = 0;
+
+            // ConcurrentDictionary 열거는 mutation 과 동시에 안전하다. 연결 종료 정리는 hot publish 경로가 아니므로
+            // topic 전체를 한 번 훑는 비용을 받아들이고, 대신 topic entry 제거 경합을 만들지 않아 D008 불변식을 유지한다.
+            foreach (KeyValuePair<string, TopicSubscriptions> pair in _topics)
+            {
+                if (pair.Value.Remove(connection))
+                    removed++;
+            }
+
+            return removed;
+        }
+
+        /// <summary>
         /// 지정 connection 이 topic 에 현재 구독되어 있는지 확인한다.
         /// </summary>
         public bool IsSubscribed(string topic, IConnection connection)

@@ -1,3 +1,5 @@
+using System;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Hps.Transport;
@@ -52,6 +54,45 @@ namespace Hps.Broker.Tests
             Assert.False(table.IsSubscribed("topic", alpha));
             Assert.True(table.IsSubscribed("topic", beta));
             Assert.Equal(1, table.CountSubscribers("topic"));
+        }
+
+        // 연결 종료 정리 API 계약 테스트: transport 가 닫힌 connection 을 알려줄 때 Broker 는 topic 이름을 모르더라도
+        // 해당 connection 을 모든 구독 set 에서 제거할 수 있어야 churn 서버에서 dead connection 참조가 누적되지 않는다.
+        [Fact]
+        public void SubscriptionTable_Contract_ExposesConnectionWideCleanup()
+        {
+            Type? tableType = Type.GetType("Hps.Broker.SubscriptionTable, Hps.Broker");
+            Assert.NotNull(tableType);
+
+            MethodInfo? unsubscribeAll = tableType!.GetMethod("UnsubscribeAll", new Type[] { typeof(IConnection) });
+
+            Assert.NotNull(unsubscribeAll);
+            Assert.Equal(typeof(int), unsubscribeAll!.ReturnType);
+        }
+
+        // 연결 종료 정리 동작 테스트: 하나의 connection 이 여러 topic 에 구독된 뒤 닫히면
+        // 모든 topic 에서 해당 connection 참조만 제거되어야 dead connection 누적과 CountSubscribers 팽창을 막을 수 있다.
+        [Fact]
+        public void UnsubscribeAll_WhenConnectionIsClosed_RemovesItFromEveryTopicOnly()
+        {
+            SubscriptionTable table = new SubscriptionTable();
+            FakeConnection closed = new FakeConnection();
+            FakeConnection survivor = new FakeConnection();
+
+            table.Subscribe("alpha", closed);
+            table.Subscribe("beta", closed);
+            table.Subscribe("alpha", survivor);
+
+            int removed = table.UnsubscribeAll(closed);
+            int removedAgain = table.UnsubscribeAll(closed);
+
+            Assert.Equal(2, removed);
+            Assert.Equal(0, removedAgain);
+            Assert.False(table.IsSubscribed("alpha", closed));
+            Assert.False(table.IsSubscribed("beta", closed));
+            Assert.True(table.IsSubscribed("alpha", survivor));
+            Assert.Equal(1, table.CountSubscribers("alpha"));
+            Assert.Equal(0, table.CountSubscribers("beta"));
         }
 
         // snapshot 복사 테스트: publish fan-out 은 caller 가 준비한 배열에 현재 구독자를 복사해 사용할 수 있어야 한다.

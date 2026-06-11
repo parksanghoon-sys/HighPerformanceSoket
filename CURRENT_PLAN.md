@@ -145,38 +145,43 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - `.claude/review/review-status-2026-06-11.md`가 추가되어 기존 Claude 검토 의견의 현재 조치 여부를 정리했다.
   기존 `.claude/review/*.md` 원문은 당시 스냅샷으로 보존하고, 현재 작업 트리와 어긋나는 오래된 평가는
   review status 문서에서 superseded 로 해석한다.
-- Broker command handler, backpressure, Server wiring 은 아직 후속 단위로 남아 있다.
+- `.claude/review/overall-state-2026-06-11.md`는 H1 backpressure, H2 연결 종료 구독 정리, H3 end-to-end 결선을 핵심 미결로 지적했다.
+- H2의 Broker 라우팅 테이블 쪽 선행 API로 `SubscriptionTable.UnsubscribeAll(IConnection)`을 추가했다.
+  이 API 는 닫힌 connection 을 모든 topic set 에서 제거하고, D008 NoCleanup 정책에 따라 topic entry 자체는 제거하지 않는다.
+- Broker command handler, `ITcpFrameHandler.OnConnectionClosed`에서의 `UnsubscribeAll` 호출 결선, backpressure, Server wiring 은 아직 후속 단위로 남아 있다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 TCP command 를 `SubscriptionTable`/`BrokerPublisher`에 연결하는 command handler 를 우선 검토한다.
-payload range fan-out 선행 조건은 완료됐으므로, command handler 는 `SUBSCRIBE`는 routing table 에 연결하고 `PUBLISH`는 payload slice 를 ranged publish 로 넘기는 방향이 자연스럽다.
+payload range fan-out 과 connection-wide cleanup API 선행 조건은 완료됐으므로, command handler 는 `SUBSCRIBE`는 routing table 에 연결하고,
+`PUBLISH`는 payload slice 를 ranged publish 로 넘기며, `OnConnectionClosed`는 `SubscriptionTable.UnsubscribeAll`을 호출하는 방향이 자연스럽다.
 UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 성급히 구현하지 않고 별도 설계 단위로 둔다.
 D010 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 `TODOS.md` Deferred Backlog 에서 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- `BrokerPublisher.Publish(string, RefCountedBuffer, int, int)` overload 부재를 Red 로 확인한다.
-- range overload no-op 상태에서 payload slice fan-out 과 잘못된 range 즉시 거부가 실패하는 것을 확인한다.
-- 구독자별 같은 buffer ref fan-out, offset/length 보존, `TrySend` false 구독자 ref 즉시 Release 를 테스트로 확인한다.
-- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerPublisherTests"`
+- `SubscriptionTable.UnsubscribeAll(IConnection)` 메서드 부재를 reflection 기반 Red 로 확인한다.
+- no-op stub 상태에서 여러 topic 에 남은 같은 connection 참조가 제거되지 않는 동작 Red 를 확인한다.
+- 닫힌 connection 만 모든 topic 에서 제거되고, 같은 topic 의 다른 connection 은 보존되는지 테스트로 확인한다.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerRoutingTests"`
 - `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
 - 테스트 출력에서 `Hps.Broker.Tests`, `Hps.Buffers.Tests`, `Hps.Transport.Tests`, `Hps.Protocol.Tests`가 모두 discover되고 실행되는지 확인한다.
-- 결과: focused `BrokerPublisherTests` Red/Green 완료 후 최종 통과 6. Broker 전체 통과 10.
-  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Broker.Tests` 통과 10 + `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23,
+- 결과: focused `BrokerRoutingTests` Red 실패 1/통과 4 → 계약 Green 통과 5 → 동작 Red 실패 1/통과 5 → Green 통과 6.
+  Broker 전체 통과 12.
+  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Broker.Tests` 통과 12 + `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23,
   실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
-  `git diff --check`는 whitespace 오류 없이 통과했다.
+  `git diff --check`는 whitespace 오류 없이 통과했다. Git의 LF↔CRLF 안내 경고만 출력됐다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
 - 실제 OS/capability probe 와 RIO/io_uring backend 선택 로직
 - UDP receive backpressure 정책
 - drop-oldest backpressure evict release
-- Broker command handler, backpressure, Server, samples
+- Broker command handler, `OnConnectionClosed` wiring, backpressure, Server, samples
 - protocol error 응답 또는 malformed command 처리 정책
 - 실제 Server 에 `TcpFrameReceiveHandler`를 등록하는 wiring
 - D010 랜덤 적대적 fuzz 대량 회귀 테스트

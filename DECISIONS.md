@@ -1,5 +1,18 @@
 # DECISIONS.md
 
+## D036 — Broker subscription table 은 connection-wide cleanup API 를 제공한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `SubscriptionTable`에 `UnsubscribeAll(IConnection connection)`을 추가한다. 이 API 는 지정 connection 을
+  모든 topic 의 구독자 set 에서 제거하고, 실제 제거된 구독 수를 반환한다. D008 NoCleanup 정책은 유지하므로
+  빈 topic entry 자체는 제거하지 않는다.
+- 근거: `.claude/review/overall-state-2026-06-11.md` H2가 지적한 대로 단명 연결이 churn 하는 서버에서는
+  연결이 닫힌 뒤에도 topic set 에 dead `IConnection` 참조가 남으면 메모리와 `CountSubscribers`가 계속 증가한다.
+  Transport/Protocol close 통지는 topic 이름을 알지 못하므로 Broker 쪽에 connection 단위 정리 경계가 필요하다.
+- 영향: 이번 결정은 라우팅 테이블 API와 동작 테스트까지만 포함한다. 다음 TCP command handler 결선 단위는
+  `ITcpFrameHandler.OnConnectionClosed`에서 이 API 를 호출해야 한다. drop-oldest/backpressure 정책은 D012의 별도 구현 단위로 남긴다.
+
 ## D035 — Broker publish fan-out 은 같은 RefCountedBuffer 안의 payload range 를 전송할 수 있어야 한다
 
 - 날짜: 2026-06-11

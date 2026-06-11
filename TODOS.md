@@ -5,10 +5,27 @@
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
   - `BrokerPublisher`로 Broker publish fan-out 소유권 경계를 완료했다.
   - `BrokerPublisher`가 payload range 를 추가 복사 없이 fan-out 할 수 있게 됐다.
+  - `SubscriptionTable.UnsubscribeAll(IConnection)`으로 Broker 라우팅 테이블의 connection-wide cleanup API를 완료했다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
+  - 다음 후보: TCP command handler 가 `SUBSCRIBE`/`PUBLISH`를 Broker에 연결하고, `OnConnectionClosed`에서
+    `SubscriptionTable.UnsubscribeAll`을 호출하도록 결선한다.
 
 ## Deferred Backlog
+
+- [ ] `P1_SOON` Transport send pending queue backpressure 를 D012 정책으로 구현한다.
+  - 무엇이 남았는지: `TransportConnection`과 `SaeaUdpEndpoint`의 pending send queue 에 명시적 capacity/backpressure 정책이 없다.
+  - 왜 defer 되었는지: `.claude/review/overall-state-2026-06-11.md` H1에서 높은 우선순위로 확인됐지만,
+    이번 단위는 H2의 Broker routing cleanup API로 제한했다. command handler 결선 직후 별도 기능 단위로 처리해야 한다.
+  - objective: 느린 소비자 또는 느린 UDP remote 때문에 pending send queue 가 무한 증가하지 않도록 D012의 drop-oldest
+    evict-release 또는 느린 소비자 close 정책을 구현하고, queue length 가 capacity 를 넘지 않으며 evict/dequeue/close
+    경합에서 `RefCountedBuffer`가 정확히 한 번 Release 되는지 검증한다.
+  - relevant context: AGENTS.md 아키텍처 불변식 5, DECISIONS D012, `.claude/review/overall-state-2026-06-11.md` H1,
+    `src/Hps.Transport/Runtime/TransportConnection.cs`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`.
+  - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`, 이후 Broker fan-out 지속 부하 테스트.
+  - 현재 상태: pending/in-flight/close release 계약은 구현되어 있지만, queue capacity 와 drop/close 정책은 없다.
+  - known blockers/open questions: 기본 정책을 drop-oldest 로 둘지 느린 소비자 close 로 둘지 결정해야 한다. D012는 drop-oldest의 release 불변식을 이미 확정했다.
+  - next step: TCP `TransportConnection` pending queue capacity Red 테스트를 먼저 추가하고, 같은 정책을 UDP endpoint 에 어떻게 적용할지 범위를 나눈다.
 
 - [ ] `P3_NICE` D010 TCP frame assembler 랜덤 적대적 fuzz 를 영구 회귀 테스트로 추가한다.
   - 무엇이 남았는지: 현재 `TcpFrameAssembler`에는 edge 테스트와 결정적 fragmentation fuzz 가 있지만,
@@ -47,6 +64,15 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] Broker subscription connection-wide cleanup API 를 구현했다.
+  - 범위: `src/Hps.Broker/SubscriptionTable.cs`, `tests/Hps.Broker.Tests/BrokerRoutingTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `SubscriptionTable.UnsubscribeAll(IConnection)` 메서드 부재를 reflection 기반 단언 실패로 확인했다.
+  - Red: no-op stub 에서 같은 connection 이 여러 topic 에 남아 제거 수 0으로 실패하는 것을 확인했다.
+  - 구현: `UnsubscribeAll`은 모든 topic set 을 열거하며 대상 connection 만 제거하고, D008에 따라 topic entry 자체는 제거하지 않는다.
+  - 검증: focused `BrokerRoutingTests` 통과 6, Broker 전체 통과 12, 솔루션 전체 통과 79,
+    빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] Broker publish payload range 를 구현했다.
   - 범위: `src/Hps.Broker/BrokerPublisher.cs`, `tests/Hps.Broker.Tests/BrokerPublisherTests.cs`,

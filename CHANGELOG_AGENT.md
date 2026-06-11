@@ -1,5 +1,34 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — Broker connection cleanup API)
+
+### 작업 단위
+- `.claude/review/overall-state-2026-06-11.md` H2의 연결 종료 구독 정리 누락 중 Broker 라우팅 테이블 API만 처리했다.
+- 범위는 `SubscriptionTable.UnsubscribeAll(IConnection)`과 해당 회귀 테스트로 제한했다.
+- TCP command handler, `OnConnectionClosed` wiring, Server wiring, backpressure 는 다음 단위로 남겼다.
+
+### Red
+- `SubscriptionTable.UnsubscribeAll(IConnection)` 메서드 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- 메서드 시그니처만 있는 no-op stub 에서 여러 topic 에 걸친 같은 connection 제거 수가 0으로 남아 동작 테스트가 실패했다.
+
+### 구현
+- `UnsubscribeAll`이 현재 topic entry 전체를 열거하며 각 `TopicSubscriptions`에서 대상 connection 을 제거한다.
+- D008 NoCleanup 정책을 유지하기 위해 빈 topic entry 자체는 제거하지 않는다.
+- 반환값은 실제 제거된 구독 수로 두어 command handler/운영 진단에서 cleanup 효과를 관측할 수 있게 했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D036으로 connection-wide cleanup API 결정을 기록했다.
+- `CURRENT_PLAN.md`를 cleanup API 완료 및 command handler 결선 대기 상태로 갱신했다.
+- `TODOS.md` Completed에 이번 단위를 추가했고, overall review H1 send backpressure 를 별도 deferred backlog 로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerRoutingTests"` → Red: 계약 부재 실패 1/통과 4 → 계약 Green 통과 5 → 동작 Red 실패 1/통과 5 → Green 통과 6.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj` → 통과 12, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Broker.Tests` 통과 12 + `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — Broker publish payload range)
 
 ### 작업 단위
