@@ -99,6 +99,54 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // TCP echo 통합 테스트: recv handler 가 받은 borrowed chunk 를 자신의 RefCountedBuffer 로 복사한 뒤
+        // 같은 connection 에 TrySend 하면 receive pump 와 send pump 가 함께 동작해 실제 socket 왕복이 완성되어야 한다.
+        [Fact]
+        public async Task TcpEcho_WhenReceiveHandlerQueuesResponse_ClientReceivesSamePayload()
+        {
+            PinnedBlockMemoryPool echoPool = new PinnedBlockMemoryPool(32);
+
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                EchoingReceiveHandler receiveHandler = new EchoingReceiveHandler(transport, echoPool);
+                transport.SetReceiveHandler(receiveHandler);
+                await transport.StartAsync();
+
+                IConnectionListener? listener = null;
+                IConnection? inbound = null;
+                Socket? client = null;
+
+                try
+                {
+                    listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(listener.LocalEndPoint);
+
+                    client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    client.NoDelay = true;
+
+                    ValueTask<IConnection> accept = listener.AcceptAsync();
+                    await client.ConnectAsync(boundEndPoint);
+                    inbound = await accept;
+
+                    byte[] payload = new byte[] { 61, 62, 63, 64, 65 };
+                    int sent = await client.SendAsync(new ArraySegment<byte>(payload), SocketFlags.None);
+                    Assert.Equal(payload.Length, sent);
+
+                    byte[] echoed = await ReceiveExactAsync(client, payload.Length);
+
+                    Assert.Equal(payload, echoed);
+                    await WaitForRentedCountAsync(echoPool, 0);
+                }
+                finally
+                {
+                    client?.Dispose();
+                    inbound?.Close();
+                    listener?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         // 연결 수명 회귀 테스트: accepted connection 이 Close 된 뒤 transport 내부 추적 목록에 남으면
         // 단명 연결 churn 환경에서 TransportConnection 과 dispose 된 Socket 참조가 transport 수명 내내 누적된다.
         [Fact]
@@ -498,6 +546,42 @@ namespace Hps.Transport.Tests
             {
                 // TransportReceiveBuffer 는 콜백 동안만 유효하므로 테스트도 즉시 복사해 이후 단언에 사용한다.
                 _received.TrySetResult(new ReceivedPayload(connection, receiveBuffer.Span.ToArray()));
+            }
+
+            public void OnConnectionClosed(IConnection connection)
+            {
+            }
+        }
+
+        private sealed class EchoingReceiveHandler : ITransportReceiveHandler
+        {
+            private readonly SaeaTransport _transport;
+            private readonly PinnedBlockMemoryPool _pool;
+
+            internal EchoingReceiveHandler(SaeaTransport transport, PinnedBlockMemoryPool pool)
+            {
+                _transport = transport;
+                _pool = pool;
+            }
+
+            public void OnReceived(IConnection connection, TransportReceiveBuffer receiveBuffer)
+            {
+                // 받은 buffer 는 콜백 동안만 유효하므로, echo 응답은 테스트 전용 counted buffer 로 즉시 복사한다.
+                // TrySend 성공 시 Transport 가 추가 ref 하나를 소유하고, 이 handler 는 publish 가드 ref 만 해제한다.
+                RefCountedBuffer echo = _pool.RentCounted();
+                receiveBuffer.Span.CopyTo(echo.Span);
+                echo.SetLength(receiveBuffer.Length);
+                echo.AddRef();
+
+                TransportSendBuffer sendBuffer = new TransportSendBuffer(echo, 0, receiveBuffer.Length);
+                if (_transport.TrySend(connection, sendBuffer))
+                {
+                    echo.Release();
+                    return;
+                }
+
+                echo.Release();
+                echo.Release();
             }
 
             public void OnConnectionClosed(IConnection connection)

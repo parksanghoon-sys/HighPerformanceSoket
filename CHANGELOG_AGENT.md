@@ -1,5 +1,29 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — TCP echo loopback 통합 테스트)
+
+### 작업 단위
+- Phase 2 완료 기준의 TCP loopback echo 왕복을 작은 test-only 단위로 고정했다.
+- 범위는 `SaeaTransportTests`의 통합 테스트와 상태 문서 갱신으로 제한했다. production code 는 변경하지 않았다.
+
+### 테스트
+- `TcpEcho_WhenReceiveHandlerQueuesResponse_ClientReceivesSamePayload`를 추가했다.
+- 테스트 handler 는 `TransportReceiveBuffer`가 콜백 동안만 유효하다는 계약을 지키기 위해 payload 를 테스트 전용
+  `RefCountedBuffer`로 즉시 복사한다.
+- handler 는 echo buffer 에 publish 가드 ref 와 Transport 송신 ref 를 분리해 적용하고,
+  `TrySend` 성공 뒤 publish 가드 ref 를 Release 한다. 송신 completion 뒤 `RentedCount==0`으로 돌아오는지 확인한다.
+
+### 결과
+- focused 실행에서 기존 recv pump + send pump 구현만으로 echo 왕복이 통과했다.
+- 따라서 이번 단위는 production 변경 없이 통합 회귀 테스트만 추가했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TcpEcho_WhenReceiveHandlerQueuesResponse_ClientReceivesSamePayload"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 24, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 24, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — UDP endpoint send 직렬화)
 
 ### 작업 단위

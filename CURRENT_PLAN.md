@@ -82,6 +82,9 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
   Transport 소유 ref 를 반환한다.
 - 첫 send pump 는 프레이밍 없이 `TransportSendBuffer.Offset/Length` 범위만 전송한다. 송신 버퍼는 `RefCountedBuffer.Memory`에서
   `ArraySegment<byte>`를 얻어 socket 으로 넘기며, 중간 payload 복사는 추가하지 않는다.
+- TCP echo loopback 통합 테스트가 추가됐다. receive handler 가 borrowed chunk 를 자신의 `RefCountedBuffer`로 복사한 뒤
+  같은 connection 에 `TrySend`하면 실제 client socket 이 동일 payload 를 다시 받는다.
+- echo 통합 테스트는 기존 recv pump 와 send pump 구현만으로 통과했으므로 production code 변경은 없었다.
 - `TransportConnection`은 pending 큐가 빈 상태에서 새 항목이 들어오거나 close 로 pump 를 깨워야 할 때만 send signal 을 보낸다.
   pending drain 과 in-flight release 계약(D016, D017)은 유지된다.
 - UDP datagram public 계약이 추가됐다. UDP 는 TCP accept 모델과 분리된 `IUdpEndpoint` 수명 핸들을 사용하고,
@@ -112,22 +115,19 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 UDP receive backpressure 정책(Q1)을 바로 설계할지, Phase 2의 남은 loopback 안정성/동시성 기준선을
-먼저 보강할지 실제 코드와 `PLAN.md` 기준으로 다시 판단한다. receive backpressure 정책은 fan-out/backpressure 결정과 맞물리므로
-성급히 구현하지 않고 별도 단위로 둔다.
+리뷰 후 계속 진행 지시가 있으면 UDP echo loopback 통합 기준선을 추가할지, Phase 2의 동시 연결 안정성 기준선을 보강할지
+실제 코드와 `PLAN.md` 기준으로 다시 판단한다. UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로
+성급히 구현하지 않고 별도 설계 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- Red: `UdpSendTo_WhenEndpointClosesBeforePumpSends_DrainsQueuedDatagramRef`가 `SaeaUdpEndpoint.PendingSendCount`
-  부재로 실패하는지 확인한다.
-- Green: endpoint pending queue 와 단일 UDP send pump 를 추가한 뒤 같은 테스트가 통과하는지 확인한다.
-- Refactor: Red 단계 reflection 확인을 제거하고 internal API 직접 검증으로 바꾼 뒤 focused 테스트를 재실행한다.
-- 기존 UDP send loopback 테스트와 함께 실행해 실제 datagram 전송과 Transport 소유 ref 반환이 유지되는지 확인한다.
+- TCP echo 통합 테스트를 추가한다. 이 테스트는 production code 추가가 아니라 기존 receive/send pump 의 결합 동작을 고정한다.
+- focused 실행에서 기존 production code 가 이미 기준을 만족하는지 확인한다.
 - `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 23개가 discover되고 실행됐는지 확인한다.
-- 결과: Transport 전체 통과 23. 전체 통과 41, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 24개가 discover되고 실행됐는지 확인한다.
+- 결과: Transport 전체 통과 24. 전체 통과 42, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
   `git diff --check`는 whitespace 오류 없이 통과해야 한다.
 
 ## 이번 작업에서 건드리지 않은 범위

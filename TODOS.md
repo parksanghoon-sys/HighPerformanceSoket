@@ -44,6 +44,14 @@
 
 ## Completed
 
+- [x] TCP echo loopback 통합 테스트를 추가했다.
+  - 범위: `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 목적: Phase 2 완료 기준의 TCP loopback echo 왕복을 recv pump 와 send pump 결합 경로로 검증한다.
+  - 테스트: receive handler 가 borrowed `TransportReceiveBuffer`를 테스트 전용 `RefCountedBuffer`로 즉시 복사하고,
+    같은 `IConnection`에 `TrySend`해 raw client socket 이 동일 payload 를 다시 받는지 확인했다.
+  - 결과: 기존 production code 가 기준을 이미 만족해 production code 수정은 없었다.
+  - 검증: focused echo 테스트 통과 1.
+
 - [x] UDP endpoint send 를 endpoint별 pending queue 와 단일 pump 로 직렬화했다.
   - 범위: `src/Hps.Transport/Saea/SaeaTransport.cs`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,
     `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`,
