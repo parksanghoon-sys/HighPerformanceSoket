@@ -57,31 +57,36 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
   TCP 연결 획득의 public 진입점이 확정됐다.
 - `IConnectionListener`가 추가되어 listener 의 바인딩 endpoint, `AcceptAsync`, `Close`/`Dispose` 수명 경계를 표현한다.
   UDP datagram 계약은 accept 개념이 없으므로 별도 단위로 남겼다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 30개를 실행했고 모두 통과했다.
+- `SaeaTransport`의 TCP listen/connect/accept 최소 기준선이 추가됐다. loopback 에서 listener 를 열고,
+  outbound connect 와 inbound accept 로 양쪽 `IConnection`을 얻는 테스트가 discover된다.
+- `SaeaConnectionListener`는 socket 세부 타입을 public API 로 노출하지 않고 `IConnectionListener` 뒤에 숨긴다.
+- `TransportConnection.Close()`는 실제 socket 같은 backend 자원을 함께 dispose 할 수 있게 됐다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 31개를 실행했고 모두 통과했다.
 - 재확인: `dotnet build HighPerformanceSocket.slnx`는 경고 0개, 오류 0개로 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 `SaeaTransport`의 TCP listen/connect/accept 기준선이다.
-첫 단위는 loopback 에서 listener 와 outbound connection 이 서로 accept/connect 되는 최소 동작을 Red 테스트로 고정한다.
+리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 TCP payload I/O에 들어가기 전,
+Transport 수신 전달 계약과 pinned receive buffer 소유권 경계를 작게 확정하는 것이다.
+현재 public 계약에는 송신(`TrySend`)만 있고 수신 payload 를 Protocol 계층으로 전달하는 표면이 아직 없다.
 실제 대량 송수신, UDP, RIO/io_uring, backpressure 정책은 그 다음 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesTcpListenConnectAcceptModel"`
-  → `IConnectionListener` 타입 부재로 `Assert.NotNull` 실패 1개.
-- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesTcpListenConnectAcceptModel"`
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ListenConnectAccept_WhenLoopbackTcp_CreatesInboundAndOutboundConnections"`
+  → `SaeaTransport` 타입 부재로 `Assert.NotNull` 실패 1개.
+- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ListenConnectAccept_WhenLoopbackTcp_CreatesInboundAndOutboundConnections"`
 - `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 12개가 discover되고 실행됐는지 확인한다.
-- 결과: focused 통과 1, 실패 0, 건너뜀 0. Transport 전체 통과 12. 전체 통과 30, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 13개가 discover되고 실행됐는지 확인한다.
+- 결과: focused 통과 1, 실패 0, 건너뜀 0. Transport 전체 통과 13. 전체 통과 31, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
 
 ## 이번 작업에서 건드리지 않은 범위
-- SAEA/RIO/io_uring 실제 소켓 백엔드
-- `ListenTcpAsync`/`ConnectTcpAsync`/`AcceptAsync`의 실제 socket 구현
+- SocketAsyncEventArgs 기반 payload send/recv 펌프
+- Transport 수신 payload 전달 public 계약
 - UDP datagram bind/receive/send 계약
 - 실제 송신 펌프 루프와 socket send
 - drop-oldest backpressure evict release

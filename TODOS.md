@@ -3,22 +3,24 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - D013 리뷰 게이트에 따라 TCP listen/connect/accept public 계약 확정을 사용자 검토한 뒤 다음 단위로 진행한다.
+  - D013 리뷰 게이트에 따라 `SaeaTransport` TCP loopback listen/connect/accept 기준선을 사용자 검토한 뒤 다음 단위로 진행한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` `SaeaTransport`의 TCP listen/connect/accept 최소 loopback 기준선을 구현한다.
-  - 무엇이 남았는지: `ITransport.ListenTcpAsync`, `ConnectTcpAsync`, `IConnectionListener.AcceptAsync` 계약은 생겼지만,
-    이를 수행하는 concrete SAEA transport 와 실제 socket listen/connect/accept 동작은 아직 없다.
-  - 왜 defer 되었는지: 이번 사이클은 public 계약만 확정했고, 실제 socket I/O는 리뷰 비용이 큰 별도 기능 단위로 분리한다.
-  - objective: localhost loopback 에서 listener 를 열고 outbound connect 를 수행하면 accept 된 inbound `IConnection`과
-    outbound `IConnection`을 얻을 수 있는 최소 SAEA 기준선을 만든다.
-  - relevant context: `PLAN.md` Phase 2, DECISIONS D015-D018, `src/Hps.Transport/ITransport.cs`,
-    `src/Hps.Transport/IConnectionListener.cs`, `src/Hps.Transport/TransportBase.cs`, `src/Hps.Transport/TransportConnection.cs`.
+- [ ] `P1_SOON` TCP payload I/O 전에 Transport 수신 전달 계약과 receive buffer 소유권을 작게 확정한다.
+  - 무엇이 남았는지: 송신은 `ITransport.TrySend(IConnection, TransportSendBuffer)`로 계약화됐지만,
+    socket recv 로 들어온 payload 를 Protocol 계층에 어떤 callback/queue/handler 형태로 넘길지는 아직 public 계약이 없다.
+  - 왜 defer 되었는지: 이번 사이클은 `SaeaTransport`가 실제 loopback TCP 연결을 만들 수 있는지까지만 검증했고,
+    payload 수신/송신 계약은 별도 리뷰 단위로 분리한다.
+  - objective: TCP recv pump 구현 전에 pinned pool 에서 대여한 receive buffer 또는 `RefCountedBuffer`를 상위 계층으로 넘기는
+    소유권 경계를 Red 테스트로 고정한다.
+  - relevant context: `PLAN.md` Phase 2, DECISIONS D007, D009, D010, D011, D015-D019,
+    `src/Hps.Transport/ITransport.cs`, `src/Hps.Transport/TransportSendBuffer.cs`, `src/Hps.Transport/SaeaTransport.cs`.
   - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`.
-  - 현재 상태: 연결 계약만 public 이고 SAEA 구현 타입은 없다. `TransportConnection`은 내부 연결 상태와 송신 큐/close 계약을 이미 가진다.
-  - known blockers/open questions: 첫 구현은 TCP accept/connect 수명만 검증하고, 실제 send/recv payload I/O는 다음 단위로 분리하는 편이 안전하다.
-  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 loopback accept/connect Red 테스트를 먼저 작성하고, `SaeaTransport` 최소 구현으로 green 을 만든다.
+  - 현재 상태: `SaeaTransport`는 listener/connect/accept 로 양쪽 `IConnection`을 만들 수 있다. 실제 receive pump 와 Protocol 전달 표면은 없다.
+  - known blockers/open questions: TCP는 D010에 따라 recv ring → 프레이밍 → `RefCountedBuffer` 조립이 필요하므로,
+    Transport 가 raw bytes 를 넘길지, frame-ready buffer 를 넘길지 경계를 넓히기 전에 현재 Phase 2 책임을 다시 좁혀야 한다.
+  - next step: 사용자 리뷰 후 계속 진행 지시가 있으면 receive delivery 계약을 요구하는 Red 테스트부터 작성한다.
 
 - [ ] `P2_LATER` Phase 3 브로커 라우팅의 빈 토픽 정리 경합(R1)을 회피해 구현한다.
   - 무엇이 남았는지: `topic → 구독자 set` 라우팅을 빈 토픽 eager-cleanup 없이 구현한다.
@@ -42,6 +44,18 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] `SaeaTransport`의 TCP listen/connect/accept 최소 loopback 기준선을 구현했다.
+  - 범위: `src/Hps.Transport/SaeaTransport.cs`, `src/Hps.Transport/SaeaConnectionListener.cs`,
+    `src/Hps.Transport/TransportConnection.cs`, `tests/Hps.Transport.Tests/SaeaTransportTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `SaeaTransport` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+  - 구현: `SaeaTransport`가 `StartAsync`, `ListenTcpAsync`, `ConnectTcpAsync`, `StopAsync`, `Dispose`를 구현한다.
+  - 구현: `SaeaConnectionListener`가 listen socket 을 감싸고 `AcceptAsync`에서 accepted socket 을 `TransportConnection`으로 등록한다.
+  - 구현: `TransportConnection.Close()`가 pending drain 뒤 backend socket 같은 transport resource 를 dispose 할 수 있게 했다.
+  - 테스트: localhost loopback 에서 포트 0 listener 를 열고, `LocalEndPoint`로 connect 한 뒤 accept 된 inbound 연결과 outbound 연결을 얻는지 검증했다.
+  - 검증: focused loopback 테스트 → 통과 1, 실패 0, 건너뜀 0. Transport 전체 → 통과 13. 전체 `dotnet test HighPerformanceSocket.slnx`
+    → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 13. `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
 
 - [x] Phase 2 SAEA 기준선 착수 전에 TCP public listen/connect/accept 연결 모델을 확정했다.
   - 범위: `src/Hps.Transport/ITransport.cs`, `src/Hps.Transport/IConnectionListener.cs`, `src/Hps.Transport/TransportBase.cs`,

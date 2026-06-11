@@ -1,5 +1,38 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — SaeaTransport TCP loopback 연결 기준선)
+
+### 작업 단위
+- `SaeaTransport`가 실제 loopback TCP listener/connect/accept 를 수행해 양쪽 `IConnection`을 만들 수 있는 최소 기준선을 구현했다.
+- payload send/recv, SocketAsyncEventArgs 버퍼 운용, UDP, backpressure 는 넣지 않고 연결 수명만 별도 단위로 처리했다.
+
+### Red
+- `SaeaTransportTests`에 localhost loopback 에서 listener 를 열고 outbound connect 와 inbound accept 를 수행하는 테스트를 추가했다.
+- 구현 전에는 `SaeaTransport` 타입이 없어 reflection 기반 `Assert.NotNull`이 실패했다.
+
+### 구현
+- `SaeaTransport`를 추가해 `StartAsync`, `ListenTcpAsync`, `ConnectTcpAsync`, `StopAsync`, `Dispose`를 구현했다.
+- `SaeaConnectionListener`를 추가해 listen socket 을 `IConnectionListener` 뒤에 숨기고, accepted socket 을 `TransportConnection`으로 등록하게 했다.
+- `TransportConnection`에 backend resource dispose 경계를 추가해, 실제 socket 을 감싼 연결도 `Close()`에서 함께 닫히게 했다.
+- listener 와 connection 은 Transport 내부 목록으로 추적하고, `StopAsync`/`Dispose`에서 idempotent close 경로를 재사용한다.
+
+### 테스트
+- 포트 0으로 listener 를 열고 `LocalEndPoint`의 실제 포트가 채워지는지 검증했다.
+- listener 의 `AcceptAsync`와 transport 의 `ConnectTcpAsync`를 loopback 으로 연결해 inbound/outbound `IConnection`이 각각 생성되는지 검증했다.
+- Green 후 테스트는 reflection 에서 직접 `SaeaTransport` public 타입 호출 방식으로 리팩터링했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 SAEA TCP loopback 기준선과 테스트 31개 통과 상태로 갱신했다.
+- `TODOS.md`에서 이번 loopback 기준선을 Completed로 옮기고, 다음 리뷰 단위를 Transport receive delivery 계약 확정으로 남겼다.
+- `DECISIONS.md`에 TCP socket 수명과 이번 SAEA 기준선 범위를 D019로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ListenConnectAccept_WhenLoopbackTcp_CreatesInboundAndOutboundConnections"` → Red: 실패 1(`SaeaTransport` 없음), Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 13, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 13, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → 문제 없음.
+
 ## 2026-06-11 (Codex — Transport TCP listen/connect/accept public 계약)
 
 ### 작업 단위

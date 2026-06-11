@@ -14,12 +14,19 @@ namespace Hps.Transport
     {
         private readonly object _gate;
         private readonly Queue<TransportSendBuffer> _pendingSends;
+        private readonly IDisposable? _transportResource;
         private bool _closed;
 
         internal TransportConnection()
+            : this(null)
+        {
+        }
+
+        internal TransportConnection(IDisposable? transportResource)
         {
             _gate = new object();
             _pendingSends = new Queue<TransportSendBuffer>();
+            _transportResource = transportResource;
         }
 
         /// <summary>
@@ -147,6 +154,10 @@ namespace Hps.Transport
                     TransportSendBuffer pending = _pendingSends.Dequeue();
                     pending.Buffer.Release();
                 }
+
+                // 연결이 실제 socket 같은 backend 자원을 감싸는 경우, public Close 계약이 그 자원 수명까지
+                // 함께 닫아야 한다. 아직 recv 조립 버퍼는 없지만, 이후 추가될 때도 이 close 경로에 묶인다.
+                _transportResource?.Dispose();
             }
         }
 

@@ -1,5 +1,20 @@
 # DECISIONS.md
 
+## D019 — SAEA TCP 기준선은 socket 수명을 TransportConnection.Close에 묶는다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `SaeaTransport`의 첫 concrete 구현 단위는 TCP listen/connect/accept 수명까지만 다룬다.
+  listen socket 은 `SaeaConnectionListener`가 소유하고, accepted/outbound socket 은 `TransportConnection`의 backend resource 로 묶어
+  `IConnection.Close()`/`Dispose()`에서 함께 닫는다. `SaeaTransport.StopAsync()`와 `Dispose()`는 등록된 listener 와 connection 을
+  idempotent close 경로로 정리한다.
+- 근거: 연결 객체가 실제 socket 을 닫지 않으면 D011의 종료 계약을 이후 payload I/O에 붙일 때 책임 경계가 흐려진다.
+  반대로 이번 단위에서 SocketAsyncEventArgs send/recv 펌프까지 함께 넣으면 리뷰 범위가 커지고, 아직 정해지지 않은
+  receive delivery 계약까지 암묵적으로 고정될 위험이 있다.
+- 영향: 다음 단위는 TCP payload I/O 구현 전에 receive delivery 계약과 pinned receive buffer 소유권을 먼저 확정해야 한다.
+  `SaeaTransport`라는 이름은 크로스플랫폼 기준선을 의미하며, 이번 단위의 connect/accept 는 socket 수명 기준선이다.
+  실제 SocketAsyncEventArgs 기반 send/recv 버퍼 운용은 후속 단위에서 이 연결 수명 위에 붙인다.
+
 ## D018 — TCP 연결 획득은 Listener 기반 Listen/Accept와 Connect로 분리한다
 
 - 날짜: 2026-06-11
