@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Hps.Buffers;
 using Hps.Transport;
 
@@ -19,6 +20,7 @@ namespace Hps.Protocol
         private readonly int _maxPayloadLength;
         private readonly ITcpFrameHandler _frameHandler;
         private readonly Dictionary<IConnection, TcpFrameAssembler> _assemblers;
+        private readonly ConditionalWeakTable<IConnection, ClosedConnectionMarker> _closedConnections;
 
         /// <summary>
         /// frame payload 를 저장할 풀, 최대 payload 길이, 완성 frame 수신자를 지정한다.
@@ -42,6 +44,7 @@ namespace Hps.Protocol
             _maxPayloadLength = maxPayloadLength;
             _frameHandler = frameHandler;
             _assemblers = new Dictionary<IConnection, TcpFrameAssembler>();
+            _closedConnections = new ConditionalWeakTable<IConnection, ClosedConnectionMarker>();
         }
 
         /// <summary>
@@ -77,9 +80,8 @@ namespace Hps.Protocol
                 if (frame == null)
                     throw new InvalidOperationException("FrameReady 상태에서 frame 이 반환되지 않았다.");
 
-                // OnFrame 호출 시점부터 frame Release 책임은 ITcpFrameHandler 구현체로 넘어간다.
-                // 이 어댑터가 여기서 Release 하면 fan-out 이 사용할 payload 를 조기 반환하게 된다.
-                _frameHandler.OnFrame(connection, frame);
+                if (!DispatchFrame(connection, frame))
+                    return;
             }
         }
 
@@ -92,7 +94,7 @@ namespace Hps.Protocol
                 throw new ArgumentNullException(nameof(connection));
 
             DisposeAssembler(connection);
-            _frameHandler.OnConnectionClosed(connection);
+            NotifyConnectionClosedOnce(connection);
         }
 
         private TcpFrameAssembler GetOrCreateAssembler(IConnection connection)
@@ -117,7 +119,35 @@ namespace Hps.Protocol
             // 새 header 로 복구하면 오해석된다. 따라서 D010 계약대로 해당 connection 을 닫고 assembler 를 버린다.
             DisposeAssembler(connection);
             connection.Close();
-            _frameHandler.OnConnectionClosed(connection);
+            NotifyConnectionClosedOnce(connection);
+        }
+
+        private bool DispatchFrame(IConnection connection, RefCountedBuffer frame)
+        {
+            try
+            {
+                // OnFrame 이 정상 반환한 뒤부터 frame Release 책임은 ITcpFrameHandler 구현체로 넘어간다.
+                // 예외가 발생하면 상위 handler 가 소유권을 완전히 받아 처리했다고 볼 수 없으므로 아래 unwind 가 회수한다.
+                _frameHandler.OnFrame(connection, frame);
+                return true;
+            }
+            catch
+            {
+                // handler 실패는 해당 connection 의 protocol 처리 실패로 본다. 완성 frame 을 회수하지 않으면
+                // recv loop 가 멈추는 순간 RefCountedBuffer 가 in-flight 로 남아 D011 누수 0 계약을 깬다.
+                frame.Release();
+                CloseConnectionAfterFrameHandlerFailure(connection);
+                return false;
+            }
+        }
+
+        private void CloseConnectionAfterFrameHandlerFailure(IConnection connection)
+        {
+            // handler 예외 이후 남은 stream byte 를 계속 해석하면 같은 connection 의 protocol 상태가 불명확해진다.
+            // connection 을 닫고 assembler 를 제거해 이후 Transport close 통지가 다시 오더라도 한 번만 상위에 알린다.
+            DisposeAssembler(connection);
+            connection.Close();
+            NotifyConnectionClosedOnce(connection);
         }
 
         private void DisposeAssembler(IConnection connection)
@@ -133,6 +163,39 @@ namespace Hps.Protocol
             }
 
             assembler?.Dispose();
+        }
+
+        private void NotifyConnectionClosedOnce(IConnection connection)
+        {
+            if (!TryMarkConnectionClosed(connection))
+                return;
+
+            _frameHandler.OnConnectionClosed(connection);
+        }
+
+        private bool TryMarkConnectionClosed(IConnection connection)
+        {
+            // PayloadTooLarge 나 handler 실패에서는 어댑터가 먼저 Close 를 호출하고, 이후 Transport 가 close 를 다시
+            // 통지할 수 있다. connection 객체를 강하게 보관하면 단명 connection churn 에서 누수가 되므로 weak table 에
+            // "이미 상위에 종료를 알림" 표식만 둔다.
+            lock (_gate)
+            {
+                ClosedConnectionMarker? marker;
+                if (_closedConnections.TryGetValue(connection, out marker))
+                    return false;
+
+                _closedConnections.Add(connection, ClosedConnectionMarker.Instance);
+                return true;
+            }
+        }
+
+        private sealed class ClosedConnectionMarker
+        {
+            internal static readonly ClosedConnectionMarker Instance = new ClosedConnectionMarker();
+
+            private ClosedConnectionMarker()
+            {
+            }
         }
     }
 }

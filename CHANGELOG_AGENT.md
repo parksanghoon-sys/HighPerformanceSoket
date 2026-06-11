@@ -1,5 +1,35 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — TCP frame receive handler hardening)
+
+### 작업 단위
+- `.claude/review/phase3-frame-adapter-command.md`의 low 관찰 중 O1/O2만 작은 Protocol hardening 단위로 처리했다.
+- O3 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 이번 커밋에 섞지 않고 `TODOS.md` Deferred Backlog 로 남겼다.
+
+### Red
+- `OnConnectionClosed_AfterPayloadTooLarge_NotifiesFrameHandlerOnlyOnce`는 PayloadTooLarge 후 Transport close 알림이 다시 오면
+  상위 `OnConnectionClosed`가 2회 호출되어 실패했다.
+- `OnReceived_WhenFrameHandlerThrows_ReleasesFrameAndClosesConnection`은 `OnFrame` 예외 후 frame 이 반환되지 않아
+  `pool.RentedCount == 1`로 남는 실패를 확인했다.
+
+### 구현
+- `TcpFrameReceiveHandler`가 connection 별 close 통지를 한 번만 수행하도록 `ConditionalWeakTable` 기반 weak marker 를 추가했다.
+- `ITcpFrameHandler.OnFrame` 계약을 정상 반환 시 소유권 이전으로 명확히 하고, 예외 시 어댑터가 frame 을 `Release()`하도록 했다.
+- `OnFrame` 예외는 해당 connection 의 protocol 처리 실패로 보고 assembler 를 제거한 뒤 connection 을 닫고 close 를 1회 통지한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D032로 dispatch 실패와 close 통지 멱등성 결정을 기록했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`를 hardening 완료 및 사용자 리뷰 대기 상태로 갱신했다.
+- D010 랜덤 적대적 fuzz 는 `P3_NICE` deferred backlog 로 분리했다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpFrameReceiveHandlerTests"` → Red: 실패 2/통과 5 → Green 통과 7.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpFrameReceiveHandlerTests"` → 최종 통과 7, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 23, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — TCP command decoder)
 
 ### 작업 단위

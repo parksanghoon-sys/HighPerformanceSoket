@@ -1,5 +1,20 @@
 # DECISIONS.md
 
+## D032 — TCP frame handler dispatch 실패는 frame 회수 후 connection close 로 정리한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `ITcpFrameHandler.OnFrame`이 정상 반환한 뒤에만 frame 소유권이 handler 로 이전된 것으로 본다.
+  `OnFrame`이 예외를 던지면 `TcpFrameReceiveHandler`가 해당 `RefCountedBuffer`를 `Release()`하고 connection 을 닫는다.
+  또한 `PayloadTooLarge`, handler 실패, Transport close 알림이 겹쳐도 `ITcpFrameHandler.OnConnectionClosed`는 connection 별
+  한 번만 호출한다. 이 1회 통지 표식은 `ConditionalWeakTable<IConnection, ...>`에 저장해 단명 connection 을 강하게 붙잡지 않는다.
+- 근거: 완성 frame 을 handler 로 넘기는 경계에서 예외가 발생하면 frame 을 실제로 fan-out 경로가 수락했는지 알 수 없다.
+  이때 frame 을 방치하면 recv loop 중단과 함께 `RefCountedBuffer`가 누수될 수 있다. 반대로 connection 을 계속 열어 두면
+  같은 TCP stream 의 protocol 상태가 불명확해진다. connection close 통지는 Transport 구현이 직접/간접으로 다시 보낼 수 있으므로
+  Protocol 어댑터가 자체적으로 멱등성을 보장해야 backend 구현 세부에 덜 의존한다.
+- 영향: 이후 Broker frame handler 는 `OnFrame`에서 frame 을 수락한 뒤 예외를 던지지 않아야 한다.
+  수락 이후 내부 fan-out 실패는 handler 내부에서 ref 를 정리하고 정책에 따라 connection 을 닫거나 error 응답을 보내야 한다.
+
 ## D031 — TCP command decode 는 frame payload 의 span view 로 해석한다
 
 - 날짜: 2026-06-11

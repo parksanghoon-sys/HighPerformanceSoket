@@ -101,6 +101,48 @@ namespace Hps.Protocol.Tests
             Assert.Same(connection, closedConnection);
         }
 
+        // close 통지 멱등성 테스트: PayloadTooLarge 경로는 어댑터가 직접 connection 을 닫고 close 를 통지한다.
+        // 이후 Transport 구현이 close 알림을 다시 보내더라도 상위 계층에는 connection 별 종료가 한 번만 보여야 한다.
+        [Fact]
+        public void OnConnectionClosed_AfterPayloadTooLarge_NotifiesFrameHandlerOnlyOnce()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            CapturingFrameHandler frameHandler = new CapturingFrameHandler();
+            TcpFrameReceiveHandler receiveHandler = new TcpFrameReceiveHandler(pool, 4, frameHandler);
+            FakeConnection connection = new FakeConnection();
+
+            receiveHandler.OnReceived(connection, new TransportReceiveBuffer(new byte[] { 0, 0, 0, 5 }));
+            receiveHandler.OnConnectionClosed(connection);
+
+            Assert.Equal(0, pool.RentedCount);
+            Assert.Equal(1, connection.CloseCount);
+            IConnection closedConnection = Assert.Single(frameHandler.ClosedConnections);
+            Assert.Same(connection, closedConnection);
+        }
+
+        // frame handler 예외 방어 테스트: OnFrame 이 실패하면 완성 frame 의 소유권이 애매해져 누수되기 쉽다.
+        // 어댑터는 예외를 connection 실패로 취급해 frame 을 반환하고 connection 을 닫아 D011 누수 0 경계를 유지해야 한다.
+        [Fact]
+        public void OnReceived_WhenFrameHandlerThrows_ReleasesFrameAndClosesConnection()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            ThrowingFrameHandler frameHandler = new ThrowingFrameHandler();
+            TcpFrameReceiveHandler receiveHandler = new TcpFrameReceiveHandler(pool, 8, frameHandler);
+            FakeConnection connection = new FakeConnection();
+            byte[] wireFrame = CreateWireFrame(new byte[] { 1, 2, 3 });
+
+            Exception? exception = Record.Exception(delegate()
+            {
+                receiveHandler.OnReceived(connection, new TransportReceiveBuffer(wireFrame));
+            });
+
+            Assert.Equal(0, pool.RentedCount);
+            Assert.Equal(1, connection.CloseCount);
+            IConnection closedConnection = Assert.Single(frameHandler.ClosedConnections);
+            Assert.Same(connection, closedConnection);
+            Assert.Null(exception);
+        }
+
         private static byte[] CreateWireFrame(byte[] payload)
         {
             byte[] frame = new byte[4 + payload.Length];
@@ -161,6 +203,26 @@ namespace Hps.Protocol.Tests
                 byte[] payload = frame.Span.Slice(0, frame.Length).ToArray();
                 frame.Release();
                 Frames.Add(new CapturedFrame(connection, payload));
+            }
+
+            public void OnConnectionClosed(IConnection connection)
+            {
+                ClosedConnections.Add(connection);
+            }
+        }
+
+        private sealed class ThrowingFrameHandler : ITcpFrameHandler
+        {
+            internal ThrowingFrameHandler()
+            {
+                ClosedConnections = new List<IConnection>();
+            }
+
+            internal List<IConnection> ClosedConnections { get; }
+
+            public void OnFrame(IConnection connection, RefCountedBuffer frame)
+            {
+                throw new InvalidOperationException("테스트용 frame handler 실패");
             }
 
             public void OnConnectionClosed(IConnection connection)

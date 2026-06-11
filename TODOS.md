@@ -3,10 +3,23 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - `TcpCommandDecoder`로 TCP frame payload 를 `SUBSCRIBE`/`PUBLISH` command 로 해석하는 단위를 완료했다.
+  - `TcpFrameReceiveHandler`의 close 1회 통지와 `OnFrame` 예외 시 frame 회수 방어를 완료했다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
 ## Deferred Backlog
+
+- [ ] `P3_NICE` D010 TCP frame assembler 랜덤 적대적 fuzz 를 영구 회귀 테스트로 추가한다.
+  - 무엇이 남았는지: 현재 `TcpFrameAssembler`에는 edge 테스트와 결정적 fragmentation fuzz 가 있지만,
+    `.claude/review/phase3-frame-adapter-command.md` O3가 언급한 대량 랜덤 적대적 fuzz 는 아직 영구 테스트로 없다.
+  - 왜 defer 되었는지: 리뷰 판정은 승인이고 O3는 정보성/비차단이다. 이번 단위는 O1/O2 수명·예외 경계 hardening 으로 제한했다.
+  - objective: 다양한 frame 길이와 chunk 분할 패턴을 랜덤 seed 로 생성해 참조 payload 목록과 assembler 출력이 항상 일치하고,
+    모든 frame release 후 `RentedCount==0`으로 돌아오는지 검증한다.
+  - relevant context: D010, `.claude/review/phase3-frame-assembler.md`, `.claude/review/phase3-frame-adapter-command.md` O3,
+    `tests/Hps.Protocol.Tests/TcpFrameAssemblerTests.cs`.
+  - 관련 파일/범위: `tests/Hps.Protocol.Tests/TcpFrameAssemblerTests.cs`.
+  - 현재 상태: 결정적 fuzz 는 `TryReadFrame_WhenChunksAreFragmentedDeterministically_PreservesAllFramesAndReturnsBuffers`로 존재한다.
+  - known blockers/open questions: 테스트 실행 시간이 과도해지지 않도록 seed 수, frame 수, chunk 수 상한을 정해야 한다.
+  - next step: 작은 고정 seed 세트와 제한된 frame 수로 Red/Green 없이 기존 구현 통과 여부를 확인하는 test-only 단위로 진행한다.
 
 - [ ] `P1_SOON` UDP receive backpressure 정책을 설계·구현한다.
   - 무엇이 남았는지: UDP receive 는 handler/fan-out 이 느릴 때마다 풀에서 새 `RefCountedBuffer`를 계속 대여할 수 있다.
@@ -43,6 +56,16 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] TCP frame receive handler 수명/예외 경계를 보강했다.
+  - 범위: `src/Hps.Protocol/`, `tests/Hps.Protocol.Tests/`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: PayloadTooLarge 후 Transport close 알림이 다시 오면 상위 close handler 가 2회 호출되는 실패를 확인했다.
+  - Red: `ITcpFrameHandler.OnFrame` 예외 후 완성 frame 이 Release 되지 않아 `RentedCount==1`로 남는 실패를 확인했다.
+  - 구현: close 통지는 connection 별 1회만 수행하며, weak marker 로 이미 통지한 connection 을 추적해 단명 connection 누수를 피한다.
+  - 구현: `OnFrame` 예외 시 frame 을 회수하고 assembler 를 제거한 뒤 connection 을 닫는다.
+  - 검증: focused `TcpFrameReceiveHandlerTests` Red 실패 2/통과 5, Green 통과 7, Protocol 전체 통과 23,
+    솔루션 전체 통과 67, 빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] TCP command decoder 를 구현했다.
   - 범위: `src/Hps.Protocol/`, `tests/Hps.Protocol.Tests/`, `CURRENT_PLAN.md`, `TODOS.md`,
