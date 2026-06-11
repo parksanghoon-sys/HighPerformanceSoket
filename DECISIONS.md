@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D030 — TCP raw receive 는 TcpFrameReceiveHandler 어댑터가 frame 콜백으로 변환한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `Hps.Protocol`은 `Hps.Transport`의 public abstraction(`ITransportReceiveHandler`, `IConnection`,
+  `TransportReceiveBuffer`)만 참조해 TCP raw receive chunk 를 처리한다. `TcpFrameReceiveHandler`가 connection 별
+  `TcpFrameAssembler`를 소유하고, 완성된 `RefCountedBuffer` frame 은 `ITcpFrameHandler.OnFrame`으로
+  소유권을 이전한다. `PayloadTooLarge`는 D010 계약대로 해당 connection 을 즉시 `Close()`하고
+  `ITcpFrameHandler.OnConnectionClosed`로 상위 계층에 알린다.
+- 근거: `TcpFrameAssembler`는 독립 상태머신이므로 실제 Transport receive pump 에 연결하는 얇은 어댑터가 필요하다.
+  이를 Transport 내부에 넣으면 Transport 가 Protocol 을 알게 되어 계층 경계가 뒤집힌다. 반대로 Protocol 이
+  Transport public abstraction 만 참조하면 SAEA/RIO/io_uring backend 는 계속 숨겨진다.
+- 영향: 이후 Server/Broker 는 `TcpFrameReceiveHandler`를 `ITransport.SetReceiveHandler`에 등록하고,
+  command codec 은 `ITcpFrameHandler` 뒤에서 frame payload 를 해석한다. command codec, Broker routing,
+  Server wiring 은 별도 Phase 3 단위로 남긴다.
+
 ## D029 — TCP 프레임 조립은 TcpFrameAssembler per-connection 상태 객체로 시작한다
 
 - 날짜: 2026-06-11

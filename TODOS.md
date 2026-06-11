@@ -3,7 +3,7 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - `TcpFrameAssembler` edge/fuzz 테스트 보강을 완료했다.
+  - `TcpFrameReceiveHandler`로 Transport raw TCP chunk 를 frame callback 으로 변환하는 어댑터를 완료했다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
 
 ## Deferred Backlog
@@ -43,6 +43,18 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] TCP receive frame 어댑터를 구현했다.
+  - 범위: `src/Hps.Protocol/`, `tests/Hps.Protocol.Tests/`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `TcpFrameReceiveHandler` 타입 부재와 `ITcpFrameHandler`/constructor/Transport handler 계약 부재를
+    reflection 기반 단언 실패로 확인했다.
+  - Red: 동작 테스트 3개는 빈 adapter 구현에서 frame 전달, partial payload 대여, payload-too-large close 를 수행하지 않아 실패했다.
+  - 구현: `TcpFrameReceiveHandler`가 `ITransportReceiveHandler`를 구현하고 connection 별 `TcpFrameAssembler`를 소유한다.
+  - 구현: raw TCP chunk 를 consumed loop 로 처리해 한 chunk 의 다중 frame 도 모두 `ITcpFrameHandler.OnFrame`으로 전달한다.
+  - 구현: `OnConnectionClosed`는 partial assembler payload 를 Dispose 하고, `PayloadTooLarge`는 connection 을 닫은 뒤 close callback 을 전달한다.
+  - 검증: focused `TcpFrameReceiveHandlerTests` 통과 5, Protocol 전체 통과 12, 솔루션 전체 통과 56,
+    빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] TCP 프레임 조립기 edge/fuzz coverage 를 보강했다.
   - 범위: `tests/Hps.Protocol.Tests/TcpFrameAssemblerTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.

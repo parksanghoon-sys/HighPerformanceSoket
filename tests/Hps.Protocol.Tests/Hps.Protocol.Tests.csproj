@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Hps.Buffers\Hps.Buffers.csproj" />
     <ProjectReference Include="..\..\src\Hps.Protocol\Hps.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\Hps.Transport\Hps.Transport.csproj" />
   </ItemGroup>
 
 </Project>

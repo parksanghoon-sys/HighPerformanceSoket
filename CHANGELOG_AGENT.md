@@ -1,5 +1,37 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-11 (Codex — TCP receive frame 어댑터)
+
+### 작업 단위
+- Phase 3의 assembler ↔ Transport receive loop 연결을 작은 Protocol 단위로 구현했다.
+- `TcpFrameReceiveHandler`가 `ITransportReceiveHandler`를 구현해 raw TCP chunk 를 connection 별 `TcpFrameAssembler`로 조립한다.
+- 완성 frame 은 `ITcpFrameHandler.OnFrame`으로 소유권을 넘긴다. handler 는 받은 `RefCountedBuffer`를 Release 해야 한다.
+- `PayloadTooLarge`는 D010 계약대로 connection 을 닫고 상위 handler 에 close 를 알린다.
+- command codec, Broker, Server wiring 은 포함하지 않았다.
+
+### Red
+- `TcpFrameReceiveHandler` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- `ITcpFrameHandler`/constructor/`ITransportReceiveHandler` 계약 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- 동작 테스트 3개는 빈 adapter 구현에서 frame 전달 0건, partial payload 대여 0건, close 호출 0건으로 실패했다.
+
+### 구현
+- `src/Hps.Protocol`이 `Hps.Transport` public abstraction 을 참조하도록 project reference 를 추가했다.
+- `ITcpFrameHandler`를 추가해 완성 frame 과 connection close 알림을 Protocol 상위 계층으로 전달한다.
+- `TcpFrameReceiveHandler`가 connection 별 assembler dictionary 를 관리하고, `TransportReceiveBuffer`의 `Span`을 consumed loop 로 처리한다.
+- `OnConnectionClosed`는 partial payload 를 가진 assembler 를 Dispose 해 풀 누수를 막는다.
+- `PayloadTooLarge`를 받으면 assembler 를 제거하고 connection 을 닫은 뒤 상위 close callback 을 호출한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D030으로 TCP raw receive → frame callback 어댑터 결정을 기록했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`를 사용자 리뷰 대기 상태로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpFrameReceiveHandlerTests"` → Red: 실패 1 → Green 통과 2 → Red: 실패 3/통과 2 → 최종 통과 5.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 12, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 12, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — TCP 프레임 조립기 edge/fuzz 테스트 보강)
 
 ### 작업 단위

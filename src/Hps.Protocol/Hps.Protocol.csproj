@@ -3,6 +3,7 @@
   <!-- 공통 TFM/LangVersion/Unsafe 설정은 루트 Directory.Build.props 를 따른다. -->
   <ItemGroup>
     <ProjectReference Include="..\Hps.Buffers\Hps.Buffers.csproj" />
+    <ProjectReference Include="..\Hps.Transport\Hps.Transport.csproj" />
   </ItemGroup>
 
 </Project>
