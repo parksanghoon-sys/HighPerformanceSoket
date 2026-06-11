@@ -66,7 +66,10 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 - `TransportReceiveBuffer`는 `readonly ref struct` borrowed view 로 추가됐다. `ReadOnlySpan<byte>`와 `Length`만 노출하므로
   수신 ring/pinned block 소유권이 콜백 밖으로 저장되지 않는다.
 - `TransportBase`는 receive handler 등록을 공통으로 처리하고, 후속 recv pump 가 사용할 snapshot helper 를 제공한다.
-- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 32개를 실행했고 모두 통과했다.
+- `SaeaTransport`의 TCP recv pump 최소 기준선이 추가됐다. accepted TCP socket 이 받은 raw byte chunk 를
+  pinned receive block 에 읽고, `ITransportReceiveHandler.OnReceived`에 borrowed `TransportReceiveBuffer`로 전달한다.
+- recv pump 는 아직 프레이밍을 하지 않는다. D010의 TCP frame 조립과 D009의 payload `RefCountedBuffer` 복사는 Phase 3 범위다.
+- 재확인: `dotnet test HighPerformanceSocket.slnx`는 테스트 33개를 실행했고 모두 통과했다.
 - 재확인: `dotnet build HighPerformanceSocket.slnx`는 경고 0개, 오류 0개로 통과했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
@@ -74,26 +77,26 @@ Phase 2 — Transport 추상화 `src/Hps.Transport/` 초기 계약.
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 다음 단일 작업 단위는 TCP payload I/O에 들어가기 전,
-`SaeaTransport`의 TCP recv pump 가 handler 로 byte stream 조각을 전달하는 최소 loopback 기준선이다.
-첫 테스트는 raw socket client 가 보낸 작은 byte 배열을 accepted `IConnection`의 receive handler 가 받는 흐름으로 제한한다.
-실제 송신 펌프, 프레이밍, UDP, RIO/io_uring, backpressure 정책은 그 다음 단위로 둔다.
+`SaeaTransport`의 TCP send pump 가 `ITransport.TrySend`로 enqueue 된 `TransportSendBuffer`를 실제 socket 으로 보내고
+in-flight handle 을 완료해 ref 를 반환하는 최소 loopback 기준선이다. 첫 테스트는 raw socket client 가 accepted
+connection 으로 전송된 작은 payload 를 받는 흐름으로 제한한다.
+프레이밍, UDP, RIO/io_uring, backpressure 정책은 그 다음 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesBorrowedReceiveDeliveryBoundary"`
-  → `ITransportReceiveHandler`/`TransportReceiveBuffer` 타입 부재로 `Assert.NotNull` 실패 1개.
-- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesBorrowedReceiveDeliveryBoundary"`
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ReceivePump_WhenRawClientSendsBytes_DeliversBorrowedChunkToHandler"`
+  → receive handler 가 호출되지 않아 timeout 단언 실패 1개.
+- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ReceivePump_WhenRawClientSendsBytes_DeliversBorrowedChunkToHandler"`
 - `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
-- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 14개가 discover되고 실행됐는지 확인한다.
-- 결과: focused 통과 1, 실패 0, 건너뜀 0. Transport 전체 통과 14. 전체 통과 32, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
+- 테스트 출력에서 `Hps.Buffers.Tests` 18개와 `Hps.Transport.Tests` 15개가 discover되고 실행됐는지 확인한다.
+- 결과: focused 통과 1, 실패 0, 건너뜀 0. Transport 전체 통과 15. 전체 통과 33, 실패 0, 건너뜀 0. 빌드 경고 0, 오류 0.
 
 ## 이번 작업에서 건드리지 않은 범위
-- SocketAsyncEventArgs 기반 payload send/recv 펌프
-- `SaeaTransport`가 실제 socket recv 결과로 receive handler 를 호출하는 구현
+- 명시적인 SocketAsyncEventArgs 기반 payload send/recv 펌프
+- `SaeaTransport`가 `ITransport.TrySend` pending queue 를 실제 socket send 로 drain 하는 구현
 - UDP datagram bind/receive/send 계약
-- 실제 송신 펌프 루프와 socket send
 - drop-oldest backpressure evict release
 - Protocol/Broker/Server
 

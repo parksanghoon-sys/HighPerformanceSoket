@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D021 — SAEA TCP recv 기준선은 pinned block 으로 raw chunk 만 전달한다
+
+- 날짜: 2026-06-11
+- 상태: Accepted
+- 결정: `SaeaTransport`의 첫 TCP receive 구현은 connection 생성 시 receive loop 를 시작하고,
+  `PinnedBlockMemoryPool`에서 대여한 고정 receive block 으로 socket bytes 를 읽은 뒤
+  `ITransportReceiveHandler.OnReceived(IConnection, TransportReceiveBuffer)`에 raw TCP byte chunk 를 전달한다.
+  `TransportReceiveBuffer`는 동기 dispatch helper 안에서만 만들고 async receive loop 안에 저장하지 않는다.
+  remote close 또는 socket error 는 `OnConnectionClosed`를 호출하고 `IConnection.Close()` 경로로 연결을 정리한다.
+- 근거: Phase 2의 목표는 Transport 가 실제 socket I/O 경계를 갖는지 검증하는 것이다. 여기서 TCP framing,
+  publish payload `RefCountedBuffer` 조립, broker fan-out 을 함께 넣으면 Phase 3 책임이 섞인다.
+  또한 receive block 은 콜백 이후 재사용되어야 하므로 D020의 borrowed view 계약을 그대로 지켜야 한다.
+- 영향: 다음 단위는 송신 방향이다. `SaeaTransport` send pump 는 `TransportConnection.TryBeginInFlightSend`로 pending 항목을 가져와
+  socket send 를 수행하고, completion/unwind 에서 in-flight handle 을 완료/Dispose 해 ref 를 반환해야 한다.
+  명시적인 SocketAsyncEventArgs 최적화와 프레이밍은 후속 단위로 유지한다.
+
 ## D020 — Transport 수신 전달은 borrowed ref struct 콜백으로 제한한다
 
 - 날짜: 2026-06-11

@@ -4,22 +4,25 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Hps.Buffers;
 
 namespace Hps.Transport
 {
     /// <summary>
     /// 크로스플랫폼 기준선 Transport 구현이다.
     ///
-    /// 이름은 SAEA 기준선을 나타내지만, 이번 단위에서는 TCP listen/connect/accept 수명만 구현한다.
-    /// 실제 payload send/recv 펌프와 SocketAsyncEventArgs 버퍼 운용은 후속 단위에서 붙인다.
+    /// 이름은 SAEA 기준선을 나타내지만, 현재 구현은 TCP listen/connect/accept 와 최소 receive chunk 전달만 다룬다.
+    /// 명시적인 SocketAsyncEventArgs 기반 send/recv 펌프와 프레이밍은 후속 단위에서 붙인다.
     /// </summary>
     public sealed class SaeaTransport : TransportBase
     {
         private const int ListenBacklog = 512;
+        private const int ReceiveBlockSize = 8192;
 
         private readonly object _gate;
         private readonly List<SaeaConnectionListener> _listeners;
         private readonly List<TransportConnection> _connections;
+        private readonly PinnedBlockMemoryPool _receivePool;
         private bool _started;
         private bool _stopped;
 
@@ -28,6 +31,7 @@ namespace Hps.Transport
             _gate = new object();
             _listeners = new List<SaeaConnectionListener>();
             _connections = new List<TransportConnection>();
+            _receivePool = new PinnedBlockMemoryPool(ReceiveBlockSize);
         }
 
         /// <inheritdoc />
@@ -142,6 +146,7 @@ namespace Hps.Transport
             try
             {
                 RegisterConnection(connection);
+                StartReceiveLoop(connection, socket);
                 return connection;
             }
             catch
@@ -149,6 +154,77 @@ namespace Hps.Transport
                 connection.Close();
                 throw;
             }
+        }
+
+        private void StartReceiveLoop(TransportConnection connection, Socket socket)
+        {
+            // 이번 단위의 SAEA 기준선은 실제 SocketAsyncEventArgs pump 가 아니라 raw Socket receive loop 이다.
+            // 다만 I/O buffer 는 규칙대로 pinned pool 에서 대여해 이후 SAEA/RIO/io_uring 등록 버퍼 경계와 충돌하지 않게 한다.
+            _ = Task.Run(delegate()
+            {
+                return ReceiveLoopAsync(connection, socket);
+            });
+        }
+
+        private async Task ReceiveLoopAsync(TransportConnection connection, Socket socket)
+        {
+            byte[] receiveBlock = _receivePool.Rent();
+
+            try
+            {
+                ArraySegment<byte> receiveSegment = new ArraySegment<byte>(receiveBlock);
+
+                while (true)
+                {
+                    int received;
+
+                    try
+                    {
+                        received = await socket.ReceiveAsync(receiveSegment, SocketFlags.None).ConfigureAwait(false);
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        return;
+                    }
+                    catch (SocketException)
+                    {
+                        NotifyConnectionClosed(connection);
+                        return;
+                    }
+
+                    if (received == 0)
+                    {
+                        NotifyConnectionClosed(connection);
+                        return;
+                    }
+
+                    DispatchReceived(connection, receiveBlock, received);
+                }
+            }
+            finally
+            {
+                _receivePool.Return(receiveBlock);
+            }
+        }
+
+        private void DispatchReceived(TransportConnection connection, byte[] receiveBlock, int received)
+        {
+            ITransportReceiveHandler? receiveHandler = ReadReceiveHandlerSnapshot();
+            if (receiveHandler == null)
+                return;
+
+            // TransportReceiveBuffer 는 ref struct 이므로 async 메서드 안에서 보관하지 않는다.
+            // 이 동기 dispatch 범위 안에서만 span view 를 만들고 handler 반환 즉시 receive block 은 다시 재사용 가능해진다.
+            receiveHandler.OnReceived(connection, new TransportReceiveBuffer(new ReadOnlySpan<byte>(receiveBlock, 0, received)));
+        }
+
+        private void NotifyConnectionClosed(TransportConnection connection)
+        {
+            ITransportReceiveHandler? receiveHandler = ReadReceiveHandlerSnapshot();
+            if (receiveHandler != null)
+                receiveHandler.OnConnectionClosed(connection);
+
+            connection.Close();
         }
 
         private void RegisterListener(SaeaConnectionListener listener)
