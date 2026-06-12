@@ -440,6 +440,66 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // UDP receive backpressure 경계 테스트: SAEA 기준선은 handler 를 동기적으로 호출하므로,
+        // handler 가 첫 datagram 을 처리 중이면 receive loop 는 다음 RentCounted 로 넘어가면 안 된다.
+        // 이 불변식이 깨지면 느린 fan-out 에서 Transport 내부 prefetch 로 pool 대여 수가 누적될 수 있다.
+        [Fact]
+        public async Task UdpReceive_WhenHandlerIsBlocked_DoesNotPrefetchAdditionalDatagrams()
+        {
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                BlockingFirstDatagramHandler datagramHandler = new BlockingFirstDatagramHandler();
+                transport.SetDatagramHandler(datagramHandler);
+                await transport.StartAsync();
+
+                IUdpEndpoint? udpEndpoint = null;
+                Socket? sender = null;
+
+                try
+                {
+                    udpEndpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(udpEndpoint.LocalEndPoint);
+                    PinnedBlockMemoryPool receivePool = GetReceivePool(transport);
+
+                    sender = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+                    byte[] firstPayload = new byte[] { 61 };
+                    int firstSent = await sender.SendToAsync(new ArraySegment<byte>(firstPayload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(firstPayload.Length, firstSent);
+
+                    await WaitForSignalAsync(datagramHandler.FirstReceivedTask);
+                    Assert.Equal(1, datagramHandler.ReceivedCount);
+                    Assert.Equal(1, receivePool.RentedCount);
+
+                    byte[] secondPayload = new byte[] { 62 };
+                    int secondSent = await sender.SendToAsync(new ArraySegment<byte>(secondPayload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(secondPayload.Length, secondSent);
+
+                    await Task.Delay(TimeSpan.FromMilliseconds(150));
+
+                    Assert.Equal(1, datagramHandler.ReceivedCount);
+                    Assert.Equal(1, receivePool.RentedCount);
+
+                    datagramHandler.AllowFirstDatagramToComplete();
+
+                    await WaitForSignalAsync(datagramHandler.SecondReceivedTask);
+                    Assert.Equal(2, datagramHandler.ReceivedCount);
+                    Assert.Equal(1, receivePool.RentedCount);
+
+                    udpEndpoint.Close();
+                    udpEndpoint = null;
+                    await WaitForRentedCountAsync(receivePool, 0);
+                }
+                finally
+                {
+                    datagramHandler.AllowFirstDatagramToComplete();
+                    sender?.Dispose();
+                    udpEndpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         // UDP send 기준선 테스트: TrySendTo 가 true 를 반환하면 Transport 가 datagram ref 를 소유하고
         // 실제 UDP socket send 이후 완료 경로에서 Release 해야 한다. 전송 범위는 TransportSendBuffer 의 offset/length 로 제한한다.
         [Fact]
@@ -813,6 +873,15 @@ namespace Hps.Transport.Tests
             await allTasks;
         }
 
+        private static async Task WaitForSignalAsync(Task signalTask)
+        {
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(signalTask, timeoutTask);
+
+            Assert.Same(signalTask, completedTask);
+            await signalTask;
+        }
+
         private static byte[] CreateConcurrentEchoPayload(int index)
         {
             // 연결별 payload 를 다르게 만들어 echo 가 다른 connection 의 응답과 섞이는 회귀를 눈에 띄게 한다.
@@ -937,6 +1006,16 @@ namespace Hps.Transport.Tests
 
             ICollection? connections = Assert.IsAssignableFrom<ICollection>(field!.GetValue(transport));
             return connections.Count;
+        }
+
+        private static PinnedBlockMemoryPool GetReceivePool(SaeaTransport transport)
+        {
+            // UDP receive prefetch 여부는 public API가 아니라 SAEA 기준선 내부 pool 대여 경계다.
+            // 별도 진단 API를 추가하지 않고 현재 단위의 회귀 테스트에서만 private pool 을 읽는다.
+            FieldInfo? field = typeof(SaeaTransport).GetField("_receivePool", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(field);
+
+            return Assert.IsType<PinnedBlockMemoryPool>(field!.GetValue(transport));
         }
 
         private sealed class CapturingReceiveHandler : ITransportReceiveHandler
@@ -1081,6 +1160,63 @@ namespace Hps.Transport.Tests
 
         private sealed class DatagramHandlerFailureException : Exception
         {
+        }
+
+        private sealed class BlockingFirstDatagramHandler : ITransportDatagramHandler
+        {
+            private readonly ManualResetEventSlim _allowFirstDatagramToComplete;
+            private readonly TaskCompletionSource<bool> _firstReceived;
+            private readonly TaskCompletionSource<bool> _secondReceived;
+            private int _receivedCount;
+
+            internal BlockingFirstDatagramHandler()
+            {
+                _allowFirstDatagramToComplete = new ManualResetEventSlim(false);
+                _firstReceived = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _secondReceived = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            internal Task FirstReceivedTask => _firstReceived.Task;
+
+            internal Task SecondReceivedTask => _secondReceived.Task;
+
+            internal int ReceivedCount => Volatile.Read(ref _receivedCount);
+
+            internal void AllowFirstDatagramToComplete()
+            {
+                _allowFirstDatagramToComplete.Set();
+            }
+
+            public void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+            {
+                int receivedCount = Interlocked.Increment(ref _receivedCount);
+
+                if (receivedCount == 1)
+                {
+                    _firstReceived.TrySetResult(true);
+
+                    try
+                    {
+                        if (!_allowFirstDatagramToComplete.Wait(TimeSpan.FromSeconds(5)))
+                            throw new TimeoutException("첫 UDP datagram handler 대기 해제가 시간 안에 수행되지 않았다.");
+                    }
+                    finally
+                    {
+                        datagram.Release();
+                    }
+
+                    return;
+                }
+
+                datagram.Release();
+
+                if (receivedCount == 2)
+                    _secondReceived.TrySetResult(true);
+            }
+
+            public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
+            {
+            }
         }
 
         private sealed class ReceivedPayload

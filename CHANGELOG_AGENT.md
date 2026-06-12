@@ -1,5 +1,37 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — UDP receive prefetch boundary)
+
+### 작업 단위
+- `.claude/review/phase2-udp-datagram.md` Q1의 UDP receive backpressure 질문 중 SAEA Transport 내부 prefetch 경계만 처리했다.
+- 범위는 SAEA UDP receive 회귀 테스트와 D046 결정 기록으로 제한했다.
+- production code 와 public API 는 변경하지 않았다.
+
+### 테스트
+- `UdpReceive_WhenHandlerIsBlocked_DoesNotPrefetchAdditionalDatagrams`를 추가했다.
+- 이 테스트는 첫 datagram handler 를 동기적으로 막은 상태에서 두 번째 datagram 을 보내도 receive loop 가
+  추가 `RefCountedBuffer`를 대여하지 않는지 확인한다.
+- 최초 focused 실행은 receive loop 가 다음 `ReceiveFromAsync` 대기용 idle buffer 1개를 보유하는 기존 모델을
+  테스트가 반영하지 못해 실패했다. 단언을 “handler blocked 중 추가 prefetch 없음, endpoint close 후 0”으로 바로잡은 뒤 통과했다.
+
+### 결정
+- `DECISIONS.md`에 D046을 추가했다.
+- 현재 SAEA UDP receive 기준선은 동기 handler 호출이 반환될 때까지 다음 `RentCounted()`로 넘어가지 않으므로,
+  Transport 내부 receive queue/drop 정책을 추가하지 않는다.
+- handler/Broker 가 datagram ref 를 별도 작업으로 넘기고 즉시 반환하는 경우의 보관량은 상위 fan-out 정책에서 다시 다룬다.
+
+### 상태 갱신
+- `TODOS.md`에서 UDP receive backpressure Q1의 Transport prefetch 부분을 Completed 로 이동했다.
+- `CURRENT_PLAN.md`의 다음 후보를 Phase 3 sample publisher/subscriber 진입 범위 확인으로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenHandlerIsBlocked_DoesNotPrefetchAdditionalDatagrams"` → 최초 실패 1/통과 0 → 단언 보정 뒤 통과 1.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 36, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 36 +
+  `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
 ## 2026-06-12 (Codex — SAEA 기준선 BipBuffer 예외 문서화)
 
 ### 작업 단위

@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D046 — SAEA UDP receive 는 동기 handler 호출로 Transport 내부 prefetch 를 만들지 않는다
+
+- 날짜: 2026-06-12
+- 상태: Accepted
+- 결정: 현재 `SaeaTransport` UDP receive 기준선에는 별도 receive pending queue, drop-oldest/drop-newest queue,
+  또는 endpoint close 기반 receive backpressure 를 추가하지 않는다. `ITransportDatagramHandler.OnDatagramReceived`는
+  동기 콜백 계약이고, SAEA receive loop 는 handler 호출이 반환될 때까지 다음 `RentCounted()`와 다음 `ReceiveFromAsync`로
+  넘어가지 않는다. 따라서 느린 동기 handler 때문에 Transport 내부에서 `RefCountedBuffer`가 무제한 prefetch 되는 구조는 아니다.
+- 근거: `.claude/review/phase2-udp-datagram.md` Q1은 UDP receive 가 datagram 마다 풀에서 버퍼를 대여한다는 점을 지적했다.
+  실제 현재 구현은 handler 를 fire-and-forget 으로 분리하지 않고 동기적으로 호출하므로, handler 가 막혀 있는 동안
+  추가 datagram 은 OS UDP socket buffer 에 머물거나 커널 정책에 따라 drop 될 수 있지만 Transport pool 대여 수는 늘지 않는다.
+  이를 `UdpReceive_WhenHandlerIsBlocked_DoesNotPrefetchAdditionalDatagrams` 회귀 테스트로 고정한다.
+- 영향: 상위 handler 가 datagram ref 를 별도 작업으로 넘기고 즉시 반환하는 경우의 보관량은 Transport receive loop 가 아니라
+  해당 handler/Broker fan-out 정책의 책임이다. 이후 UDP Broker publish fan-out 을 붙이거나 async datagram handler 계약을 도입하면,
+  그 경계에서 bounded queue, drop 정책, diagnostics 를 별도 결정으로 다시 다룬다.
+
 ## D045 — SAEA 기준선은 raw pinned block/direct send 예외를 문서화한다
 
 - 날짜: 2026-06-12
@@ -29,7 +45,7 @@
   운영자가 endpoint 수명 변화를 알 수 없다. endpoint close notification 은 현재 계약을 넓히지 않으면서 실패 상태를 관측 가능한 수명 전이로 만든다.
 - 영향: handler 가 datagram 을 받은 뒤 반환하지 않고 예외를 던지는 경우의 누수는 handler 계약 위반으로 남는다. Transport 가 예외 catch 에서
   같은 datagram 을 다시 Release 하면, handler 가 이미 Release 한 뒤 예외를 던진 합법적인 unwind 경로에서 이중 Release 가 발생할 수 있기 때문이다.
-  UDP receive backpressure 와 handler fault diagnostics counter/log 는 별도 단위에서 다룬다.
+  UDP receive prefetch 경계는 D046으로 별도 확인했으며, handler fault diagnostics counter/log 는 별도 단위에서 다룬다.
 
 ## D043 — Broker 가 직접 connection 을 닫는 protocol-error 경로는 구독 cleanup 을 먼저 수행한다
 
@@ -269,7 +285,7 @@
   thread-pool 이 사실상의 unbounded send queue 가 된다. endpoint별 queue 와 단일 pump 는 S2 검토 의견의 thread-pool flooding
   위험을 줄이고, TCP 송신 경로와 같은 pending/in-flight/close 소유권 경계를 제공한다.
 - 영향: SAEA 기준선의 UDP send 는 endpoint queue 를 거친다. 이후 RIO/io_uring UDP backend 도 `TrySendTo` 성공 후
-  completion/drop/close 중 정확히 한 경로에서 ref 를 반환해야 한다. UDP receive backpressure 정책은 별도 결정으로 남긴다.
+  completion/drop/close 중 정확히 한 경로에서 ref 를 반환해야 한다. UDP receive prefetch 경계는 D046에서 별도 결정했다.
 
 ## D027 — Hps.Transport 파일은 Abstractions/Runtime/Saea 책임 축으로 배치한다
 

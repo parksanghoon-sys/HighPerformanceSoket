@@ -18,7 +18,7 @@
   - UDP datagram handler 예외가 receive loop task fault 로 숨지 않고 endpoint close notification 으로 수렴하도록 보강했다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
-  - 다음 후보: UDP receive backpressure 정책(Q1)을 작은 설계/검증 단위로 다시 확인한다.
+  - 다음 후보: Phase 3 sample publisher/subscriber 진입 범위를 확인한다.
 
 ## Deferred Backlog
 
@@ -49,19 +49,6 @@
   - known blockers/open questions: 테스트 실행 시간이 과도해지지 않도록 seed 수, frame 수, chunk 수 상한을 정해야 한다.
   - next step: 작은 고정 seed 세트와 제한된 frame 수로 Red/Green 없이 기존 구현 통과 여부를 확인하는 test-only 단위로 진행한다.
 
-- [ ] `P1_SOON` UDP receive backpressure 정책을 설계·구현한다.
-  - 무엇이 남았는지: UDP receive 는 handler/fan-out 이 느릴 때마다 풀에서 새 `RefCountedBuffer`를 계속 대여할 수 있다.
-    UDP send 는 endpoint pending queue 와 단일 send pump 로 직렬화됐으므로 이 항목의 남은 범위가 아니다.
-  - 왜 defer 되었는지: receive backpressure 는 Phase 3 fan-out/backpressure 정책과 맞물린다. drop-oldest, drop-newest,
-    endpoint close 중 어떤 정책을 기본값으로 둘지 결정하지 않은 상태에서 Transport 단독 구현으로 고정하면 이후 Broker 정책과 충돌할 수 있다.
-  - objective: 느린 UDP publish handler/fan-out 에서 풀 대여가 무제한 증가하지 않도록 endpoint 또는 fan-out 경계의 drop/close/backpressure 정책을 정한다.
-  - relevant context: `.claude/review/phase2-udp-datagram.md` S2/Q1, AGENTS.md 아키텍처 불변식 5, DECISIONS D012, D024,
-    `src/Hps.Transport/SaeaTransport.cs`, `src/Hps.Transport/SaeaUdpEndpoint.cs`.
-  - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`, 이후 Phase 3 Broker fan-out 정책.
-  - 현재 상태: 4096 bytes × 100 Hz 기준선에는 현재 구현이 충분하지만, Phase 4 벤치 전에 UDP receive backlog 또는 pool growth 정책을 검증해야 한다.
-  - known blockers/open questions: UDP 는 네트워크 레벨 배압이 없으므로 느린 handler 에 대해 drop-oldest, drop-newest, endpoint close 중 어떤 정책을 기본값으로 둘지 결정해야 한다.
-  - next step: Phase 3 fan-out 진입 전 UDP receive handler 지연 상황을 Red 테스트로 먼저 고정하고, 정책 결정이 필요하면 `DECISIONS.md`에 남긴다.
-
 - [ ] `P2_LATER` 4096 bytes × 100 Hz 목표를 Phase 4 벤치마크 기준으로 정량화한다.
   - 무엇이 남았는지: p50/p99 latency, 허용 큐 적체, 측정 시간, 동시 연결 수, TCP/UDP별 기준을 정해야 한다.
   - 왜 defer 되었는지: 벤치마크 하니스는 Phase 4 범위이며 Phase 1~3 기능 흐름이 선행되어야 한다.
@@ -73,6 +60,18 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] UDP receive backpressure Q1 중 SAEA Transport 내부 prefetch 경계를 회귀 테스트로 고정했다.
+  - 범위: `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - 테스트: `UdpReceive_WhenHandlerIsBlocked_DoesNotPrefetchAdditionalDatagrams`가 첫 datagram handler 를 막은 상태에서
+    두 번째 datagram 을 보내도 receive loop 가 추가 `RefCountedBuffer`를 대여하지 않는지 검증한다.
+  - 결정: D046에 따라 현재 SAEA UDP receive 기준선에는 별도 receive queue/drop 정책을 추가하지 않는다.
+    동기 handler 가 반환될 때까지 다음 `RentCounted()`로 넘어가지 않으므로 Transport 내부 pool 대여 수가 무제한 누적되지 않는다.
+  - 남은 범위: handler/Broker 가 datagram ref 를 별도 작업으로 넘기고 즉시 반환하는 경우의 상위 fan-out backpressure 정책은
+    UDP Broker publish 경계가 생길 때 다시 결정한다.
+  - 검증: focused 테스트는 최초 기대값을 receive loop idle buffer 모델에 맞게 조정한 뒤 통과했다.
+    Transport 전체 통과 36, 솔루션 전체 통과 101, 빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] SAEA 기준선의 direct pinned block send/receive 예외를 문서 불변식과 맞췄다.
   - 범위: `AGENTS.md`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
