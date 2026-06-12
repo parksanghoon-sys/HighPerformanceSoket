@@ -29,12 +29,17 @@ Span 기반으로 **메모리 복사를 최소화**한 고성능 TCP/UDP **pub/s
    `new byte[]` 할당하지 말 것. (RIO `RegisterBuffer` / io_uring fixed buffer 등록 + GC 이동 방지 목적)
 3. **send/recv 원형 큐는 `BipBuffer`** 를 쓴다. 항상 단일 연속 Span 을 보장해 소켓 호출 1회/복사 0회.
    일반 2-segment 링버퍼로 대체하지 말 것.
+   단, 현재 크로스플랫폼 `SaeaTransport` 기준선은 D023/D024/D045에 따라 raw Socket 계약 검증용으로
+   pinned receive block 과 `TransportSendBuffer` direct send 를 허용한다. 이 예외는 SAEA 기준선에만 적용되며,
+   RIO/io_uring 또는 명시적 송수신 큐 최적화 단계에서는 `BipBuffer` 원칙을 다시 적용한다.
 4. **`BipBuffer` 는 SPSC** (단일 생산자=소켓 recv, 단일 소비자=파서) 로만 사용한다.
    생산자는 `_write`/`_watermark`, 소비자는 `_read` 만 전진. 락 추가 금지(가시성은 Volatile/Interlocked).
 5. **팬아웃(fan-out)은 구독자당 복사 0회.** 발행 페이로드는 `RefCountedBuffer` 1개로 보관하고, 각 구독자
    송신 큐에는 (버퍼참조 + offset + length) 만 enqueue 한다. 구독자 수만큼 페이로드를 복사하지 말 것.
    소유권/수명 규칙은 D009 및 `.claude/review/phase3-publish-ownership.md` 를 따른다(publish 가드 ref,
    enqueue 실패 시 즉시 Release). 송신 경로는 **MPSC 큐 → 단일 펌프 → SPSC 송신 BipBuffer**(D007).
+   SAEA 기준선은 현재 pending queue → 단일 raw Socket 펌프까지만 구현하며, SPSC 송신 BipBuffer 적용은
+   D045에 따라 최적화 backend 또는 후속 송수신 큐 단위에서 다룬다.
    백프레셔 drop-oldest 는 evict 한 `RefCountedBuffer` 를 정확히 1회 Release, evict/dequeue/close 를
    단일 락으로 직렬화한다(D012).
 6. **OS별 백엔드는 `ITransport` 뒤에 숨긴다.** 상위 계층(Protocol/Broker)은 백엔드를 몰라야 한다.

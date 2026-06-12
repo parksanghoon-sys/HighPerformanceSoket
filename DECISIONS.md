@@ -1,5 +1,22 @@
 # DECISIONS.md
 
+## D045 — SAEA 기준선은 raw pinned block/direct send 예외를 문서화한다
+
+- 날짜: 2026-06-12
+- 상태: Accepted
+- 결정: 현재 `SaeaTransport` 기준선은 TCP receive 에서 pinned receive block 으로 raw byte chunk 를 받고,
+  TCP send 에서 `TransportSendBuffer.Offset/Length` 범위를 raw Socket 으로 직접 전송하는 방식을 허용한다.
+  UDP receive 는 D024에 따라 `RefCountedBuffer`로 datagram 을 직접 받고, UDP send 는 endpoint pending queue 와
+  raw Socket send pump 를 사용한다. 이 방식은 SAEA 기준선의 계약/수명/통합 검증용 예외이며,
+  AGENTS.md 의 `BipBuffer` send/recv 큐 원칙을 폐기하거나 대체하지 않는다.
+- 근거: SAEA 기준선은 RIO/io_uring 최적화 이전에 public Transport 계약, 버퍼 소유권, close drain,
+  fan-out, UDP endpoint 수명 정책을 실제 socket 으로 검증하는 역할이다. 이 단계에서 모든 송수신 큐를
+  `BipBuffer`로 강제하면 검증 범위가 불필요하게 커지고, 이미 D023/D024로 수락한 raw Socket 기준선과
+  상위 규칙 문서가 충돌한다.
+- 영향: SAEA backend 에서는 현재 direct pinned block receive 와 `TransportSendBuffer` direct send 가 허용된다.
+  이후 RIO/io_uring backend, 명시적 송수신 큐 최적화, 또는 SAEA 내부 큐 재작업 단위에서는 D007의
+  `MPSC 큐 → 단일 펌프 → SPSC 송신 BipBuffer` 및 recv `BipBuffer` 원칙을 다시 검토하고 적용해야 한다.
+
 ## D044 — UDP datagram handler 예외는 endpoint close notification 으로 수렴한다
 
 - 날짜: 2026-06-12

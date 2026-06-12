@@ -1,5 +1,31 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — SAEA 기준선 BipBuffer 예외 문서화)
+
+### 작업 단위
+- 최신 리뷰 Finding 3의 문서 불변식 충돌만 처리했다.
+- 범위는 `AGENTS.md`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md` 문서 갱신으로 제한했다.
+- production code, public API, 테스트 코드는 변경하지 않았다.
+
+### 구현
+- `AGENTS.md`의 “send/recv 원형 큐는 `BipBuffer`” 원칙을 유지하면서, 현재 `SaeaTransport` 기준선의
+  pinned receive block 과 `TransportSendBuffer` direct send 를 D023/D024/D045에 따른 raw Socket 기준선 예외로 명시했다.
+- `AGENTS.md`의 fan-out 송신 경로 설명에 SAEA 기준선은 pending queue → 단일 raw Socket 펌프까지만 구현되어 있고,
+  SPSC 송신 `BipBuffer` 적용은 최적화 backend 또는 후속 송수신 큐 단위에서 다룬다고 보강했다.
+- `DECISIONS.md`에 D045를 추가해 SAEA 기준선 예외와 향후 RIO/io_uring 또는 명시적 송수신 큐 최적화의
+  `BipBuffer` 적용 요구를 분리했다.
+
+### 상태 갱신
+- `TODOS.md`에서 SAEA/BipBuffer 문서 일관성 항목을 Completed 로 이동했다.
+- `CURRENT_PLAN.md`의 다음 단일 작업 후보를 `P1_SOON` UDP receive backpressure 정책(Q1) 검토로 갱신했다.
+
+### 검증
+- `rg -n "D045|SAEA 기준선|direct pinned|TransportSendBuffer direct|BipBuffer" AGENTS.md DECISIONS.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md`로
+  D045와 SAEA 기준선 예외 문구가 관련 문서에 연결됐는지 확인했다.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+- 이번 단위는 문서 전용 변경이므로 full test 는 실행하지 않았다.
+
 ## 2026-06-12 (Codex — UDP datagram handler exception policy)
 
 ### 작업 단위

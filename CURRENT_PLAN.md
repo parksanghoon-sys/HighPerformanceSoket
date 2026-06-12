@@ -124,6 +124,8 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
   유지하므로 connection 또는 UDP endpoint 가 닫힌 뒤에도 이미 발생한 drop 수를 읽을 수 있다.
   동기 log 출력, sampling, Server convenience diagnostics API 는 아직 만들지 않았다.
 - UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 계속 Deferred Backlog 로 둔다.
+- SAEA 기준선의 direct pinned block receive/direct send 예외는 `AGENTS.md`와 D045에 명시했다. 현재 raw Socket
+  기준선은 계약/수명 검증용으로 허용하지만, RIO/io_uring 또는 명시적 송수신 큐 최적화에서는 `BipBuffer` 원칙을 다시 적용한다.
 - Phase 2 backend selector 최소 계약이 추가됐다. `TransportFactory.CreateDefault()`는 상위 계층이 concrete backend 를 직접 new 하지 않도록
   `ITransport` 생성 진입점을 제공하며, 현재는 모든 환경에서 `SaeaTransport`로 fallback 한다.
 - 실제 OS/capability probe 와 RIO/io_uring 선택 로직은 아직 구현하지 않았다. factory 위치만 먼저 고정해 이후 backend 교체 지점을 만든다.
@@ -189,24 +191,19 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 SAEA 기준선의 direct pinned block send/receive 예외를 문서 불변식과 맞추는
-작은 문서 단위를 먼저 처리한다. UDP receive backpressure 정책(Q1)은 여전히 `P1_SOON`이지만, 이번 최신 리뷰의
-남은 항목을 닫기 위해 SAEA/BipBuffer 문서 일관성 정리를 별도 단위로 분리한다.
+리뷰 후 계속 진행 지시가 있으면 `P1_SOON` UDP receive backpressure 정책(Q1)을 작은 설계/검증 단위로 다시 확인한다.
+이번 SAEA/BipBuffer 문서 일관성 정리는 코드 동작 변경 없이 종료됐으므로, 다음 단위에서는 실제 receive-side
+backpressure 정책 선택이 현재 Phase 3 범위에서 안전하게 수렴 가능한지 먼저 판단한다.
 
 ## 이번 단위의 검증 경로
-- UDP handler 가 datagram 소유권을 받은 뒤 `Release` 후 예외를 던져도 endpoint close 알림을 보내고 receive loop 가 fault 없이 종료되는지 Red 로 확인한다.
-- Green 은 `SaeaTransport.UdpReceiveLoopAsync`의 일반 예외 경로를 endpoint close notification 으로 수렴시키는 최소 변경으로 제한한다.
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenHandlerThrowsAfterTakingOwnership_ClosesEndpointAndNotifiesHandler"`
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
-- `dotnet test HighPerformanceSocket.slnx`
+- `AGENTS.md`의 `BipBuffer` 불변식 3/5가 SAEA 기준선 예외와 최적화 backend 요구를 동시에 설명하는지 확인한다.
+- `DECISIONS.md` D045가 D023/D024의 raw Socket 기준선과 향후 RIO/io_uring `BipBuffer` 적용 요구를 분리하는지 확인한다.
+- `rg -n "D045|SAEA 기준선|direct pinned|TransportSendBuffer direct|BipBuffer" AGENTS.md DECISIONS.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
-- 테스트 출력에서 `Hps.Server.Tests`, `Hps.Broker.Tests`, `Hps.Buffers.Tests`, `Hps.Transport.Tests`, `Hps.Protocol.Tests`가 모두 discover되고 실행되는지 확인한다.
-- 결과: focused Red 는 close notification timeout 으로 실패 1/통과 0을 확인했고, Green 은 focused 테스트 통과 1.
-  Transport 전체 통과 35. 전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Transport.Tests` 통과 35 +
-  `Hps.Protocol.Tests` 통과 24 + `Hps.Buffers.Tests` 통과 18 + `Hps.Broker.Tests` 통과 18 +
-  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
-  빌드 경고 0, 오류 0. `git diff --check`는 whitespace 오류 없이 통과했고 Git의 LF↔CRLF 안내 경고만 출력됐다.
+- 결과: 문서 검색으로 D045와 SAEA 기준선 예외 문구의 연결을 확인했다. `dotnet build HighPerformanceSocket.slnx`는
+  경고 0, 오류 0으로 통과했고, `git diff --check`는 whitespace 오류 없이 통과했다.
+  이번 단위는 문서 전용 변경이므로 full test 는 실행하지 않았다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
@@ -220,6 +217,5 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - backpressure
 - protocol error 응답
 - D010 랜덤 적대적 fuzz 대량 회귀 테스트
-- SAEA 기준선의 pinned block/direct send 예외를 AGENTS/결정 문서에 명확히 쓰는 문서 정리
 
 위 범위는 사용자 리뷰 후 다음 단일 작업 단위에서 필요 범위만 다시 확인하고 진행한다.

@@ -18,20 +18,9 @@
   - UDP datagram handler 예외가 receive loop task fault 로 숨지 않고 endpoint close notification 으로 수렴하도록 보강했다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
-  - 다음 후보: SAEA 기준선의 direct pinned block send/receive 예외를 문서 불변식과 맞춘다.
+  - 다음 후보: UDP receive backpressure 정책(Q1)을 작은 설계/검증 단위로 다시 확인한다.
 
 ## Deferred Backlog
-
-- [ ] `P2_LATER` SAEA 기준선의 direct pinned block send/receive 예외를 문서 불변식과 맞춘다.
-  - 무엇이 남았는지: `AGENTS.md`의 “send/recv 원형 큐는 BipBuffer” 불변식은 최적화 backend 방향을 설명하지만,
-    현재 SAEA 기준선은 pinned receive block 과 `TransportSendBuffer` direct send 를 사용한다.
-  - 왜 defer 되었는지: 이번 단위는 correctness 버그 수정이며, 문서 불일치 정리는 코드 동작을 바꾸지 않는 별도 문서 단위가 더 리뷰하기 쉽다.
-  - objective: 다음 작업자가 현재 accepted SAEA 기준선을 잘못된 구현으로 오해하지 않도록, SAEA 기준선 예외와 RIO/io_uring 또는 후속 큐 최적화의 BipBuffer 요구를 분리해 기록한다.
-  - relevant context: 최근 리뷰 Finding 3, DECISIONS D021/D023 계열 SAEA 기준선 결정, `src/Hps.Transport/Saea/SaeaTransport.cs`.
-  - 관련 파일/범위: `AGENTS.md`, `DECISIONS.md`, 필요 시 `CURRENT_PLAN.md`.
-  - 현재 상태: 코드와 테스트는 SAEA direct pinned block/direct send 기준선을 수락하고 있지만, 상위 규칙 문서에는 예외 문구가 없다.
-  - known blockers/open questions: 예외를 `AGENTS.md` 불변식에 직접 넣을지, 별도 decision 으로만 둘지 결정해야 한다.
-  - next step: 코드 변경 없이 문서만 갱신하는 단일 커밋으로 처리한다.
 
 - [ ] `P2_LATER` drop log/sampling 과 Server convenience diagnostics API 필요성을 검토한다.
   - 무엇이 남았는지: `ITransportDiagnostics.GetDiagnosticsSnapshot()`으로 Transport-level public 누적 metric 은 제공하지만,
@@ -84,6 +73,16 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] SAEA 기준선의 direct pinned block send/receive 예외를 문서 불변식과 맞췄다.
+  - 범위: `AGENTS.md`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 구현: `AGENTS.md`의 `BipBuffer` send/recv 큐 원칙은 유지하되, 현재 `SaeaTransport` raw Socket 기준선이
+    D023/D024/D045에 따른 계약/수명 검증용 예외임을 명시했다.
+  - 구현: `DECISIONS.md` D045로 SAEA 기준선 예외와 향후 RIO/io_uring 또는 명시적 송수신 큐 최적화의
+    `BipBuffer` 적용 요구를 분리했다.
+  - 검증: `rg` 문서 검색으로 D045/SAEA 예외 연결을 확인했다. `dotnet build HighPerformanceSocket.slnx`는
+    경고 0, 오류 0으로 통과했고, `git diff --check`는 whitespace 오류 없이 통과했다.
+    이번 단위는 문서 전용 변경이므로 full test 는 실행하지 않았다.
 
 - [x] UDP datagram handler 예외 정책을 endpoint close notification 으로 고정했다.
   - 범위: `src/Hps.Transport/Abstractions/ITransportDatagramHandler.cs`,
