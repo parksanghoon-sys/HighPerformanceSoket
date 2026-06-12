@@ -1,5 +1,33 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — 다중 subscriber TCP command fan-out 통합 테스트)
+
+### 작업 단위
+- `BrokerServer + SaeaTransport` 실제 TCP command 경로에서 subscriber 2명이 같은 topic 을 구독하는 fan-out 통합 테스트를 추가했다.
+- 범위는 `tests/Hps.Server.Tests/BrokerServerTests.cs`의 test-only 회귀 검증으로 제한했다.
+- production code, public diagnostics API, samples, 다중 메시지 순서/부하 검증은 포함하지 않았다.
+
+### Red/현상 확인
+- 새 통합 테스트는 기존 production 구현으로 첫 실행부터 통과했다.
+- 따라서 이번 단위는 누락된 실제 socket fan-out 회귀 검증을 고정하는 작업이며, production code 변경은 하지 않았다.
+
+### 테스트
+- raw TCP subscriber socket 2개가 length-prefix `SUBSCRIBE alpha` frame 을 보내고, 서버 내부 subscription table 에 등록될 때까지 기다린다.
+- publisher socket 1개가 length-prefix `PUBLISH alpha <payload>` frame 을 보내면 두 subscriber socket 이 동일 payload 원문을 받는지 검증한다.
+- 공유 frame/send ref 가 모두 반환되어 server payload pool 의 `RentedCount==0`으로 돌아오는지 검증한다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 다중 subscriber fan-out 통합 테스트 완료 및 public drop metric/log 표면 설계 대기 상태로 갱신했다.
+- `TODOS.md`에서 다중 subscriber fan-out 통합 테스트 항목을 Completed 로 이동했다.
+
+### 검증
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~TcpCommandLoopback_WhenTwoSubscribersShareTopic"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj` → 통과 5, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Transport.Tests` 통과 32 + `Hps.Server.Tests` 통과 5 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-12 (Codex — drop-oldest internal diagnostics counter)
 
 ### 작업 단위

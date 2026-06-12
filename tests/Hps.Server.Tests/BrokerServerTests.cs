@@ -118,6 +118,56 @@ namespace Hps.Server.Tests
             }
         }
 
+        // 실제 TCP 다중 subscriber fan-out 테스트: BrokerPublisher 단위 테스트만으로는 Server/Transport/Protocol 결선 뒤에도
+        // 같은 topic 의 모든 raw socket subscriber 가 payload 를 받는지 알 수 없다. 이 테스트는 공유 RefCountedBuffer fan-out 이
+        // subscriber 2명에게 각각 도착하고, 송신 완료 뒤 server pool 이 0으로 돌아오는 end-to-end 경계를 고정한다.
+        [Fact]
+        public async Task TcpCommandLoopback_WhenTwoSubscribersShareTopic_FansOutPayloadToBothSockets()
+        {
+            const string Topic = "alpha";
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            byte[] expectedPayload = new byte[] { 101, 102, 103, 104, 105, 106, 107 };
+
+            using (SaeaTransport transport = new SaeaTransport())
+            using (BrokerServer server = new BrokerServer(transport, pool, 128))
+            {
+                Socket? subscriberOne = null;
+                Socket? subscriberTwo = null;
+                Socket? publisher = null;
+
+                try
+                {
+                    await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(server.LocalEndPoint);
+
+                    subscriberOne = CreateConnectedTcpClient(boundEndPoint);
+                    subscriberTwo = CreateConnectedTcpClient(boundEndPoint);
+                    publisher = CreateConnectedTcpClient(boundEndPoint);
+
+                    await SendFrameAsync(subscriberOne, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
+                    await SendFrameAsync(subscriberTwo, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
+                    await WaitForSubscriberCountAsync(server, Topic, 2);
+
+                    await SendFrameAsync(publisher, CreatePublishCommand(Topic, expectedPayload));
+
+                    Task<byte[]> firstReceiveTask = ReceiveExactAsync(subscriberOne, expectedPayload.Length);
+                    Task<byte[]> secondReceiveTask = ReceiveExactAsync(subscriberTwo, expectedPayload.Length);
+
+                    Assert.Equal(expectedPayload, await firstReceiveTask);
+                    Assert.Equal(expectedPayload, await secondReceiveTask);
+
+                    await WaitForRentedCountAsync(pool, 0);
+                }
+                finally
+                {
+                    subscriberOne?.Dispose();
+                    subscriberTwo?.Dispose();
+                    publisher?.Dispose();
+                    await server.StopAsync();
+                }
+            }
+        }
+
         private static bool HasExpectedConstructor(ConstructorInfo constructor)
         {
             ParameterInfo[] parameters = constructor.GetParameters();

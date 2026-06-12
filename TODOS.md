@@ -12,9 +12,10 @@
   - TCP `TransportConnection` pending send queue 에 capacity 16 drop-oldest backpressure 와 evict-release 를 적용했다.
   - UDP `SaeaUdpEndpoint` pending send queue 에도 capacity 16 drop-oldest backpressure 와 evict-release 를 적용했다.
   - TCP/UDP drop-oldest 경로의 내부 `DroppedPendingSendCount` counter 를 추가했다.
+  - `BrokerServer + SaeaTransport` 실제 TCP command 경로에서 subscriber 2명 fan-out 통합 테스트를 추가했다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
-  - 다음 후보: `BrokerServer + SaeaTransport` 실제 TCP command 경로의 다중 subscriber fan-out 통합 테스트를 작은 단위로 검토한다.
+  - 다음 후보: drop-oldest 내부 counter 를 public metric/log 표면으로 끌어올릴지 작은 설계 단위로 검토한다.
 
 ## Deferred Backlog
 
@@ -31,18 +32,6 @@
   - known blockers/open questions: public metric 을 Transport interface 에 올릴지, Server diagnostics snapshot 으로 둘지,
     log 는 drop 마다 남길지 sampling/threshold 기반으로 둘지 결정해야 한다.
   - next step: 현재 API 경계를 검토해 public surface 를 늘리지 않는 aggregate diagnostic snapshot 이 가능한지 먼저 설계한다.
-
-- [ ] `P1_SOON` 다중 subscriber TCP command fan-out 통합 테스트를 추가한다.
-  - 무엇이 남았는지: 현재 `BrokerServer + SaeaTransport` loopback 통합 테스트는 subscriber 1명에 대한 SUBSCRIBE/PUBLISH 경로만 검증한다.
-    같은 topic 에 여러 subscriber 가 있을 때 fan-out 이 모든 raw TCP subscriber socket 에 도착하는지는 아직 end-to-end 로 고정하지 않았다.
-  - 왜 defer 되었는지: backpressure와 drop 관측성 단위를 먼저 닫아 send queue 경계가 안정된 뒤 통합 테스트를 추가하는 순서가 더 안전했다.
-  - objective: 실제 TCP command 경로에서 같은 topic 의 여러 subscriber 가 동일 publish payload 를 각각 받는지 검증한다.
-  - relevant context: `tests/Hps.Server.Tests/BrokerServerTests.cs`, `BrokerPublisher`, `BrokerTcpFrameHandler`,
-    `BrokerServer + SaeaTransport` 단일 subscriber loopback 테스트.
-  - 관련 파일/범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, 필요 시 테스트 helper 만.
-  - 현재 상태: 단일 subscriber loopback 테스트는 통과한다. fan-out core 단위 테스트는 Broker 계층에 있으나 실제 socket end-to-end 는 1명만 있다.
-  - known blockers/open questions: subscriber 등록 완료 대기 방식은 현재 ack 가 없어 white-box subscription count helper 를 계속 써야 한다.
-  - next step: subscriber socket 2개를 같은 topic 에 등록한 뒤 publisher socket 1개가 publish 하면 두 socket 이 동일 payload 를 받는 test-only 단위로 진행한다.
 
 - [ ] `P3_NICE` D010 TCP frame assembler 랜덤 적대적 fuzz 를 영구 회귀 테스트로 추가한다.
   - 무엇이 남았는지: 현재 `TcpFrameAssembler`에는 edge 테스트와 결정적 fragmentation fuzz 가 있지만,
@@ -81,6 +70,16 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] 다중 subscriber TCP command fan-out 통합 테스트를 추가했다.
+  - 범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 테스트: `BrokerServer + SaeaTransport` loopback listener 를 시작하고, raw TCP subscriber socket 2개가 같은 topic 에
+    length-prefix `SUBSCRIBE alpha` frame 을 보낸 뒤 publisher socket 1개가 `PUBLISH alpha <payload>`를 보내면 두 subscriber 가
+    동일 payload 원문을 받는지 검증했다.
+  - 테스트: 공유 `RefCountedBuffer` fan-out 과 send completion 이후 server payload pool 이 `RentedCount==0`으로 돌아오는지 검증했다.
+  - 결과: 기존 Server/Transport/Protocol/Broker 구현이 테스트를 즉시 통과해 production code 수정은 없었다.
+  - 검증: focused `TcpCommandLoopback_WhenTwoSubscribersShareTopic` 통과 1, Server 전체 통과 5,
+    솔루션 전체 통과 96, 빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] drop-oldest 내부 관측성 counter 를 구현했다.
   - 범위: `src/Hps.Transport/Runtime/TransportConnection.cs`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,
