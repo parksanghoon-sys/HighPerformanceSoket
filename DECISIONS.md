@@ -1,5 +1,20 @@
 # DECISIONS.md
 
+## D047 — publisher/subscriber 샘플은 TCP wire protocol 클라이언트로 둔다
+
+- 날짜: 2026-06-12
+- 상태: Accepted
+- 결정: `Hps.Sample.Publisher`와 `Hps.Sample.Subscriber`는 `Hps.Server` 내부 타입을 참조하지 않는 독립 TCP client 로 둔다.
+  두 샘플은 broker TCP wire format 인 `4바이트 big-endian 길이 + command payload`만 생성해 서버에 전송한다.
+  publisher 는 `PUBLISH <topic> <payload>` frame 을 한 번 보내고 종료하며, subscriber 는 `SUBSCRIBE <topic>` frame 을 보낸 뒤
+  현재 Broker fan-out 정책에 맞춰 서버가 보내는 raw payload chunk 를 stdout 으로 출력한다.
+- 근거: 샘플 client 가 `BrokerServer`, `SaeaTransport`, 내부 pool 같은 서버 구현 타입을 직접 참조하면, 이후 RIO/io_uring backend 나
+  서버 실행 방식이 바뀔 때 샘플까지 함께 흔들린다. wire protocol client 로 두면 실제 사용자가 보는 TCP 경계를 그대로 검증하면서도
+  서버 구현 교체와 독립적으로 유지할 수 있다.
+- 영향: 수동 fan-out 확인에는 별도 broker 실행 프로세스가 필요하다. 현재 `Hps.Server`는 library host 이므로,
+  broker server console sample 또는 실행 harness 는 다음 별도 단위에서 추가한다. subscriber 출력은 아직 message framing 이 아니라
+  TCP receive chunk 단위이며, 서버 outbound framing/ack 정책이 생기면 샘플도 그 계약에 맞춰 갱신한다.
+
 ## D046 — SAEA UDP receive 는 동기 handler 호출로 Transport 내부 prefetch 를 만들지 않는다
 
 - 날짜: 2026-06-12

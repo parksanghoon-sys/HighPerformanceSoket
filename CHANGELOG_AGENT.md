@@ -1,5 +1,37 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — TCP publisher/subscriber samples)
+
+### 작업 단위
+- Phase 3 samples 첫 단위로 TCP wire protocol 기반 publisher/subscriber client 만 추가했다.
+- 범위는 `samples/Hps.Sample.Publisher`, `samples/Hps.Sample.Subscriber`, 공통 frame helper, solution 편입으로 제한했다.
+- broker server console sample, 수동 fan-out 실행 검증, UDP sample 은 포함하지 않았다.
+
+### Red
+- `dotnet build samples\Hps.Sample.Publisher\Hps.Sample.Publisher.csproj`가 프로젝트 파일 부재로 실패했다.
+- `dotnet build samples\Hps.Sample.Subscriber\Hps.Sample.Subscriber.csproj`가 프로젝트 파일 부재로 실패했다.
+
+### 구현
+- `samples/Shared/SampleTcpFrames.cs`를 추가해 `4바이트 big-endian 길이 + command payload` TCP frame 전송을 공유한다.
+- `Hps.Sample.Publisher`는 `<host> <port> <topic> <message>` 인자를 받아
+  `PUBLISH <topic> <payload>` frame 을 한 번 보내고 종료한다.
+- `Hps.Sample.Subscriber`는 `<host> <port> <topic>` 인자를 받아
+  `SUBSCRIBE <topic>` frame 을 보낸 뒤 서버가 fan-out 하는 raw payload chunk 를 UTF-8 문자열로 출력한다.
+- 두 sample client 는 D047에 따라 `Hps.Server` 내부 타입을 참조하지 않고 TCP wire protocol 만 사용한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D047로 sample client 경계 결정을 기록했다.
+- `TODOS.md`에 broker server console sample 을 `P1_SOON` 후속 항목으로 남겼다.
+- `CURRENT_PLAN.md`의 다음 후보를 수동 fan-out 확인용 broker server console sample 검토로 갱신했다.
+
+### 검증
+- `dotnet build samples\Hps.Sample.Publisher\Hps.Sample.Publisher.csproj` → Red 프로젝트 파일 부재 실패 → 구현 뒤 경고 0, 오류 0.
+- `dotnet build samples\Hps.Sample.Subscriber\Hps.Sample.Subscriber.csproj` → Red 프로젝트 파일 부재 실패 → 구현 뒤 경고 0, 오류 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 36 +
+  `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
 ## 2026-06-12 (Codex — UDP receive prefetch boundary)
 
 ### 작업 단위

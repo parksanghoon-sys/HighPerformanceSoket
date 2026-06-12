@@ -189,27 +189,32 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - 다중 subscriber 통합 테스트도 기존 구현으로 즉시 통과했으므로 production code 수정은 없었다.
 - Transport send pending queue backpressure 기준선과 내부/public drop counter snapshot 은 TCP/UDP 모두 적용됐다. samples,
   drop log/sampling, 다중 메시지 순서/부하 fan-out 검증은 아직 후속 단위로 남아 있다.
+- `samples/Hps.Sample.Publisher`와 `samples/Hps.Sample.Subscriber`가 추가됐다. 두 샘플은 D047에 따라
+  `Hps.Server` 내부 타입을 참조하지 않고 TCP wire protocol 만 사용하는 독립 client 로 동작한다.
+  publisher 는 `PUBLISH <topic> <payload>` frame 을 전송하고, subscriber 는 `SUBSCRIBE <topic>` frame 전송 뒤 raw payload chunk 를 출력한다.
+  수동 fan-out 확인에 필요한 broker server console sample 은 아직 만들지 않았다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 Phase 3에 남은 sample publisher/subscriber 진입 범위를 확인한다.
-우선 TCP command 경로를 사용하는 최소 sample 을 작은 단위로 잡을지, UDP publish fan-out 경계를 먼저 설계해야 하는지
-현재 코드와 PLAN 기준으로 다시 판단한다.
+리뷰 후 계속 진행 지시가 있으면 수동 fan-out 확인을 위한 broker server console sample 을 별도 단위로 검토한다.
+현재 publisher/subscriber 샘플은 외부 TCP client 이므로, 실제 수동 실행에는 `BrokerServer + SaeaTransport`를 띄우는
+작은 executable 이 추가로 필요하다.
 
 ## 이번 단위의 검증 경로
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenHandlerIsBlocked_DoesNotPrefetchAdditionalDatagrams"`
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
-- `dotnet test HighPerformanceSocket.slnx`
+- `dotnet build samples\Hps.Sample.Publisher\Hps.Sample.Publisher.csproj` — Red: 프로젝트 파일 없음
+- `dotnet build samples\Hps.Sample.Subscriber\Hps.Sample.Subscriber.csproj` — Red: 프로젝트 파일 없음
+- `dotnet build samples\Hps.Sample.Publisher\Hps.Sample.Publisher.csproj`
+- `dotnet build samples\Hps.Sample.Subscriber\Hps.Sample.Subscriber.csproj`
 - `dotnet build HighPerformanceSocket.slnx`
+- `dotnet test HighPerformanceSocket.slnx`
 - `git diff --check`
-- 결과: 최초 focused 테스트는 실행 중 receive loop 가 다음 `ReceiveFromAsync` 대기용 idle buffer 1개를 잡고 있다는
-  기존 모델을 반영하지 못해 실패했고, 단언을 “handler blocked 중 추가 prefetch 없음, endpoint close 후 0”으로 수정한 뒤 통과했다.
-  Transport 전체는 통과 36, 실패 0, 건너뜀 0. 솔루션 전체는 `Hps.Buffers.Tests` 통과 18,
+- 결과: publisher/subscriber sample build Red 는 프로젝트 파일 부재로 각각 실패했다. 구현 뒤 두 sample build 와 solution build 는
+  경고 0, 오류 0으로 통과했다. 솔루션 전체 테스트는 `Hps.Buffers.Tests` 통과 18,
   `Hps.Transport.Tests` 통과 36, `Hps.Protocol.Tests` 통과 24, `Hps.Broker.Tests` 통과 18,
-  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0. 빌드는 경고 0, 오류 0.
-  `git diff --check`는 whitespace 오류 없이 통과했고 Git의 LF→CRLF 안내 경고만 출력됐다.
+  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0. `git diff --check`는 whitespace 오류 없이 통과했고
+  Git의 LF→CRLF 안내 경고만 출력됐다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
@@ -219,7 +224,7 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - configurable pending send capacity
 - 다중 메시지 fan-out 순서/부하 통합 테스트
 - `TransportFactory.CreateDefault()`를 직접 사용하는 server factory/convenience API
-- samples
+- broker server console sample 및 샘플 기반 수동 fan-out 확인
 - backpressure
 - protocol error 응답
 - D010 랜덤 적대적 fuzz 대량 회귀 테스트

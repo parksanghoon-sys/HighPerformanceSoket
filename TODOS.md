@@ -18,7 +18,8 @@
   - UDP datagram handler 예외가 receive loop task fault 로 숨지 않고 endpoint close notification 으로 수렴하도록 보강했다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
-  - 다음 후보: Phase 3 sample publisher/subscriber 진입 범위를 확인한다.
+  - TCP wire protocol 기반 publisher/subscriber sample client 를 추가했다.
+  - 다음 후보: 수동 fan-out 확인을 위한 broker server console sample 을 별도 단위로 검토한다.
 
 ## Deferred Backlog
 
@@ -59,7 +60,31 @@
   - known blockers/open questions: 단일 publisher 기준인지, 구독자 수와 팬아웃 배율을 어떻게 둘지 추가 결정 필요.
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
+- [ ] `P1_SOON` 수동 fan-out 확인을 위한 broker server console sample 을 추가한다.
+  - 무엇이 남았는지: `Hps.Sample.Publisher`와 `Hps.Sample.Subscriber`는 TCP wire protocol client 로 추가됐지만,
+    이 둘이 붙을 broker server 실행 파일은 아직 없다.
+  - 왜 defer 되었는지: 이번 단위는 publisher/subscriber client 골격과 solution build 편입으로 제한했다.
+    server executable 까지 함께 넣으면 review 범위가 client CLI, server lifecycle, 수동 실행 흐름까지 커진다.
+  - objective: `BrokerServer + SaeaTransport`를 실제 프로세스로 띄워 subscriber/publisher 샘플로 수동 fan-out 을 확인할 수 있게 한다.
+  - relevant context: D047, `src/Hps.Server/BrokerServer.cs`, `src/Hps.Transport/Runtime/TransportFactory.cs`,
+    `samples/Hps.Sample.Publisher`, `samples/Hps.Sample.Subscriber`.
+  - 관련 파일/범위: `samples/`, `HighPerformanceSocket.slnx`, 필요 시 문서 상태 파일.
+  - 현재 상태: 서버 library host 와 end-to-end 테스트는 존재하지만, CLI server host 는 없다.
+  - known blockers/open questions: server sample 의 기본 bind 주소/포트, max payload/block size 기본값, 종료 방식(Ctrl+C)만 정하면 구현 가능하다.
+  - next step: broker server sample project 를 Red build 로 먼저 고정하고, 최소 `host port maxPayload` 실행 인자를 갖는 console 로 추가한다.
+
 ## Completed
+
+- [x] TCP wire protocol 기반 publisher/subscriber sample client 를 추가했다.
+  - 범위: `samples/Hps.Sample.Publisher`, `samples/Hps.Sample.Subscriber`, `samples/Shared/SampleTcpFrames.cs`,
+    `HighPerformanceSocket.slnx`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `dotnet build samples\Hps.Sample.Publisher\Hps.Sample.Publisher.csproj`와
+    `dotnet build samples\Hps.Sample.Subscriber\Hps.Sample.Subscriber.csproj`가 프로젝트 파일 부재로 실패했다.
+  - 구현: publisher 는 `PUBLISH <topic> <payload>` frame 을 한 번 전송하고, subscriber 는 `SUBSCRIBE <topic>` frame 전송 뒤
+    broker 가 fan-out 하는 raw payload chunk 를 stdout 으로 출력한다.
+  - 결정: D047에 따라 샘플 client 는 `Hps.Server` 내부 타입을 참조하지 않고 broker TCP wire protocol 만 사용한다.
+  - 검증: publisher/subscriber sample build 와 solution build 는 경고 0, 오류 0으로 통과했다.
+    솔루션 전체 테스트 통과 101, 실패 0, 건너뜀 0. `git diff --check` 통과.
 
 - [x] UDP receive backpressure Q1 중 SAEA Transport 내부 prefetch 경계를 회귀 테스트로 고정했다.
   - 범위: `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`,
