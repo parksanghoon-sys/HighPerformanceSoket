@@ -1,5 +1,19 @@
 # DECISIONS.md
 
+## D044 — UDP datagram handler 예외는 endpoint close notification 으로 수렴한다
+
+- 날짜: 2026-06-12
+- 상태: Accepted
+- 결정: `ITransportDatagramHandler.OnDatagramReceived` 호출 뒤 handler 예외가 발생하면 SAEA UDP receive loop 는 task 를 fault 상태로
+  방치하지 않고 `OnDatagramEndpointClosed`를 통지한 뒤 endpoint 를 닫고 loop 를 종료한다. datagram 소유권은 handler 호출 시점에
+  이미 이전된 것으로 유지하므로, handler 가 예외를 던져도 해당 `RefCountedBuffer` 참조 반환 책임은 handler 에 있다.
+- 근거: 현재 public surface 에는 background receive loop fault 를 관측할 API 가 없다. 예외를 그대로 throw 하면 endpoint 는 열린 것처럼
+  보이지만 실제 수신 loop 만 중단될 수 있다. 반대로 handler 예외를 완전히 무시하고 계속 수신하면 상위 handler 버그가 반복되어도
+  운영자가 endpoint 수명 변화를 알 수 없다. endpoint close notification 은 현재 계약을 넓히지 않으면서 실패 상태를 관측 가능한 수명 전이로 만든다.
+- 영향: handler 가 datagram 을 받은 뒤 반환하지 않고 예외를 던지는 경우의 누수는 handler 계약 위반으로 남는다. Transport 가 예외 catch 에서
+  같은 datagram 을 다시 Release 하면, handler 가 이미 Release 한 뒤 예외를 던진 합법적인 unwind 경로에서 이중 Release 가 발생할 수 있기 때문이다.
+  UDP receive backpressure 와 handler fault diagnostics counter/log 는 별도 단위에서 다룬다.
+
 ## D043 — Broker 가 직접 connection 을 닫는 protocol-error 경로는 구독 cleanup 을 먼저 수행한다
 
 - 날짜: 2026-06-12

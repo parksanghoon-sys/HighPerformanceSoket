@@ -1,5 +1,36 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — UDP datagram handler exception policy)
+
+### 작업 단위
+- UDP datagram handler 예외가 receive loop task fault 로 숨어 수신만 중단되는 경로를 막았다.
+- 범위는 SAEA UDP receive loop 의 handler 예외 정책, `ITransportDatagramHandler` XML doc, 회귀 테스트로 제한했다.
+- UDP receive backpressure, handler fault counter/log, SAEA/BipBuffer 문서 일관성 정리는 포함하지 않았다.
+
+### Red
+- 기존 `UdpReceive_WhenHandlerThrowsAfterTakingOwnership_DoesNotReleaseDatagramAgain` 테스트를
+  `UdpReceive_WhenHandlerThrowsAfterTakingOwnership_ClosesEndpointAndNotifiesHandler` 정책 테스트로 바꿨다.
+- 기존 구현에서는 handler 가 datagram 을 Release 한 뒤 예외를 던지면 close notification 이 오지 않아 timeout 으로 실패했다.
+
+### 구현
+- `SaeaTransport.UdpReceiveLoopAsync`의 일반 예외 catch 에서 datagram local ref 를 정리한 뒤
+  `NotifyUdpEndpointClosed(udpEndpoint)`를 호출하고 loop 를 종료하도록 했다.
+- `ITransportDatagramHandler.OnDatagramReceived` XML doc 에 handler 예외 후에도 datagram 반환 책임은 handler 에 남고,
+  Transport 는 endpoint close notification 으로 수렴한다는 계약을 명시했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D044로 UDP handler 예외 정책을 기록했다.
+- `CURRENT_PLAN.md`를 이번 단위의 Red/Green 결과와 다음 후보 작업 기준으로 갱신했다.
+- `TODOS.md`에서 UDP datagram handler 예외 정책을 Completed 로 이동했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenHandlerThrowsAfterTakingOwnership_ClosesEndpointAndNotifiesHandler"` — Red timeout 실패 1/통과 0 → Green 통과 1.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` — 통과 35, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` — `Hps.Transport.Tests` 통과 35 + `Hps.Protocol.Tests` 통과 24 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` — 경고 0, 오류 0.
+- `git diff --check` — whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-12 (Codex — malformed TCP command subscription cleanup)
 
 ### 작업 단위

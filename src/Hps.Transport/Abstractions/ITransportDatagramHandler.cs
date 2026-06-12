@@ -18,6 +18,8 @@ namespace Hps.Transport
         ///
         /// <paramref name="datagram"/> 은 수신된 payload 길이로 <see cref="RefCountedBuffer.Length"/> 가 설정된
         /// 소유권 버퍼이다. handler 는 이 참조를 소유하며, 필요하면 fan-out 전에 AddRef 한 뒤 마지막에 Release 해야 한다.
+        /// handler 가 예외를 던져도 datagram 참조 반환 책임은 handler 에 남아 있으며, Transport 는 해당 endpoint 를 닫고
+        /// <see cref="OnDatagramEndpointClosed"/> 로 수명 종료를 알린다.
         /// </summary>
         void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram);
 

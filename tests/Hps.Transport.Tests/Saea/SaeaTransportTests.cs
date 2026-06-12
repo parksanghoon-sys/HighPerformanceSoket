@@ -396,11 +396,10 @@ namespace Hps.Transport.Tests
             }
         }
 
-        // UDP handler 예외 회귀 테스트: handler 호출 시점에 datagram 소유권은 이미 handler 로 넘어간 상태여야 한다.
-        // public receive API 는 background loop 예외를 노출하지 않으므로, 이 테스트만 private loop 를 직접 실행해
-        // handler 가 Release 후 예외를 던져도 Transport 가 같은 RefCountedBuffer 를 두 번째로 Release 하지 않는지 고정한다.
+        // UDP handler 예외 정책 테스트: handler 가 소유권을 받은 datagram 을 Release 한 뒤 예외를 던져도
+        // receive loop 가 task fault 로 숨어 죽지 말고 endpoint close 알림과 정상 종료로 수렴해야 한다.
         [Fact]
-        public async Task UdpReceive_WhenHandlerThrowsAfterTakingOwnership_DoesNotReleaseDatagramAgain()
+        public async Task UdpReceive_WhenHandlerThrowsAfterTakingOwnership_ClosesEndpointAndNotifiesHandler()
         {
             using (SaeaTransport transport = new SaeaTransport())
             {
@@ -425,8 +424,12 @@ namespace Hps.Transport.Tests
                     int sent = await sender.SendToAsync(new ArraySegment<byte>(payload), SocketFlags.None, boundEndPoint);
                     Assert.Equal(payload.Length, sent);
 
-                    Exception exception = await WaitForTaskExceptionAsync(receiveLoop);
-                    Assert.IsType<DatagramHandlerFailureException>(exception);
+                    IUdpEndpoint closedEndpoint = await WaitForClosedUdpEndpointAsync(datagramHandler.ClosedTask);
+                    await WaitForAllTasksAsync(new Task[] { receiveLoop });
+
+                    Assert.Same(udpEndpoint, closedEndpoint);
+                    Assert.True(udpEndpoint.IsClosed);
+                    Assert.Equal(1, datagramHandler.ClosedCallCount);
                 }
                 finally
                 {
@@ -831,6 +834,15 @@ namespace Hps.Transport.Tests
             return await receivedTask;
         }
 
+        private static async Task<IUdpEndpoint> WaitForClosedUdpEndpointAsync(Task<IUdpEndpoint> closedTask)
+        {
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(closedTask, timeoutTask);
+
+            Assert.Same(closedTask, completedTask);
+            return await closedTask;
+        }
+
         private static async Task<ReceivedSocketDatagram> ReceiveUdpDatagramAsync(Socket socket, int maxLength)
         {
             Task<ReceivedSocketDatagram> receiveTask = ReceiveUdpDatagramCoreAsync(socket, maxLength);
@@ -859,15 +871,6 @@ namespace Hps.Transport.Tests
 
             object? result = method!.Invoke(transport, new object[] { udpEndpoint });
             return Assert.IsAssignableFrom<Task>(result);
-        }
-
-        private static async Task<Exception> WaitForTaskExceptionAsync(Task task)
-        {
-            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
-            Task completedTask = await Task.WhenAny(task, timeoutTask);
-
-            Assert.Same(task, completedTask);
-            return await Assert.ThrowsAnyAsync<Exception>(async () => await task);
         }
 
         private static async Task<byte[]> ReceiveExactCoreAsync(Socket socket, int length)
@@ -1051,6 +1054,18 @@ namespace Hps.Transport.Tests
 
         private sealed class ThrowingAfterReleaseDatagramHandler : ITransportDatagramHandler
         {
+            private readonly TaskCompletionSource<IUdpEndpoint> _closed;
+            private int _closedCallCount;
+
+            internal ThrowingAfterReleaseDatagramHandler()
+            {
+                _closed = new TaskCompletionSource<IUdpEndpoint>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            internal Task<IUdpEndpoint> ClosedTask => _closed.Task;
+
+            internal int ClosedCallCount => Volatile.Read(ref _closedCallCount);
+
             public void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
             {
                 datagram.Release();
@@ -1059,6 +1074,8 @@ namespace Hps.Transport.Tests
 
             public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
             {
+                Interlocked.Increment(ref _closedCallCount);
+                _closed.TrySetResult(endpoint);
             }
         }
 

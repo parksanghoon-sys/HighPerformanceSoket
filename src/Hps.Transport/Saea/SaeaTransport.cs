@@ -303,7 +303,11 @@ namespace Hps.Transport
                 catch
                 {
                     datagram?.Release();
-                    throw;
+
+                    // handler 로 소유권을 넘긴 뒤 예외가 발생해도 background receive loop 를 fault 상태로 방치하지 않는다.
+                    // 현재 public surface 에는 fault 관측 API 가 없으므로 endpoint close 알림으로 수명 상태를 명확히 만들고 loop 를 종료한다.
+                    NotifyUdpEndpointClosed(udpEndpoint);
+                    return;
                 }
             }
         }
