@@ -20,7 +20,8 @@
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
   - TCP wire protocol 기반 publisher/subscriber sample client 를 추가했다.
-  - 다음 후보: 수동 fan-out 확인을 위한 broker server console sample 을 별도 단위로 검토한다.
+  - 수동 fan-out 확인을 위한 broker server console sample 을 추가했다.
+  - 다음 후보: 사용자 검토 후 Deferred Backlog 를 다시 평가한다.
 
 ## Deferred Backlog
 
@@ -61,20 +62,18 @@
   - known blockers/open questions: 단일 publisher 기준인지, 구독자 수와 팬아웃 배율을 어떻게 둘지 추가 결정 필요.
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
-- [ ] `P1_SOON` 수동 fan-out 확인을 위한 broker server console sample 을 추가한다.
-  - 무엇이 남았는지: `Hps.Sample.Publisher`와 `Hps.Sample.Subscriber`는 TCP wire protocol client 로 추가됐지만,
-    이 둘이 붙을 broker server 실행 파일은 아직 없다.
-  - 왜 defer 되었는지: 이번 단위는 publisher/subscriber client 골격과 solution build 편입으로 제한했다.
-    server executable 까지 함께 넣으면 review 범위가 client CLI, server lifecycle, 수동 실행 흐름까지 커진다.
-  - objective: `BrokerServer + SaeaTransport`를 실제 프로세스로 띄워 subscriber/publisher 샘플로 수동 fan-out 을 확인할 수 있게 한다.
-  - relevant context: D047, `src/Hps.Server/BrokerServer.cs`, `src/Hps.Transport/Runtime/TransportFactory.cs`,
-    `samples/Hps.Sample.Publisher`, `samples/Hps.Sample.Subscriber`.
-  - 관련 파일/범위: `samples/`, `HighPerformanceSocket.slnx`, 필요 시 문서 상태 파일.
-  - 현재 상태: 서버 library host 와 end-to-end 테스트는 존재하지만, CLI server host 는 없다.
-  - known blockers/open questions: server sample 의 기본 bind 주소/포트, max payload/block size 기본값, 종료 방식(Ctrl+C)만 정하면 구현 가능하다.
-  - next step: broker server sample project 를 Red build 로 먼저 고정하고, 최소 `host port maxPayload` 실행 인자를 갖는 console 로 추가한다.
-
 ## Completed
+
+- [x] 수동 fan-out 확인을 위한 broker server console sample 을 추가했다.
+  - 범위: `samples/Hps.Sample.BrokerServer`, `HighPerformanceSocket.slnx`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `dotnet build samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj`가 프로젝트 파일 부재로 실패했다.
+  - 구현: sample 은 `<host> <port> <max-frame-bytes>` 인자를 받아 `BrokerServer + TransportFactory.CreateDefault()`를 시작하고,
+    Ctrl+C 입력 시 `BrokerServer.StopAsync`를 거쳐 정리한다.
+  - 결정: D049에 따라 이 sample 은 운영용 daemon 이 아니라 기존 library host 를 조립하는 실행 harness 로 둔다.
+  - 검증: sample build 는 Red 프로젝트 파일 부재 실패 뒤 Green 경고 0/오류 0. invalid args smoke 는 사용법 출력과 exit code 2 확인.
+    solution build 는 병렬 test 와의 obj lock 충돌 뒤 직렬 재실행 경고 0/오류 0. 솔루션 전체 테스트 통과 102, 실패 0, 건너뜀 0.
+    `git diff --check` 통과.
 
 - [x] TCP receive handler 예외가 connection close notification 으로 수렴하도록 보강했다.
   - 범위: `src/Hps.Transport/Saea/SaeaTransport.cs`, `src/Hps.Transport/Abstractions/ITransportReceiveHandler.cs`,

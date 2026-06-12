@@ -7,6 +7,7 @@
     <Project Path="src/Hps.Transport/Hps.Transport.csproj" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj" />
     <Project Path="samples/Hps.Sample.Publisher/Hps.Sample.Publisher.csproj" />
     <Project Path="samples/Hps.Sample.Subscriber/Hps.Sample.Subscriber.csproj" />
   </Folder>

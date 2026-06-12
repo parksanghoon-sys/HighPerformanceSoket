@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 공통 TFM/LangVersion 설정은 루트 Directory.Build.props 를 따른다. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Hps.Buffers\Hps.Buffers.csproj" />
+    <ProjectReference Include="..\..\src\Hps.Server\Hps.Server.csproj" />
+    <ProjectReference Include="..\..\src\Hps.Transport\Hps.Transport.csproj" />
+  </ItemGroup>
+
+</Project>

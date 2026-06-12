@@ -1,5 +1,34 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — broker server console sample)
+
+### 작업 단위
+- Phase 3 samples 후속 단위로 `BrokerServer + SaeaTransport`를 실제 프로세스로 띄우는 broker server console sample 만 추가했다.
+- 범위는 `samples/Hps.Sample.BrokerServer`, solution 편입, 상태 문서 갱신으로 제한했다.
+- publisher/subscriber client 변경, protocol ack, diagnostics API, 운영용 host 설정은 포함하지 않았다.
+
+### Red
+- `dotnet build samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj`가 프로젝트 파일 부재로 실패했다.
+
+### 구현
+- `Hps.Sample.BrokerServer`는 `<host> <port> <max-frame-bytes>` 인자를 받아 `BrokerServer`를 시작한다.
+- Transport 는 `TransportFactory.CreateDefault()`로 만들고, TCP frame payload pool 은 `max-frame-bytes` 크기의 `PinnedBlockMemoryPool`로 만든다.
+- Ctrl+C 입력 시 기본 즉시 종료를 취소하고 `BrokerServer.StopAsync` 경로를 통과해 listener, accept loop, transport 를 정리한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D049로 broker server sample 경계를 기록했다.
+- `TODOS.md`의 broker server console sample 항목을 Completed 로 이동했다.
+- `CURRENT_PLAN.md`의 현재 실행 지점과 검증 경로를 이번 sample 단위 기준으로 갱신했다.
+
+### 검증
+- `dotnet build samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj` → Red 프로젝트 파일 부재 실패 → 구현 뒤 경고 0, 오류 0.
+- `dotnet run --project samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj --` → 사용법 출력, exit code 2 확인.
+- `dotnet build HighPerformanceSocket.slnx` → 첫 시도는 `dotnet test`와 병렬 실행되어 obj 파일 lock 으로 실패했다.
+  직렬 재실행 결과 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 37 +
+  `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
 ## 2026-06-12 (Codex — TCP receive handler exception policy)
 
 ### 작업 단위

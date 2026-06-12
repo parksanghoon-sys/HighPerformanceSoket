@@ -1,5 +1,18 @@
 # DECISIONS.md
 
+## D049 — broker server 샘플은 기존 host 를 조립하는 실행 harness 로 둔다
+
+- 날짜: 2026-06-12
+- 상태: Accepted
+- 결정: `Hps.Sample.BrokerServer`는 `BrokerServer`, `TransportFactory.CreateDefault()`, `PinnedBlockMemoryPool`을 조립하는
+  console executable 로 둔다. 실행 인자는 `<host> <port> <max-frame-bytes>`이며, sample publisher/subscriber 가 붙을
+  TCP broker process 를 띄운 뒤 Ctrl+C 로 `BrokerServer.StopAsync` 경로를 통과해 종료한다.
+- 근거: 수동 fan-out 확인에는 publisher/subscriber client 와 별도로 broker process 가 필요하지만, 이를 위해 `Hps.Server` public API 를
+  넓히거나 별도 hosting abstraction 을 추가할 필요는 없다. 기존 library host 와 Transport factory 를 그대로 사용하면 이후 backend 선택이
+  `TransportFactory`로 이동해도 sample 실행 흐름은 유지된다.
+- 영향: 이 sample 은 운영용 daemon 이 아니며 설정 파일, logging, diagnostics endpoint, protocol error response 를 제공하지 않는다.
+  `max-frame-bytes`는 Broker TCP frame payload 상한이므로 `PUBLISH <topic> <payload>` 명령 전체 길이를 수용할 만큼 크게 지정해야 한다.
+
 ## D048 — TCP receive handler 예외는 connection close notification 으로 수렴한다
 
 - 날짜: 2026-06-12

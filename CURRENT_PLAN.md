@@ -194,26 +194,26 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - `samples/Hps.Sample.Publisher`와 `samples/Hps.Sample.Subscriber`가 추가됐다. 두 샘플은 D047에 따라
   `Hps.Server` 내부 타입을 참조하지 않고 TCP wire protocol 만 사용하는 독립 client 로 동작한다.
   publisher 는 `PUBLISH <topic> <payload>` frame 을 전송하고, subscriber 는 `SUBSCRIBE <topic>` frame 전송 뒤 raw payload chunk 를 출력한다.
-  수동 fan-out 확인에 필요한 broker server console sample 은 아직 만들지 않았다.
+- `samples/Hps.Sample.BrokerServer`가 추가됐다. 이 샘플은 D049에 따라 기존 `BrokerServer`, `TransportFactory.CreateDefault()`,
+  `PinnedBlockMemoryPool`을 조립해 publisher/subscriber sample 이 붙을 TCP broker process 를 실행한다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 수동 fan-out 확인을 위한 broker server console sample 을 별도 단위로 검토한다.
-현재 publisher/subscriber 샘플은 외부 TCP client 이므로, 실제 수동 실행에는 `BrokerServer + SaeaTransport`를 띄우는
-작은 executable 이 추가로 필요하다.
+리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가해 가장 작은 다음 단위를 선택한다.
+현재 실행 가능한 큰 후보는 D010 랜덤 적대적 fuzz 보강, drop diagnostics/logging 필요성 검토, Phase 4 벤치마크 기준 정량화다.
 
 ## 이번 단위의 검증 경로
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ReceivePump_WhenHandlerThrows_ClosesConnectionAndNotifiesHandler"` — Red: close 알림 미호출 timeout
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ReceivePump_WhenHandlerThrows_ClosesConnectionAndNotifiesHandler"` — Green
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
+- `dotnet build samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj` — Red: 프로젝트 파일 없음
+- `dotnet build samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj`
+- `dotnet run --project samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj --` — invalid args smoke
 - `dotnet build HighPerformanceSocket.slnx`
 - `dotnet test HighPerformanceSocket.slnx`
 - `git diff --check`
-- 결과: focused 테스트는 기존 구현에서 5초 timeout 으로 실패했고, 구현 뒤 통과 1로 green 됐다.
-  Transport 전체 테스트는 통과 37, 실패 0, 건너뜀 0. solution build 는 경고 0, 오류 0으로 통과했다.
-  솔루션 전체 테스트는 `Hps.Buffers.Tests` 통과 18,
+- 결과: broker server sample build Red 는 프로젝트 파일 부재로 실패했고, 구현 뒤 경고 0, 오류 0으로 통과했다.
+  인자 오류 smoke 는 사용법 출력과 exit code 2를 확인했다. solution build 는 처음에 `dotnet test`와 병렬 실행되어
+  obj 파일 lock 으로 실패했으나, 직렬 재실행에서 경고 0, 오류 0으로 통과했다. 솔루션 전체 테스트는 `Hps.Buffers.Tests` 통과 18,
   `Hps.Transport.Tests` 통과 37, `Hps.Protocol.Tests` 통과 24, `Hps.Broker.Tests` 통과 18,
   `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0. `git diff --check`는 whitespace 오류 없이 통과했고
   Git의 LF→CRLF 안내 경고만 출력됐다.
