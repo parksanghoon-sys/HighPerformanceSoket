@@ -1,5 +1,35 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — Hps.Server 최소 TCP host wiring)
+
+### 작업 단위
+- `src/Hps.Server`와 `tests/Hps.Server.Tests` 프로젝트를 추가했다.
+- 범위는 `BrokerServer`가 기존 Transport/Protocol/Broker 구성요소를 조립하고 TCP listener accept loop 수명을 관리하는 최소 host wiring 으로 제한했다.
+- 실제 socket 경로의 `SUBSCRIBE`/`PUBLISH` end-to-end fan-out, samples, backpressure, protocol error 응답은 포함하지 않았다.
+
+### Red
+- `BrokerServer` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- 계약 surface Green 이후 stub 상태에서 receive handler 등록, Transport start/listen, accept loop 시작, Stop listener/Transport 정리 테스트가 실패했다.
+
+### 구현
+- `BrokerServer`가 `SubscriptionTable`, `BrokerPublisher`, `BrokerTcpFrameHandler`, `TcpFrameReceiveHandler`를 내부 조립한다.
+- `StartTcpAsync`는 주입된 `ITransport`에 `TcpFrameReceiveHandler`를 등록하고, `StartAsync`/`ListenTcpAsync` 후 accept loop 를 시작한다.
+- accept loop 는 accepted connection 을 별도로 저장하지 않는다. connection tracking, receive/send pump, close drain 은 Transport 계약이 계속 책임진다.
+- `StopAsync`/`Dispose`는 accept loop 취소, listener close/dispose, Transport stop 순서로 listener 수명을 정리한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D038로 Server host wiring 책임 경계를 기록했다.
+- `CURRENT_PLAN.md`를 Server 최소 wiring 완료 및 실제 TCP command loopback 통합 테스트 대기 상태로 갱신했다.
+- `TODOS.md` Completed에 이번 단위를 추가하고, 실제 socket command loopback 검증을 `P1_SOON` Deferred Backlog 로 남겼다.
+
+### 검증
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~BrokerServerContract"` → Red 실패 1/통과 0 → 계약 Green 통과 1.
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~BrokerServerTests"` → 동작 Red 실패 2/통과 1 → Green 통과 3.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Server.Tests` 통과 3 + `Hps.Transport.Tests` 통과 26 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-11 (Codex — Broker TCP command handler)
 
 ### 작업 단위

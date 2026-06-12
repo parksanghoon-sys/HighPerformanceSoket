@@ -1,5 +1,22 @@
 # DECISIONS.md
 
+## D038 — BrokerServer 는 Transport/Protocol/Broker wiring 과 accept loop 수명만 책임진다
+
+- 날짜: 2026-06-12
+- 상태: Accepted
+- 결정: `Hps.Server.BrokerServer`를 Phase 3 TCP host 의 첫 진입점으로 둔다. 생성자는 테스트 가능성을 위해
+  `ITransport`, `PinnedBlockMemoryPool`, `maxPayloadLength`를 주입받고, 내부에서 `SubscriptionTable`,
+  `BrokerPublisher`, `BrokerTcpFrameHandler`, `TcpFrameReceiveHandler`를 조립한다. `StartTcpAsync`는
+  `ITransport.SetReceiveHandler`로 TCP frame handler 를 등록한 뒤 `StartAsync`, `ListenTcpAsync`를 호출하고,
+  listener 의 `AcceptAsync`를 반복하는 accept loop 를 시작한다. `StopAsync`/`Dispose`는 accept loop 를 깨우고
+  listener 를 닫은 뒤 Transport 를 중지한다.
+- 근거: Protocol/Broker 는 이미 계층별로 구현되어 있으므로 Server 계층이 별도 command parsing 또는 fan-out 경로를 만들면
+  기존 소유권/프레이밍 결정(D009, D030, D037)을 우회하게 된다. Server 는 기존 구성요소를 연결하고 listener 수명만 관리하는
+  얇은 조립 계층으로 두는 편이 책임 경계가 가장 명확하다.
+- 영향: accepted connection 의 send/receive pump 와 connection tracking 은 Transport 구현이 계속 소유한다. Server accept loop 는
+  반환된 `IConnection`을 저장하지 않고 다음 accept 를 걸어 새 연결 수락을 계속 가능하게 한다. 실제 socket end-to-end
+  `SUBSCRIBE`/`PUBLISH` fan-out 검증과 `TransportFactory.CreateDefault()` 기반 convenience API 는 다음 단위에서 별도로 다룬다.
+
 ## D037 — Broker TCP frame handler 는 command decode 결과를 routing/fan-out 으로 연결한다
 
 - 날짜: 2026-06-11
