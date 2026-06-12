@@ -14,11 +14,38 @@
   - TCP/UDP drop-oldest 경로의 내부 `DroppedPendingSendCount` counter 를 추가했다.
   - `ITransportDiagnostics`와 `TransportDiagnosticsSnapshot`으로 Transport 수명 누적 drop snapshot 을 public 으로 읽을 수 있게 했다.
   - `BrokerServer + SaeaTransport` 실제 TCP command 경로에서 subscriber 2명 fan-out 통합 테스트를 추가했다.
+  - malformed TCP command 로 Broker 가 직접 connection 을 닫는 경로에서도 connection-wide subscription cleanup 을 보장했다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
-  - 다음 후보: UDP receive backpressure 정책(Q1)을 작은 설계/검증 단위로 검토한다.
+  - 다음 후보: UDP datagram handler 예외 정책을 작은 설계/검증 단위로 검토한다.
 
 ## Deferred Backlog
+
+- [ ] `P1_SOON` UDP datagram handler 예외 정책을 결정하고 receive loop 동작을 고정한다.
+  - 무엇이 남았는지: UDP receive loop 가 handler 에 datagram 소유권을 넘긴 뒤 handler 예외를 받으면 현재 task 가 fault 되고,
+    endpoint close notification 이 보장되지 않는다.
+  - 왜 defer 되었는지: 이번 단위는 Broker TCP protocol-error cleanup 버그만 고친다. UDP 예외 정책은 close+notify, 예외 격리 후 continue,
+    endpoint fault 노출 중 어떤 정책을 택할지 별도 설계 판단이 필요하다.
+  - objective: handler 버그 1회로 UDP endpoint 가 열린 것처럼 보이지만 더 이상 수신하지 않는 상태를 방지하고,
+    실패 시 endpoint 수명/알림/소유권 경계를 테스트로 고정한다.
+  - relevant context: 최근 리뷰 Finding 2, `src/Hps.Transport/Saea/SaeaTransport.cs`의 `UdpReceiveLoopAsync`,
+    `DispatchDatagramReceived`, `ITransportDatagramHandler.OnDatagramEndpointClosed`, 기존 fault 기대 테스트.
+  - 관련 파일/범위: `src/Hps.Transport/Saea/SaeaTransport.cs`, `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`,
+    UDP endpoint 수명/diagnostics 문서.
+  - 현재 상태: receive loop 는 handler 호출 전 local `datagram` 참조를 끊어 이중 Release 는 막지만, handler 예외 자체는 receive loop task 를 중단시킨다.
+  - known blockers/open questions: handler 예외를 endpoint close 로 볼지, 해당 datagram 만 drop 하고 loop 를 계속 돌릴지, public diagnostics 에 fault 를 노출할지 결정해야 한다.
+  - next step: 현재 fault 기대 테스트를 정책 테스트로 바꾸는 Red 를 먼저 작성하고, 선택한 정책을 `DECISIONS.md`에 기록한다.
+
+- [ ] `P2_LATER` SAEA 기준선의 direct pinned block send/receive 예외를 문서 불변식과 맞춘다.
+  - 무엇이 남았는지: `AGENTS.md`의 “send/recv 원형 큐는 BipBuffer” 불변식은 최적화 backend 방향을 설명하지만,
+    현재 SAEA 기준선은 pinned receive block 과 `TransportSendBuffer` direct send 를 사용한다.
+  - 왜 defer 되었는지: 이번 단위는 correctness 버그 수정이며, 문서 불일치 정리는 코드 동작을 바꾸지 않는 별도 문서 단위가 더 리뷰하기 쉽다.
+  - objective: 다음 작업자가 현재 accepted SAEA 기준선을 잘못된 구현으로 오해하지 않도록, SAEA 기준선 예외와 RIO/io_uring 또는 후속 큐 최적화의 BipBuffer 요구를 분리해 기록한다.
+  - relevant context: 최근 리뷰 Finding 3, DECISIONS D021/D023 계열 SAEA 기준선 결정, `src/Hps.Transport/Saea/SaeaTransport.cs`.
+  - 관련 파일/범위: `AGENTS.md`, `DECISIONS.md`, 필요 시 `CURRENT_PLAN.md`.
+  - 현재 상태: 코드와 테스트는 SAEA direct pinned block/direct send 기준선을 수락하고 있지만, 상위 규칙 문서에는 예외 문구가 없다.
+  - known blockers/open questions: 예외를 `AGENTS.md` 불변식에 직접 넣을지, 별도 decision 으로만 둘지 결정해야 한다.
+  - next step: 코드 변경 없이 문서만 갱신하는 단일 커밋으로 처리한다.
 
 - [ ] `P2_LATER` drop log/sampling 과 Server convenience diagnostics API 필요성을 검토한다.
   - 무엇이 남았는지: `ITransportDiagnostics.GetDiagnosticsSnapshot()`으로 Transport-level public 누적 metric 은 제공하지만,
@@ -71,6 +98,16 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] malformed TCP command 직접 close 경로의 subscription cleanup 누락을 수정했다.
+  - 범위: `src/Hps.Broker/BrokerTcpFrameHandler.cs`, `tests/Hps.Broker.Tests/BrokerTcpFrameHandlerTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: 구독된 connection 이 malformed command 를 보낸 뒤 transport close notify 가 없으면 `alpha` topic 에 connection 이 남아
+    `Assert.False()`가 실패하는 것을 확인했다.
+  - 구현: `BrokerTcpFrameHandler`가 malformed command 또는 내부 오류 때문에 직접 `connection.Close()`를 호출할 때
+    `SubscriptionTable.UnsubscribeAll(connection)`을 먼저 수행한다.
+  - 검증: focused cleanup 테스트 Green 통과 1, Broker 전체 통과 18, 솔루션 전체 통과 100,
+    빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] drop-oldest public diagnostics snapshot 을 구현했다.
   - 범위: `src/Hps.Transport/Abstractions/ITransportDiagnostics.cs`,

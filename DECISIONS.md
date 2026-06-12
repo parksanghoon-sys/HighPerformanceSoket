@@ -1,5 +1,19 @@
 # DECISIONS.md
 
+## D043 — Broker 가 직접 connection 을 닫는 protocol-error 경로는 구독 cleanup 을 먼저 수행한다
+
+- 날짜: 2026-06-12
+- 상태: Accepted
+- 결정: `BrokerTcpFrameHandler`가 malformed command 또는 handler 내부 오류 때문에 `connection.Close()`를 직접 호출하는 경우,
+  close 호출 전에 `SubscriptionTable.UnsubscribeAll(connection)`을 먼저 수행한다. Transport/Protocol 계층에서 이후 close notification 이
+  다시 들어오면 `OnConnectionClosed`가 같은 cleanup 을 반복할 수 있지만, `UnsubscribeAll`은 idempotent 하므로 부작용 없이 통과한다.
+- 근거: SAEA TCP receive loop 는 socket dispose 로 `ObjectDisposedException`이 발생하는 종료 경로에서 별도 close notify 없이 반환할 수 있다.
+  따라서 Broker 가 protocol error 를 발견하고 직접 connection 을 닫았는데 close notify 에만 cleanup 을 의존하면,
+  이미 구독된 connection 이 topic set 에 dead reference 로 남는다. 이는 D036의 connection-wide cleanup 목적과 C10K churn 환경의
+  routing table 안정성에 맞지 않는다.
+- 영향: protocol-error response frame 은 여전히 구현하지 않는다. malformed command 의 최소 정책은 frame guard ref 회수,
+  subscription cleanup, connection close 순서다. UDP datagram handler 예외 정책은 다른 수명 경계이므로 별도 결정으로 남긴다.
+
 ## D042 — drop-oldest public 관측성은 선택적 Transport diagnostics snapshot 으로 노출한다
 
 - 날짜: 2026-06-12

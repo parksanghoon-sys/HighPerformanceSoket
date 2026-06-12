@@ -79,7 +79,13 @@ namespace Hps.Broker
                 frame.Release();
 
                 if (closeConnection)
+                {
+                    // malformed command 나 handler 내부 오류처럼 Broker 가 직접 Close 하는 경로는
+                    // Transport receive loop 가 별도 close notify 를 다시 보내지 않을 수 있다.
+                    // 따라서 routing table cleanup 을 여기서 먼저 수행해 dead connection 이 topic set 에 남지 않게 한다.
+                    _subscriptions.UnsubscribeAll(connection);
                     connection.Close();
+                }
             }
         }
 

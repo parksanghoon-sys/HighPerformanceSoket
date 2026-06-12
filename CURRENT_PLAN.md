@@ -166,6 +166,8 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
   `OnConnectionClosed`는 `SubscriptionTable.UnsubscribeAll`로 연결한다.
 - Broker command handler 는 수락한 frame guard ref 를 처리 후 항상 `Release`한다. malformed command 는 현재 protocol error 응답이 없으므로
   frame 을 회수하고 connection 을 닫는다.
+- malformed command 처럼 Broker 가 직접 `connection.Close()`를 호출하는 경로에서도 `SubscriptionTable.UnsubscribeAll`을 먼저 호출하도록 보강했다.
+  SAEA receive loop 가 dispose 종료 시 별도 close notify 없이 반환하는 경우에도 routing table 에 dead connection 이 남지 않는다.
 - `src/Hps.Server`와 `tests/Hps.Server.Tests` 프로젝트가 추가됐다.
 - `BrokerServer` 최소 TCP host wiring 이 추가됐다. 주입된 `ITransport`에 `TcpFrameReceiveHandler(BrokerTcpFrameHandler)`를 등록하고,
   `StartAsync`/`ListenTcpAsync` 후 listener accept loop 를 시작한다. `StopAsync`/`Dispose`는 accept loop 를 깨우고 listener 를 닫은 뒤
@@ -185,29 +187,30 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 UDP receive backpressure 정책(Q1)을 작은 설계/검증 단위로 검토한다.
-D010 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 `TODOS.md` Deferred Backlog 에서 별도 단위로 둔다.
+리뷰 후 계속 진행 지시가 있으면 UDP datagram handler 예외 정책을 작은 설계/검증 단위로 먼저 검토한다.
+이 항목은 receive loop task fault 와 endpoint close notification 정책을 정해야 하므로, UDP receive backpressure 정책(Q1)과 분리해서 다룬다.
+D010 랜덤 적대적 fuzz 와 SAEA/BipBuffer 문서 일관성 정리는 비차단 항목이므로 `TODOS.md` Deferred Backlog 에서 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- `ITransport` 기본 계약을 넓히지 않고 `ITransportDiagnostics` 선택적 capability 와 `TransportDiagnosticsSnapshot` public 타입을 노출하는지 Red 로 확인한다.
-- TCP/UDP drop-oldest 발생 시 Transport-level diagnostics snapshot 이 connection/endpoint close 뒤에도 누적값을 보존하는지 Red 로 확인한다.
-- Red 는 compile failure 가 아니라 diagnostics 타입 부재에 따른 `Assert.NotNull` 실패여야 한다. Green 뒤에는 테스트를 direct public API 호출로 정리한다.
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportDiagnostics"`
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
+- 구독된 connection 이 malformed TCP command 를 보낸 뒤 transport close notify 가 다시 오지 않아도 모든 topic 에서 제거되는지 Red 로 확인한다.
+- Green 은 `BrokerTcpFrameHandler`의 직접 close 경로에서 `SubscriptionTable.UnsubscribeAll(connection)`을 먼저 호출하는 최소 변경으로 제한한다.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~OnFrame_WhenSubscribedConnectionSendsMalformedCommand_RemovesConnectionFromAllTopics"`
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
 - 테스트 출력에서 `Hps.Server.Tests`, `Hps.Broker.Tests`, `Hps.Buffers.Tests`, `Hps.Transport.Tests`, `Hps.Protocol.Tests`가 모두 discover되고 실행되는지 확인한다.
-- 결과: focused `TransportDiagnostics` Red 실패 3/통과 0 → Green 통과 3.
-  Transport 전체 통과 35.
-  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Transport.Tests` 통과 35 + `Hps.Server.Tests` 통과 5 +
-  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
-  빌드 경고 0, 오류 0. `git diff --check`는 whitespace 오류 없이 통과했다. Git의 LF↔CRLF 안내 경고만 출력됐다.
+- 결과: focused Red 는 `Assert.False()` 실패 1/통과 0으로 구독 cleanup 누락을 재현했고, Green 은 focused 테스트 통과 1.
+  Broker 전체 통과 18. 전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 35 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 18 +
+  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+  빌드 경고 0, 오류 0. `git diff --check`는 whitespace 오류 없이 통과했고 Git의 LF↔CRLF 안내 경고만 출력됐다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
 - 실제 OS/capability probe 와 RIO/io_uring backend 선택 로직
 - drop log/sampling 및 Server convenience diagnostics API
+- UDP datagram handler 예외 정책
 - UDP receive backpressure 정책
 - configurable pending send capacity
 - 다중 메시지 fan-out 순서/부하 통합 테스트
@@ -216,5 +219,6 @@ D010 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 `TODOS.md` De
 - backpressure
 - protocol error 응답
 - D010 랜덤 적대적 fuzz 대량 회귀 테스트
+- SAEA 기준선의 pinned block/direct send 예외를 AGENTS/결정 문서에 명확히 쓰는 문서 정리
 
 위 범위는 사용자 리뷰 후 다음 단일 작업 단위에서 필요 범위만 다시 확인하고 진행한다.

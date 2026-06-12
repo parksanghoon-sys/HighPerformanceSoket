@@ -1,5 +1,35 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — malformed TCP command subscription cleanup)
+
+### 작업 단위
+- 리뷰 Finding 1의 malformed TCP command 직접 close 경로만 처리했다.
+- 범위는 `BrokerTcpFrameHandler`의 protocol-error close cleanup 과 해당 회귀 테스트로 제한했다.
+- UDP datagram handler 예외 정책과 SAEA/BipBuffer 문서 불일치 정리는 `TODOS.md` Deferred Backlog 로 분리했다.
+
+### Red
+- `OnFrame_WhenSubscribedConnectionSendsMalformedCommand_RemovesConnectionFromAllTopics`를 추가했다.
+- 기존 구현에서는 malformed command 처리 후 `connection.Close()`만 호출되고, fake transport 는 별도 close notify 를 주지 않으므로
+  `alpha` topic 에 connection 이 남아 `Assert.False()` 실패로 Red 를 확인했다.
+
+### 구현
+- `BrokerTcpFrameHandler.OnFrame`의 `closeConnection` 경로에서 frame 을 Release 한 뒤 `SubscriptionTable.UnsubscribeAll(connection)`을 먼저 호출하고
+  그 다음 `connection.Close()`를 호출하도록 했다.
+- 이 cleanup 은 idempotent 하므로 이후 Transport/Protocol close notify 가 다시 들어와 `OnConnectionClosed`가 호출되어도 중복 제거 부작용이 없다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D043으로 Broker 직접 close 경로의 cleanup 선행 계약을 기록했다.
+- `CURRENT_PLAN.md`를 이번 단위의 Red/Green 결과와 다음 후보 작업 기준으로 갱신했다.
+- `TODOS.md`에 UDP datagram handler 예외 정책을 `P1_SOON`, SAEA/BipBuffer 문서 일관성 정리를 `P2_LATER`로 추가했다.
+
+### 검증
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~OnFrame_WhenSubscribedConnectionSendsMalformedCommand_RemovesConnectionFromAllTopics"` — Red 실패 1/통과 0 → Green 통과 1.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj` — 통과 18, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` — `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 35 +
+  `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` — 경고 0, 오류 0.
+- `git diff --check` — whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-12 (Codex — drop-oldest public diagnostics snapshot)
 
 ### 작업 단위

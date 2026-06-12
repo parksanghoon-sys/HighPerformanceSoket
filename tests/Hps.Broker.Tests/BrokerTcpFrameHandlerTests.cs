@@ -110,6 +110,33 @@ namespace Hps.Broker.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // malformed command 후 transport close notify 가 다시 오지 않아도 Broker routing table 이 오염되면 안 된다.
+        // SAEA receive loop 의 dispose 종료처럼 close 통지가 생략되는 경로를 대비해 protocol-error close 경로가 직접 cleanup 해야 한다.
+        [Fact]
+        public void OnFrame_WhenSubscribedConnectionSendsMalformedCommand_RemovesConnectionFromAllTopics()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+            RefCountedBuffer frame = RentFrame(pool, "UNKNOWN alpha");
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            FakeConnection connection = new FakeConnection();
+            FakeConnection survivor = new FakeConnection();
+            subscriptions.Subscribe("alpha", connection);
+            subscriptions.Subscribe("beta", connection);
+            subscriptions.Subscribe("alpha", survivor);
+
+            BrokerTcpFrameHandler handler = CreateHandler(subscriptions, new FakeTransport());
+
+            handler.OnFrame(connection, frame);
+
+            Assert.Equal(1, connection.CloseCallCount);
+            Assert.False(subscriptions.IsSubscribed("alpha", connection));
+            Assert.False(subscriptions.IsSubscribed("beta", connection));
+            Assert.True(subscriptions.IsSubscribed("alpha", survivor));
+            Assert.Equal(1, subscriptions.CountSubscribers("alpha"));
+            Assert.Equal(0, subscriptions.CountSubscribers("beta"));
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         private static BrokerTcpFrameHandler CreateHandler(SubscriptionTable subscriptions, FakeTransport transport)
         {
             BrokerPublisher publisher = new BrokerPublisher(subscriptions, transport);
