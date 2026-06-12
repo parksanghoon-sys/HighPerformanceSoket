@@ -1,5 +1,18 @@
 # DECISIONS.md
 
+## D041 — drop-oldest 관측성은 우선 내부 누적 counter 로 제공한다
+
+- 날짜: 2026-06-12
+- 상태: Accepted
+- 결정: TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`에 `internal long DroppedPendingSendCount`를 둔다.
+  drop-oldest eviction 이 발생할 때마다 `Interlocked.Increment`로 누적하고, 테스트와 내부 진단은 `Volatile.Read` 기반
+  property 로 값을 읽는다. public Transport/Broker/Server metric API 와 동기 log 출력은 이번 단위에 포함하지 않는다.
+- 근거: D039/D040의 drop-oldest 정책은 느린 소비자에서 메모리 상한을 보장하지만, 메시지 손실이 조용히 발생한다.
+  hot path 에 직접 log 를 넣으면 비용과 노이즈가 커질 수 있으므로, 먼저 낮은 비용의 누적 counter 로 drop 발생 여부를
+  관측 가능하게 만든다.
+- 영향: counter 는 endpoint/connection 객체 수명 동안 누적되며 reset API 는 제공하지 않는다.
+  이후 운영 metric 이 필요하면 이 내부 counter 를 Transport/Broker/Server 레벨 aggregate 로 끌어올리는 별도 단위에서 결정한다.
+
 ## D040 — UDP endpoint pending send queue 도 기본 drop-oldest capacity 로 제한한다
 
 - 날짜: 2026-06-12

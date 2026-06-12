@@ -21,6 +21,7 @@ namespace Hps.Transport
         private readonly IDisposable? _transportResource;
         private readonly Action<TransportConnection>? _onClosed;
         private readonly int _pendingSendCapacity;
+        private long _droppedPendingSendCount;
         private bool _closed;
 
         internal TransportConnection()
@@ -67,6 +68,12 @@ namespace Hps.Transport
         }
 
         /// <summary>
+        /// drop-oldest backpressure 로 socket 에 쓰이지 못하고 evict 된 pending send 수다.
+        /// public metric surface 를 아직 확정하지 않았으므로, 우선 테스트와 내부 진단에서만 읽는 누적 counter 로 둔다.
+        /// </summary>
+        internal long DroppedPendingSendCount => ReadDroppedPendingSendCount();
+
+        /// <summary>
         /// open 연결이면 송신 요청을 pending 큐에 넣고 Transport 가 해당 ref 의 소유권을 가진다.
         /// closed 연결이면 큐에 넣지 않고 false 를 반환해 호출자가 자신이 추가한 ref 를 Release 하게 한다.
         /// pending 큐가 이미 가득 찼으면 D012에 따라 가장 오래된 pending 항목을 drop 하고 그 Transport 소유 ref 를 반환한다.
@@ -92,7 +99,10 @@ namespace Hps.Transport
             // evict 대상 선택과 큐 제거는 _gate 안에서 끝낸다. Release 는 pool 반환까지 이어질 수 있으므로
             // lock 밖에서 수행해 producer/consumer/close 직렬화 범위를 queue mutation 으로만 제한한다.
             if (evictedSend.HasValue)
+            {
+                IncrementDroppedPendingSendCount();
                 evictedSend.Value.Buffer.Release();
+            }
 
             // 빈 큐에서 첫 항목이 들어올 때만 깨워도 단일 펌프가 drain 하면서 뒤따라온 항목을 모두 처리한다.
             // 매 enqueue 마다 깨우면 불필요한 signal 토큰이 쌓여 hot path 관측 비용이 커진다.
@@ -152,6 +162,16 @@ namespace Hps.Transport
             // in-flight 소유권은 단일 송신 펌프가 들고 있으므로 pending 큐 lock 을 다시 잡지 않는다.
             // close 와의 경합에서도 close 는 pending 만 drain 하고, 이미 dequeue 된 ref 는 이 경로에서만 반환된다.
             sendBuffer.Buffer.Release();
+        }
+
+        private long ReadDroppedPendingSendCount()
+        {
+            return Volatile.Read(ref _droppedPendingSendCount);
+        }
+
+        private void IncrementDroppedPendingSendCount()
+        {
+            Interlocked.Increment(ref _droppedPendingSendCount);
         }
 
         /// <summary>

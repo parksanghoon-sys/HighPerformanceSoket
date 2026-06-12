@@ -1,5 +1,36 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — drop-oldest internal diagnostics counter)
+
+### 작업 단위
+- TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`의 drop-oldest 경로에 내부 누적 counter 를 추가했다.
+- 범위는 connection/endpoint 내부 `DroppedPendingSendCount`와 그 회귀 테스트로 제한했다.
+- public metric API, log 출력, Server/Broker aggregate diagnostics 는 포함하지 않았다.
+
+### Red
+- TCP counter 테스트는 `DroppedPendingSendCount` property 부재로 `Assert.NotNull` 실패가 발생하는 것을 확인했다.
+- UDP counter 테스트도 `DroppedPendingSendCount` property 부재로 `Assert.NotNull` 실패가 발생하는 것을 확인했다.
+- Green 뒤에는 임시 reflection helper 를 제거하고 internal property 직접 호출 테스트로 정리했다.
+
+### 구현
+- `TransportConnection`에 internal `DroppedPendingSendCount` counter 를 추가했다.
+- `SaeaUdpEndpoint`에 internal `DroppedPendingSendCount` counter 를 추가했다.
+- drop-oldest eviction 이 실제로 발생한 경우에만 `Interlocked.Increment`로 counter 를 증가시킨다.
+- counter read 는 `Volatile.Read` helper 를 통해 수행한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D041로 drop-oldest 내부 counter 결정을 기록했다.
+- `CURRENT_PLAN.md`를 내부 counter 완료 및 다중 subscriber fan-out 통합 테스트 대기 상태로 갱신했다.
+- `TODOS.md`에서 내부 counter 항목을 Completed 로 이동하고, public metric/log 표면과 다중 subscriber 통합 테스트를 Deferred Backlog 로 분리했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~DroppedPendingSendCount"` → Red 실패 2/통과 0 → Green 통과 2.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 32, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Transport.Tests` 통과 32 + `Hps.Server.Tests` 통과 4 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-12 (Codex — UDP endpoint send queue backpressure)
 
 ### 작업 단위

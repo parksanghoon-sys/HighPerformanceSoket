@@ -11,26 +11,38 @@
   - `BrokerServer + SaeaTransport` 실제 TCP command loopback 통합 테스트로 subscriber/publisher socket 경로를 검증했다.
   - TCP `TransportConnection` pending send queue 에 capacity 16 drop-oldest backpressure 와 evict-release 를 적용했다.
   - UDP `SaeaUdpEndpoint` pending send queue 에도 capacity 16 drop-oldest backpressure 와 evict-release 를 적용했다.
+  - TCP/UDP drop-oldest 경로의 내부 `DroppedPendingSendCount` counter 를 추가했다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
-  - 다음 후보: drop-oldest 로 버려진 send 를 관측할 수 있는 low-overhead counter/diagnostic 표면을 작은 단위로 검토한다.
+  - 다음 후보: `BrokerServer + SaeaTransport` 실제 TCP command 경로의 다중 subscriber fan-out 통합 테스트를 작은 단위로 검토한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` drop-oldest send drop 관측성 counter/diagnostic 표면을 설계·구현한다.
-  - 무엇이 남았는지: TCP `TransportConnection`과 UDP `SaeaUdpEndpoint` 모두 drop-oldest 로 오래된 pending send 를 evict 하지만,
-    현재는 drop 발생 횟수나 원인을 관측할 수 있는 counter/log/metric 표면이 없다.
-  - 왜 defer 되었는지: 이번 단위는 UDP pending queue 의 correctness/backpressure/release 계약만 닫았다.
-    hot path 에 동기 log 를 바로 넣으면 비용과 노이즈가 커질 수 있고, public 진단 API 범위도 아직 결정되지 않았다.
-  - objective: 느린 소비자 또는 막힌 UDP remote 에서 메시지가 drop 되는 상황을 운영자가 확인할 수 있도록 low-overhead counter 를 제공한다.
-  - relevant context: 514b74f 리뷰 의견의 관측성 지적, DECISIONS D012/D039/D040,
-    `src/Hps.Transport/Runtime/TransportConnection.cs`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`.
-  - 관련 파일/범위: `src/Hps.Transport/Runtime/TransportConnection.cs`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,
-    `tests/Hps.Transport.Tests/Runtime/TransportSendQueueTests.cs`, `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`.
-  - 현재 상태: evict-release 는 정확히 수행되지만 drop count 는 저장하지 않는다.
-  - known blockers/open questions: counter 를 connection/endpoint 내부 `internal` 진단 surface 로 둘지,
-    Transport/Broker/Server 레벨 aggregate metric 으로 끌어올릴지 결정해야 한다. log 는 hot path 비용 때문에 기본값으로는 신중해야 한다.
-  - next step: TCP와 UDP 각각 overflow 테스트에서 drop counter 증가를 Red 로 고정하고, 최소 internal counter 부터 추가할지 검토한다.
+- [ ] `P1_SOON` public drop metric/log 표면을 설계한다.
+  - 무엇이 남았는지: TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`에는 내부 `DroppedPendingSendCount` counter 가 생겼지만,
+    아직 Transport/Broker/Server 레벨에서 운영자가 읽을 수 있는 public metric, aggregate snapshot, log 정책은 없다.
+  - 왜 defer 되었는지: 이번 단위는 hot path 비용이 낮은 내부 누적 counter 까지만 닫았다.
+    public 진단 API는 명명, 집계 범위, reset 여부, log sampling 여부를 함께 결정해야 하므로 별도 설계 단위가 맞다.
+  - objective: 운영 환경에서 느린 소비자 또는 막힌 UDP remote 로 인한 drop 을 확인할 수 있는 안정적인 진단 표면을 정한다.
+  - relevant context: DECISIONS D041, `src/Hps.Transport/Runtime/TransportConnection.cs`,
+    `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`, 이후 `src/Hps.Server`.
+  - 관련 파일/범위: `src/Hps.Transport/`, `src/Hps.Server/`, 테스트 프로젝트 전반.
+  - 현재 상태: 내부 counter 는 connection/endpoint 객체 수명 동안 누적되고 reset API는 없다.
+  - known blockers/open questions: public metric 을 Transport interface 에 올릴지, Server diagnostics snapshot 으로 둘지,
+    log 는 drop 마다 남길지 sampling/threshold 기반으로 둘지 결정해야 한다.
+  - next step: 현재 API 경계를 검토해 public surface 를 늘리지 않는 aggregate diagnostic snapshot 이 가능한지 먼저 설계한다.
+
+- [ ] `P1_SOON` 다중 subscriber TCP command fan-out 통합 테스트를 추가한다.
+  - 무엇이 남았는지: 현재 `BrokerServer + SaeaTransport` loopback 통합 테스트는 subscriber 1명에 대한 SUBSCRIBE/PUBLISH 경로만 검증한다.
+    같은 topic 에 여러 subscriber 가 있을 때 fan-out 이 모든 raw TCP subscriber socket 에 도착하는지는 아직 end-to-end 로 고정하지 않았다.
+  - 왜 defer 되었는지: backpressure와 drop 관측성 단위를 먼저 닫아 send queue 경계가 안정된 뒤 통합 테스트를 추가하는 순서가 더 안전했다.
+  - objective: 실제 TCP command 경로에서 같은 topic 의 여러 subscriber 가 동일 publish payload 를 각각 받는지 검증한다.
+  - relevant context: `tests/Hps.Server.Tests/BrokerServerTests.cs`, `BrokerPublisher`, `BrokerTcpFrameHandler`,
+    `BrokerServer + SaeaTransport` 단일 subscriber loopback 테스트.
+  - 관련 파일/범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, 필요 시 테스트 helper 만.
+  - 현재 상태: 단일 subscriber loopback 테스트는 통과한다. fan-out core 단위 테스트는 Broker 계층에 있으나 실제 socket end-to-end 는 1명만 있다.
+  - known blockers/open questions: subscriber 등록 완료 대기 방식은 현재 ack 가 없어 white-box subscription count helper 를 계속 써야 한다.
+  - next step: subscriber socket 2개를 같은 topic 에 등록한 뒤 publisher socket 1개가 publish 하면 두 socket 이 동일 payload 를 받는 test-only 단위로 진행한다.
 
 - [ ] `P3_NICE` D010 TCP frame assembler 랜덤 적대적 fuzz 를 영구 회귀 테스트로 추가한다.
   - 무엇이 남았는지: 현재 `TcpFrameAssembler`에는 edge 테스트와 결정적 fragmentation fuzz 가 있지만,
@@ -69,6 +81,17 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] drop-oldest 내부 관측성 counter 를 구현했다.
+  - 범위: `src/Hps.Transport/Runtime/TransportConnection.cs`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,
+    `tests/Hps.Transport.Tests/Runtime/TransportSendQueueTests.cs`, `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: TCP/UDP 각각 `DroppedPendingSendCount` property 부재가 `Assert.NotNull` 실패로 확인됐다.
+  - 구현: drop-oldest evict 발생 시 `Interlocked.Increment`로 내부 counter 를 증가시키고,
+    `Volatile.Read` 기반 internal property 로 읽을 수 있게 했다.
+  - 구현: public Transport/Broker/Server metric API 와 log 출력은 추가하지 않았다.
+  - 검증: focused `DroppedPendingSendCount` 통과 2, Transport 전체 통과 32, 솔루션 전체 통과 95,
+    빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] UDP `SaeaUdpEndpoint` pending send queue backpressure 를 구현했다.
   - 범위: `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,

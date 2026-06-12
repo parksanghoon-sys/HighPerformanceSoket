@@ -659,6 +659,59 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // UDP drop 관측성 테스트: UDP send queue 도 drop-oldest 로 datagram 을 버릴 수 있으므로
+        // endpoint 단위 counter 가 증가해야 느린 remote 또는 막힌 socket 을 테스트와 운영 진단에서 식별할 수 있다.
+        [Fact]
+        public void UdpSendTo_WhenPendingQueueDropsOldest_IncrementsDroppedPendingSendCount()
+        {
+            const int Capacity = 16;
+            const int SendCount = Capacity + 2;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            RefCountedBuffer[] buffers = RentNumberedUdpBuffers(pool, SendCount);
+            bool publisherRefsReleased = false;
+            SaeaUdpEndpoint? udpEndpoint = null;
+
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                Socket? socket = null;
+
+                try
+                {
+                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                    udpEndpoint = new SaeaUdpEndpoint(transport, socket);
+                    socket = null;
+
+                    EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, 9);
+                    for (int index = 0; index < SendCount; index++)
+                    {
+                        buffers[index].AddRef();
+                        TransportSendBuffer sendBuffer = new TransportSendBuffer(buffers[index], 0, buffers[index].Length);
+
+                        Assert.True(transport.TrySendTo(udpEndpoint, remoteEndPoint, sendBuffer));
+                    }
+
+                    Assert.Equal(2, udpEndpoint.DroppedPendingSendCount);
+
+                    ReleasePublisherRefs(buffers);
+                    publisherRefsReleased = true;
+
+                    udpEndpoint.Close();
+
+                    Assert.Equal(0, pool.RentedCount);
+                }
+                finally
+                {
+                    if (!publisherRefsReleased)
+                        ReleasePublisherRefs(buffers);
+
+                    udpEndpoint?.Close();
+                    socket?.Dispose();
+                }
+            }
+        }
+
         private static async Task<ReceivedPayload> WaitForReceivedPayloadAsync(Task<ReceivedPayload> receivedTask)
         {
             Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));

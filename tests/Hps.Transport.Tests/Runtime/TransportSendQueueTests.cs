@@ -239,6 +239,46 @@ namespace Hps.Transport.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // TCP drop 관측성 테스트: drop-oldest 는 데이터를 조용히 버리므로 최소한 connection 내부 counter 로
+        // evict 횟수를 확인할 수 있어야 한다. 이 단위는 public metric API가 아니라 low-overhead 내부 진단 표면만 고정한다.
+        [Fact]
+        public void TrySend_WhenPendingQueueDropsOldest_IncrementsDroppedPendingSendCount()
+        {
+            const int Capacity = 16;
+            const int SendCount = Capacity + 2;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer[] buffers = RentNumberedBuffers(pool, SendCount);
+            TestTransport transport = new TestTransport();
+            TransportConnection connection = transport.CreateConnection();
+            bool publisherRefsReleased = false;
+
+            try
+            {
+                for (int index = 0; index < buffers.Length; index++)
+                {
+                    buffers[index].AddRef();
+                    Assert.True(transport.TrySend(connection, new TransportSendBuffer(buffers[index], 0, buffers[index].Length)));
+                }
+
+                Assert.Equal(2, connection.DroppedPendingSendCount);
+
+                ReleasePublisherRefs(buffers);
+                publisherRefsReleased = true;
+
+                connection.Close();
+
+                Assert.Equal(0, pool.RentedCount);
+            }
+            finally
+            {
+                if (!publisherRefsReleased)
+                    ReleasePublisherRefs(buffers);
+
+                connection.Close();
+            }
+        }
+
         private static RefCountedBuffer[] RentNumberedBuffers(PinnedBlockMemoryPool pool, int count)
         {
             RefCountedBuffer[] buffers = new RefCountedBuffer[count];
