@@ -13,11 +13,14 @@ namespace Hps.Transport
     /// </summary>
     internal sealed class TransportConnection : IConnection
     {
+        private const int DefaultPendingSendCapacity = 16;
+
         private readonly object _gate;
         private readonly Queue<TransportSendBuffer> _pendingSends;
         private readonly SemaphoreSlim _sendSignal;
         private readonly IDisposable? _transportResource;
         private readonly Action<TransportConnection>? _onClosed;
+        private readonly int _pendingSendCapacity;
         private bool _closed;
 
         internal TransportConnection()
@@ -31,12 +34,21 @@ namespace Hps.Transport
         }
 
         internal TransportConnection(IDisposable? transportResource, Action<TransportConnection>? onClosed)
+            : this(transportResource, onClosed, DefaultPendingSendCapacity)
         {
+        }
+
+        internal TransportConnection(IDisposable? transportResource, Action<TransportConnection>? onClosed, int pendingSendCapacity)
+        {
+            if (pendingSendCapacity <= 0)
+                throw new ArgumentOutOfRangeException(nameof(pendingSendCapacity));
+
             _gate = new object();
             _pendingSends = new Queue<TransportSendBuffer>();
             _sendSignal = new SemaphoreSlim(0);
             _transportResource = transportResource;
             _onClosed = onClosed;
+            _pendingSendCapacity = pendingSendCapacity;
         }
 
         /// <summary>
@@ -57,10 +69,12 @@ namespace Hps.Transport
         /// <summary>
         /// open 연결이면 송신 요청을 pending 큐에 넣고 Transport 가 해당 ref 의 소유권을 가진다.
         /// closed 연결이면 큐에 넣지 않고 false 를 반환해 호출자가 자신이 추가한 ref 를 Release 하게 한다.
+        /// pending 큐가 이미 가득 찼으면 D012에 따라 가장 오래된 pending 항목을 drop 하고 그 Transport 소유 ref 를 반환한다.
         /// </summary>
         internal bool TryAcceptSend(TransportSendBuffer sendBuffer)
         {
             bool shouldWakePump;
+            TransportSendBuffer? evictedSend = null;
 
             lock (_gate)
             {
@@ -68,8 +82,17 @@ namespace Hps.Transport
                     return false;
 
                 shouldWakePump = _pendingSends.Count == 0;
+
+                if (_pendingSends.Count == _pendingSendCapacity)
+                    evictedSend = _pendingSends.Dequeue();
+
                 _pendingSends.Enqueue(sendBuffer);
             }
+
+            // evict 대상 선택과 큐 제거는 _gate 안에서 끝낸다. Release 는 pool 반환까지 이어질 수 있으므로
+            // lock 밖에서 수행해 producer/consumer/close 직렬화 범위를 queue mutation 으로만 제한한다.
+            if (evictedSend.HasValue)
+                evictedSend.Value.Buffer.Release();
 
             // 빈 큐에서 첫 항목이 들어올 때만 깨워도 단일 펌프가 drain 하면서 뒤따라온 항목을 모두 처리한다.
             // 매 enqueue 마다 깨우면 불필요한 signal 토큰이 쌓여 hot path 관측 비용이 커진다.

@@ -90,6 +90,9 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - 동시 echo 테스트는 기존 TCP receive pump, send pump, connection tracking 구현만으로 통과했으므로 production code 변경은 없었다.
 - `TransportConnection`은 pending 큐가 빈 상태에서 새 항목이 들어오거나 close 로 pump 를 깨워야 할 때만 send signal 을 보낸다.
   pending drain 과 in-flight release 계약(D016, D017)은 유지된다.
+- `TransportConnection` pending send queue 에 기본 capacity 16과 drop-oldest evict-release 정책이 추가됐다.
+  queue 가 가득 찬 상태에서 새 send 를 수락하면 가장 오래된 pending 항목의 Transport 소유 ref 를 Release 하고,
+  새 항목을 enqueue 한다. close 는 남은 pending 항목만 drain 하므로 evict 된 항목을 다시 Release 하지 않는다.
 - UDP datagram public 계약이 추가됐다. UDP 는 TCP accept 모델과 분리된 `IUdpEndpoint` 수명 핸들을 사용하고,
   `ITransport.BindUdpAsync`/`TrySendTo`/`SetDatagramHandler` 로 bind, send, receive 경계를 노출한다.
 - UDP receive 는 D009를 반영해 `RefCountedBuffer`를 직접 대여하고, datagram handler 가 해당 ref 소유권을 받아 직접 Release 한다.
@@ -167,34 +170,32 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 `.claude/review/overall-state-2026-06-11.md` H1의 Transport send pending queue backpressure 를 검토한다.
-구체적으로는 `TransportConnection` pending send queue 에 D012의 drop-oldest evict-release 또는 느린 소비자 close 정책을
-작은 TCP 단위로 먼저 고정하는 방향이 자연스럽다.
+리뷰 후 계속 진행 지시가 있으면 `.claude/review/overall-state-2026-06-11.md` H1의 남은 Transport send pending queue backpressure 를 검토한다.
+구체적으로는 TCP에 적용한 D012 drop-oldest evict-release 정책을 `SaeaUdpEndpoint` pending send queue 에도 적용하는 작은 UDP send 단위가 자연스럽다.
 UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 성급히 구현하지 않고 별도 설계 단위로 둔다.
 D010 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 `TODOS.md` Deferred Backlog 에서 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- `BrokerServer + SaeaTransport` loopback listener 를 시작한다.
-- subscriber raw TCP socket 이 length-prefix `SUBSCRIBE alpha`를 보낸 뒤 서버 내부 subscription table 에 등록될 때까지 기다린다.
-- publisher raw TCP socket 이 length-prefix `PUBLISH alpha <payload>`를 보내면 subscriber socket 이 payload 원문만 받는지 검증한다.
-- publish frame/send ref 가 모두 반환되어 server payload pool 의 `RentedCount==0`으로 돌아오는지 검증한다.
-- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~TcpCommandLoopback"`
-- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj`
+- TCP pending send queue 에 capacity 초과 send 를 넣으면 queue 길이가 16을 넘지 않고 가장 오래된 pending ref 가 Release 되는지 Red 로 확인한다.
+- drop-oldest 이후 publisher guard ref 를 놓고 Close 하면 이미 evict 된 항목은 다시 건드리지 않고 남은 pending ref 만 drain 하는지 Red 로 확인한다.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"`
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
 - 테스트 출력에서 `Hps.Server.Tests`, `Hps.Broker.Tests`, `Hps.Buffers.Tests`, `Hps.Transport.Tests`, `Hps.Protocol.Tests`가 모두 discover되고 실행되는지 확인한다.
-- 결과: focused `TcpCommandLoopback` 통과 1. 이 테스트는 기존 production 구현으로 즉시 통과했으므로 production code 변경은 없었다.
-  Server 전체 테스트 통과 4.
-  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Server.Tests` 통과 4 + `Hps.Transport.Tests` 통과 26 +
+- 결과: focused `TransportSendQueueTests` Red 실패 2/통과 7 → Green 통과 9.
+  Transport 전체 통과 28.
+  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Transport.Tests` 통과 28 + `Hps.Server.Tests` 통과 4 +
   `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
   빌드 경고 0, 오류 0. `git diff --check`는 whitespace 오류 없이 통과했다. Git의 LF↔CRLF 안내 경고만 출력됐다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
 - 실제 OS/capability probe 와 RIO/io_uring backend 선택 로직
+- UDP endpoint pending send queue backpressure
 - UDP receive backpressure 정책
-- drop-oldest backpressure evict release
+- configurable pending send capacity
 - 다중 subscriber 실제 socket fan-out/순서 통합 테스트
 - `TransportFactory.CreateDefault()`를 직접 사용하는 server factory/convenience API
 - samples

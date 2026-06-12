@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D039 — TCP pending send queue 는 기본 drop-oldest capacity 로 제한한다
+
+- 날짜: 2026-06-12
+- 상태: Accepted
+- 결정: `TransportConnection`의 pending send queue 에 기본 capacity 16을 적용한다. open connection 에서
+  `TrySend`가 호출됐을 때 queue 가 이미 가득 차 있으면 가장 오래된 pending 항목을 dequeue 하고, 해당
+  `TransportSendBuffer.Buffer`의 Transport 소유 ref 를 정확히 1회 `Release` 한 뒤 새 항목을 enqueue 한다.
+  `TrySend` 자체는 새 항목을 수락했으므로 `true`를 반환한다.
+- 근거: `.claude/review/overall-state-2026-06-11.md` H1과 D012가 지적한 대로 느린 소비자에서 pending queue 가
+  무한 증가하면 C10K 목표와 맞지 않는다. drop-oldest 는 최신 publish 를 유지하면서 메모리 상한을 제공하고,
+  evict 된 항목은 더 이상 socket 으로 보내지지 않으므로 Transport 가 소유 ref 를 반환해야 한다.
+- 영향: evict 대상 선택과 queue 제거는 `TransportConnection`의 기존 `_gate` lock 안에서 직렬화한다.
+  실제 `Release`는 queue mutation 뒤 lock 밖에서 수행해 producer/pump/close 의 구조적 직렬화는 유지하면서 lock 보유 시간을 줄인다.
+  close 는 남아 있는 pending 만 drain 하고, 이미 evict 된 항목은 다시 만지지 않는다. UDP endpoint pending send queue 는 별도 단위에서
+  같은 정책을 적용할지 검증한다.
+
 ## D038 — BrokerServer 는 Transport/Protocol/Broker wiring 과 accept loop 수명만 책임진다
 
 - 날짜: 2026-06-12

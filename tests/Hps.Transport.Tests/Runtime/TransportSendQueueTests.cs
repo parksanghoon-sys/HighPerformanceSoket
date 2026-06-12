@@ -178,6 +178,90 @@ namespace Hps.Transport.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // TCP backpressure drop-oldest 테스트: pending queue 가 용량을 넘으면 이미 enqueue 된 가장 오래된 항목을 제거하고
+        // 그 Transport 소유 ref 를 즉시 Release 해야 한다. 그래야 느린 소비자에서 큐가 무한 증가하지 않고 D012의 evict-release 계약을 지킨다.
+        [Fact]
+        public void TrySend_WhenPendingQueueExceedsCapacity_DropsOldestAndReleasesEvictedRef()
+        {
+            const int Capacity = 16;
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer[] buffers = RentNumberedBuffers(pool, Capacity + 1);
+            TestTransport transport = new TestTransport();
+            TransportConnection connection = transport.CreateConnection();
+
+            for (int index = 0; index < buffers.Length; index++)
+            {
+                buffers[index].AddRef();
+                Assert.True(transport.TrySend(connection, new TransportSendBuffer(buffers[index], 0, buffers[index].Length)));
+            }
+
+            Assert.Equal(Capacity, connection.PendingSendCount);
+
+            ReleasePublisherRefs(buffers);
+            Assert.Equal(Capacity, pool.RentedCount);
+
+            for (int expected = 1; expected <= Capacity; expected++)
+            {
+                Assert.True(connection.TryBeginInFlightSend(out TransportConnection.InFlightSend? inFlight));
+                Assert.NotNull(inFlight);
+                Assert.Equal((byte)expected, inFlight!.SendBuffer.Buffer.Span[0]);
+                inFlight.Complete();
+                inFlight.Dispose();
+            }
+
+            Assert.Equal(0, connection.PendingSendCount);
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // TCP backpressure close 경합 테스트: drop-oldest 로 이미 evict 된 항목은 close drain 이 다시 만지면 안 된다.
+        // overflow 뒤 publisher guard ref 를 놓고 Close 하면 남아 있는 pending 항목만 반환되어 누수와 이중 반환이 모두 없어야 한다.
+        [Fact]
+        public void Close_WhenPendingQueueAlreadyEvictedOldest_DrainsOnlyRemainingPendingRefs()
+        {
+            const int Capacity = 16;
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer[] buffers = RentNumberedBuffers(pool, Capacity + 1);
+            TestTransport transport = new TestTransport();
+            TransportConnection connection = transport.CreateConnection();
+
+            for (int index = 0; index < buffers.Length; index++)
+            {
+                buffers[index].AddRef();
+                Assert.True(transport.TrySend(connection, new TransportSendBuffer(buffers[index], 0, buffers[index].Length)));
+            }
+
+            ReleasePublisherRefs(buffers);
+            Assert.Equal(Capacity, pool.RentedCount);
+
+            connection.Close();
+
+            Assert.Equal(0, connection.PendingSendCount);
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        private static RefCountedBuffer[] RentNumberedBuffers(PinnedBlockMemoryPool pool, int count)
+        {
+            RefCountedBuffer[] buffers = new RefCountedBuffer[count];
+
+            for (int index = 0; index < count; index++)
+            {
+                RefCountedBuffer buffer = pool.RentCounted();
+                buffer.Span[0] = (byte)index;
+                buffer.SetLength(1);
+                buffers[index] = buffer;
+            }
+
+            return buffers;
+        }
+
+        private static void ReleasePublisherRefs(RefCountedBuffer[] buffers)
+        {
+            for (int index = 0; index < buffers.Length; index++)
+            {
+                buffers[index].Release();
+            }
+        }
+
         private sealed class TestTransport : TransportBase
         {
             public override ValueTask<IConnectionListener> ListenTcpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)

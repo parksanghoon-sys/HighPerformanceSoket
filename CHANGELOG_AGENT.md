@@ -1,5 +1,36 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — TCP pending send queue backpressure)
+
+### 작업 단위
+- `.claude/review/overall-state-2026-06-11.md` H1 중 TCP `TransportConnection` pending send queue backpressure 만 처리했다.
+- 범위는 TCP connection pending queue capacity 와 drop-oldest evict-release 로 제한했다.
+- UDP endpoint pending send queue backpressure, UDP receive backpressure, configurable capacity 는 포함하지 않았다.
+
+### Red
+- capacity 17번째 send 후 pending count 가 17로 남아 `Expected: 16, Actual: 17`로 실패하는 것을 확인했다.
+- overflow 뒤 publisher guard ref 를 놓고 close 하는 경로도 evict 가 없어 `RentedCount==17`로 남는 실패를 확인했다.
+
+### 구현
+- `TransportConnection` pending send queue 기본 capacity 를 16으로 두었다.
+- open connection 에서 queue 가 가득 찬 상태로 새 send 를 수락하면 가장 오래된 pending 항목을 dequeue 하고,
+  그 Transport 소유 ref 를 `Release`한 뒤 새 항목을 enqueue 한다.
+- evict 대상 선택과 queue 제거는 connection lock 으로 직렬화하고, `Release`는 lock 밖에서 수행한다.
+- close 는 남아 있는 pending 항목만 drain 하므로 이미 evict 된 항목을 다시 Release 하지 않는다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D039로 TCP pending send queue drop-oldest 결정을 기록했다.
+- `CURRENT_PLAN.md`를 TCP backpressure 완료 및 UDP endpoint pending send queue 대기 상태로 갱신했다.
+- `TODOS.md`에서 H1을 TCP 완료와 UDP endpoint 후속으로 분리했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"` → Red 실패 2/통과 7 → Green 통과 9.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 28, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Transport.Tests` 통과 28 + `Hps.Server.Tests` 통과 4 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-12 (Codex — BrokerServer TCP command loopback 통합 테스트)
 
 ### 작업 단위

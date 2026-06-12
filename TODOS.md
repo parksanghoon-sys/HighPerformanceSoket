@@ -9,25 +9,30 @@
   - `BrokerTcpFrameHandler`가 TCP command decode 결과를 Broker subscribe/publish/close cleanup 으로 연결한다.
   - `BrokerServer` 최소 TCP host wiring 으로 Transport receive handler 등록, listen, accept loop, stop 정리를 완료했다.
   - `BrokerServer + SaeaTransport` 실제 TCP command loopback 통합 테스트로 subscriber/publisher socket 경로를 검증했다.
+  - TCP `TransportConnection` pending send queue 에 capacity 16 drop-oldest backpressure 와 evict-release 를 적용했다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
-  - 다음 후보: Transport send pending queue backpressure 를 D012 정책 기반으로 작은 TCP 단위부터 검토한다.
+  - 다음 후보: `SaeaUdpEndpoint` pending send queue 에도 D012 drop-oldest evict-release 를 적용할지 작은 UDP send 단위로 검토한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` Transport send pending queue backpressure 를 D012 정책으로 구현한다.
-  - 무엇이 남았는지: `TransportConnection`과 `SaeaUdpEndpoint`의 pending send queue 에 명시적 capacity/backpressure 정책이 없다.
-  - 왜 defer 되었는지: `.claude/review/overall-state-2026-06-11.md` H1에서 높은 우선순위로 확인됐지만,
-    이번 단위는 H2의 Broker routing cleanup API로 제한했다. command handler 결선 직후 별도 기능 단위로 처리해야 한다.
-  - objective: 느린 소비자 또는 느린 UDP remote 때문에 pending send queue 가 무한 증가하지 않도록 D012의 drop-oldest
-    evict-release 또는 느린 소비자 close 정책을 구현하고, queue length 가 capacity 를 넘지 않으며 evict/dequeue/close
-    경합에서 `RefCountedBuffer`가 정확히 한 번 Release 되는지 검증한다.
-  - relevant context: AGENTS.md 아키텍처 불변식 5, DECISIONS D012, `.claude/review/overall-state-2026-06-11.md` H1,
-    `src/Hps.Transport/Runtime/TransportConnection.cs`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`.
-  - 관련 파일/범위: `src/Hps.Transport/`, `tests/Hps.Transport.Tests/`, 이후 Broker fan-out 지속 부하 테스트.
-  - 현재 상태: pending/in-flight/close release 계약은 구현되어 있지만, queue capacity 와 drop/close 정책은 없다.
-  - known blockers/open questions: 기본 정책을 drop-oldest 로 둘지 느린 소비자 close 로 둘지 결정해야 한다. D012는 drop-oldest의 release 불변식을 이미 확정했다.
-  - next step: TCP `TransportConnection` pending queue capacity Red 테스트를 먼저 추가하고, 같은 정책을 UDP endpoint 에 어떻게 적용할지 범위를 나눈다.
+- [ ] `P1_SOON` UDP endpoint pending send queue backpressure 를 D012 정책으로 구현한다.
+  - 무엇이 남았는지: `SaeaUdpEndpoint`의 pending send queue 에 명시적 capacity/backpressure 정책이 없다.
+    TCP `TransportConnection` pending send queue 는 D039로 capacity 16 drop-oldest evict-release 가 적용됐다.
+  - 왜 defer 되었는지: 이번 단위는 `.claude/review/overall-state-2026-06-11.md` H1 중 TCP connection queue 만 작게 닫았다.
+    UDP endpoint queue 는 connection close 모델이 다르고 `UdpSendRequest`가 remote endpoint 를 함께 들고 있어 별도 테스트 단위로 처리한다.
+  - objective: 느린 UDP remote 때문에 endpoint pending send queue 가 무한 증가하지 않도록 D012의 drop-oldest evict-release 를 적용하고,
+    queue length 가 capacity 를 넘지 않으며 evict/dequeue/close 경합에서 `RefCountedBuffer`가 정확히 한 번 Release 되는지 검증한다.
+  - relevant context: AGENTS.md 아키텍처 불변식 5, DECISIONS D012, D028, D039,
+    `.claude/review/overall-state-2026-06-11.md` H1, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,
+    `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`.
+  - 관련 파일/범위: `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`, `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`.
+  - 현재 상태: UDP send 는 endpoint pending queue 와 단일 pump 로 직렬화되어 있고, endpoint close 는 아직 pump 가 보내지 않은
+    queued datagram 을 drain 하지만, queue capacity 와 drop-oldest evict 는 없다.
+  - known blockers/open questions: TCP와 같은 기본 capacity 16을 적용하는 것이 자연스럽지만, UDP datagram burst 특성과
+    receive backpressure 정책(Q1)은 별도 항목으로 남겨둔다.
+  - next step: UDP endpoint 에 capacity+1 datagram 을 enqueue 하는 Red 테스트를 추가해 pending count ≤ capacity,
+    evicted ref release, close drain 누수 0을 먼저 고정한다.
 
 - [ ] `P3_NICE` D010 TCP frame assembler 랜덤 적대적 fuzz 를 영구 회귀 테스트로 추가한다.
   - 무엇이 남았는지: 현재 `TcpFrameAssembler`에는 edge 테스트와 결정적 fragmentation fuzz 가 있지만,
@@ -66,6 +71,18 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] TCP `TransportConnection` pending send queue backpressure 를 구현했다.
+  - 범위: `src/Hps.Transport/Runtime/TransportConnection.cs`,
+    `tests/Hps.Transport.Tests/Runtime/TransportSendQueueTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: capacity 17번째 send 후 pending count 가 17로 남아 실패하는 것을 확인했다.
+  - Red: overflow 뒤 publisher guard ref 를 놓고 close 하면 evict 가 없어 `RentedCount==17`로 남는 실패를 확인했다.
+  - 구현: pending queue 기본 capacity 를 16으로 두고, 가득 찬 상태에서 새 send 를 수락하면 가장 오래된 pending 항목을 evict 한 뒤
+    Transport 소유 ref 를 Release 한다.
+  - 구현: evict 대상 선택과 queue 제거는 connection lock 으로 직렬화하고, Release 는 lock 밖에서 수행한다.
+  - 검증: focused `TransportSendQueueTests` 통과 9, Transport 전체 통과 28, 솔루션 전체 통과 91,
+    빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] `BrokerServer` 실제 TCP command loopback 통합 테스트를 추가했다.
   - 범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
