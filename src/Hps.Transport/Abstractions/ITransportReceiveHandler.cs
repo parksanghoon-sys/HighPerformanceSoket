@@ -14,6 +14,7 @@ namespace Hps.Transport
         ///
         /// <paramref name="receiveBuffer"/> 는 콜백이 반환될 때까지만 유효하다. TCP 프레이밍 계층은 이 span 을
         /// 즉시 소비하고, 완성된 payload 수명이 콜백 이후로 이어져야 할 때만 `RefCountedBuffer`로 복사한다.
+        /// handler 가 예외를 던지면 Transport 는 해당 연결을 닫고 <see cref="OnConnectionClosed"/> 알림으로 수렴시킨다.
         /// </summary>
         void OnReceived(IConnection connection, TransportReceiveBuffer receiveBuffer);
 

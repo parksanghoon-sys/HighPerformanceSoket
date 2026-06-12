@@ -99,6 +99,53 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // TCP handler 예외 정책 테스트: receive handler 내부 버그가 발생해도 background receive loop 가
+        // fault 상태로 숨어 죽지 않고 connection close 알림으로 수렴해야 Broker 구독 cleanup 이 실행된다.
+        [Fact]
+        public async Task ReceivePump_WhenHandlerThrows_ClosesConnectionAndNotifiesHandler()
+        {
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                ThrowingReceiveHandler receiveHandler = new ThrowingReceiveHandler();
+                transport.SetReceiveHandler(receiveHandler);
+                await transport.StartAsync();
+
+                IConnectionListener? listener = null;
+                IConnection? inbound = null;
+                Socket? client = null;
+
+                try
+                {
+                    listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(listener.LocalEndPoint);
+
+                    client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    client.NoDelay = true;
+
+                    ValueTask<IConnection> accept = listener.AcceptAsync();
+                    await client.ConnectAsync(boundEndPoint);
+                    inbound = await accept;
+
+                    byte[] payload = new byte[] { 41, 42, 43 };
+                    int sent = await client.SendAsync(new ArraySegment<byte>(payload), SocketFlags.None);
+                    Assert.Equal(payload.Length, sent);
+
+                    IConnection closedConnection = await WaitForClosedConnectionAsync(receiveHandler.ClosedTask);
+
+                    Assert.Same(inbound, closedConnection);
+                    Assert.Equal(1, receiveHandler.ClosedCallCount);
+                    Assert.Equal(0, GetTrackedConnectionCount(transport));
+                }
+                finally
+                {
+                    client?.Dispose();
+                    inbound?.Close();
+                    listener?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         // TCP echo 통합 테스트: recv handler 가 받은 borrowed chunk 를 자신의 RefCountedBuffer 로 복사한 뒤
         // 같은 connection 에 TrySend 하면 receive pump 와 send pump 가 함께 동작해 실제 socket 왕복이 완성되어야 한다.
         [Fact]
@@ -912,6 +959,15 @@ namespace Hps.Transport.Tests
             return await closedTask;
         }
 
+        private static async Task<IConnection> WaitForClosedConnectionAsync(Task<IConnection> closedTask)
+        {
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(closedTask, timeoutTask);
+
+            Assert.Same(closedTask, completedTask);
+            return await closedTask;
+        }
+
         private static async Task<ReceivedSocketDatagram> ReceiveUdpDatagramAsync(Socket socket, int maxLength)
         {
             Task<ReceivedSocketDatagram> receiveTask = ReceiveUdpDatagramCoreAsync(socket, maxLength);
@@ -1038,6 +1094,36 @@ namespace Hps.Transport.Tests
             public void OnConnectionClosed(IConnection connection)
             {
             }
+        }
+
+        private sealed class ThrowingReceiveHandler : ITransportReceiveHandler
+        {
+            private readonly TaskCompletionSource<IConnection> _closed;
+            private int _closedCallCount;
+
+            internal ThrowingReceiveHandler()
+            {
+                _closed = new TaskCompletionSource<IConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            internal Task<IConnection> ClosedTask => _closed.Task;
+
+            internal int ClosedCallCount => Volatile.Read(ref _closedCallCount);
+
+            public void OnReceived(IConnection connection, TransportReceiveBuffer receiveBuffer)
+            {
+                throw new ReceiveHandlerFailureException();
+            }
+
+            public void OnConnectionClosed(IConnection connection)
+            {
+                Interlocked.Increment(ref _closedCallCount);
+                _closed.TrySetResult(connection);
+            }
+        }
+
+        private sealed class ReceiveHandlerFailureException : Exception
+        {
         }
 
         private sealed class EchoingReceiveHandler : ITransportReceiveHandler

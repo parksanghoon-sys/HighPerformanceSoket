@@ -1,5 +1,32 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — TCP receive handler exception policy)
+
+### 작업 단위
+- 리뷰 의견의 TCP/UDP handler 예외 정책 비대칭만 처리했다.
+- 범위는 `SaeaTransport` TCP receive loop, `ITransportReceiveHandler` 계약 문서, 회귀 테스트, 상태 문서 갱신으로 제한했다.
+- broker server console sample, BipBuffer 미결선, 빈 topic entry cleanup 정책은 포함하지 않았다.
+
+### Red
+- `ReceivePump_WhenHandlerThrows_ClosesConnectionAndNotifiesHandler`를 추가했다.
+- 기존 구현에서는 handler 가 `OnReceived`에서 예외를 던지면 `OnConnectionClosed`가 호출되지 않아 5초 timeout 으로 실패했다.
+
+### 구현
+- `SaeaTransport.ReceiveLoopAsync`에서 `DispatchReceived` 예외를 catch 하고 `NotifyConnectionClosed(connection)` 후 loop 를 종료하도록 했다.
+- `ITransportReceiveHandler.OnReceived` XML doc 에 handler 예외 시 Transport 가 connection close notification 으로 수렴한다는 계약을 명시했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D048로 TCP receive handler 예외 정책을 기록했다.
+- `TODOS.md`와 `CURRENT_PLAN.md`에 이번 리뷰 반영 결과와 다음 후보 작업 지점을 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ReceivePump_WhenHandlerThrows_ClosesConnectionAndNotifiesHandler"` → Red timeout 실패 1/통과 0 → Green 통과 1.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 37, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 37 +
+  `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
 ## 2026-06-12 (Codex — TCP publisher/subscriber samples)
 
 ### 작업 단위

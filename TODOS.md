@@ -16,6 +16,7 @@
   - `BrokerServer + SaeaTransport` 실제 TCP command 경로에서 subscriber 2명 fan-out 통합 테스트를 추가했다.
   - malformed TCP command 로 Broker 가 직접 connection 을 닫는 경로에서도 connection-wide subscription cleanup 을 보장했다.
   - UDP datagram handler 예외가 receive loop task fault 로 숨지 않고 endpoint close notification 으로 수렴하도록 보강했다.
+  - TCP receive handler 예외도 connection close notification 으로 수렴하도록 보강해 UDP와 수명 정책을 맞췄다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
   - TCP wire protocol 기반 publisher/subscriber sample client 를 추가했다.
@@ -74,6 +75,15 @@
   - next step: broker server sample project 를 Red build 로 먼저 고정하고, 최소 `host port maxPayload` 실행 인자를 갖는 console 로 추가한다.
 
 ## Completed
+
+- [x] TCP receive handler 예외가 connection close notification 으로 수렴하도록 보강했다.
+  - 범위: `src/Hps.Transport/Saea/SaeaTransport.cs`, `src/Hps.Transport/Abstractions/ITransportReceiveHandler.cs`,
+    `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `ReceivePump_WhenHandlerThrows_ClosesConnectionAndNotifiesHandler`가 `OnConnectionClosed` 미호출로 5초 timeout 실패했다.
+  - 구현: `DispatchReceived` 예외를 catch 해 `NotifyConnectionClosed(connection)` 후 receive loop 를 종료하도록 했다.
+  - 결정: D048에 따라 TCP handler 예외는 background task fault 가 아니라 connection 수명 종료로 관측된다.
+  - 검증: focused 테스트는 Red 실패 1/통과 0 이후 Green 통과 1. Transport 전체 통과 37, solution build 경고 0/오류 0,
+    솔루션 전체 테스트 통과 102, 실패 0, 건너뜀 0. `git diff --check` 통과.
 
 - [x] TCP wire protocol 기반 publisher/subscriber sample client 를 추가했다.
   - 범위: `samples/Hps.Sample.Publisher`, `samples/Hps.Sample.Subscriber`, `samples/Shared/SampleTcpFrames.cs`,

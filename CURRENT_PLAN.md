@@ -73,6 +73,8 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - `SaeaTransport`의 TCP recv pump 최소 기준선이 추가됐다. accepted TCP socket 이 받은 raw byte chunk 를
   pinned receive block 에 읽고, `ITransportReceiveHandler.OnReceived`에 borrowed `TransportReceiveBuffer`로 전달한다.
 - recv pump 는 아직 프레이밍을 하지 않는다. D010의 TCP frame 조립과 D009의 payload `RefCountedBuffer` 복사는 Phase 3 범위다.
+- 리뷰 의견에 따라 TCP receive handler 예외 정책을 UDP handler 예외 정책과 대칭으로 보강했다. `OnReceived`가 예외를 던지면
+  SAEA receive loop 는 background task fault 로 숨지 않고 `OnConnectionClosed` 알림과 connection close 로 수렴한다(D048).
 - 사용자 리뷰에서 발견된 `SaeaTransport` connection tracking 누수를 수정했다. accepted/outbound connection 이 `Close()`되면
   `TransportConnection` close callback 으로 transport 의 `_connections` 추적 목록에서 즉시 제거된다.
 - `TransportConnection.Close()`는 pending drain 과 closed 표시만 connection lock 안에서 처리하고, unregister callback 과 socket dispose 는
@@ -203,16 +205,16 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 작은 executable 이 추가로 필요하다.
 
 ## 이번 단위의 검증 경로
-- `dotnet build samples\Hps.Sample.Publisher\Hps.Sample.Publisher.csproj` — Red: 프로젝트 파일 없음
-- `dotnet build samples\Hps.Sample.Subscriber\Hps.Sample.Subscriber.csproj` — Red: 프로젝트 파일 없음
-- `dotnet build samples\Hps.Sample.Publisher\Hps.Sample.Publisher.csproj`
-- `dotnet build samples\Hps.Sample.Subscriber\Hps.Sample.Subscriber.csproj`
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ReceivePump_WhenHandlerThrows_ClosesConnectionAndNotifiesHandler"` — Red: close 알림 미호출 timeout
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ReceivePump_WhenHandlerThrows_ClosesConnectionAndNotifiesHandler"` — Green
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet build HighPerformanceSocket.slnx`
 - `dotnet test HighPerformanceSocket.slnx`
 - `git diff --check`
-- 결과: publisher/subscriber sample build Red 는 프로젝트 파일 부재로 각각 실패했다. 구현 뒤 두 sample build 와 solution build 는
-  경고 0, 오류 0으로 통과했다. 솔루션 전체 테스트는 `Hps.Buffers.Tests` 통과 18,
-  `Hps.Transport.Tests` 통과 36, `Hps.Protocol.Tests` 통과 24, `Hps.Broker.Tests` 통과 18,
+- 결과: focused 테스트는 기존 구현에서 5초 timeout 으로 실패했고, 구현 뒤 통과 1로 green 됐다.
+  Transport 전체 테스트는 통과 37, 실패 0, 건너뜀 0. solution build 는 경고 0, 오류 0으로 통과했다.
+  솔루션 전체 테스트는 `Hps.Buffers.Tests` 통과 18,
+  `Hps.Transport.Tests` 통과 37, `Hps.Protocol.Tests` 통과 24, `Hps.Broker.Tests` 통과 18,
   `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0. `git diff --check`는 whitespace 오류 없이 통과했고
   Git의 LF→CRLF 안내 경고만 출력됐다.
 

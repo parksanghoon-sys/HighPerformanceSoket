@@ -444,7 +444,17 @@ namespace Hps.Transport
                         return;
                     }
 
-                    DispatchReceived(connection, receiveBlock, received);
+                    try
+                    {
+                        DispatchReceived(connection, receiveBlock, received);
+                    }
+                    catch
+                    {
+                        // receive handler 예외를 background Task fault 로 방치하면 상위 Broker 의 close cleanup 이 실행되지 않는다.
+                        // UDP handler 예외 정책과 대칭으로 connection close 알림을 보낸 뒤 loop 를 종료한다.
+                        NotifyConnectionClosed(connection);
+                        return;
+                    }
                 }
             }
             finally

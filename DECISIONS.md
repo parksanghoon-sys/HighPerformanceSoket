@@ -1,5 +1,18 @@
 # DECISIONS.md
 
+## D048 — TCP receive handler 예외는 connection close notification 으로 수렴한다
+
+- 날짜: 2026-06-12
+- 상태: Accepted
+- 결정: `ITransportReceiveHandler.OnReceived`가 예외를 던지면 `SaeaTransport` TCP receive loop 는 background task 를
+  fault 상태로 방치하지 않고 `OnConnectionClosed`를 통지한 뒤 해당 connection 을 닫고 receive loop 를 종료한다.
+- 근거: UDP handler 예외는 D044에서 endpoint close notification 으로 수렴하도록 보강됐지만, TCP `DispatchReceived` 호출은
+  socket receive 예외 처리 밖에 있어 handler 예외가 close notification 없이 Task fault 로 새어 나갈 수 있었다.
+  이 경우 Protocol/Broker 계층의 close cleanup, 특히 subscription cleanup 이 실행되지 않아 dead connection reference 가 남을 수 있다.
+- 영향: handler 내부 예외를 무시하고 같은 connection 에서 계속 수신하지 않는다. 현재 public surface 에 background receive loop fault 를
+  관측할 API 가 없으므로, 실패를 connection 수명 종료로 바꾸는 쪽이 UDP 정책과 일관된다. `OnConnectionClosed` 자체가 예외를 던지는
+  계약 위반 경로는 이번 단위에서 별도 복구하지 않는다.
+
 ## D047 — publisher/subscriber 샘플은 TCP wire protocol 클라이언트로 둔다
 
 - 날짜: 2026-06-12
