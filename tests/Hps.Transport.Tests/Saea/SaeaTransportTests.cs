@@ -533,6 +533,132 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // UDP pending queue 백프레셔 테스트: endpoint pump 가 아직 datagram 을 가져가지 못한 상태에서
+        // capacity 를 초과하면 가장 오래된 Transport 소유 ref 를 drop 하고 새 datagram 을 수락해야 한다.
+        [Fact]
+        public void UdpSendTo_WhenPendingQueueExceedsCapacity_DropsOldestAndReleasesEvictedRef()
+        {
+            const int Capacity = 16;
+            const int SendCount = Capacity + 1;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            RefCountedBuffer[] buffers = RentNumberedUdpBuffers(pool, SendCount);
+            bool publisherRefsReleased = false;
+            SaeaUdpEndpoint? udpEndpoint = null;
+
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                Socket? socket = null;
+
+                try
+                {
+                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                    udpEndpoint = new SaeaUdpEndpoint(transport, socket);
+                    socket = null;
+
+                    EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, 9);
+                    for (int index = 0; index < SendCount; index++)
+                    {
+                        buffers[index].AddRef();
+                        TransportSendBuffer sendBuffer = new TransportSendBuffer(buffers[index], 0, buffers[index].Length);
+
+                        Assert.True(transport.TrySendTo(udpEndpoint, remoteEndPoint, sendBuffer));
+                    }
+
+                    Assert.Equal(Capacity, udpEndpoint.PendingSendCount);
+
+                    ReleasePublisherRefs(buffers);
+                    publisherRefsReleased = true;
+
+                    Assert.Equal(Capacity, pool.RentedCount);
+
+                    for (int index = 1; index < SendCount; index++)
+                    {
+                        SaeaUdpEndpoint.UdpSendRequest sendRequest;
+                        Assert.True(udpEndpoint.TryBeginSend(out sendRequest));
+
+                        try
+                        {
+                            Assert.Same(buffers[index], sendRequest.SendBuffer.Buffer);
+                        }
+                        finally
+                        {
+                            sendRequest.SendBuffer.Buffer.Release();
+                        }
+                    }
+
+                    Assert.False(udpEndpoint.TryBeginSend(out _));
+                    Assert.Equal(0, udpEndpoint.PendingSendCount);
+                    Assert.Equal(0, pool.RentedCount);
+                }
+                finally
+                {
+                    if (!publisherRefsReleased)
+                        ReleasePublisherRefs(buffers);
+
+                    udpEndpoint?.Close();
+                    socket?.Dispose();
+                }
+            }
+        }
+
+        // UDP close-drain 회귀 테스트: overflow 에서 이미 evict 된 ref 는 close 가 다시 볼 수 없어야 한다.
+        // publisher guard ref 를 해제한 뒤에는 queue 에 남은 16개만 endpoint close 경로에서 반환되어야 한다.
+        [Fact]
+        public void UdpSendTo_WhenPendingQueueAlreadyEvictedOldest_CloseDrainsOnlyRemainingPendingRefs()
+        {
+            const int Capacity = 16;
+            const int SendCount = Capacity + 1;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            RefCountedBuffer[] buffers = RentNumberedUdpBuffers(pool, SendCount);
+            bool publisherRefsReleased = false;
+            SaeaUdpEndpoint? udpEndpoint = null;
+
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                Socket? socket = null;
+
+                try
+                {
+                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                    udpEndpoint = new SaeaUdpEndpoint(transport, socket);
+                    socket = null;
+
+                    EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, 9);
+                    for (int index = 0; index < SendCount; index++)
+                    {
+                        buffers[index].AddRef();
+                        TransportSendBuffer sendBuffer = new TransportSendBuffer(buffers[index], 0, buffers[index].Length);
+
+                        Assert.True(transport.TrySendTo(udpEndpoint, remoteEndPoint, sendBuffer));
+                    }
+
+                    Assert.Equal(Capacity, udpEndpoint.PendingSendCount);
+
+                    ReleasePublisherRefs(buffers);
+                    publisherRefsReleased = true;
+
+                    Assert.Equal(Capacity, pool.RentedCount);
+
+                    udpEndpoint.Close();
+
+                    Assert.Equal(0, udpEndpoint.PendingSendCount);
+                    Assert.Equal(0, pool.RentedCount);
+                }
+                finally
+                {
+                    if (!publisherRefsReleased)
+                        ReleasePublisherRefs(buffers);
+
+                    udpEndpoint?.Close();
+                    socket?.Dispose();
+                }
+            }
+        }
+
         private static async Task<ReceivedPayload> WaitForReceivedPayloadAsync(Task<ReceivedPayload> receivedTask)
         {
             Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
@@ -661,6 +787,29 @@ namespace Hps.Transport.Tests
             }
 
             Assert.Equal(expected, pool.RentedCount);
+        }
+
+        private static RefCountedBuffer[] RentNumberedUdpBuffers(PinnedBlockMemoryPool pool, int count)
+        {
+            RefCountedBuffer[] buffers = new RefCountedBuffer[count];
+
+            for (int index = 0; index < count; index++)
+            {
+                RefCountedBuffer buffer = pool.RentCounted();
+                buffer.Span[0] = (byte)(index + 1);
+                buffer.SetLength(1);
+                buffers[index] = buffer;
+            }
+
+            return buffers;
+        }
+
+        private static void ReleasePublisherRefs(RefCountedBuffer[] buffers)
+        {
+            for (int index = 0; index < buffers.Length; index++)
+            {
+                buffers[index].Release();
+            }
         }
 
         private static int GetTrackedConnectionCount(SaeaTransport transport)

@@ -15,12 +15,15 @@ namespace Hps.Transport
     /// </summary>
     internal sealed class SaeaUdpEndpoint : IUdpEndpoint
     {
+        private const int DefaultPendingSendCapacity = 16;
+
         private readonly SaeaTransport _transport;
         private readonly Socket _socket;
         private readonly EndPoint _localEndPoint;
         private readonly object _sendGate;
         private readonly Queue<UdpSendRequest> _pendingSends;
         private readonly SemaphoreSlim _sendSignal;
+        private readonly int _pendingSendCapacity;
         private int _closed;
 
         internal SaeaUdpEndpoint(SaeaTransport transport, Socket socket)
@@ -31,6 +34,7 @@ namespace Hps.Transport
             _sendGate = new object();
             _pendingSends = new Queue<UdpSendRequest>();
             _sendSignal = new SemaphoreSlim(0);
+            _pendingSendCapacity = DefaultPendingSendCapacity;
         }
 
         /// <inheritdoc />
@@ -60,6 +64,7 @@ namespace Hps.Transport
                 throw new ArgumentNullException(nameof(remoteEndPoint));
 
             bool shouldWakePump;
+            UdpSendRequest? evictedSend = null;
 
             lock (_sendGate)
             {
@@ -67,8 +72,17 @@ namespace Hps.Transport
                     return false;
 
                 shouldWakePump = _pendingSends.Count == 0;
+
+                if (_pendingSends.Count == _pendingSendCapacity)
+                    evictedSend = _pendingSends.Dequeue();
+
                 _pendingSends.Enqueue(new UdpSendRequest(remoteEndPoint, sendBuffer));
             }
+
+            // drop-oldest 는 queue mutation 을 _sendGate 안에서 끝낸 뒤, 실제 ref 반환만 lock 밖에서 수행한다.
+            // Release 가 pool 반환까지 이어져도 producer, pump, close 가 같은 endpoint queue lock 에 묶이지 않게 하기 위함이다.
+            if (evictedSend.HasValue)
+                evictedSend.Value.SendBuffer.Buffer.Release();
 
             // UDP 도 endpoint 당 단일 pump 가 큐를 drain 하므로 빈 큐에서 첫 항목이 들어올 때만 깨운다.
             // datagram 마다 별도 작업을 만들지 않아 고빈도 송신에서 스레드 풀 폭주를 피한다.

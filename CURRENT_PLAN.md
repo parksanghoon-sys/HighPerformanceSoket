@@ -111,6 +111,9 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
   `TransportSendBuffer`를 넣으며, bind 된 endpoint 당 단일 UDP send pump 가 queue 를 drain 한다.
 - UDP endpoint 가 닫히면 아직 pump 가 보내지 않은 queued datagram 의 Transport 소유 ref 를 close 경로에서 drain 하므로
   endpoint close 전후 경합에서도 `RefCountedBuffer`가 누수되지 않는다.
+- `SaeaUdpEndpoint` pending send queue 에도 기본 capacity 16과 drop-oldest evict-release 정책이 추가됐다.
+  queue 가 가득 찬 상태에서 새 datagram 을 수락하면 가장 오래된 pending datagram 의 Transport 소유 ref 를 Release 하고,
+  새 datagram 을 enqueue 한다. close 는 남은 pending datagram 만 drain 하므로 evict 된 datagram 을 다시 Release 하지 않는다.
 - UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 계속 Deferred Backlog 로 둔다.
 - Phase 2 backend selector 최소 계약이 추가됐다. `TransportFactory.CreateDefault()`는 상위 계층이 concrete backend 를 직접 new 하지 않도록
   `ITransport` 생성 진입점을 제공하며, 현재는 모든 환경에서 `SaeaTransport`로 fallback 한다.
@@ -164,36 +167,37 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
   length-prefix `SUBSCRIBE alpha`를 보내고, raw TCP publisher socket 이 `PUBLISH alpha <payload>`를 보내면 subscriber socket 이
   broker fan-out 된 raw payload 를 받는지 검증한다.
 - 이 통합 테스트는 기존 Server/Transport/Protocol/Broker 구현으로 즉시 통과했으므로 production code 수정은 없었다.
-- Transport send pending queue backpressure, samples, 다중 subscriber end-to-end fan-out 은 아직 후속 단위로 남아 있다.
+- Transport send pending queue backpressure 기준선은 TCP/UDP 모두 적용됐다. drop 관측성 counter, samples,
+  다중 subscriber end-to-end fan-out 은 아직 후속 단위로 남아 있다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 `.claude/review/overall-state-2026-06-11.md` H1의 남은 Transport send pending queue backpressure 를 검토한다.
-구체적으로는 TCP에 적용한 D012 drop-oldest evict-release 정책을 `SaeaUdpEndpoint` pending send queue 에도 적용하는 작은 UDP send 단위가 자연스럽다.
+리뷰 후 계속 진행 지시가 있으면 drop-oldest 가 조용히 메시지를 버리는 문제를 관측할 수 있도록
+low-overhead drop counter/diagnostic 표면을 작은 단위로 검토한다.
 UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 성급히 구현하지 않고 별도 설계 단위로 둔다.
 D010 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 `TODOS.md` Deferred Backlog 에서 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- TCP pending send queue 에 capacity 초과 send 를 넣으면 queue 길이가 16을 넘지 않고 가장 오래된 pending ref 가 Release 되는지 Red 로 확인한다.
-- drop-oldest 이후 publisher guard ref 를 놓고 Close 하면 이미 evict 된 항목은 다시 건드리지 않고 남은 pending ref 만 drain 하는지 Red 로 확인한다.
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"`
+- UDP endpoint pending send queue 에 capacity 초과 datagram 을 넣으면 queue 길이가 16을 넘지 않고 가장 오래된 pending ref 가 Release 되는지 Red 로 확인한다.
+- drop-oldest 이후 publisher guard ref 를 놓고 Close 하면 이미 evict 된 datagram 은 다시 건드리지 않고 남은 pending ref 만 drain 하는지 Red 로 확인한다.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpSendTo_WhenPendingQueue"`
 - `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
 - 테스트 출력에서 `Hps.Server.Tests`, `Hps.Broker.Tests`, `Hps.Buffers.Tests`, `Hps.Transport.Tests`, `Hps.Protocol.Tests`가 모두 discover되고 실행되는지 확인한다.
-- 결과: focused `TransportSendQueueTests` Red 실패 2/통과 7 → Green 통과 9.
-  Transport 전체 통과 28.
-  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Transport.Tests` 통과 28 + `Hps.Server.Tests` 통과 4 +
+- 결과: focused `UdpSendTo_WhenPendingQueue` Red 실패 2/통과 0 → Green 통과 2.
+  Transport 전체 통과 30.
+  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Transport.Tests` 통과 30 + `Hps.Server.Tests` 통과 4 +
   `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
   빌드 경고 0, 오류 0. `git diff --check`는 whitespace 오류 없이 통과했다. Git의 LF↔CRLF 안내 경고만 출력됐다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
 - 실제 OS/capability probe 와 RIO/io_uring backend 선택 로직
-- UDP endpoint pending send queue backpressure
+- drop-oldest 관측성 counter/log/metrics
 - UDP receive backpressure 정책
 - configurable pending send capacity
 - 다중 subscriber 실제 socket fan-out/순서 통합 테스트

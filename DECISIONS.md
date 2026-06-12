@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D040 — UDP endpoint pending send queue 도 기본 drop-oldest capacity 로 제한한다
+
+- 날짜: 2026-06-12
+- 상태: Accepted
+- 결정: `SaeaUdpEndpoint`의 pending send queue 에도 기본 capacity 16을 적용한다. open endpoint 에서
+  `TrySendTo`가 호출됐을 때 queue 가 이미 가득 차 있으면 가장 오래된 `UdpSendRequest`를 dequeue 하고,
+  해당 `TransportSendBuffer.Buffer`의 Transport 소유 ref 를 정확히 1회 `Release` 한 뒤 새 datagram 을 enqueue 한다.
+  `TrySendTo` 자체는 새 datagram 을 수락했으므로 `true`를 반환한다.
+- 근거: D028에서 UDP send 는 endpoint 단위 pending queue 와 단일 pump 로 직렬화하기로 했다. 이 queue 에 상한이 없으면
+  느린 remote 또는 막힌 socket 상황에서 TCP 쪽 D039와 같은 메모리 증가 문제가 발생한다. D012의 drop-oldest 정책을
+  TCP와 UDP send queue 모두에 적용하면 send 경계의 backpressure 의미와 release 책임이 일관된다.
+- 영향: evict 대상 선택과 queue 제거는 `SaeaUdpEndpoint`의 `_sendGate` lock 안에서 직렬화한다.
+  실제 `Release`는 lock 밖에서 수행해 producer/pump/close 가 queue mutation 에 대해서만 직렬화되도록 유지한다.
+  close 는 남아 있는 pending datagram 만 drain 하고, 이미 evict 된 datagram 은 다시 만지지 않는다.
+  drop 관측성(counter/log/metrics)은 hot path 비용과 public 진단 표면을 별도 판단해야 하므로 후속 단위로 둔다.
+
 ## D039 — TCP pending send queue 는 기본 drop-oldest capacity 로 제한한다
 
 - 날짜: 2026-06-12
