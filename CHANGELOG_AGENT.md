@@ -1,5 +1,33 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — BrokerServer TCP command loopback 통합 테스트)
+
+### 작업 단위
+- `BrokerServer + SaeaTransport` 실제 TCP command loopback 통합 테스트를 추가했다.
+- 범위는 subscriber/publisher raw socket 경로에서 length-prefix command 가 Broker fan-out 으로 이어지는지 검증하는 test-only 단위로 제한했다.
+- production code, backpressure, samples, 다중 subscriber fan-out 은 포함하지 않았다.
+
+### Red/현상 확인
+- 새 통합 테스트는 기존 production 구현으로 첫 실행부터 통과했다.
+- 따라서 이번 단위는 누락된 회귀 검증을 고정하는 작업이며, production code 변경은 하지 않았다.
+
+### 테스트
+- subscriber socket 이 length-prefix `SUBSCRIBE alpha` frame 을 보낸 뒤 서버 내부 subscription table 에 등록될 때까지 기다린다.
+- publisher socket 이 length-prefix `PUBLISH alpha <payload>` frame 을 보내면 subscriber socket 이 payload 원문을 받는지 검증한다.
+- publish frame/send ref 가 모두 반환되어 server payload pool 의 `RentedCount==0`으로 돌아오는지 검증한다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 실제 TCP command loopback 검증 완료 및 backpressure 대기 상태로 갱신했다.
+- `TODOS.md`에서 loopback 검증 항목을 Completed 로 이동하고 다음 후보를 Transport send pending queue backpressure 로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~TcpCommandLoopback"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj` → 통과 4, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Server.Tests` 통과 4 + `Hps.Transport.Tests` 통과 26 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-12 (Codex — Hps.Server 최소 TCP host wiring)
 
 ### 작업 단위

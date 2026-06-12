@@ -157,32 +157,36 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - `BrokerServer` 최소 TCP host wiring 이 추가됐다. 주입된 `ITransport`에 `TcpFrameReceiveHandler(BrokerTcpFrameHandler)`를 등록하고,
   `StartAsync`/`ListenTcpAsync` 후 listener accept loop 를 시작한다. `StopAsync`/`Dispose`는 accept loop 를 깨우고 listener 를 닫은 뒤
   Transport 를 중지한다.
-- 실제 socket 경로에서 `SUBSCRIBE`/`PUBLISH` command 가 subscriber 에게 fan-out 되는 end-to-end 테스트, backpressure, samples 는
-  아직 후속 단위로 남아 있다.
+- `BrokerServer + SaeaTransport` 실제 TCP command loopback 통합 테스트가 추가됐다. raw TCP subscriber socket 이
+  length-prefix `SUBSCRIBE alpha`를 보내고, raw TCP publisher socket 이 `PUBLISH alpha <payload>`를 보내면 subscriber socket 이
+  broker fan-out 된 raw payload 를 받는지 검증한다.
+- 이 통합 테스트는 기존 Server/Transport/Protocol/Broker 구현으로 즉시 통과했으므로 production code 수정은 없었다.
+- Transport send pending queue backpressure, samples, 다중 subscriber end-to-end fan-out 은 아직 후속 단위로 남아 있다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 `Hps.Server` 실제 TCP command loopback 통합 테스트를 검토한다.
-구체적으로는 `BrokerServer + SaeaTransport`를 loopback listener 로 시작하고, subscriber socket 이 length-prefix `SUBSCRIBE <topic>`를 보낸 뒤
-publisher socket 이 `PUBLISH <topic> <payload>`를 보내면 subscriber socket 이 payload 를 받는지 검증하는 방향이 자연스럽다.
-그 다음 높은 우선순위는 `.claude/review/overall-state-2026-06-11.md` H1의 Transport send pending queue backpressure 이다.
+리뷰 후 계속 진행 지시가 있으면 `.claude/review/overall-state-2026-06-11.md` H1의 Transport send pending queue backpressure 를 검토한다.
+구체적으로는 `TransportConnection` pending send queue 에 D012의 drop-oldest evict-release 또는 느린 소비자 close 정책을
+작은 TCP 단위로 먼저 고정하는 방향이 자연스럽다.
 UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 성급히 구현하지 않고 별도 설계 단위로 둔다.
 D010 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 `TODOS.md` Deferred Backlog 에서 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- `BrokerServer` 타입 부재를 reflection 기반 Red 로 확인한다.
-- 계약 Green 후 stub 상태에서 handler 등록, Transport start/listen, accept loop 시작, Stop listener/Transport 정리 실패를 Red 로 확인한다.
-- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~BrokerServerContract"`
-- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~BrokerServerTests"`
+- `BrokerServer + SaeaTransport` loopback listener 를 시작한다.
+- subscriber raw TCP socket 이 length-prefix `SUBSCRIBE alpha`를 보낸 뒤 서버 내부 subscription table 에 등록될 때까지 기다린다.
+- publisher raw TCP socket 이 length-prefix `PUBLISH alpha <payload>`를 보내면 subscriber socket 이 payload 원문만 받는지 검증한다.
+- publish frame/send ref 가 모두 반환되어 server payload pool 의 `RentedCount==0`으로 돌아오는지 검증한다.
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~TcpCommandLoopback"`
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
 - 테스트 출력에서 `Hps.Server.Tests`, `Hps.Broker.Tests`, `Hps.Buffers.Tests`, `Hps.Transport.Tests`, `Hps.Protocol.Tests`가 모두 discover되고 실행되는지 확인한다.
-- 결과: focused `BrokerServerContract` Red 실패 1/통과 0 → 계약 Green 통과 1.
-  focused `BrokerServerTests` 동작 Red 실패 2/통과 1 → Green 통과 3.
-  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Server.Tests` 통과 3 + `Hps.Transport.Tests` 통과 26 +
+- 결과: focused `TcpCommandLoopback` 통과 1. 이 테스트는 기존 production 구현으로 즉시 통과했으므로 production code 변경은 없었다.
+  Server 전체 테스트 통과 4.
+  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Server.Tests` 통과 4 + `Hps.Transport.Tests` 통과 26 +
   `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
   빌드 경고 0, 오류 0. `git diff --check`는 whitespace 오류 없이 통과했다. Git의 LF↔CRLF 안내 경고만 출력됐다.
 
@@ -191,7 +195,7 @@ D010 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 `TODOS.md` De
 - 실제 OS/capability probe 와 RIO/io_uring backend 선택 로직
 - UDP receive backpressure 정책
 - drop-oldest backpressure evict release
-- 실제 socket 경로의 TCP publish/subscribe end-to-end fan-out
+- 다중 subscriber 실제 socket fan-out/순서 통합 테스트
 - `TransportFactory.CreateDefault()`를 직접 사용하는 server factory/convenience API
 - samples
 - backpressure

@@ -8,28 +8,12 @@
   - `SubscriptionTable.UnsubscribeAll(IConnection)`으로 Broker 라우팅 테이블의 connection-wide cleanup API를 완료했다.
   - `BrokerTcpFrameHandler`가 TCP command decode 결과를 Broker subscribe/publish/close cleanup 으로 연결한다.
   - `BrokerServer` 최소 TCP host wiring 으로 Transport receive handler 등록, listen, accept loop, stop 정리를 완료했다.
+  - `BrokerServer + SaeaTransport` 실제 TCP command loopback 통합 테스트로 subscriber/publisher socket 경로를 검증했다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
-  - 다음 후보: `Hps.Server` 실제 TCP command loopback 통합 테스트로 subscriber/publisher socket 경로를 검증한다.
+  - 다음 후보: Transport send pending queue backpressure 를 D012 정책 기반으로 작은 TCP 단위부터 검토한다.
 
 ## Deferred Backlog
-
-- [ ] `P1_SOON` `BrokerServer` 실제 TCP command loopback 통합 테스트를 추가한다.
-  - 무엇이 남았는지: `BrokerServer`가 실제 `SaeaTransport` socket 경로에서 `SUBSCRIBE <topic>`와
-    `PUBLISH <topic> <payload>` command 를 처리해 subscriber socket 으로 payload 를 fan-out 하는지 아직 검증하지 않았다.
-  - 왜 defer 되었는지: 이번 단위는 서버 host wiring 의 최소 계약과 accept loop 수명만 처리했다. 실제 socket end-to-end 는
-    테스트 helper 와 framing helper 가 추가로 필요하므로 리뷰 가능한 다음 단위로 분리했다.
-  - objective: `BrokerServer + SaeaTransport` loopback listener 를 시작하고, 한 raw TCP client 는 subscriber 로
-    length-prefix `SUBSCRIBE alpha`를 보내며 다른 raw TCP client 는 publisher 로 `PUBLISH alpha <payload>`를 보내면,
-    subscriber 가 broker fan-out 된 raw payload 를 받는지 검증한다.
-  - relevant context: D038, D037, D030, D009, `src/Hps.Server/BrokerServer.cs`,
-    `src/Hps.Protocol/TcpFrameReceiveHandler.cs`, `src/Hps.Broker/BrokerTcpFrameHandler.cs`,
-    `tests/Hps.Server.Tests/BrokerServerTests.cs`.
-  - 관련 파일/범위: `tests/Hps.Server.Tests/`, 필요 시 `src/Hps.Server/`의 작은 수명 보강.
-  - 현재 상태: `BrokerServer`는 receive handler 등록, `StartAsync`, `ListenTcpAsync`, accept loop 시작, stop 정리 단위 테스트를 통과한다.
-  - known blockers/open questions: subscriber 가 받는 frame 은 현재 Transport send pump 가 `TransportSendBuffer` 범위만 raw 로 보내므로
-    broker fan-out 결과는 length-prefix 가 아니라 payload 자체로 도착하는 것이 현 계약이다.
-  - next step: 테스트 전용 length-prefix command writer/receive-exact helper 를 추가하고, production 변경 없이 통과 가능한지 먼저 확인한다.
 
 - [ ] `P1_SOON` Transport send pending queue backpressure 를 D012 정책으로 구현한다.
   - 무엇이 남았는지: `TransportConnection`과 `SaeaUdpEndpoint`의 pending send queue 에 명시적 capacity/backpressure 정책이 없다.
@@ -82,6 +66,15 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] `BrokerServer` 실제 TCP command loopback 통합 테스트를 추가했다.
+  - 범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 테스트: `BrokerServer + SaeaTransport` loopback listener 를 시작하고, subscriber raw TCP socket 이 length-prefix
+    `SUBSCRIBE alpha`를 보낸 뒤 publisher raw TCP socket 이 `PUBLISH alpha <payload>`를 보내면 subscriber 가 payload 원문을 받는지 검증했다.
+  - 테스트: publish frame/send ref 가 모두 반환되어 server payload pool 의 `RentedCount==0`으로 돌아오는지 검증했다.
+  - 결과: 기존 Server/Transport/Protocol/Broker 구현이 테스트를 즉시 통과해 production code 수정은 없었다.
+  - 검증: focused `TcpCommandLoopback` 통과 1, Server 전체 통과 4, 솔루션 전체 통과 89,
+    빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] `Hps.Server` 최소 TCP host wiring 을 구현했다.
   - 범위: `src/Hps.Server/Hps.Server.csproj`, `src/Hps.Server/BrokerServer.cs`,

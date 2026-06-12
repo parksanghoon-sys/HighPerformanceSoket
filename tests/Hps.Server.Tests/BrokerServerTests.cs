@@ -1,9 +1,12 @@
 using System;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Hps.Broker;
 using Hps.Buffers;
 using Hps.Protocol;
 using Hps.Server;
@@ -73,6 +76,48 @@ namespace Hps.Server.Tests
             }
         }
 
+        // 실제 TCP command loopback 테스트: 서버 wiring 이 단순히 handler 를 등록하는 데 그치지 않고,
+        // SaeaTransport 의 accept/receive/send pump 를 통해 SUBSCRIBE 와 PUBLISH command 를 연결해 subscriber 로 payload 를 보내야 한다.
+        [Fact]
+        public async Task TcpCommandLoopback_WhenSubscriberAndPublisherUseLengthPrefixedCommands_FansOutPayload()
+        {
+            const string Topic = "alpha";
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            byte[] expectedPayload = new byte[] { 11, 22, 33, 44, 55, 66 };
+
+            using (SaeaTransport transport = new SaeaTransport())
+            using (BrokerServer server = new BrokerServer(transport, pool, 128))
+            {
+                Socket? subscriber = null;
+                Socket? publisher = null;
+
+                try
+                {
+                    await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(server.LocalEndPoint);
+
+                    subscriber = CreateConnectedTcpClient(boundEndPoint);
+                    publisher = CreateConnectedTcpClient(boundEndPoint);
+
+                    await SendFrameAsync(subscriber, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
+                    await WaitForSubscriberCountAsync(server, Topic, 1);
+
+                    await SendFrameAsync(publisher, CreatePublishCommand(Topic, expectedPayload));
+
+                    byte[] receivedPayload = await ReceiveExactAsync(subscriber, expectedPayload.Length);
+                    Assert.Equal(expectedPayload, receivedPayload);
+
+                    await WaitForRentedCountAsync(pool, 0);
+                }
+                finally
+                {
+                    subscriber?.Dispose();
+                    publisher?.Dispose();
+                    await server.StopAsync();
+                }
+            }
+        }
+
         private static bool HasExpectedConstructor(ConstructorInfo constructor)
         {
             ParameterInfo[] parameters = constructor.GetParameters();
@@ -104,6 +149,122 @@ namespace Hps.Server.Tests
 
             Assert.NotNull(method);
             return method!;
+        }
+
+        private static Socket CreateConnectedTcpClient(IPEndPoint remoteEndPoint)
+        {
+            Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            try
+            {
+                socket.NoDelay = true;
+                socket.Connect(remoteEndPoint);
+                return socket;
+            }
+            catch
+            {
+                socket.Dispose();
+                throw;
+            }
+        }
+
+        private static byte[] CreatePublishCommand(string topic, byte[] payload)
+        {
+            byte[] prefix = Encoding.ASCII.GetBytes("PUBLISH " + topic + " ");
+            byte[] command = new byte[prefix.Length + payload.Length];
+
+            Buffer.BlockCopy(prefix, 0, command, 0, prefix.Length);
+            Buffer.BlockCopy(payload, 0, command, prefix.Length, payload.Length);
+
+            return command;
+        }
+
+        private static async Task SendFrameAsync(Socket socket, byte[] payload)
+        {
+            byte[] frame = new byte[4 + payload.Length];
+            frame[0] = (byte)((payload.Length >> 24) & 0xFF);
+            frame[1] = (byte)((payload.Length >> 16) & 0xFF);
+            frame[2] = (byte)((payload.Length >> 8) & 0xFF);
+            frame[3] = (byte)(payload.Length & 0xFF);
+            Buffer.BlockCopy(payload, 0, frame, 4, payload.Length);
+
+            int offset = 0;
+            while (offset < frame.Length)
+            {
+                int sent = await socket.SendAsync(new ArraySegment<byte>(frame, offset, frame.Length - offset), SocketFlags.None);
+                if (sent == 0)
+                    throw new InvalidOperationException("TCP frame 전송 중 socket 이 먼저 닫혔다.");
+
+                offset += sent;
+            }
+        }
+
+        private static async Task<byte[]> ReceiveExactAsync(Socket socket, int length)
+        {
+            Task<byte[]> receiveTask = ReceiveExactCoreAsync(socket, length);
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(receiveTask, timeoutTask);
+
+            Assert.Same(receiveTask, completedTask);
+            return await receiveTask;
+        }
+
+        private static async Task<byte[]> ReceiveExactCoreAsync(Socket socket, int length)
+        {
+            byte[] buffer = new byte[length];
+            int offset = 0;
+
+            while (offset < length)
+            {
+                int received = await socket.ReceiveAsync(new ArraySegment<byte>(buffer, offset, length - offset), SocketFlags.None);
+                if (received == 0)
+                    throw new InvalidOperationException("payload 수신 중 socket 이 먼저 닫혔다.");
+
+                offset += received;
+            }
+
+            return buffer;
+        }
+
+        private static async Task WaitForSubscriberCountAsync(BrokerServer server, string topic, int expected)
+        {
+            SubscriptionTable subscriptions = ReadSubscriptionTable(server);
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+
+            while (DateTime.UtcNow < deadline)
+            {
+                if (subscriptions.CountSubscribers(topic) == expected)
+                    return;
+
+                await Task.Delay(10);
+            }
+
+            Assert.Equal(expected, subscriptions.CountSubscribers(topic));
+        }
+
+        private static SubscriptionTable ReadSubscriptionTable(BrokerServer server)
+        {
+            // SUBSCRIBE command 가 서버 내부 Broker 라우팅까지 도달했는지 기다리는 테스트 전용 white-box 경계다.
+            // public protocol 에 ack 가 아직 없으므로, publisher 를 보내기 전에 race 없이 구독 등록 완료를 확인한다.
+            FieldInfo? field = typeof(BrokerServer).GetField("_subscriptions", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(field);
+
+            object? value = field!.GetValue(server);
+            return Assert.IsType<SubscriptionTable>(value);
+        }
+
+        private static async Task WaitForRentedCountAsync(PinnedBlockMemoryPool pool, int expected)
+        {
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+
+            while (DateTime.UtcNow < deadline)
+            {
+                if (pool.RentedCount == expected)
+                    return;
+
+                await Task.Delay(10);
+            }
+
+            Assert.Equal(expected, pool.RentedCount);
         }
 
         private sealed class FakeTransport : ITransport
