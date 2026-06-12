@@ -12,10 +12,12 @@ namespace Hps.Transport
     /// 실제 SAEA/RIO/io_uring 송신은 파생 구현이 붙이지만, <see cref="ITransport.TrySend"/> 의
     /// "성공 시 Transport 소유, 실패 시 호출자 소유" 판정은 backend 마다 달라지면 안 된다.
     /// </summary>
-    public abstract class TransportBase : ITransport
+    public abstract class TransportBase : ITransport, ITransportDiagnostics
     {
         private ITransportReceiveHandler? _receiveHandler;
         private ITransportDatagramHandler? _datagramHandler;
+        private long _tcpDroppedPendingSendCount;
+        private long _udpDroppedPendingSendCount;
 
         /// <summary>
         /// 새 내부 연결 상태를 만든다. 이후 listen/accept/connect 구현은 이 연결을 <see cref="IConnection"/>
@@ -23,7 +25,7 @@ namespace Hps.Transport
         /// </summary>
         internal TransportConnection CreateConnection()
         {
-            return new TransportConnection();
+            return new TransportConnection(null, null, RecordTcpPendingSendDrop);
         }
 
         /// <inheritdoc />
@@ -60,6 +62,14 @@ namespace Hps.Transport
         internal ITransportDatagramHandler? ReadDatagramHandlerSnapshot()
         {
             return Volatile.Read(ref _datagramHandler);
+        }
+
+        /// <inheritdoc />
+        public TransportDiagnosticsSnapshot GetDiagnosticsSnapshot()
+        {
+            return new TransportDiagnosticsSnapshot(
+                ReadTcpDroppedPendingSendCount(),
+                ReadUdpDroppedPendingSendCount());
         }
 
         /// <summary>
@@ -99,6 +109,42 @@ namespace Hps.Transport
         public virtual bool TrySendTo(IUdpEndpoint endpoint, EndPoint remoteEndPoint, TransportSendBuffer sendBuffer)
         {
             throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// TCP connection pending queue 의 drop-oldest 발생을 Transport 수명 누적 counter 에 기록한다.
+        /// connection 내부 counter 는 connection 수명에 묶이므로, public diagnostics 는 별도 누적 counter 를 유지한다.
+        /// </summary>
+        internal void RecordTcpPendingSendDrop()
+        {
+            Interlocked.Increment(ref _tcpDroppedPendingSendCount);
+        }
+
+        /// <summary>
+        /// UDP endpoint pending queue 의 drop-oldest 발생을 Transport 수명 누적 counter 에 기록한다.
+        /// endpoint 가 닫힌 뒤에도 운영자가 drop 발생 여부를 읽을 수 있게 endpoint 내부 counter 와 분리한다.
+        /// </summary>
+        internal void RecordUdpPendingSendDrop()
+        {
+            Interlocked.Increment(ref _udpDroppedPendingSendCount);
+        }
+
+        /// <summary>
+        /// diagnostics snapshot 생성 시 TCP drop 누적값을 원자적으로 관측한다.
+        /// counter 는 drop hot path 에서 Interlocked 로 증가하므로 snapshot 도 같은 메모리 가시성 경계로 읽는다.
+        /// </summary>
+        private long ReadTcpDroppedPendingSendCount()
+        {
+            return Volatile.Read(ref _tcpDroppedPendingSendCount);
+        }
+
+        /// <summary>
+        /// diagnostics snapshot 생성 시 UDP drop 누적값을 원자적으로 관측한다.
+        /// endpoint 가 이미 닫혔더라도 Transport 수명 counter 는 유지되므로 endpoint 목록 lock 을 잡지 않는다.
+        /// </summary>
+        private long ReadUdpDroppedPendingSendCount()
+        {
+            return Volatile.Read(ref _udpDroppedPendingSendCount);
         }
 
         /// <inheritdoc />

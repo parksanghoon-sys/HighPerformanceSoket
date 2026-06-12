@@ -1,5 +1,37 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — drop-oldest public diagnostics snapshot)
+
+### 작업 단위
+- drop-oldest 내부 counter 를 운영자가 읽을 수 있는 public Transport diagnostics snapshot 으로 끌어올렸다.
+- 범위는 `ITransportDiagnostics`, `TransportDiagnosticsSnapshot`, Transport 수명 누적 TCP/UDP drop counter 로 제한했다.
+- `ITransport` 기본 계약, 동기 log 출력, sampling 정책, Server convenience diagnostics API 는 포함하지 않았다.
+
+### Red
+- `ITransportDiagnostics`와 `TransportDiagnosticsSnapshot` 타입 부재로 contract 테스트가 `Assert.NotNull` 실패하는 것을 확인했다.
+- TCP drop aggregate 테스트도 diagnostics 타입 부재로 `Assert.NotNull` 실패하는 것을 확인했다.
+- UDP drop aggregate 테스트도 diagnostics 타입 부재로 `Assert.NotNull` 실패하는 것을 확인했다.
+
+### 구현
+- `ITransportDiagnostics.GetDiagnosticsSnapshot()` 선택적 capability 를 추가했다.
+- `TransportDiagnosticsSnapshot`에 `TcpDroppedPendingSendCount`, `UdpDroppedPendingSendCount`, `DroppedPendingSendCount`를 추가했다.
+- `TransportBase`가 TCP/UDP drop-oldest 누적 counter 를 유지하고 snapshot 을 반환한다.
+- `TransportConnection`은 drop-oldest 발생 시 내부 connection counter 와 Transport-level TCP counter 를 함께 증가시킨다.
+- `SaeaUdpEndpoint`는 drop-oldest 발생 시 내부 endpoint counter 와 Transport-level UDP counter 를 함께 증가시킨다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D042로 선택적 Transport diagnostics snapshot 결정을 기록했다.
+- `CURRENT_PLAN.md`를 public diagnostics snapshot 완료 및 UDP receive backpressure 정책 검토 대기 상태로 갱신했다.
+- `TODOS.md`에서 public metric snapshot 을 Completed 로 이동하고, log/sampling 및 Server convenience API 는 `P2_LATER`로 분리했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportDiagnostics"` → Red 실패 3/통과 0 → Green 통과 3.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 35, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Transport.Tests` 통과 35 + `Hps.Server.Tests` 통과 5 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
 ## 2026-06-12 (Codex — 다중 subscriber TCP command fan-out 통합 테스트)
 
 ### 작업 단위

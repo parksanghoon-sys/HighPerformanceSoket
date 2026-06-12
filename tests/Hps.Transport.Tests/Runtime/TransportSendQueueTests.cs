@@ -279,6 +279,53 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // TCP public 진단 누적 테스트: connection 내부 counter 만 있으면 close 된 연결의 drop 이 운영 표면에서 사라진다.
+        // Transport 단위 snapshot 은 느린 소비자 drop 을 connection 수명과 무관하게 누적해서 읽을 수 있어야 한다.
+        [Fact]
+        public void TrySend_WhenPendingQueueDropsOldest_IncrementsTransportDiagnosticsSnapshot()
+        {
+            const int Capacity = 16;
+            const int SendCount = Capacity + 2;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer[] buffers = RentNumberedBuffers(pool, SendCount);
+            TestTransport transport = new TestTransport();
+            ITransportDiagnostics diagnostics = transport;
+            TransportConnection connection = transport.CreateConnection();
+            bool publisherRefsReleased = false;
+
+            try
+            {
+                for (int index = 0; index < buffers.Length; index++)
+                {
+                    buffers[index].AddRef();
+                    Assert.True(transport.TrySend(connection, new TransportSendBuffer(buffers[index], 0, buffers[index].Length)));
+                }
+
+                TransportDiagnosticsSnapshot snapshot = diagnostics.GetDiagnosticsSnapshot();
+
+                Assert.Equal(2, snapshot.TcpDroppedPendingSendCount);
+                Assert.Equal(0, snapshot.UdpDroppedPendingSendCount);
+                Assert.Equal(2, snapshot.DroppedPendingSendCount);
+
+                ReleasePublisherRefs(buffers);
+                publisherRefsReleased = true;
+
+                connection.Close();
+
+                TransportDiagnosticsSnapshot afterCloseSnapshot = diagnostics.GetDiagnosticsSnapshot();
+                Assert.Equal(2, afterCloseSnapshot.DroppedPendingSendCount);
+                Assert.Equal(0, pool.RentedCount);
+            }
+            finally
+            {
+                if (!publisherRefsReleased)
+                    ReleasePublisherRefs(buffers);
+
+                connection.Close();
+            }
+        }
+
         private static RefCountedBuffer[] RentNumberedBuffers(PinnedBlockMemoryPool pool, int count)
         {
             RefCountedBuffer[] buffers = new RefCountedBuffer[count];

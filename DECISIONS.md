@@ -1,5 +1,20 @@
 # DECISIONS.md
 
+## D042 — drop-oldest public 관측성은 선택적 Transport diagnostics snapshot 으로 노출한다
+
+- 날짜: 2026-06-12
+- 상태: Accepted
+- 결정: `ITransport` 기본 송수신 계약은 넓히지 않고, 별도 public capability 인 `ITransportDiagnostics`와
+  불변 값 타입 `TransportDiagnosticsSnapshot`을 추가한다. `TransportBase`가 이 capability 를 구현해 TCP/UDP
+  drop-oldest 누적 counter 를 제공한다. TCP는 `TransportConnection` drop callback 으로, UDP는 `SaeaUdpEndpoint`가
+  소유한 `SaeaTransport`에 직접 기록하는 방식으로 Transport 수명 누적 counter 를 증가시킨다.
+- 근거: `ITransport`에 진단 메서드를 직접 추가하면 SAEA/RIO/io_uring 모든 backend 의 필수 API가 되어 수명/송수신 계약이
+  불필요하게 커진다. 반면 drop-oldest 는 메시지 손실을 조용히 만들 수 있으므로 운영자가 읽을 수 있는 public metric surface 는 필요하다.
+  선택적 capability 는 기존 public 송수신 경계를 유지하면서, 지원하는 Transport 에서만 낮은 비용의 snapshot 을 제공한다.
+- 영향: snapshot 은 reset 되지 않는 누적값이며, connection 또는 UDP endpoint 가 닫힌 뒤에도 이미 발생한 drop 수를 보존한다.
+  `DroppedPendingSendCount`는 TCP+UDP 합계이고, `TcpDroppedPendingSendCount`와 `UdpDroppedPendingSendCount`는 원인 분리를 위해
+  별도로 유지한다. 동기 log 출력, sampling, Server-level diagnostics convenience API 는 별도 단위에서 필요성이 확인될 때 다룬다.
+
 ## D041 — drop-oldest 관측성은 우선 내부 누적 counter 로 제공한다
 
 - 날짜: 2026-06-12

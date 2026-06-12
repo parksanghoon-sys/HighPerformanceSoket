@@ -117,6 +117,10 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`에 내부 `DroppedPendingSendCount` counter 가 추가됐다.
   drop-oldest eviction 이 발생할 때마다 누적되므로, 느린 소비자나 막힌 UDP remote 때문에 메시지가 버려졌는지
   테스트와 내부 진단에서 확인할 수 있다. public metric/log 표면은 아직 만들지 않았다.
+- drop-oldest public 관측성 표면이 추가됐다. `ITransport` 기본 계약은 넓히지 않고 선택적 `ITransportDiagnostics`
+  capability 와 `TransportDiagnosticsSnapshot`을 제공한다. `TransportBase`는 TCP/UDP drop-oldest 누적값을 Transport 수명 동안
+  유지하므로 connection 또는 UDP endpoint 가 닫힌 뒤에도 이미 발생한 drop 수를 읽을 수 있다.
+  동기 log 출력, sampling, Server convenience diagnostics API 는 아직 만들지 않았다.
 - UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 계속 Deferred Backlog 로 둔다.
 - Phase 2 backend selector 최소 계약이 추가됐다. `TransportFactory.CreateDefault()`는 상위 계층이 concrete backend 를 직접 new 하지 않도록
   `ITransport` 생성 진입점을 제공하며, 현재는 모든 환경에서 `SaeaTransport`로 fallback 한다.
@@ -174,38 +178,36 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
   raw TCP subscriber socket 2개가 같은 topic 을 구독한 뒤 publisher socket 1개가 `PUBLISH`를 보내면 두 subscriber socket 이
   동일 payload 를 받는지 검증한다. 공유 `RefCountedBuffer` fan-out 뒤 server pool 이 `RentedCount==0`으로 돌아오는지도 확인한다.
 - 다중 subscriber 통합 테스트도 기존 구현으로 즉시 통과했으므로 production code 수정은 없었다.
-- Transport send pending queue backpressure 기준선과 내부 drop counter 는 TCP/UDP 모두 적용됐다. samples,
-  public metric/log 표면, 다중 메시지 순서/부하 fan-out 검증은 아직 후속 단위로 남아 있다.
+- Transport send pending queue backpressure 기준선과 내부/public drop counter snapshot 은 TCP/UDP 모두 적용됐다. samples,
+  drop log/sampling, 다중 메시지 순서/부하 fan-out 검증은 아직 후속 단위로 남아 있다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 drop-oldest 내부 counter 를 운영자가 읽을 수 있는 public metric/log 표면으로 끌어올릴지
-먼저 작은 설계 단위로 검토한다.
-UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 성급히 구현하지 않고 별도 설계 단위로 둔다.
+리뷰 후 계속 진행 지시가 있으면 UDP receive backpressure 정책(Q1)을 작은 설계/검증 단위로 검토한다.
 D010 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 `TODOS.md` Deferred Backlog 에서 별도 단위로 둔다.
 
 ## 이번 단위의 검증 경로
-- `BrokerServer + SaeaTransport` loopback 에서 raw TCP subscriber 2개가 같은 topic 을 구독하고,
-  publisher 1개가 보낸 payload 를 두 socket 모두 받는지 통합 테스트로 확인한다.
-- 이번 단위는 누락된 회귀 검증을 추가하는 test-only 단위다. 새 테스트는 기존 production 구현으로 즉시 통과했으므로 production code 수정은 하지 않는다.
-- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~TcpCommandLoopback_WhenTwoSubscribersShareTopic"`
-- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj`
+- `ITransport` 기본 계약을 넓히지 않고 `ITransportDiagnostics` 선택적 capability 와 `TransportDiagnosticsSnapshot` public 타입을 노출하는지 Red 로 확인한다.
+- TCP/UDP drop-oldest 발생 시 Transport-level diagnostics snapshot 이 connection/endpoint close 뒤에도 누적값을 보존하는지 Red 로 확인한다.
+- Red 는 compile failure 가 아니라 diagnostics 타입 부재에 따른 `Assert.NotNull` 실패여야 한다. Green 뒤에는 테스트를 direct public API 호출로 정리한다.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportDiagnostics"`
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj`
 - `dotnet test HighPerformanceSocket.slnx`
 - `dotnet build HighPerformanceSocket.slnx`
 - `git diff --check`
 - 테스트 출력에서 `Hps.Server.Tests`, `Hps.Broker.Tests`, `Hps.Buffers.Tests`, `Hps.Transport.Tests`, `Hps.Protocol.Tests`가 모두 discover되고 실행되는지 확인한다.
-- 결과: focused `TcpCommandLoopback_WhenTwoSubscribersShareTopic` 통과 1.
-  Server 전체 통과 5.
-  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Transport.Tests` 통과 32 + `Hps.Server.Tests` 통과 5 +
+- 결과: focused `TransportDiagnostics` Red 실패 3/통과 0 → Green 통과 3.
+  Transport 전체 통과 35.
+  전체 `dotnet test HighPerformanceSocket.slnx`는 `Hps.Transport.Tests` 통과 35 + `Hps.Server.Tests` 통과 5 +
   `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
   빌드 경고 0, 오류 0. `git diff --check`는 whitespace 오류 없이 통과했다. Git의 LF↔CRLF 안내 경고만 출력됐다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
 - 실제 OS/capability probe 와 RIO/io_uring backend 선택 로직
-- public drop metric/log 표면
+- drop log/sampling 및 Server convenience diagnostics API
 - UDP receive backpressure 정책
 - configurable pending send capacity
 - 다중 메시지 fan-out 순서/부하 통합 테스트

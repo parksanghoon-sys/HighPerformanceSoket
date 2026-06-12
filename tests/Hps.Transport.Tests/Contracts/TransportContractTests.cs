@@ -223,6 +223,37 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // 진단 표면 계약 테스트: drop-oldest 관측성은 필요하지만 ITransport 기본 계약을 곧바로 넓히면
+        // RIO/io_uring 등 모든 backend 의 필수 API 가 된다. 우선 선택적 diagnostics capability 로만 노출해 수명/송신 계약과 분리한다.
+        [Fact]
+        public void TransportDiagnostics_Contract_UsesOptionalCapabilityWithoutExpandingITransport()
+        {
+            Type diagnosticsType = typeof(ITransportDiagnostics);
+            Type snapshotType = typeof(TransportDiagnosticsSnapshot);
+
+            MethodInfo? getSnapshot = diagnosticsType.GetMethod("GetDiagnosticsSnapshot", Type.EmptyTypes);
+            PropertyInfo? tcpDrops = snapshotType.GetProperty("TcpDroppedPendingSendCount");
+            PropertyInfo? udpDrops = snapshotType.GetProperty("UdpDroppedPendingSendCount");
+            PropertyInfo? totalDrops = snapshotType.GetProperty("DroppedPendingSendCount");
+            TransportDiagnosticsSnapshot snapshot = new TransportDiagnosticsSnapshot(2, 3);
+
+            Assert.NotNull(getSnapshot);
+            Assert.Equal(typeof(TransportDiagnosticsSnapshot), getSnapshot!.ReturnType);
+            Assert.NotNull(tcpDrops);
+            Assert.Equal(typeof(long), tcpDrops!.PropertyType);
+            Assert.NotNull(udpDrops);
+            Assert.Equal(typeof(long), udpDrops!.PropertyType);
+            Assert.NotNull(totalDrops);
+            Assert.Equal(typeof(long), totalDrops!.PropertyType);
+            Assert.True(diagnosticsType.IsAssignableFrom(typeof(TransportBase)));
+            Assert.Null(typeof(ITransport).GetMethod("GetDiagnosticsSnapshot", Type.EmptyTypes));
+            Assert.Equal(2, snapshot.TcpDroppedPendingSendCount);
+            Assert.Equal(3, snapshot.UdpDroppedPendingSendCount);
+            Assert.Equal(5, snapshot.DroppedPendingSendCount);
+
+            AssertDoesNotExposeRawMemoryParameters(diagnosticsType);
+        }
+
         private static void AssertDoesNotExposeRawMemoryParameters(Type contractType)
         {
             Assert.DoesNotContain(contractType.GetMethods(), delegate(MethodInfo method)

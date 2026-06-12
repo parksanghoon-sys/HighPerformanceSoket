@@ -12,26 +12,27 @@
   - TCP `TransportConnection` pending send queue 에 capacity 16 drop-oldest backpressure 와 evict-release 를 적용했다.
   - UDP `SaeaUdpEndpoint` pending send queue 에도 capacity 16 drop-oldest backpressure 와 evict-release 를 적용했다.
   - TCP/UDP drop-oldest 경로의 내부 `DroppedPendingSendCount` counter 를 추가했다.
+  - `ITransportDiagnostics`와 `TransportDiagnosticsSnapshot`으로 Transport 수명 누적 drop snapshot 을 public 으로 읽을 수 있게 했다.
   - `BrokerServer + SaeaTransport` 실제 TCP command 경로에서 subscriber 2명 fan-out 통합 테스트를 추가했다.
   - `.claude/review/` 검토 의견의 현재 조치 현황을 문서로 남겼다.
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
-  - 다음 후보: drop-oldest 내부 counter 를 public metric/log 표면으로 끌어올릴지 작은 설계 단위로 검토한다.
+  - 다음 후보: UDP receive backpressure 정책(Q1)을 작은 설계/검증 단위로 검토한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` public drop metric/log 표면을 설계한다.
-  - 무엇이 남았는지: TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`에는 내부 `DroppedPendingSendCount` counter 가 생겼지만,
-    아직 Transport/Broker/Server 레벨에서 운영자가 읽을 수 있는 public metric, aggregate snapshot, log 정책은 없다.
-  - 왜 defer 되었는지: 이번 단위는 hot path 비용이 낮은 내부 누적 counter 까지만 닫았다.
-    public 진단 API는 명명, 집계 범위, reset 여부, log sampling 여부를 함께 결정해야 하므로 별도 설계 단위가 맞다.
-  - objective: 운영 환경에서 느린 소비자 또는 막힌 UDP remote 로 인한 drop 을 확인할 수 있는 안정적인 진단 표면을 정한다.
-  - relevant context: DECISIONS D041, `src/Hps.Transport/Runtime/TransportConnection.cs`,
-    `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`, 이후 `src/Hps.Server`.
+- [ ] `P2_LATER` drop log/sampling 과 Server convenience diagnostics API 필요성을 검토한다.
+  - 무엇이 남았는지: `ITransportDiagnostics.GetDiagnosticsSnapshot()`으로 Transport-level public 누적 metric 은 제공하지만,
+    drop 발생 시 log 를 남기거나 `BrokerServer`가 Transport diagnostics 를 직접 감싸는 convenience API 는 없다.
+  - 왜 defer 되었는지: 이번 단위는 hot path 비용이 낮은 누적 snapshot 까지만 닫았다. drop 마다 log 를 남기면 고빈도 과부하에서
+    비용과 노이즈가 커질 수 있고, Server convenience API 는 실제 운영 host surface 가 더 구체화된 뒤 결정해도 된다.
+  - objective: 운영자가 snapshot pull 방식만으로 충분한지, 아니면 sampling/threshold log 또는 Server-level aggregate accessor 가 필요한지 결정한다.
+  - relevant context: DECISIONS D041/D042, `src/Hps.Transport/Abstractions/ITransportDiagnostics.cs`,
+    `src/Hps.Transport/Abstractions/TransportDiagnosticsSnapshot.cs`, `src/Hps.Server/BrokerServer.cs`.
   - 관련 파일/범위: `src/Hps.Transport/`, `src/Hps.Server/`, 테스트 프로젝트 전반.
-  - 현재 상태: 내부 counter 는 connection/endpoint 객체 수명 동안 누적되고 reset API는 없다.
-  - known blockers/open questions: public metric 을 Transport interface 에 올릴지, Server diagnostics snapshot 으로 둘지,
-    log 는 drop 마다 남길지 sampling/threshold 기반으로 둘지 결정해야 한다.
-  - next step: 현재 API 경계를 검토해 public surface 를 늘리지 않는 aggregate diagnostic snapshot 이 가능한지 먼저 설계한다.
+  - 현재 상태: Transport 수명 누적 TCP/UDP drop snapshot 은 public 으로 읽을 수 있고 reset API는 없다.
+  - known blockers/open questions: log 는 drop 마다 남길지 sampling/threshold 기반으로 둘지, Server 는 nullable snapshot 을 노출할지
+    diagnostics capability 를 필수로 요구할지 결정해야 한다.
+  - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 - [ ] `P3_NICE` D010 TCP frame assembler 랜덤 적대적 fuzz 를 영구 회귀 테스트로 추가한다.
   - 무엇이 남았는지: 현재 `TcpFrameAssembler`에는 edge 테스트와 결정적 fragmentation fuzz 가 있지만,
@@ -70,6 +71,18 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] drop-oldest public diagnostics snapshot 을 구현했다.
+  - 범위: `src/Hps.Transport/Abstractions/ITransportDiagnostics.cs`,
+    `src/Hps.Transport/Abstractions/TransportDiagnosticsSnapshot.cs`, `src/Hps.Transport/Runtime/TransportBase.cs`,
+    `src/Hps.Transport/Runtime/TransportConnection.cs`, `src/Hps.Transport/Saea/SaeaTransport.cs`,
+    `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`, transport tests, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `ITransportDiagnostics`/`TransportDiagnosticsSnapshot` 타입 부재와 diagnostics snapshot 부재가 `Assert.NotNull` 실패 3건으로 확인됐다.
+  - 구현: `ITransport` 기본 계약은 넓히지 않고 선택적 `ITransportDiagnostics.GetDiagnosticsSnapshot()` capability 로 노출했다.
+  - 구현: `TransportBase`가 TCP/UDP drop-oldest 누적 counter 를 유지하고, connection/endpoint 내부 counter 와 별도로
+    close 이후에도 Transport-level snapshot 에 drop 수가 남도록 했다.
+  - 검증: focused `TransportDiagnostics` 통과 3, Transport 전체 통과 35, 솔루션 전체 통과 99,
+    빌드 경고 0/오류 0, `git diff --check` 통과.
 
 - [x] 다중 subscriber TCP command fan-out 통합 테스트를 추가했다.
   - 범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.

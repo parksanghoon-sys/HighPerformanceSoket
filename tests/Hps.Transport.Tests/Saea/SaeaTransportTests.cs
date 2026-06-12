@@ -712,6 +712,66 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // UDP public 진단 누적 테스트: endpoint 내부 counter 만으로는 endpoint close 뒤 drop 이 운영 표면에서 사라진다.
+        // Transport diagnostics snapshot 은 막힌 remote 로 인해 버려진 datagram 수를 endpoint 수명과 무관하게 보존해야 한다.
+        [Fact]
+        public void UdpSendTo_WhenPendingQueueDropsOldest_IncrementsTransportDiagnosticsSnapshot()
+        {
+            const int Capacity = 16;
+            const int SendCount = Capacity + 2;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            RefCountedBuffer[] buffers = RentNumberedUdpBuffers(pool, SendCount);
+            bool publisherRefsReleased = false;
+            SaeaUdpEndpoint? udpEndpoint = null;
+
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                ITransportDiagnostics diagnostics = transport;
+                Socket? socket = null;
+
+                try
+                {
+                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                    udpEndpoint = new SaeaUdpEndpoint(transport, socket);
+                    socket = null;
+
+                    EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, 9);
+                    for (int index = 0; index < SendCount; index++)
+                    {
+                        buffers[index].AddRef();
+                        TransportSendBuffer sendBuffer = new TransportSendBuffer(buffers[index], 0, buffers[index].Length);
+
+                        Assert.True(transport.TrySendTo(udpEndpoint, remoteEndPoint, sendBuffer));
+                    }
+
+                    TransportDiagnosticsSnapshot snapshot = diagnostics.GetDiagnosticsSnapshot();
+
+                    Assert.Equal(0, snapshot.TcpDroppedPendingSendCount);
+                    Assert.Equal(2, snapshot.UdpDroppedPendingSendCount);
+                    Assert.Equal(2, snapshot.DroppedPendingSendCount);
+
+                    ReleasePublisherRefs(buffers);
+                    publisherRefsReleased = true;
+
+                    udpEndpoint.Close();
+
+                    TransportDiagnosticsSnapshot afterCloseSnapshot = diagnostics.GetDiagnosticsSnapshot();
+                    Assert.Equal(2, afterCloseSnapshot.DroppedPendingSendCount);
+                    Assert.Equal(0, pool.RentedCount);
+                }
+                finally
+                {
+                    if (!publisherRefsReleased)
+                        ReleasePublisherRefs(buffers);
+
+                    udpEndpoint?.Close();
+                    socket?.Dispose();
+                }
+            }
+        }
+
         private static async Task<ReceivedPayload> WaitForReceivedPayloadAsync(Task<ReceivedPayload> receivedTask)
         {
             Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));

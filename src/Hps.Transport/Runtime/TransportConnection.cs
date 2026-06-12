@@ -20,6 +20,7 @@ namespace Hps.Transport
         private readonly SemaphoreSlim _sendSignal;
         private readonly IDisposable? _transportResource;
         private readonly Action<TransportConnection>? _onClosed;
+        private readonly Action? _onPendingSendDropped;
         private readonly int _pendingSendCapacity;
         private long _droppedPendingSendCount;
         private bool _closed;
@@ -35,11 +36,25 @@ namespace Hps.Transport
         }
 
         internal TransportConnection(IDisposable? transportResource, Action<TransportConnection>? onClosed)
-            : this(transportResource, onClosed, DefaultPendingSendCapacity)
+            : this(transportResource, onClosed, null)
+        {
+        }
+
+        internal TransportConnection(IDisposable? transportResource, Action<TransportConnection>? onClosed, Action? onPendingSendDropped)
+            : this(transportResource, onClosed, onPendingSendDropped, DefaultPendingSendCapacity)
         {
         }
 
         internal TransportConnection(IDisposable? transportResource, Action<TransportConnection>? onClosed, int pendingSendCapacity)
+            : this(transportResource, onClosed, null, pendingSendCapacity)
+        {
+        }
+
+        internal TransportConnection(
+            IDisposable? transportResource,
+            Action<TransportConnection>? onClosed,
+            Action? onPendingSendDropped,
+            int pendingSendCapacity)
         {
             if (pendingSendCapacity <= 0)
                 throw new ArgumentOutOfRangeException(nameof(pendingSendCapacity));
@@ -49,6 +64,7 @@ namespace Hps.Transport
             _sendSignal = new SemaphoreSlim(0);
             _transportResource = transportResource;
             _onClosed = onClosed;
+            _onPendingSendDropped = onPendingSendDropped;
             _pendingSendCapacity = pendingSendCapacity;
         }
 
@@ -101,6 +117,7 @@ namespace Hps.Transport
             if (evictedSend.HasValue)
             {
                 IncrementDroppedPendingSendCount();
+                NotifyPendingSendDropped();
                 evictedSend.Value.Buffer.Release();
             }
 
@@ -172,6 +189,15 @@ namespace Hps.Transport
         private void IncrementDroppedPendingSendCount()
         {
             Interlocked.Increment(ref _droppedPendingSendCount);
+        }
+
+        /// <summary>
+        /// connection 수명에 묶인 내부 counter 와 별개로 Transport 수명 누적 diagnostics 에 drop 을 알린다.
+        /// callback 은 TransportBase 의 Interlocked counter 증가만 수행하므로 Release 전에 호출해도 소유권 경계에 영향을 주지 않는다.
+        /// </summary>
+        private void NotifyPendingSendDropped()
+        {
+            _onPendingSendDropped?.Invoke();
         }
 
         /// <summary>

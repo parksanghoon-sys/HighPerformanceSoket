@@ -91,6 +91,7 @@ namespace Hps.Transport
             if (evictedSend.HasValue)
             {
                 IncrementDroppedPendingSendCount();
+                _transport.RecordUdpPendingSendDrop();
                 evictedSend.Value.SendBuffer.Buffer.Release();
             }
 
