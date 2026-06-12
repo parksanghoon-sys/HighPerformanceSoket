@@ -208,6 +208,73 @@ namespace Hps.Protocol.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // 랜덤 적대적 fuzz 테스트: frame 길이와 receive chunk 길이를 seed 별로 바꿔 header 1바이트 분할,
+        // 0바이트 payload, max payload, 한 chunk 안의 다중 frame 을 함께 때린다. 실패 시 seed 로 재현 가능해야 하며,
+        // 모든 완성 frame 을 Release 한 뒤 pool 대여 수가 0으로 돌아와야 D010/D011 소유권 경계가 유지된다.
+        [Theory]
+        [InlineData(0x1234)]
+        [InlineData(0x5678)]
+        [InlineData(0x10203)]
+        [InlineData(0x70809)]
+        public void TryReadFrame_WhenChunksAreFragmentedRandomly_PreservesAllFramesAndReturnsBuffers(int seed)
+        {
+            const int MaxPayloadLength = 48;
+            const int FrameCount = 64;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(MaxPayloadLength);
+            TcpFrameAssembler assembler = new TcpFrameAssembler(pool, MaxPayloadLength);
+            Random random = new Random(seed);
+            byte[][] expectedPayloads = CreateRandomPayloads(random, FrameCount, MaxPayloadLength);
+            byte[] stream = CreateWireStream(expectedPayloads);
+            List<byte[]> actualPayloads = new List<byte[]>();
+            int streamOffset = 0;
+
+            while (streamOffset < stream.Length)
+            {
+                int chunkLength = Math.Min(CreateRandomChunkLength(random), stream.Length - streamOffset);
+                ReadOnlySpan<byte> chunk = new ReadOnlySpan<byte>(stream, streamOffset, chunkLength);
+                int chunkOffset = 0;
+
+                while (chunkOffset < chunk.Length)
+                {
+                    RefCountedBuffer? frame;
+                    int consumed;
+                    TcpFrameReadStatus status = assembler.TryReadFrame(chunk.Slice(chunkOffset), out consumed, out frame);
+
+                    Assert.True(consumed > 0 || status == TcpFrameReadStatus.FrameReady);
+                    chunkOffset += consumed;
+
+                    if (status == TcpFrameReadStatus.NeedMoreData)
+                    {
+                        Assert.Null(frame);
+                        break;
+                    }
+
+                    Assert.Equal(TcpFrameReadStatus.FrameReady, status);
+                    Assert.NotNull(frame);
+
+                    try
+                    {
+                        actualPayloads.Add(frame!.Span.Slice(0, frame.Length).ToArray());
+                    }
+                    finally
+                    {
+                        frame?.Release();
+                    }
+                }
+
+                streamOffset += chunkLength;
+            }
+
+            Assert.Equal(expectedPayloads.Length, actualPayloads.Count);
+            for (int i = 0; i < expectedPayloads.Length; i++)
+            {
+                Assert.Equal(expectedPayloads[i], actualPayloads[i]);
+            }
+
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         // 연결 종료 소유권 테스트: frame payload 조립 중 connection 이 닫히면 assembler 가 들고 있던
         // partial RefCountedBuffer 를 Dispose 경로에서 반환해야 D011 종료 누수 0 계약을 지킬 수 있다.
         [Fact]
@@ -302,6 +369,40 @@ namespace Hps.Protocol.Tests
             }
 
             return payloads;
+        }
+
+        // seed 기반 fuzz 에서도 경계 frame 이 반드시 섞이도록 일부 index 는 0/max 길이로 고정한다.
+        private static byte[][] CreateRandomPayloads(Random random, int count, int maxPayloadLength)
+        {
+            byte[][] payloads = new byte[count][];
+            for (int frameIndex = 0; frameIndex < payloads.Length; frameIndex++)
+            {
+                int length;
+                if (frameIndex % 13 == 0)
+                    length = 0;
+                else if (frameIndex % 11 == 0)
+                    length = maxPayloadLength;
+                else
+                    length = random.Next(0, maxPayloadLength + 1);
+
+                byte[] payload = new byte[length];
+                random.NextBytes(payload);
+                payloads[frameIndex] = payload;
+            }
+
+            return payloads;
+        }
+
+        // 작은 chunk 와 큰 chunk 를 섞어 header/payload 분할과 다중 frame 동시 도착을 모두 만들기 위한 길이 선택이다.
+        private static int CreateRandomChunkLength(Random random)
+        {
+            if (random.Next(0, 4) == 0)
+                return 1;
+
+            if (random.Next(0, 5) == 0)
+                return random.Next(16, 65);
+
+            return random.Next(2, 17);
         }
     }
 }

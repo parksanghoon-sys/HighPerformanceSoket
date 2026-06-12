@@ -1,5 +1,30 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-12 (Codex — TCP frame assembler random fuzz)
+
+### 작업 단위
+- D010 TCP frame assembler의 랜덤 적대적 분할 fuzz 를 영구 회귀 테스트로 추가했다.
+- 범위는 `tests/Hps.Protocol.Tests/TcpFrameAssemblerTests.cs`와 상태 문서 갱신으로 제한했다.
+- production code, protocol contract, broker/server 동작은 변경하지 않았다.
+
+### 테스트
+- `TryReadFrame_WhenChunksAreFragmentedRandomly_PreservesAllFramesAndReturnsBuffers`를 추가했다.
+- 테스트는 고정 seed 4개로 64개 frame 을 만들고, 0바이트 payload, max payload, 작은 chunk, 큰 chunk, 한 chunk 안의 다중 frame 을 함께 검증한다.
+- 각 완성 frame 은 테스트 안에서 즉시 `Release`하고, 마지막에 `PinnedBlockMemoryPool.RentedCount == 0`을 확인해 D010/D011 소유권 경계를 검증한다.
+- 기존 구현이 이미 이 케이스를 만족해 focused 실행에서 즉시 Green 통과했다. 이번 단위는 test-only hardening 이므로 production Red/Green 구현 단계는 없었다.
+
+### 상태 갱신
+- `TODOS.md`의 D010 랜덤 적대적 fuzz 항목을 Deferred Backlog 에서 Completed 로 이동했다.
+- `CURRENT_PLAN.md`의 다음 후보와 검증 경로를 이번 테스트 보강 단위 기준으로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TryReadFrame_WhenChunksAreFragmentedRandomly_PreservesAllFramesAndReturnsBuffers"` → 통과 4, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 28, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 37 +
+  `Hps.Protocol.Tests` 통과 28 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
 ## 2026-06-12 (Codex — broker server console sample)
 
 ### 작업 단위

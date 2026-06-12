@@ -144,6 +144,8 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - `TcpFrameAssembler`는 maxPayload 초과를 `PayloadTooLarge`로 반환하고, 조립 중인 partial payload 는 `Dispose()`에서 반환한다.
 - `TcpFrameAssembler` edge/fuzz 테스트가 보강됐다. 0 length frame, 한 chunk 의 다중 frame/consumed loop,
   `payloadLength == maxPayloadLength`, 결정적 chunk fragmentation fuzz 를 영구 회귀 테스트로 고정했다.
+- `TcpFrameAssembler` 랜덤 적대적 fragmentation fuzz 가 추가됐다. 고정 seed 4개로 0바이트 payload, max payload,
+  header 1바이트 분할, 한 chunk 안의 다중 frame 을 함께 검증하고 모든 frame release 뒤 pool 대여 수가 0으로 돌아오는지 확인한다.
 - `TcpFrameReceiveHandler`가 추가되어 Transport raw TCP receive chunk 를 connection 별 `TcpFrameAssembler`로 조립하고,
   완성 frame 을 `ITcpFrameHandler`로 전달한다.
 - `TcpFrameReceiveHandler`는 `PayloadTooLarge`를 받으면 D010 계약대로 connection 을 닫고 상위 close handler 에 알린다.
@@ -202,19 +204,17 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가해 가장 작은 다음 단위를 선택한다.
-현재 실행 가능한 큰 후보는 D010 랜덤 적대적 fuzz 보강, drop diagnostics/logging 필요성 검토, Phase 4 벤치마크 기준 정량화다.
+현재 실행 가능한 큰 후보는 drop diagnostics/logging 필요성 검토와 Phase 4 벤치마크 기준 정량화다.
 
 ## 이번 단위의 검증 경로
-- `dotnet build samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj` — Red: 프로젝트 파일 없음
-- `dotnet build samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj`
-- `dotnet run --project samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj --` — invalid args smoke
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TryReadFrame_WhenChunksAreFragmentedRandomly_PreservesAllFramesAndReturnsBuffers"`
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj`
 - `dotnet build HighPerformanceSocket.slnx`
 - `dotnet test HighPerformanceSocket.slnx`
 - `git diff --check`
-- 결과: broker server sample build Red 는 프로젝트 파일 부재로 실패했고, 구현 뒤 경고 0, 오류 0으로 통과했다.
-  인자 오류 smoke 는 사용법 출력과 exit code 2를 확인했다. solution build 는 처음에 `dotnet test`와 병렬 실행되어
-  obj 파일 lock 으로 실패했으나, 직렬 재실행에서 경고 0, 오류 0으로 통과했다. 솔루션 전체 테스트는 `Hps.Buffers.Tests` 통과 18,
-  `Hps.Transport.Tests` 통과 37, `Hps.Protocol.Tests` 통과 24, `Hps.Broker.Tests` 통과 18,
+- 결과: D010 랜덤 적대적 fuzz focused 테스트는 통과 4, 실패 0, 건너뜀 0이었다. Protocol 전체 테스트는 통과 28,
+  실패 0, 건너뜀 0이었다. solution build 는 경고 0, 오류 0으로 통과했다. 솔루션 전체 테스트는 `Hps.Buffers.Tests` 통과 18,
+  `Hps.Transport.Tests` 통과 37, `Hps.Protocol.Tests` 통과 28, `Hps.Broker.Tests` 통과 18,
   `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0. `git diff --check`는 whitespace 오류 없이 통과했고
   Git의 LF→CRLF 안내 경고만 출력됐다.
 
@@ -226,9 +226,8 @@ Phase 3 — Protocol 프레이밍/코덱, Broker 라우팅, Server/Sample 흐름
 - configurable pending send capacity
 - 다중 메시지 fan-out 순서/부하 통합 테스트
 - `TransportFactory.CreateDefault()`를 직접 사용하는 server factory/convenience API
-- broker server console sample 및 샘플 기반 수동 fan-out 확인
+- 샘플 기반 수동 fan-out 확인
 - backpressure
 - protocol error 응답
-- D010 랜덤 적대적 fuzz 대량 회귀 테스트
 
 위 범위는 사용자 리뷰 후 다음 단일 작업 단위에서 필요 범위만 다시 확인하고 진행한다.

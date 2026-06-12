@@ -21,6 +21,7 @@
   - D013 리뷰 게이트에 따라 다음 구현은 사용자 검토 후 별도 단위로 진행한다.
   - TCP wire protocol 기반 publisher/subscriber sample client 를 추가했다.
   - 수동 fan-out 확인을 위한 broker server console sample 을 추가했다.
+  - D010 TCP frame assembler 랜덤 적대적 fuzz 를 영구 회귀 테스트로 추가했다.
   - 다음 후보: 사용자 검토 후 Deferred Backlog 를 다시 평가한다.
 
 ## Deferred Backlog
@@ -39,19 +40,6 @@
     diagnostics capability 를 필수로 요구할지 결정해야 한다.
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
-- [ ] `P3_NICE` D010 TCP frame assembler 랜덤 적대적 fuzz 를 영구 회귀 테스트로 추가한다.
-  - 무엇이 남았는지: 현재 `TcpFrameAssembler`에는 edge 테스트와 결정적 fragmentation fuzz 가 있지만,
-    `.claude/review/phase3-frame-adapter-command.md` O3가 언급한 대량 랜덤 적대적 fuzz 는 아직 영구 테스트로 없다.
-  - 왜 defer 되었는지: 리뷰 판정은 승인이고 O3는 정보성/비차단이다. 이번 단위는 O1/O2 수명·예외 경계 hardening 으로 제한했다.
-  - objective: 다양한 frame 길이와 chunk 분할 패턴을 랜덤 seed 로 생성해 참조 payload 목록과 assembler 출력이 항상 일치하고,
-    모든 frame release 후 `RentedCount==0`으로 돌아오는지 검증한다.
-  - relevant context: D010, `.claude/review/phase3-frame-assembler.md`, `.claude/review/phase3-frame-adapter-command.md` O3,
-    `tests/Hps.Protocol.Tests/TcpFrameAssemblerTests.cs`.
-  - 관련 파일/범위: `tests/Hps.Protocol.Tests/TcpFrameAssemblerTests.cs`.
-  - 현재 상태: 결정적 fuzz 는 `TryReadFrame_WhenChunksAreFragmentedDeterministically_PreservesAllFramesAndReturnsBuffers`로 존재한다.
-  - known blockers/open questions: 테스트 실행 시간이 과도해지지 않도록 seed 수, frame 수, chunk 수 상한을 정해야 한다.
-  - next step: 작은 고정 seed 세트와 제한된 frame 수로 Red/Green 없이 기존 구현 통과 여부를 확인하는 test-only 단위로 진행한다.
-
 - [ ] `P2_LATER` 4096 bytes × 100 Hz 목표를 Phase 4 벤치마크 기준으로 정량화한다.
   - 무엇이 남았는지: p50/p99 latency, 허용 큐 적체, 측정 시간, 동시 연결 수, TCP/UDP별 기준을 정해야 한다.
   - 왜 defer 되었는지: 벤치마크 하니스는 Phase 4 범위이며 Phase 1~3 기능 흐름이 선행되어야 한다.
@@ -63,6 +51,14 @@
   - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
 
 ## Completed
+
+- [x] D010 TCP frame assembler 랜덤 적대적 fuzz 를 영구 회귀 테스트로 추가했다.
+  - 범위: `tests/Hps.Protocol.Tests/TcpFrameAssemblerTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 테스트: 고정 seed 4개로 frame 길이와 receive chunk 길이를 바꾸며 header 1바이트 분할, 0바이트 payload,
+    max payload, 한 chunk 안의 다중 frame 을 함께 검증한다.
+  - 결과: 기존 `TcpFrameAssembler` 구현이 랜덤 적대적 분할 케이스를 즉시 통과해 production code 수정은 없었다.
+  - 검증: focused fuzz 테스트 통과 4, Protocol 전체 통과 28, solution build 경고 0/오류 0,
+    솔루션 전체 테스트 통과 106, 실패 0, 건너뜀 0. `git diff --check` 통과.
 
 - [x] 수동 fan-out 확인을 위한 broker server console sample 을 추가했다.
   - 범위: `samples/Hps.Sample.BrokerServer`, `HighPerformanceSocket.slnx`, `CURRENT_PLAN.md`, `TODOS.md`,
