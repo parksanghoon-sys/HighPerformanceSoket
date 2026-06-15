@@ -24,6 +24,11 @@ namespace Hps.Benchmarks
     {
         private const int SmokeMessageCount = 8;
         private const int ReceiveTimeoutSeconds = 5;
+        private const int TimestampOffset = 0;
+        private const int TimestampBytes = 8;
+        private const int SequenceOffset = TimestampOffset + TimestampBytes;
+        private const int SequenceBytes = 4;
+        private const int PayloadPatternOffset = SequenceOffset + SequenceBytes;
 
         public static async Task<TcpLoopbackRunResult> RunSmokeAsync()
         {
@@ -33,7 +38,8 @@ namespace Hps.Benchmarks
                 messageCount: SmokeMessageCount,
                 publishRateHz: 0,
                 targetDurationSeconds: 0,
-                pacePublishes: false).ConfigureAwait(false);
+                pacePublishes: false,
+                openLoop: false).ConfigureAwait(false);
         }
 
         public static async Task<TcpLoopbackRunResult> RunLoadAsync()
@@ -44,7 +50,20 @@ namespace Hps.Benchmarks
                 messageCount: BenchmarkTargets.PlannedMessageCount,
                 publishRateHz: BenchmarkTargets.PublishRateHz,
                 targetDurationSeconds: BenchmarkTargets.DurationSeconds,
-                pacePublishes: true).ConfigureAwait(false);
+                pacePublishes: true,
+                openLoop: false).ConfigureAwait(false);
+        }
+
+        public static async Task<TcpLoopbackRunResult> RunOpenLoopAsync()
+        {
+            return await RunScenarioAsync(
+                resultName: "open-loop",
+                scenario: BenchmarkTargets.TcpLoopbackBaselineName + "-open-loop",
+                messageCount: BenchmarkTargets.PlannedMessageCount,
+                publishRateHz: BenchmarkTargets.PublishRateHz,
+                targetDurationSeconds: BenchmarkTargets.DurationSeconds,
+                pacePublishes: true,
+                openLoop: true).ConfigureAwait(false);
         }
 
         private static async Task<TcpLoopbackRunResult> RunScenarioAsync(
@@ -53,12 +72,14 @@ namespace Hps.Benchmarks
             int messageCount,
             int publishRateHz,
             int targetDurationSeconds,
-            bool pacePublishes)
+            bool pacePublishes,
+            bool openLoop)
         {
             byte[] payload = new byte[BenchmarkTargets.PayloadBytes];
             long[] latencyTicks = new long[messageCount];
             int sent = 0;
             int received = 0;
+            int payloadErrors = 0;
             Stopwatch elapsed = Stopwatch.StartNew();
             Stopwatch pacingClock = new Stopwatch();
 
@@ -81,25 +102,40 @@ namespace Hps.Benchmarks
                     await WaitForSubscriberCountAsync(server, BenchmarkTargets.DefaultTopic, 1).ConfigureAwait(false);
 
                     pacingClock.Start();
-                    for (int index = 0; index < messageCount; index++)
+                    if (openLoop)
                     {
-                        if (pacePublishes)
-                            await WaitForScheduledPublishAsync(pacingClock, index, publishRateHz).ConfigureAwait(false);
+                        PayloadExchangeResult exchangeResult = await RunOpenLoopExchangeAsync(
+                            subscriber,
+                            publisher,
+                            payload,
+                            latencyTicks,
+                            messageCount,
+                            publishRateHz,
+                            pacingClock).ConfigureAwait(false);
+                        sent = exchangeResult.Sent;
+                        received = exchangeResult.Received;
+                        payloadErrors = exchangeResult.PayloadErrors;
+                    }
+                    else
+                    {
+                        for (int index = 0; index < messageCount; index++)
+                        {
+                            if (pacePublishes)
+                                await WaitForScheduledPublishAsync(pacingClock, index, publishRateHz).ConfigureAwait(false);
 
-                        FillPayload(payload, index);
-                        long startTimestamp = Stopwatch.GetTimestamp();
-                        BinaryPrimitives.WriteInt64BigEndian(new Span<byte>(payload, 0, 8), startTimestamp);
+                            PreparePayload(payload, index, Stopwatch.GetTimestamp());
 
-                        await SendFrameAsync(publisher, CreatePublishCommand(BenchmarkTargets.DefaultTopic, payload)).ConfigureAwait(false);
-                        sent++;
+                            await SendFrameAsync(publisher, CreatePublishCommand(BenchmarkTargets.DefaultTopic, payload)).ConfigureAwait(false);
+                            sent++;
 
-                        byte[] receivedPayload = await ReceiveExactAsync(subscriber, payload.Length).ConfigureAwait(false);
-                        if (!PayloadEquals(payload, receivedPayload))
-                            throw new InvalidOperationException("loopback payload 가 송신 원문과 다르다.");
+                            byte[] receivedPayload = await ReceiveExactAsync(subscriber, payload.Length).ConfigureAwait(false);
+                            if (!PayloadEquals(payload, receivedPayload))
+                                throw new InvalidOperationException("loopback payload 가 송신 원문과 다르다.");
 
-                        long embeddedTimestamp = BinaryPrimitives.ReadInt64BigEndian(new ReadOnlySpan<byte>(receivedPayload, 0, 8));
-                        latencyTicks[received] = Stopwatch.GetTimestamp() - embeddedTimestamp;
-                        received++;
+                            long embeddedTimestamp = BinaryPrimitives.ReadInt64BigEndian(new ReadOnlySpan<byte>(receivedPayload, TimestampOffset, TimestampBytes));
+                            latencyTicks[received] = Stopwatch.GetTimestamp() - embeddedTimestamp;
+                            received++;
+                        }
                     }
 
                     await WaitForRentedCountAsync(pool, 0).ConfigureAwait(false);
@@ -115,6 +151,7 @@ namespace Hps.Benchmarks
                         sent,
                         received,
                         diagnostics.DroppedPendingSendCount,
+                        payloadErrors,
                         pool.RentedCount,
                         latencyTicks,
                         elapsed.ElapsedMilliseconds);
@@ -137,6 +174,7 @@ namespace Hps.Benchmarks
             int sent,
             int received,
             long dropped,
+            int payloadErrors,
             int poolRented,
             long[] latencyTicks,
             long elapsedMilliseconds)
@@ -147,6 +185,10 @@ namespace Hps.Benchmarks
 
             double p50 = completedTicks.Length == 0 ? 0 : ToMicroseconds(completedTicks[PercentileIndex(completedTicks.Length, 0.50)]);
             double p99 = completedTicks.Length == 0 ? 0 : ToMicroseconds(completedTicks[PercentileIndex(completedTicks.Length, 0.99)]);
+            int firstHalfCount = received / 2;
+            int secondHalfCount = received - firstHalfCount;
+            double firstHalfP99 = PercentileLatency(latencyTicks, 0, firstHalfCount, 0.99);
+            double secondHalfP99 = PercentileLatency(latencyTicks, firstHalfCount, secondHalfCount, 0.99);
 
             return new TcpLoopbackRunResult(
                 resultName,
@@ -158,10 +200,82 @@ namespace Hps.Benchmarks
                 sent,
                 received,
                 dropped,
+                payloadErrors,
                 poolRented,
                 p50,
                 p99,
+                firstHalfP99,
+                secondHalfP99,
                 elapsedMilliseconds);
+        }
+
+        private static double PercentileLatency(long[] latencyTicks, int startIndex, int count, double percentile)
+        {
+            if (count <= 0)
+                return 0;
+
+            long[] selectedTicks = new long[count];
+            Array.Copy(latencyTicks, startIndex, selectedTicks, 0, count);
+            Array.Sort(selectedTicks);
+            return ToMicroseconds(selectedTicks[PercentileIndex(selectedTicks.Length, percentile)]);
+        }
+
+        private static async Task<PayloadExchangeResult> RunOpenLoopExchangeAsync(
+            Socket subscriber,
+            Socket publisher,
+            byte[] payload,
+            long[] latencyTicks,
+            int messageCount,
+            int publishRateHz,
+            Stopwatch pacingClock)
+        {
+            // open-loop 의 핵심은 publisher 가 subscriber receive 완료를 기다리지 않는 것이다.
+            // receiver 를 먼저 걸어 둔 뒤 publish loop 는 시간표만 보고 전송하므로, send queue/backpressure 경로가
+            // closed-loop 보다 더 쉽게 드러난다.
+            Task<OpenLoopReceiveResult> receiveTask = ReceiveOpenLoopPayloadsAsync(subscriber, latencyTicks, messageCount);
+            int sent = 0;
+
+            for (int index = 0; index < messageCount; index++)
+            {
+                await WaitForScheduledPublishAsync(pacingClock, index, publishRateHz).ConfigureAwait(false);
+                PreparePayload(payload, index, Stopwatch.GetTimestamp());
+                await SendFrameAsync(publisher, CreatePublishCommand(BenchmarkTargets.DefaultTopic, payload)).ConfigureAwait(false);
+                sent++;
+            }
+
+            OpenLoopReceiveResult receiveResult = await receiveTask.ConfigureAwait(false);
+            return new PayloadExchangeResult(sent, receiveResult.Received, receiveResult.PayloadErrors);
+        }
+
+        private static async Task<OpenLoopReceiveResult> ReceiveOpenLoopPayloadsAsync(Socket subscriber, long[] latencyTicks, int messageCount)
+        {
+            int received = 0;
+            int payloadErrors = 0;
+
+            while (received < messageCount)
+            {
+                byte[] receivedPayload;
+                try
+                {
+                    receivedPayload = await ReceiveExactAsync(subscriber, BenchmarkTargets.PayloadBytes).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    // open-loop 에서 일부 payload 가 누락되면 전체 runner 를 예외로 죽이지 않고 fail summary 를 남긴다.
+                    // 누락 자체는 received < sent 와 dropped/payload-errors 를 통해 관측한다.
+                    break;
+                }
+
+                int sequence = BinaryPrimitives.ReadInt32BigEndian(new ReadOnlySpan<byte>(receivedPayload, SequenceOffset, SequenceBytes));
+                if (!PayloadMatchesSequencePattern(receivedPayload, sequence, received))
+                    payloadErrors++;
+
+                long embeddedTimestamp = BinaryPrimitives.ReadInt64BigEndian(new ReadOnlySpan<byte>(receivedPayload, TimestampOffset, TimestampBytes));
+                latencyTicks[received] = Stopwatch.GetTimestamp() - embeddedTimestamp;
+                received++;
+            }
+
+            return new OpenLoopReceiveResult(received, payloadErrors);
         }
 
         private static async Task WaitForScheduledPublishAsync(Stopwatch stopwatch, int messageIndex, int publishRateHz)
@@ -327,10 +441,31 @@ namespace Hps.Benchmarks
             throw new TimeoutException("loopback 종료 후 pooled buffer 반환 대기가 초과됐다.");
         }
 
+        private static void PreparePayload(byte[] payload, int messageIndex, long timestamp)
+        {
+            FillPayload(payload, messageIndex);
+            BinaryPrimitives.WriteInt64BigEndian(new Span<byte>(payload, TimestampOffset, TimestampBytes), timestamp);
+            BinaryPrimitives.WriteInt32BigEndian(new Span<byte>(payload, SequenceOffset, SequenceBytes), messageIndex);
+        }
+
         private static void FillPayload(byte[] payload, int messageIndex)
         {
             for (int index = 0; index < payload.Length; index++)
                 payload[index] = (byte)((messageIndex + index) & 0xFF);
+        }
+
+        private static bool PayloadMatchesSequencePattern(byte[] actual, int sequence, int expectedReceiveIndex)
+        {
+            if (sequence != expectedReceiveIndex)
+                return false;
+
+            for (int index = PayloadPatternOffset; index < actual.Length; index++)
+            {
+                if (actual[index] != (byte)((sequence + index) & 0xFF))
+                    return false;
+            }
+
+            return true;
         }
 
         private static bool PayloadEquals(byte[] expected, byte[] actual)
@@ -345,6 +480,35 @@ namespace Hps.Benchmarks
             }
 
             return true;
+        }
+
+        private readonly struct PayloadExchangeResult
+        {
+            public PayloadExchangeResult(int sent, int received, int payloadErrors)
+            {
+                Sent = sent;
+                Received = received;
+                PayloadErrors = payloadErrors;
+            }
+
+            public int Sent { get; }
+
+            public int Received { get; }
+
+            public int PayloadErrors { get; }
+        }
+
+        private readonly struct OpenLoopReceiveResult
+        {
+            public OpenLoopReceiveResult(int received, int payloadErrors)
+            {
+                Received = received;
+                PayloadErrors = payloadErrors;
+            }
+
+            public int Received { get; }
+
+            public int PayloadErrors { get; }
         }
     }
 }

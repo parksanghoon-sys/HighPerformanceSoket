@@ -8,6 +8,7 @@ namespace Hps.Benchmarks
         private const int SuccessExitCode = 0;
         private const int FailedSmokeExitCode = 1;
         private const int FailedLoadExitCode = 1;
+        private const int FailedOpenLoopExitCode = 1;
 
         public static int Main(string[] args)
         {
@@ -31,6 +32,13 @@ namespace Hps.Benchmarks
                 return result.Passed ? SuccessExitCode : FailedLoadExitCode;
             }
 
+            if (args.Length == 1 && string.Equals(args[0], "--load-open-loop", StringComparison.OrdinalIgnoreCase))
+            {
+                TcpLoopbackRunResult result = TcpLoopbackScenarioRunner.RunOpenLoopAsync().GetAwaiter().GetResult();
+                result.Print(Console.Out);
+                return result.Passed ? SuccessExitCode : FailedOpenLoopExitCode;
+            }
+
             if (args.Length == 1 && string.Equals(args[0], "--help", StringComparison.OrdinalIgnoreCase))
             {
                 PrintUsage();
@@ -47,6 +55,7 @@ namespace Hps.Benchmarks
             Console.WriteLine("  Hps.Benchmarks --target");
             Console.WriteLine("  Hps.Benchmarks --smoke");
             Console.WriteLine("  Hps.Benchmarks --load");
+            Console.WriteLine("  Hps.Benchmarks --load-open-loop");
             Console.WriteLine("  Hps.Benchmarks [BenchmarkDotNet arguments]");
         }
     }

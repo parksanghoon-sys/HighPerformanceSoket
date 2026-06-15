@@ -54,7 +54,9 @@ namespace Hps.Benchmarks
                 "payload-rate-kib-per-second: {0}",
                 (PayloadBytesPerSecond / 1024.0).ToString("F1", CultureInfo.InvariantCulture));
             writer.WriteLine("max-frame-payload-bytes: {0}", MaxFramePayloadBytes);
-            writer.WriteLine("gate: sent == received, dropped == 0, pool-rented == 0, p50/p99 report recorded");
+            writer.WriteLine("closed-loop-command: --load");
+            writer.WriteLine("open-loop-command: --load-open-loop");
+            writer.WriteLine("gate: sent == received, dropped == 0, payload-errors == 0, pool-rented == 0, p50/p99 report recorded");
         }
     }
 }

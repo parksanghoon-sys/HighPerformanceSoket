@@ -1,5 +1,49 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — Phase 4 open-loop TCP load benchmark)
+
+### 작업 단위
+- Phase 4 open-loop TCP load/backpressure benchmark 를 추가했다.
+- 범위는 `tests/Hps.Benchmarks`의 `--load-open-loop` runner, benchmark 출력 형식 확장, 상태 문서 갱신으로 제한했다.
+- Transport queue depth diagnostics, 백프레셔 정책 변경, report writer, latency SLO 실패 gate 는 포함하지 않았다.
+
+### Red
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --load-open-loop` 출력 검증을 먼저 실행했다.
+- 기존 구현은 BenchmarkDotNet 이 `--load-open-loop`를 unknown option 으로 처리했고, `open-loop-result:`를 출력하지 않아 실패했다.
+
+### 구현
+- `Program --load-open-loop` 명령을 추가했다.
+- `TcpLoopbackScenarioRunner.RunOpenLoopAsync()`를 추가해 기존 `BrokerServer + SaeaTransport` loopback orchestration 을 재사용한다.
+- open-loop 경로는 subscriber receive task 를 먼저 시작한 뒤, publisher loop 가 subscriber 수신 완료를 기다리지 않고
+  100Hz schedule 에 맞춰 4096B payload 3000개를 전송한다.
+- payload 내부에 timestamp 와 sequence 를 넣어 수신 순서/무결성을 `payload-errors`로 관측한다.
+- `TcpLoopbackRunResult` 출력에 `payload-errors`, first-half/second-half p99, p99 growth ratio 를 추가했다.
+- `BenchmarkTargets --target` 출력에 closed-loop/open-loop 명령과 `payload-errors==0` gate 를 반영했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 `--load-open-loop` 완료 상태와 검증 경로를 반영했다.
+- `TODOS.md`의 open-loop benchmark 항목을 Completed 로 이동했다.
+- `TODOS.md`에 TCP send queue depth diagnostics 검토를 별도 `P2_LATER` 후속으로 남겼다.
+
+### 검증
+- Red: `--load-open-loop`는 기존 구현에서 unknown option 으로 실패했다.
+- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore` → 경고 0, 오류 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load-open-loop` →
+  `open-loop-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0,
+  actual-rate-hz 99.9, p50 221.6us, p99 867.6us, first-half p99 873.3us, second-half p99 850.3us,
+  p99 growth ratio 0.97.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load` →
+  `load-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --smoke` →
+  `smoke-result: pass`, sent 8, received 8, dropped 0, payload-errors 0, pool-rented 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --target` →
+  closed-loop/open-loop 명령과 payload-errors gate 출력 확인.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` → `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 37 + `Hps.Protocol.Tests` 통과 28 + `Hps.Broker.Tests` 통과 18 +
+  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
 ## 2026-06-15 (Codex — Phase 4 closed-loop load review reflection)
 
 ### 작업 단위

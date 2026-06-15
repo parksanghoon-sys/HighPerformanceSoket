@@ -26,36 +26,16 @@
   - Phase 4 TCP loopback smoke runner 로 sent/received/drop/leak/latency summary 계측 경계를 검증했다.
   - Phase 4 TCP loopback load runner 로 4096B×100Hz×30초 stdout gate 를 추가했다.
   - `overall-state-2026-06-15.md`의 closed-loop 한계 지적을 상태 문서와 후속 backlog 에 반영했다.
+  - Phase 4 open-loop TCP load/backpressure benchmark 를 추가했다.
   - 다음 후보: 사용자 검토 후 Deferred Backlog 를 다시 평가한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` Phase 4 open-loop TCP load/backpressure benchmark 를 추가한다.
-  - 무엇이 남았는지: 현재 `--load`는 4096B payload 3000개를 100Hz pacing 으로 약 30초 전송하지만,
-    각 publish 뒤 subscriber 수신을 기다리는 closed-loop 구조다. 따라서 처리량/지연/누수 0 baseline 은 검증하되,
-    publisher 가 subscriber 보다 앞서며 send queue 가 쌓이는 상황, queue depth 증가, drop-oldest 실행 여부는 검증하지 않는다.
-  - 왜 defer 되었는지: `c5a9409` 단위는 baseline load runner 를 닫는 범위였고, 리뷰에서 closed-loop 한계가 뒤늦게 명확해졌다.
-    open-loop 는 송신 task 와 수신 task 분리, pacing 기준, 종료/drain 조건, backlog/latency 측정 방식을 새로 잡아야 하므로 별도 단위로 분리한다.
-  - objective: `tcp-loopback-saea-baseline`에서 publisher 가 subscriber 수신과 독립적으로 100Hz publish 를 유지할 때
-    sent/received/dropped, queue backlog 또는 drop counter, p50/p99 latency 와 시간에 따른 지연 증가 여부를 측정해
-    "지속 부하에서 큐 적체가 누적되지 않는다"는 목표 해석을 검증한다.
-  - relevant context: `.claude/review/overall-state-2026-06-15.md` §8, DECISIONS D051,
-    `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`, `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`,
-    `src/Hps.Transport/Abstractions/ITransportDiagnostics.cs`, `src/Hps.Transport/Runtime/TransportConnection.cs`.
-  - 관련 파일/범위: `tests/Hps.Benchmarks/` 우선. 필요하면 diagnostics snapshot 이 현재 drop count 만 제공하므로
-    queue depth 관측을 별도 후속으로 남기거나 최소 관측값은 dropped/received/latency trend 로 제한한다.
-  - 현재 상태: `--load` pass/fail 은 sent==planned==received, dropped==0, pool-rented==0 이며 latency 는 관측값이다.
-    `dropped==0`은 closed-loop 구조상 backpressure 안정성 증거가 아니다.
-  - known blockers/open questions: open-loop runner 이름을 `--load-open-loop`로 둘지, 기존 `--load`를 대체할지 결정해야 한다.
-    queue depth 를 public diagnostics 에 즉시 추가할지, 이번 단위는 dropped/latency trend 만 기록할지도 선택해야 한다.
-  - next step: 기존 socket orchestration 을 재사용하되 publish loop 와 receive loop 를 분리하는 Red 검증을 먼저 만들고,
-    closed-loop 와 구분되는 출력 필드 또는 scenario name 을 정의한다.
-
 - [ ] `P1_SOON` Phase 4 benchmark report persistence 와 latency SLO gate 여부를 결정한다.
   - 무엇이 남았는지: `tests/Hps.Benchmarks`에는 `--target`, pinned pool microbench, `--smoke`, `--load`가 있다.
-    `--load`는 실제 4096B payload 3000개를 100Hz pacing 으로 약 30초 전송하고 stdout 에 p50/p99 를 출력하지만,
-    repo-visible report 파일 저장과 p50/p99 latency 합격선은 아직 없다. 또한 `--load`는 closed-loop baseline 이므로
-    open-loop/backpressure 결과를 같은 report 체계에 포함할지 아직 정하지 않았다.
+    `--load`는 closed-loop baseline 으로 4096B payload 3000개를 100Hz pacing 으로 약 30초 전송하고,
+    `--load-open-loop`는 publisher/receiver 를 분리해 같은 목표를 open-loop 로 측정한다. 두 runner 모두 stdout 에 p50/p99 와
+    first-half/second-half p99 를 출력하지만, repo-visible report 파일 저장과 p50/p99 latency 합격선은 아직 없다.
   - 왜 defer 되었는지: 이번 단위는 30초/100Hz paced runner 자체와 전달 완결성 gate 로 제한했다. latency threshold 를 실패 조건으로
     걸면 환경 의존성이 커지고, report 파일 포맷은 CI/수동 측정 사용 방식과 맞춰 결정해야 하므로 별도 리뷰 가능한 단위로 분리한다.
   - objective: `tcp-loopback-saea-baseline` 시나리오의 benchmark 결과를 재현 가능한 문서/파일 산출물로 남길지 결정하고,
@@ -66,7 +46,8 @@
     `src/Hps.Server/BrokerServer.cs`, `src/Hps.Transport/Saea/SaeaTransport.cs`.
   - 관련 파일/범위: `tests/Hps.Benchmarks/`, 필요 시 benchmark output 문서 또는 CI script.
   - 현재 상태: `--load`는 sent==planned==received, dropped==0, pool-rented==0 을 pass/fail 로 판정하고
-    actual-rate/p50/p99 를 stdout 에 출력한다. latency 값은 아직 실패 조건이 아니다.
+    actual-rate/p50/p99 를 stdout 에 출력한다. `--load-open-loop`는 여기에 payload-errors 와 first-half/second-half p99 를 함께 출력한다.
+    latency 값은 아직 실패 조건이 아니다.
   - known blockers/open questions: report 를 stdout 전용으로 둘지 파일로 보존할지, latency SLO 를 개발 PC/CI 환경 차이를 감안해
     어떤 기준으로 잡을지 결정해야 한다.
   - next step: 사용자 리뷰 후 benchmark 결과 소비 방식을 먼저 정하고, 필요하면 JSON/Markdown report writer 또는 threshold gate 를
@@ -84,8 +65,22 @@
     `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`, transport tests.
   - 현재 상태: drop counter 와 diagnostics snapshot 은 존재하지만 policy 선택 API 와 disconnect 기본 정책은 없다.
   - known blockers/open questions: v1 기본 정책을 안정성 중심 disconnect 로 둘지, 최신성 중심 drop-oldest 로 둘지 사용자 결정이 필요하다.
-  - next step: Phase 4 open-loop load/backpressure benchmark 결과를 본 뒤 정책 mismatch 가 실제 목표 측정에 영향을 주는지 확인하고
-    설계 결정을 요청한다.
+  - next step: Phase 4 open-loop 결과를 검토한 뒤 drop-oldest 만으로 충분한지, disconnect 정책과 설정 surface 가 필요한지 설계 결정을 요청한다.
+
+- [ ] `P2_LATER` TCP send queue depth diagnostics 를 public snapshot 으로 확장할지 검토한다.
+  - 무엇이 남았는지: `--load-open-loop`는 dropped count, received count, payload-errors, p50/p99 latency trend 를 보여주지만,
+    실제 TCP pending send queue depth 나 최대 backlog 는 public diagnostics 로 볼 수 없다.
+  - 왜 defer 되었는지: 이번 단위는 open-loop runner 자체로 제한했다. queue depth 는 Transport public diagnostics surface 를 넓히므로
+    benchmark runner 구현과 같은 커밋에 섞지 않는다.
+  - objective: backlog 를 직접 관측해야 할 필요가 있으면 `ITransportDiagnostics`/`TransportDiagnosticsSnapshot`에 TCP pending queue
+    high-watermark 또는 current/max depth 를 추가해 open-loop benchmark 가 dropped 이전의 적체 정도를 기록할 수 있게 한다.
+  - relevant context: DECISIONS D041/D042/D051, `TransportConnection`, `TransportBase`, `TransportDiagnosticsSnapshot`,
+    `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`.
+  - 관련 파일/범위: `src/Hps.Transport/Abstractions/TransportDiagnosticsSnapshot.cs`, `src/Hps.Transport/Runtime/TransportBase.cs`,
+    `src/Hps.Transport/Runtime/TransportConnection.cs`, `tests/Hps.Transport.Tests/`, `tests/Hps.Benchmarks/`.
+  - 현재 상태: drop-oldest evict 수는 누적 snapshot 으로 볼 수 있지만, drop 이 발생하기 전의 queue depth 는 볼 수 없다.
+  - known blockers/open questions: current depth 는 connection lifetime 이후 의미가 약하므로 high-watermark 가 더 적합할 수 있다.
+  - next step: open-loop benchmark 리뷰 뒤 dropped 0이더라도 backlog 직접 관측이 필요한지 판단한다.
 
 - [ ] `P2_LATER` UDP pub/sub 를 v1 범위에 포함할지 결정한다.
   - 무엇이 남았는지: UDP transport bind/send/recv/echo 기준선은 있으나, UDP command decode, Broker fan-out 연결,
@@ -116,6 +111,20 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] Phase 4 open-loop TCP load/backpressure benchmark 를 추가했다.
+  - 범위: `tests/Hps.Benchmarks`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `BenchmarkTargets`.
+  - Red: `--load-open-loop` 출력 검증은 기존 구현에서 BenchmarkDotNet unknown option 으로 처리되어 `open-loop-result:`가 출력되지 않아 실패했다.
+  - 구현: `Program --load-open-loop`와 `TcpLoopbackScenarioRunner.RunOpenLoopAsync()`를 추가했다.
+  - 구현: open-loop runner 는 subscriber receive task 를 먼저 시작하고, publisher loop 는 subscriber 수신 완료를 기다리지 않고
+    100Hz schedule 에 맞춰 4096B payload 3000개를 전송한다.
+  - 구현: payload 내부에 timestamp 와 sequence 를 넣어 수신 순서/무결성을 `payload-errors`로 관측하고,
+    first-half/second-half p99 와 p99 growth ratio 로 지연 증가 추세를 출력한다.
+  - 검증: focused open-loop 는 `open-loop-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0,
+    pool-rented 0, actual-rate-hz 99.9, p50 221.6us, p99 867.6us, first-half p99 873.3us,
+    second-half p99 850.3us, p99 growth ratio 0.97로 통과했다. closed-loop `--load`, `--smoke`, `--target` 회귀도 통과했다.
+    solution build 는 경고 0/오류 0으로 통과했고, 솔루션 전체 테스트는 통과 106, 실패 0, 건너뜀 0으로 통과했다.
+    `git diff --check`는 whitespace 오류 없이 통과했다.
 
 - [x] `overall-state-2026-06-15.md`의 closed-loop benchmark 한계 검토를 상태 문서에 반영했다.
   - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
