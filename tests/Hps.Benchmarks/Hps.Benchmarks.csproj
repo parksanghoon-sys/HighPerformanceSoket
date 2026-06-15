@@ -10,7 +10,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Hps.Broker\Hps.Broker.csproj" />
     <ProjectReference Include="..\..\src\Hps.Buffers\Hps.Buffers.csproj" />
+    <ProjectReference Include="..\..\src\Hps.Server\Hps.Server.csproj" />
+    <ProjectReference Include="..\..\src\Hps.Transport\Hps.Transport.csproj" />
   </ItemGroup>
 
 </Project>

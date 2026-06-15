@@ -203,26 +203,29 @@ Phase 4 — 벤치마크 하니스와 SAEA 기준선 수치 기록.
 - Phase 4 첫 단위로 `tests/Hps.Benchmarks` 프로젝트가 추가됐다. 이 프로젝트는 BenchmarkDotNet 기반 microbench 를 실행할 수 있고,
   `--target`으로 SAEA TCP loopback 기준 목표(4096B, 100Hz, 30초, 1 subscriber)를 출력한다.
 - `PinnedBlockMemoryPoolBenchmarks`가 추가되어 fan-out 소유권의 기반인 counted pinned buffer 대여/반환 비용을 분리해 기록할 수 있게 됐다.
+- `tests/Hps.Benchmarks`에 `--smoke` runner 가 추가됐다. 이 runner 는 실제 `BrokerServer + SaeaTransport` loopback 을 조립해
+  4096B payload 8개를 TCP subscriber/publisher socket 으로 왕복시키고, sent/received/drop/pool-rented/p50/p99 smoke summary 를 출력한다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가해 가장 작은 다음 단위를 선택한다.
-현재 실행 가능한 큰 후보는 Phase 4 TCP loopback load runner, 백프레셔 기본 정책 정합성 결정, UDP broker v1 범위 결정이다.
+현재 실행 가능한 큰 후보는 Phase 4 30초/100Hz TCP loopback load runner, 백프레셔 기본 정책 정합성 결정, UDP broker v1 범위 결정이다.
 
 ## 이번 단위의 검증 경로
-- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj` — Red: 프로젝트 파일 없음
-- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj`
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --target`
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --smoke` 출력 검증 — Red: `--smoke` unknown option
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --smoke`
 - `dotnet build HighPerformanceSocket.slnx`
 - `dotnet test HighPerformanceSocket.slnx`
 - `git diff --check`
-- 결과: benchmark project build Red 는 프로젝트 파일 부재로 실패했다. 구현 뒤 `Hps.Benchmarks` 단독 빌드는 경고 0,
-  오류 0으로 통과했고, `--target` 실행은 `tcp-loopback-saea-baseline`, 4096B, 100Hz, 30초, planned 3000 messages,
-  dropped 0/누수 0/p50/p99 report gate 를 출력했다. solution build 는 경고 0, 오류 0으로 통과했다. 솔루션 전체 테스트는
-  `Hps.Buffers.Tests` 통과 18, `Hps.Transport.Tests` 통과 37, `Hps.Protocol.Tests` 통과 28,
-  `Hps.Broker.Tests` 통과 18, `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0. `git diff --check`는 whitespace 오류 없이 통과했고
+- 결과: 최초 Red 명령은 sandbox 네트워크 차단으로 restore 실패했으므로 권한 요청 후 재실행했고, 기존 구현은 BenchmarkDotNet 이
+  `--smoke`를 unknown option 으로 처리해 `smoke-result:`가 출력되지 않았다. 구현 뒤 focused smoke 는 `smoke-result: pass`,
+  sent 8, received 8, dropped 0, pool-rented 0을 출력했다. `--target` 기준 출력도 유지된다. benchmark project build 는
+  경고 0, 오류 0으로 통과했다. solution build/test 를 병렬 실행했을 때 obj 파일 lock 충돌이 발생해 직렬로 재실행했고,
+  solution build 는 경고 0, 오류 0으로 통과했다. 솔루션 전체 테스트는 `Hps.Buffers.Tests` 통과 18,
+  `Hps.Transport.Tests` 통과 37, `Hps.Protocol.Tests` 통과 28, `Hps.Broker.Tests` 통과 18,
+  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0. `git diff --check`는 whitespace 오류 없이 통과했고
   Git의 LF→CRLF 안내 경고만 출력됐다.
 
 ## 이번 작업에서 건드리지 않은 범위
@@ -234,7 +237,7 @@ Phase 4 — 벤치마크 하니스와 SAEA 기준선 수치 기록.
 - 다중 메시지 fan-out 순서/부하 통합 테스트
 - `TransportFactory.CreateDefault()`를 직접 사용하는 server factory/convenience API
 - 샘플 기반 수동 fan-out 확인
-- 실제 TCP loopback load runner 와 p50/p99 리포트 산출
+- 실제 30초/100Hz TCP loopback load runner 와 p50/p99 리포트 산출
 - 백프레셔 기본 정책 정합성 결정
 - UDP broker v1 범위 결정
 - protocol error 응답

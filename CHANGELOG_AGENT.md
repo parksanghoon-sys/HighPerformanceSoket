@@ -1,5 +1,42 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-15 (Codex — Phase 4 TCP loopback smoke runner)
+
+### 작업 단위
+- Phase 4 TCP load runner 의 선행 단위로 짧은 `--smoke` runner 를 추가했다.
+- 범위는 `tests/Hps.Benchmarks` 내부의 실제 `BrokerServer + SaeaTransport` loopback smoke 실행과 상태 문서 갱신으로 제한했다.
+- 30초/100Hz 정식 runner, pass/fail latency gate, 파일 리포트, 백프레셔 정책 변경은 포함하지 않았다.
+
+### Red
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --smoke` 출력 검증을 먼저 실행했다.
+- 최초 실행은 sandbox 네트워크 차단으로 restore 실패했으므로 권한 요청 후 재실행했고, 기존 구현은 BenchmarkDotNet 이 `--smoke`를 unknown option 으로 처리해 `smoke-result:`를 출력하지 않아 실패했다.
+
+### 구현
+- `Program --smoke` 명령을 추가해 짧은 TCP loopback smoke 를 실행한다.
+- `TcpLoopbackSmokeRunner`는 `BrokerServer`, `SaeaTransport`, `PinnedBlockMemoryPool`을 한 프로세스 안에서 조립하고,
+  실제 TCP subscriber/publisher socket 으로 `SUBSCRIBE`/`PUBLISH` frame 을 주고받는다.
+- smoke 는 4096B payload 8개를 보내고, 수신 payload 원문, sent/received count, `ITransportDiagnostics` drop count,
+  pool `RentedCount`, p50/p99 latency sample 을 출력한다.
+- 현재 wire protocol 에 SUBSCRIBE ack 가 없으므로 publish 시작 race 를 피하기 위해 benchmark smoke 에서도 통합 테스트와 같은
+  white-box subscription count 대기 경계를 사용한다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 Phase 4 smoke runner 상태와 검증 결과를 반영했다.
+- `TODOS.md`의 Phase 4 load runner backlog 를 smoke 완료 이후 남은 30초/100Hz 정식 runner 작업으로 갱신했다.
+
+### 검증
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --smoke` → `smoke-result: pass`,
+  sent 8, received 8, dropped 0, pool-rented 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --target` → 기준 목표 출력 유지 확인.
+- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore` → 경고 0, 오류 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`와 `dotnet test HighPerformanceSocket.slnx --no-restore`를 병렬 실행했을 때
+  obj 파일 lock 충돌이 발생했다. 직렬 재실행으로 검증했다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` → `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 37 + `Hps.Protocol.Tests` 통과 28 + `Hps.Broker.Tests` 통과 18 +
+  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
 ## 2026-06-15 (Codex — Phase 4 benchmark scaffold)
 
 ### 작업 단위

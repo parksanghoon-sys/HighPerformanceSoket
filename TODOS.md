@@ -23,25 +23,29 @@
   - 수동 fan-out 확인을 위한 broker server console sample 을 추가했다.
   - D010 TCP frame assembler 랜덤 적대적 fuzz 를 영구 회귀 테스트로 추가했다.
   - Phase 4 `Hps.Benchmarks` 프로젝트와 4096B×100Hz 기준 목표 출력을 추가했다.
+  - Phase 4 TCP loopback smoke runner 로 sent/received/drop/leak/latency summary 계측 경계를 검증했다.
   - 다음 후보: 사용자 검토 후 Deferred Backlog 를 다시 평가한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` Phase 4 TCP loopback load runner 와 p50/p99 리포트 게이트를 구현한다.
-  - 무엇이 남았는지: `tests/Hps.Benchmarks`에는 프로젝트, 목표 상수, `--target` 출력, pinned pool microbench 골격만 있다.
-    실제 `BrokerServer + SaeaTransport` loopback 부하 생성, 4096B payload 를 100Hz로 30초 전송, subscriber 수신 count,
-    dropped count, pool rented count, p50/p99 latency 기록은 아직 없다.
-  - 왜 defer 되었는지: 이번 단위는 Phase 4 진입을 위한 benchmark scaffold 와 목표 drift 방지에 한정했다. 실제 부하 runner 는
-    socket orchestration, pacing, latency sampling, report format 을 함께 다뤄야 하므로 별도 리뷰 가능한 단위로 분리한다.
+- [ ] `P1_SOON` Phase 4 30초/100Hz TCP loopback load runner 와 p50/p99 리포트 게이트를 구현한다.
+  - 무엇이 남았는지: `tests/Hps.Benchmarks`에는 목표 상수, `--target` 출력, pinned pool microbench, 짧은 `--smoke` runner 가 있다.
+    smoke 는 4096B payload 8개로 sent/received/drop/leak/latency 계측 경계를 확인하지만,
+    실제 4096B payload 를 100Hz로 30초 전송하는 paced runner 와 재현 가능한 리포트 파일은 아직 없다.
+  - 왜 defer 되었는지: 이번 단위는 socket orchestration 과 계측 경계의 smoke 검증으로 제한했다. 정식 runner 는 pacing,
+    warmup 여부, latency sample 저장, report format 을 함께 다뤄야 하므로 별도 리뷰 가능한 단위로 분리한다.
   - objective: `tcp-loopback-saea-baseline` 시나리오에서 sent==received, dropped==0, pool-rented==0 을 확인하고
     p50/p99 latency 를 리포트로 남겨 헤드라인 목표를 재현 가능한 게이트로 만든다.
   - relevant context: `.claude/review/overall-state-2026-06-15.md` P1, DECISIONS D050,
-    `tests/Hps.Benchmarks/BenchmarkTargets.cs`, `src/Hps.Server/BrokerServer.cs`, `src/Hps.Transport/Saea/SaeaTransport.cs`.
+    `tests/Hps.Benchmarks/BenchmarkTargets.cs`, `tests/Hps.Benchmarks/TcpLoopbackSmokeRunner.cs`,
+    `src/Hps.Server/BrokerServer.cs`, `src/Hps.Transport/Saea/SaeaTransport.cs`.
   - 관련 파일/범위: `tests/Hps.Benchmarks/`, `src/Hps.Server/`, `src/Hps.Transport/`, 필요 시 benchmark output 문서.
-  - 현재 상태: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --target`로 목표 조건은 출력된다.
+  - 현재 상태: `--target`로 목표 조건이 출력되고, `--smoke`는 4096B payload 8개를 실제 TCP broker 경로로 보내
+    sent 8/received 8/dropped 0/pool-rented 0 summary 를 출력한다.
   - known blockers/open questions: latency timestamp 를 publisher send 직전 기준으로 둘지 subscriber receive 완료 기준으로 둘지,
     report 를 console/stdout 만으로 둘지 파일로 보존할지 결정해야 한다.
-  - next step: 먼저 작은 smoke runner 를 추가해 짧은 duration 과 낮은 message count 로 sent/received/drop/leak 계측 경계를 검증한다.
+  - next step: smoke runner 의 socket orchestration 을 재사용해 100Hz pacing 과 30초 duration 을 적용하고, summary 를 repo-visible
+    report 파일로 저장할지 stdout 전용으로 둘지 결정한다.
 
 - [ ] `P2_LATER` 백프레셔 기본 정책을 PLAN/AGENTS 설계 의도와 재정렬한다.
   - 무엇이 남았는지: PLAN Phase 3은 기본 정책을 "느린 소비자 끊기", 옵션을 "drop-oldest"로 설명하지만,
@@ -86,6 +90,17 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] Phase 4 TCP loopback smoke runner 를 추가했다.
+  - 범위: `tests/Hps.Benchmarks`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - Red: `--smoke` 출력 검증은 기존 구현에서 BenchmarkDotNet unknown option 으로 처리되어 `smoke-result:`가 출력되지 않아 실패했다.
+    최초 시도는 sandbox 네트워크 restore 차단으로 실패해 권한 요청 후 Red 를 재확인했다.
+  - 구현: `Program --smoke`, `TcpLoopbackSmokeRunner`, `TcpLoopbackSmokeResult`를 추가했다.
+  - 구현: smoke 는 실제 `BrokerServer + SaeaTransport` loopback 과 TCP subscriber/publisher socket 을 사용해
+    4096B payload 8개를 보내고 수신 원문, sent/received, drop count, pool rented count, p50/p99 latency sample 을 검증한다.
+  - 검증: focused smoke 는 `smoke-result: pass`, sent 8, received 8, dropped 0, pool-rented 0으로 통과했다.
+    benchmark project build 경고 0/오류 0, solution build 경고 0/오류 0, 솔루션 전체 테스트 통과 106, 실패 0,
+    건너뜀 0. `git diff --check` 통과. 병렬 build/test 시 obj lock 충돌이 있어 직렬 재실행으로 확인했다.
 
 - [x] Phase 4 benchmark scaffold 와 4096B×100Hz 기준 목표 출력을 추가했다.
   - 범위: `tests/Hps.Benchmarks`, `HighPerformanceSocket.slnx`, `.gitignore`, `CURRENT_PLAN.md`, `TODOS.md`,

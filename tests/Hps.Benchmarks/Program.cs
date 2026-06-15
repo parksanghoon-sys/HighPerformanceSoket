@@ -6,6 +6,7 @@ namespace Hps.Benchmarks
     internal static class Program
     {
         private const int SuccessExitCode = 0;
+        private const int FailedSmokeExitCode = 1;
 
         public static int Main(string[] args)
         {
@@ -13,6 +14,13 @@ namespace Hps.Benchmarks
             {
                 BenchmarkTargets.Print(Console.Out);
                 return SuccessExitCode;
+            }
+
+            if (args.Length == 1 && string.Equals(args[0], "--smoke", StringComparison.OrdinalIgnoreCase))
+            {
+                TcpLoopbackSmokeResult result = TcpLoopbackSmokeRunner.RunAsync().GetAwaiter().GetResult();
+                result.Print(Console.Out);
+                return result.Passed ? SuccessExitCode : FailedSmokeExitCode;
             }
 
             if (args.Length == 1 && string.Equals(args[0], "--help", StringComparison.OrdinalIgnoreCase))
@@ -29,6 +37,7 @@ namespace Hps.Benchmarks
         {
             Console.WriteLine("사용법:");
             Console.WriteLine("  Hps.Benchmarks --target");
+            Console.WriteLine("  Hps.Benchmarks --smoke");
             Console.WriteLine("  Hps.Benchmarks [BenchmarkDotNet arguments]");
         }
     }
