@@ -208,31 +208,23 @@ Phase 4 — 벤치마크 하니스와 SAEA 기준선 수치 기록.
 - `tests/Hps.Benchmarks`에 `--load` runner 가 추가됐다. 이 runner 는 같은 실제 `BrokerServer + SaeaTransport`
   loopback 경로에서 4096B payload 3000개를 100Hz pacing 으로 약 30초 동안 전송하고, sent/received/drop/pool-rented,
   actual-rate, p50/p99 latency summary 를 stdout 에 출력한다.
+- `--load` runner 는 closed-loop 기준선으로 해석한다(D051). 한 publish payload 를 subscriber socket 에서 수신한 뒤
+  다음 publish 로 넘어가므로 처리량, 지연, 누수 0은 확인하지만, publisher 가 subscriber 수신과 독립적으로 앞서 나가는
+  open-loop 큐 적체/backpressure 경로는 아직 검증하지 않는다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가해 가장 작은 다음 단위를 선택한다.
-현재 실행 가능한 큰 후보는 Phase 4 benchmark report persistence/latency SLO gate, 백프레셔 기본 정책 정합성 결정, UDP broker v1 범위 결정이다.
+현재 실행 가능한 큰 후보는 Phase 4 open-loop TCP load/backpressure benchmark, benchmark report persistence/latency SLO gate,
+백프레셔 기본 정책 정합성 결정, UDP broker v1 범위 결정이다.
 
 ## 이번 단위의 검증 경로
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --load` 출력 검증 — Red:
-  기존 구현은 BenchmarkDotNet 이 `--load`를 unknown option 으로 처리했고 `load-result:`를 출력하지 않았다.
-- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore`
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load`
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --smoke`
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --target`
-- `dotnet build HighPerformanceSocket.slnx`
-- `dotnet test HighPerformanceSocket.slnx`
+- `rg -n "D051|open-loop|closed-loop|backpressure benchmark|큐 적체" CURRENT_PLAN.md TODOS.md DECISIONS.md CHANGELOG_AGENT.md`
 - `git diff --check`
-- 결과: 구현 뒤 focused load 는 `load-result: pass`, planned/sent/received 3000, dropped 0, pool-rented 0,
-  actual-rate-hz 99.9, p50 205.9us, p99 799.0us 를 출력했다. focused smoke 는 `smoke-result: pass`, sent 8,
-  received 8, dropped 0, pool-rented 0을 출력했다. `--target` 기준 출력도 유지된다. benchmark project build 는
-  경고 0, 오류 0으로 통과했다. solution build 는 경고 0, 오류 0으로 통과했다. 솔루션 전체 테스트는
-  `Hps.Buffers.Tests` 통과 18, `Hps.Transport.Tests` 통과 37, `Hps.Protocol.Tests` 통과 28,
-  `Hps.Broker.Tests` 통과 18, `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0으로 통과했다.
-  `git diff --check`는 whitespace 오류 없이 통과했고 Git의 LF→CRLF 안내 경고만 출력됐다.
+- 결과: 문서 전용 변경이므로 build/test 는 실행하지 않는다. `rg`로 D051, closed-loop/open-loop 해석,
+  open-loop/backpressure 후속 항목이 상태 문서에 연결됐는지 확인하고, `git diff --check`로 whitespace 오류를 확인한다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
@@ -245,6 +237,7 @@ Phase 4 — 벤치마크 하니스와 SAEA 기준선 수치 기록.
 - 샘플 기반 수동 fan-out 확인
 - benchmark summary 파일 저장
 - p50/p99 latency 합격선 확정 및 실패 gate
+- open-loop TCP load/backpressure benchmark 와 queue depth/dropped/latency 증가 추세 측정
 - 백프레셔 기본 정책 정합성 결정
 - UDP broker v1 범위 결정
 - protocol error 응답

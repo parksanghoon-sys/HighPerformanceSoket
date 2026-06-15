@@ -1,5 +1,20 @@
 # DECISIONS.md
 
+## D051 — Phase 4 closed-loop load 와 open-loop backpressure benchmark 를 분리한다
+
+- 날짜: 2026-06-15
+- 상태: Accepted
+- 결정: `tests/Hps.Benchmarks`의 현재 `--load`는 SAEA TCP loopback closed-loop 기준선으로 유지한다.
+  이 runner 는 한 publish payload 를 subscriber socket 에서 수신한 뒤 다음 publish 로 넘어가므로, 4096B×100Hz×30초 조건에서
+  처리량, p50/p99 지연, drop 없음, pool leak 없음은 검증하지만 송신 큐 적체나 drop-oldest/backpressure 경로를 stress 하지 않는다.
+  큐 적체와 backpressure 검증은 publisher 가 subscriber 수신과 독립적으로 100Hz 발사를 지속하는 open-loop benchmark 로 별도 추가한다.
+- 근거: `overall-state-2026-06-15.md` 추가 검토에서 closed-loop 구조상 publisher 가 subscriber 보다 앞설 수 없어
+  `dropped==0`이 backpressure 안정성 증거가 아니라는 점이 확인됐다. 현재 runner 는 기본 성능 기준선으로 가치가 있지만,
+  `CURRENT_PLAN.md`가 해석한 "지속 부하에서 큐 적체가 누적되지 않는 상태"까지 증명하지는 않는다.
+- 영향: `--load` 결과는 SAEA loopback 단일 subscriber 기준 baseline 으로 해석한다. 이후 open-loop runner 는 별도 작업 단위에서
+  queue depth, dropped count, send backlog 증가 여부, latency 증가 추세를 측정해야 한다. 백프레셔 기본 정책을 disconnect 로 둘지
+  drop-oldest 로 둘지 결정하는 P2 항목은 open-loop 결과를 보고 다시 판단한다.
+
 ## D050 — Phase 4 첫 벤치마크 기준은 SAEA TCP loopback 4096B×100Hz 로 고정한다
 
 - 날짜: 2026-06-15

@@ -1,5 +1,29 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-15 (Codex — Phase 4 closed-loop load review reflection)
+
+### 작업 단위
+- `.claude/review/overall-state-2026-06-15.md`의 추가 검토 중 closed-loop load runner 한계 지적을 상태 문서에 반영했다.
+- 범위는 `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md` 문서 갱신으로 제한했다.
+- open-loop runner 구현, diagnostics API 확장, 백프레셔 정책 변경, benchmark report writer 는 포함하지 않았다.
+
+### 검토 반영
+- 현재 `--load`는 4096B×100Hz×30초 SAEA TCP loopback baseline 으로 유지한다.
+- 단, 각 publish 뒤 subscriber 수신을 기다리는 closed-loop 구조라서 처리량, p50/p99 지연, drop 없음, pool leak 없음은 검증하지만
+  queue depth 증가나 drop-oldest/backpressure 경로를 stress 하지 않는다고 명시했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D051로 closed-loop baseline 과 open-loop backpressure benchmark 분리를 기록했다.
+- `CURRENT_PLAN.md`에 현재 `--load` 해석을 closed-loop 기준선으로 좁히고, 다음 후보에 open-loop TCP load/backpressure benchmark 를 추가했다.
+- `TODOS.md`에 `P1_SOON` open-loop TCP load/backpressure benchmark 항목을 self-contained backlog 로 추가했다.
+- 기존 report persistence/latency SLO backlog 는 open-loop 결과를 함께 담을 수 있게 schema 판단이 필요하다고 보강했다.
+
+### 검증
+- `rg -n "D051|open-loop|closed-loop|backpressure benchmark|큐 적체" CURRENT_PLAN.md TODOS.md DECISIONS.md CHANGELOG_AGENT.md`
+  로 상태 문서 연결을 확인한다.
+- `git diff --check`로 whitespace 오류를 확인한다.
+- 문서 전용 변경이므로 `dotnet build`/`dotnet test`는 실행하지 않는다.
+
 ## 2026-06-15 (Codex — Phase 4 TCP loopback load runner)
 
 ### 작업 단위
