@@ -12,6 +12,7 @@
     <Project Path="samples/Hps.Sample.Subscriber/Hps.Sample.Subscriber.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Hps.Benchmarks/Hps.Benchmarks.csproj" />
     <Project Path="tests/Hps.Broker.Tests/Hps.Broker.Tests.csproj" />
     <Project Path="tests/Hps.Buffers.Tests/Hps.Buffers.Tests.csproj" />
     <Project Path="tests/Hps.Protocol.Tests/Hps.Protocol.Tests.csproj" />

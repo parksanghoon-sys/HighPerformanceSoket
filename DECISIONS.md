@@ -1,5 +1,19 @@
 # DECISIONS.md
 
+## D050 — Phase 4 첫 벤치마크 기준은 SAEA TCP loopback 4096B×100Hz 로 고정한다
+
+- 날짜: 2026-06-15
+- 상태: Accepted
+- 결정: Phase 4의 첫 재현 기준은 `tcp-loopback-saea-baseline`으로 둔다. 기본 시나리오는 SAEA transport,
+  loopback TCP broker, topic `alpha`, payload 4096 bytes, publish rate 100 Hz, subscriber 1명, duration 30초,
+  planned message count 3000개다. `tests/Hps.Benchmarks`는 이 목표값을 `BenchmarkTargets`로 코드에 고정하고,
+  BenchmarkDotNet 기반 microbench 와 이후 TCP 부하 생성 하니스를 같은 프로젝트 안에서 확장한다.
+- 근거: 리뷰의 P1은 기능 완성 여부가 아니라 "4096B×100Hz를 지연 누적 없이 처리"한다는 목표를 재현 가능한 수치로
+  검증하라는 요구다. 목표값을 문서에만 두면 이후 microbench, load runner, 리포트가 서로 다른 조건을 사용할 수 있다.
+  코드 상수와 `--target` 출력으로 먼저 고정하면 다음 단위에서 실제 TCP load runner 를 붙일 때 기준 drift 를 막을 수 있다.
+- 영향: 이번 결정은 성능 달성을 주장하지 않는다. 첫 커밋은 benchmark project, 목표 출력, pinned pool microbench 골격까지만 제공한다.
+  실제 pass/fail gate 는 다음 단위에서 sent==received, dropped==0, pool-rented==0, p50/p99 report 기록을 구현해 닫는다.
+
 ## D049 — broker server 샘플은 기존 host 를 조립하는 실행 harness 로 둔다
 
 - 날짜: 2026-06-12

@@ -22,9 +22,54 @@
   - TCP wire protocol 기반 publisher/subscriber sample client 를 추가했다.
   - 수동 fan-out 확인을 위한 broker server console sample 을 추가했다.
   - D010 TCP frame assembler 랜덤 적대적 fuzz 를 영구 회귀 테스트로 추가했다.
+  - Phase 4 `Hps.Benchmarks` 프로젝트와 4096B×100Hz 기준 목표 출력을 추가했다.
   - 다음 후보: 사용자 검토 후 Deferred Backlog 를 다시 평가한다.
 
 ## Deferred Backlog
+
+- [ ] `P1_SOON` Phase 4 TCP loopback load runner 와 p50/p99 리포트 게이트를 구현한다.
+  - 무엇이 남았는지: `tests/Hps.Benchmarks`에는 프로젝트, 목표 상수, `--target` 출력, pinned pool microbench 골격만 있다.
+    실제 `BrokerServer + SaeaTransport` loopback 부하 생성, 4096B payload 를 100Hz로 30초 전송, subscriber 수신 count,
+    dropped count, pool rented count, p50/p99 latency 기록은 아직 없다.
+  - 왜 defer 되었는지: 이번 단위는 Phase 4 진입을 위한 benchmark scaffold 와 목표 drift 방지에 한정했다. 실제 부하 runner 는
+    socket orchestration, pacing, latency sampling, report format 을 함께 다뤄야 하므로 별도 리뷰 가능한 단위로 분리한다.
+  - objective: `tcp-loopback-saea-baseline` 시나리오에서 sent==received, dropped==0, pool-rented==0 을 확인하고
+    p50/p99 latency 를 리포트로 남겨 헤드라인 목표를 재현 가능한 게이트로 만든다.
+  - relevant context: `.claude/review/overall-state-2026-06-15.md` P1, DECISIONS D050,
+    `tests/Hps.Benchmarks/BenchmarkTargets.cs`, `src/Hps.Server/BrokerServer.cs`, `src/Hps.Transport/Saea/SaeaTransport.cs`.
+  - 관련 파일/범위: `tests/Hps.Benchmarks/`, `src/Hps.Server/`, `src/Hps.Transport/`, 필요 시 benchmark output 문서.
+  - 현재 상태: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --target`로 목표 조건은 출력된다.
+  - known blockers/open questions: latency timestamp 를 publisher send 직전 기준으로 둘지 subscriber receive 완료 기준으로 둘지,
+    report 를 console/stdout 만으로 둘지 파일로 보존할지 결정해야 한다.
+  - next step: 먼저 작은 smoke runner 를 추가해 짧은 duration 과 낮은 message count 로 sent/received/drop/leak 계측 경계를 검증한다.
+
+- [ ] `P2_LATER` 백프레셔 기본 정책을 PLAN/AGENTS 설계 의도와 재정렬한다.
+  - 무엇이 남았는지: PLAN Phase 3은 기본 정책을 "느린 소비자 끊기", 옵션을 "drop-oldest"로 설명하지만,
+    현재 구현은 TCP/UDP pending send queue 모두 capacity 16 drop-oldest 만 제공한다.
+  - 왜 defer 되었는지: 현재 코드 경로는 리뷰에서 버그 없음으로 검증됐고, 4096B×100Hz 정상 소비자 기준에서는 trigger 가능성이 낮다.
+    정책 변경은 메시지 손실/연결 종료 semantics 를 바꾸므로 benchmark scaffold 와 한 커밋에 섞지 않는다.
+  - objective: 설계 기본값을 코드에 맞춰 drop-oldest 로 갱신할지, 아니면 코드에 disconnect 정책과 설정 surface 를 추가할지 결정한다.
+  - relevant context: `.claude/review/overall-state-2026-06-15.md` P2, PLAN Phase 3 backpressure,
+    DECISIONS D039/D040/D042, `TransportConnection`, `SaeaUdpEndpoint`.
+  - 관련 파일/범위: `PLAN.md`, `AGENTS.md`, `DECISIONS.md`, `src/Hps.Transport/Runtime/TransportConnection.cs`,
+    `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`, transport tests.
+  - 현재 상태: drop counter 와 diagnostics snapshot 은 존재하지만 policy 선택 API 와 disconnect 기본 정책은 없다.
+  - known blockers/open questions: v1 기본 정책을 안정성 중심 disconnect 로 둘지, 최신성 중심 drop-oldest 로 둘지 사용자 결정이 필요하다.
+  - next step: Phase 4 load runner 결과를 본 뒤 정책 mismatch 가 실제 목표 측정에 영향을 주는지 확인하고 설계 결정을 요청한다.
+
+- [ ] `P2_LATER` UDP pub/sub 를 v1 범위에 포함할지 결정한다.
+  - 무엇이 남았는지: UDP transport bind/send/recv/echo 기준선은 있으나, UDP command decode, Broker fan-out 연결,
+    UDP end-to-end pub/sub 테스트는 없다.
+  - 왜 defer 되었는지: Phase 1~3 리뷰는 TCP broker 완성을 인정했고, UDP broker 는 별도 범위 결정이 필요한 항목으로 남았다.
+    TCP benchmark 진입과 UDP feature 결선을 같은 단위에 섞으면 검증 축이 달라진다.
+  - objective: v1을 TCP broker 로 고정할지, UDP `1 datagram = 1 메시지` pub/sub 도 Phase 3/4 범위에 포함할지 결정한다.
+  - relevant context: `.claude/review/overall-state-2026-06-15.md` P3, AGENTS 프레이밍 규칙, D024/D046,
+    `ITransportDatagramHandler`, `SaeaTransport` UDP tests.
+  - 관련 파일/범위: `src/Hps.Protocol/`, `src/Hps.Broker/`, `src/Hps.Server/`, `tests/Hps.Transport.Tests/`,
+    신규 UDP broker tests.
+  - 현재 상태: UDP datagram ownership 과 endpoint send queue 는 검증됐지만 Broker command path 는 TCP 전용이다.
+  - known blockers/open questions: UDP command wire format 을 TCP text command 와 동일하게 둘지, datagram payload 자체를 publish message 로 볼지 결정해야 한다.
+  - next step: 사용자에게 v1 UDP 포함 여부를 확인한 뒤 포함이면 별도 설계/테스트 단위로 승격한다.
 
 - [ ] `P2_LATER` drop log/sampling 과 Server convenience diagnostics API 필요성을 검토한다.
   - 무엇이 남았는지: `ITransportDiagnostics.GetDiagnosticsSnapshot()`으로 Transport-level public 누적 metric 은 제공하지만,
@@ -40,17 +85,18 @@
     diagnostics capability 를 필수로 요구할지 결정해야 한다.
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
-- [ ] `P2_LATER` 4096 bytes × 100 Hz 목표를 Phase 4 벤치마크 기준으로 정량화한다.
-  - 무엇이 남았는지: p50/p99 latency, 허용 큐 적체, 측정 시간, 동시 연결 수, TCP/UDP별 기준을 정해야 한다.
-  - 왜 defer 되었는지: 벤치마크 하니스는 Phase 4 범위이며 Phase 1~3 기능 흐름이 선행되어야 한다.
-  - objective: “딜레이 없이”를 재현 가능한 성능 게이트로 바꾼다.
-  - relevant context: 사용 목표는 4096 bytes 메시지 100 Hz를 지연 누적 없이 처리하는 것이다.
-  - 관련 파일/범위: `tests/Hps.Benchmarks/`, `src/Hps.Server/`, samples.
-  - 현재 상태: 벤치마크 프로젝트 없음.
-  - known blockers/open questions: 단일 publisher 기준인지, 구독자 수와 팬아웃 배율을 어떻게 둘지 추가 결정 필요.
-  - next step: Phase 3 통합 테스트 green 이후 SAEA 기준선 벤치 시나리오를 작성한다.
-
 ## Completed
+
+- [x] Phase 4 benchmark scaffold 와 4096B×100Hz 기준 목표 출력을 추가했다.
+  - 범위: `tests/Hps.Benchmarks`, `HighPerformanceSocket.slnx`, `.gitignore`, `CURRENT_PLAN.md`, `TODOS.md`,
+    `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - Red: `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj`가 프로젝트 파일 부재로 실패했다.
+  - 구현: BenchmarkDotNet 기반 console project 를 추가하고, `BenchmarkTargets`에 SAEA TCP loopback baseline 목표값을 고정했다.
+  - 구현: `--target` 명령은 4096B, 100Hz, 30초, planned 3000 messages, dropped 0/누수 0/p50/p99 report gate 를 출력한다.
+  - 구현: 첫 microbench 로 `PinnedBlockMemoryPoolBenchmarks`의 `RentCounted + Release`를 추가했다.
+  - 구현: BenchmarkDotNet 기본 artifact 폴더는 `.gitignore`에 추가해 임시 측정 산출물이 의도 없이 커밋되지 않게 했다.
+  - 검증: benchmark project build 경고 0/오류 0, `--target` 실행 성공, solution build 경고 0/오류 0.
+    솔루션 전체 테스트 통과 106, 실패 0, 건너뜀 0. `git diff --check` 통과.
 
 - [x] D010 TCP frame assembler 랜덤 적대적 fuzz 를 영구 회귀 테스트로 추가했다.
   - 범위: `tests/Hps.Protocol.Tests/TcpFrameAssemblerTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.

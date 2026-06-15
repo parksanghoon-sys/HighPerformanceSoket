@@ -1,5 +1,41 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-15 (Codex — Phase 4 benchmark scaffold)
+
+### 작업 단위
+- Phase 4 첫 단위로 `tests/Hps.Benchmarks` 프로젝트와 SAEA TCP loopback baseline 목표 출력을 추가했다.
+- 범위는 benchmark scaffold, 4096B×100Hz 목표값 코드 고정, BenchmarkDotNet artifact ignore, 상태 문서 갱신으로 제한했다.
+- 실제 TCP load runner, p50/p99 판정, 백프레셔 정책 변경, UDP broker 결선은 포함하지 않았다.
+
+### Red
+- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj`가 프로젝트 파일 부재로 실패했다.
+
+### 구현
+- `Hps.Benchmarks` console project 를 추가하고 BenchmarkDotNet 을 참조했다.
+- BenchmarkDotNet 실행 결과 기본 폴더인 `BenchmarkDotNet.Artifacts/`를 `.gitignore`에 추가했다.
+- `BenchmarkTargets`에 `tcp-loopback-saea-baseline` 기준값을 고정했다.
+  - payload 4096 bytes
+  - publish rate 100 Hz
+  - duration 30초
+  - subscriber 1명
+  - planned message count 3000
+  - gate: sent==received, dropped==0, pool-rented==0, p50/p99 report 기록
+- `Program --target`이 기준 목표를 출력하도록 했다.
+- `PinnedBlockMemoryPoolBenchmarks`를 추가해 counted pinned buffer `RentCounted + Release` 비용을 BenchmarkDotNet 으로 측정할 수 있게 했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D050으로 Phase 4 첫 기준선을 기록했다.
+- `CURRENT_PLAN.md`를 Phase 4 진입 상태와 이번 검증 경로로 갱신했다.
+- `TODOS.md`에 실제 TCP loopback load runner, 백프레셔 정책 정합성, UDP broker v1 범위 결정을 별도 Deferred Backlog 로 분리했다.
+
+### 검증
+- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj` → Red 프로젝트 파일 부재 실패 → 구현 뒤 경고 0, 오류 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --target` → 기준 목표 출력 확인.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 37 +
+  `Hps.Protocol.Tests` 통과 28 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
 ## 2026-06-12 (Codex — TCP frame assembler random fuzz)
 
 ### 작업 단위
