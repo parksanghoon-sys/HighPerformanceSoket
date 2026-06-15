@@ -1,5 +1,45 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-15 (Codex — Phase 4 TCP loopback load runner)
+
+### 작업 단위
+- Phase 4 TCP loopback benchmark 에 `--load` runner 를 추가했다.
+- 범위는 `tests/Hps.Benchmarks`의 실제 `BrokerServer + SaeaTransport` loopback 30초/100Hz 실행과 상태 문서 갱신으로 제한했다.
+- latency threshold, benchmark summary 파일 저장, 백프레셔 정책 변경, UDP broker 결선은 포함하지 않았다.
+
+### Red
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --load` 출력 검증을 먼저 실행했다.
+- 기존 구현은 BenchmarkDotNet 이 `--load`를 unknown option 으로 처리했고, `load-result:`가 출력되지 않아 실패했다.
+
+### 구현
+- `Program --load` 명령을 추가해 30초/100Hz TCP loopback load 를 실행한다.
+- 기존 `TcpLoopbackSmokeRunner`/`TcpLoopbackSmokeResult`를 `TcpLoopbackScenarioRunner`/`TcpLoopbackRunResult`로 일반화해
+  smoke 와 load 가 같은 socket orchestration, 측정 방식, 출력 형식을 공유하게 했다.
+- load 는 실제 `BrokerServer`, `SaeaTransport`, `PinnedBlockMemoryPool`을 한 프로세스 안에서 조립하고,
+  실제 TCP subscriber/publisher socket 으로 `SUBSCRIBE`/`PUBLISH` frame 을 주고받는다.
+- 4096B payload 3000개를 100Hz pacing 으로 약 30초 동안 전송하고, sent/received count, drop count,
+  pool `RentedCount`, actual-rate, p50/p99 latency sample 을 출력한다.
+- pass/fail 은 sent==planned==received, dropped==0, pool-rented==0으로 제한했다. latency 는 아직 환경 독립 SLO가 아니므로
+  관측값으로만 출력한다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 Phase 4 load runner 상태와 focused 검증 결과를 반영했다.
+- `TODOS.md`의 Phase 4 load runner 항목을 Completed 로 이동하고, report persistence/latency SLO gate 판단을 새 Deferred Backlog 로 남겼다.
+
+### 검증
+- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore` → 경고 0, 오류 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load` →
+  `load-result: pass`, planned/sent/received 3000, dropped 0, pool-rented 0, actual-rate-hz 99.9,
+  p50 205.9us, p99 799.0us.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --smoke` →
+  `smoke-result: pass`, sent 8, received 8, dropped 0, pool-rented 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --target` → 기준 목표 출력 유지 확인.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` → `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 37 + `Hps.Protocol.Tests` 통과 28 + `Hps.Broker.Tests` 통과 18 +
+  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
 ## 2026-06-15 (Codex — Phase 4 TCP loopback smoke runner)
 
 ### 작업 단위

@@ -14,23 +14,53 @@ using Hps.Transport;
 namespace Hps.Benchmarks
 {
     /// <summary>
-    /// Phase 4 TCP load runner 를 만들기 전의 짧은 smoke runner 이다.
+    /// Phase 4 TCP loopback benchmark 시나리오 runner 이다.
     ///
-    /// 실제 benchmark 는 4096B payload 를 100Hz 로 30초 동안 보내야 한다. 이 runner 는 같은 payload 크기와
-    /// 같은 BrokerServer/SaeaTransport 경로를 쓰되 메시지 수를 작게 제한해, 계측 경계가 안정적으로 동작하는지만 확인한다.
+    /// smoke 는 짧은 경로 검증으로 빠르게 실패를 잡고, load 는 같은 BrokerServer/SaeaTransport 경로에서
+    /// 4096B payload 를 100Hz 로 30초 동안 전송한다. 두 경로를 같은 구현으로 묶어 측정 방식 차이 때문에
+    /// 결과 해석이 갈라지지 않게 한다.
     /// </summary>
-    internal static class TcpLoopbackSmokeRunner
+    internal static class TcpLoopbackScenarioRunner
     {
         private const int SmokeMessageCount = 8;
         private const int ReceiveTimeoutSeconds = 5;
 
-        public static async Task<TcpLoopbackSmokeResult> RunAsync()
+        public static async Task<TcpLoopbackRunResult> RunSmokeAsync()
+        {
+            return await RunScenarioAsync(
+                resultName: "smoke",
+                scenario: BenchmarkTargets.TcpLoopbackBaselineName + "-smoke",
+                messageCount: SmokeMessageCount,
+                publishRateHz: 0,
+                targetDurationSeconds: 0,
+                pacePublishes: false).ConfigureAwait(false);
+        }
+
+        public static async Task<TcpLoopbackRunResult> RunLoadAsync()
+        {
+            return await RunScenarioAsync(
+                resultName: "load",
+                scenario: BenchmarkTargets.TcpLoopbackBaselineName,
+                messageCount: BenchmarkTargets.PlannedMessageCount,
+                publishRateHz: BenchmarkTargets.PublishRateHz,
+                targetDurationSeconds: BenchmarkTargets.DurationSeconds,
+                pacePublishes: true).ConfigureAwait(false);
+        }
+
+        private static async Task<TcpLoopbackRunResult> RunScenarioAsync(
+            string resultName,
+            string scenario,
+            int messageCount,
+            int publishRateHz,
+            int targetDurationSeconds,
+            bool pacePublishes)
         {
             byte[] payload = new byte[BenchmarkTargets.PayloadBytes];
-            long[] latencyTicks = new long[SmokeMessageCount];
+            long[] latencyTicks = new long[messageCount];
             int sent = 0;
             int received = 0;
             Stopwatch elapsed = Stopwatch.StartNew();
+            Stopwatch pacingClock = new Stopwatch();
 
             PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(BenchmarkTargets.MaxFramePayloadBytes);
             using (SaeaTransport transport = new SaeaTransport())
@@ -50,8 +80,12 @@ namespace Hps.Benchmarks
                     await SendFrameAsync(subscriber, Encoding.ASCII.GetBytes("SUBSCRIBE " + BenchmarkTargets.DefaultTopic)).ConfigureAwait(false);
                     await WaitForSubscriberCountAsync(server, BenchmarkTargets.DefaultTopic, 1).ConfigureAwait(false);
 
-                    for (int index = 0; index < SmokeMessageCount; index++)
+                    pacingClock.Start();
+                    for (int index = 0; index < messageCount; index++)
                     {
+                        if (pacePublishes)
+                            await WaitForScheduledPublishAsync(pacingClock, index, publishRateHz).ConfigureAwait(false);
+
                         FillPayload(payload, index);
                         long startTimestamp = Stopwatch.GetTimestamp();
                         BinaryPrimitives.WriteInt64BigEndian(new Span<byte>(payload, 0, 8), startTimestamp);
@@ -61,7 +95,7 @@ namespace Hps.Benchmarks
 
                         byte[] receivedPayload = await ReceiveExactAsync(subscriber, payload.Length).ConfigureAwait(false);
                         if (!PayloadEquals(payload, receivedPayload))
-                            throw new InvalidOperationException("smoke payload 가 송신 원문과 다르다.");
+                            throw new InvalidOperationException("loopback payload 가 송신 원문과 다르다.");
 
                         long embeddedTimestamp = BinaryPrimitives.ReadInt64BigEndian(new ReadOnlySpan<byte>(receivedPayload, 0, 8));
                         latencyTicks[received] = Stopwatch.GetTimestamp() - embeddedTimestamp;
@@ -72,7 +106,18 @@ namespace Hps.Benchmarks
 
                     elapsed.Stop();
                     TransportDiagnosticsSnapshot diagnostics = ((ITransportDiagnostics)transport).GetDiagnosticsSnapshot();
-                    return CreateResult(sent, received, diagnostics.DroppedPendingSendCount, pool.RentedCount, latencyTicks, elapsed.ElapsedMilliseconds);
+                    return CreateResult(
+                        resultName,
+                        scenario,
+                        publishRateHz,
+                        targetDurationSeconds,
+                        messageCount,
+                        sent,
+                        received,
+                        diagnostics.DroppedPendingSendCount,
+                        pool.RentedCount,
+                        latencyTicks,
+                        elapsed.ElapsedMilliseconds);
                 }
                 finally
                 {
@@ -83,7 +128,12 @@ namespace Hps.Benchmarks
             }
         }
 
-        private static TcpLoopbackSmokeResult CreateResult(
+        private static TcpLoopbackRunResult CreateResult(
+            string resultName,
+            string scenario,
+            int targetRateHz,
+            int targetDurationSeconds,
+            int plannedMessageCount,
             int sent,
             int received,
             long dropped,
@@ -98,9 +148,13 @@ namespace Hps.Benchmarks
             double p50 = completedTicks.Length == 0 ? 0 : ToMicroseconds(completedTicks[PercentileIndex(completedTicks.Length, 0.50)]);
             double p99 = completedTicks.Length == 0 ? 0 : ToMicroseconds(completedTicks[PercentileIndex(completedTicks.Length, 0.99)]);
 
-            return new TcpLoopbackSmokeResult(
-                BenchmarkTargets.TcpLoopbackBaselineName + "-smoke",
+            return new TcpLoopbackRunResult(
+                resultName,
+                scenario,
                 BenchmarkTargets.PayloadBytes,
+                targetRateHz,
+                targetDurationSeconds,
+                plannedMessageCount,
                 sent,
                 received,
                 dropped,
@@ -108,6 +162,24 @@ namespace Hps.Benchmarks
                 p50,
                 p99,
                 elapsedMilliseconds);
+        }
+
+        private static async Task WaitForScheduledPublishAsync(Stopwatch stopwatch, int messageIndex, int publishRateHz)
+        {
+            if (publishRateHz <= 0)
+                return;
+
+            long targetTicks = (long)messageIndex * Stopwatch.Frequency / publishRateHz;
+            while (stopwatch.ElapsedTicks < targetTicks)
+            {
+                long remainingTicks = targetTicks - stopwatch.ElapsedTicks;
+                int remainingMilliseconds = (int)(remainingTicks * 1000 / Stopwatch.Frequency);
+
+                if (remainingMilliseconds > 1)
+                    await Task.Delay(remainingMilliseconds - 1).ConfigureAwait(false);
+                else
+                    await Task.Yield();
+            }
         }
 
         private static int PercentileIndex(int count, double percentile)
@@ -186,7 +258,7 @@ namespace Hps.Benchmarks
             Task completedTask = await Task.WhenAny(receiveTask, timeoutTask).ConfigureAwait(false);
 
             if (!object.ReferenceEquals(receiveTask, completedTask))
-                throw new TimeoutException("smoke payload 수신 시간이 초과됐다.");
+                throw new TimeoutException("loopback payload 수신 시간이 초과됐다.");
 
             return await receiveTask.ConfigureAwait(false);
         }
@@ -221,7 +293,7 @@ namespace Hps.Benchmarks
                 await Task.Delay(10).ConfigureAwait(false);
             }
 
-            throw new TimeoutException("smoke subscriber 등록 대기가 초과됐다.");
+            throw new TimeoutException("loopback subscriber 등록 대기가 초과됐다.");
         }
 
         private static SubscriptionTable ReadSubscriptionTable(BrokerServer server)
@@ -252,7 +324,7 @@ namespace Hps.Benchmarks
                 await Task.Delay(10).ConfigureAwait(false);
             }
 
-            throw new TimeoutException("smoke 종료 후 pooled buffer 반환 대기가 초과됐다.");
+            throw new TimeoutException("loopback 종료 후 pooled buffer 반환 대기가 초과됐다.");
         }
 
         private static void FillPayload(byte[] payload, int messageIndex)

@@ -7,6 +7,7 @@ namespace Hps.Benchmarks
     {
         private const int SuccessExitCode = 0;
         private const int FailedSmokeExitCode = 1;
+        private const int FailedLoadExitCode = 1;
 
         public static int Main(string[] args)
         {
@@ -18,9 +19,16 @@ namespace Hps.Benchmarks
 
             if (args.Length == 1 && string.Equals(args[0], "--smoke", StringComparison.OrdinalIgnoreCase))
             {
-                TcpLoopbackSmokeResult result = TcpLoopbackSmokeRunner.RunAsync().GetAwaiter().GetResult();
+                TcpLoopbackRunResult result = TcpLoopbackScenarioRunner.RunSmokeAsync().GetAwaiter().GetResult();
                 result.Print(Console.Out);
                 return result.Passed ? SuccessExitCode : FailedSmokeExitCode;
+            }
+
+            if (args.Length == 1 && string.Equals(args[0], "--load", StringComparison.OrdinalIgnoreCase))
+            {
+                TcpLoopbackRunResult result = TcpLoopbackScenarioRunner.RunLoadAsync().GetAwaiter().GetResult();
+                result.Print(Console.Out);
+                return result.Passed ? SuccessExitCode : FailedLoadExitCode;
             }
 
             if (args.Length == 1 && string.Equals(args[0], "--help", StringComparison.OrdinalIgnoreCase))
@@ -38,6 +46,7 @@ namespace Hps.Benchmarks
             Console.WriteLine("사용법:");
             Console.WriteLine("  Hps.Benchmarks --target");
             Console.WriteLine("  Hps.Benchmarks --smoke");
+            Console.WriteLine("  Hps.Benchmarks --load");
             Console.WriteLine("  Hps.Benchmarks [BenchmarkDotNet arguments]");
         }
     }
