@@ -32,27 +32,28 @@
   - D059로 v1 subscription 은 runtime endpoint 수명에 묶고 reconnect rebinding 은 제공하지 않기로 결정했다.
   - D060으로 UDP broker v1 wire/control 을 datagram self-command 와 runtime remote target 정책으로 확정했다.
   - `BrokerSubscriber`에 UDP runtime target 값을 추가하고 `BrokerPublisher`의 TCP/UDP mixed fan-out 분기를 구현했다.
-  - 다음 후보: UDP broker datagram handler 를 별도 TDD 단위로 구현한다.
+  - `BrokerUdpDatagramHandler`로 UDP datagram self-command 를 Broker routing/fan-out 에 연결했다.
+  - 다음 후보: BrokerServer UDP bind wiring 을 별도 TDD 단위로 구현한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` UDP broker datagram handler 를 구현한다.
-  - 무엇이 남았는지: D060의 UDP datagram self-command 정책을 실제 Broker handler 로 연결해야 한다.
-    UDP datagram payload 에서 `SUBSCRIBE <topic>`, `UNSUBSCRIBE <topic>`, `PUBLISH <topic> <payload>`를 해석하고
-    `(IUdpEndpoint localEndpoint, EndPoint remoteEndPoint)` runtime target 을 `SubscriptionTable`/`BrokerPublisher`로 연결해야 한다.
-  - 왜 defer 되었는지: 이번 단위는 shared command grammar 에 `UNSUBSCRIBE`를 추가하고 TCP handler 연결까지만 닫았다.
-    UDP receive handler 와 server UDP bind wiring 을 함께 넣으면 리뷰 범위가 커지므로 datagram handler 를 별도 커밋으로 분리한다.
-  - objective: UDP datagram handler 가 owned `RefCountedBuffer`를 받아 명령별로 subscribe/unsubscribe/publish 를 수행하고,
-    malformed UDP command 는 endpoint 를 닫지 않고 해당 datagram 만 release/drop 하도록 만든다.
-  - relevant context: DECISIONS D060, `BrokerSubscriber.ForUdp`, `SubscriptionTable.Subscribe/Unsubscribe`,
-    `BrokerPublisher.Publish`, `ITransportDatagramHandler`, `TransportDatagram`, `TcpCommandDecoder`.
-  - 관련 파일/범위: `src/Hps.Broker/`, `tests/Hps.Broker.Tests/`, 필요 시 command decoder 명칭/공유 범위는
-    `src/Hps.Protocol/`와 `tests/Hps.Protocol.Tests/`에서 최소 변경한다. `src/Hps.Server` UDP bind wiring 은 다음 단위로 분리한다.
-  - 현재 상태: TCP command grammar 는 `SUBSCRIBE`/`UNSUBSCRIBE`/`PUBLISH`를 표현하고,
-    Broker publisher 는 TCP/UDP mixed fan-out 을 지원한다. UDP datagram handler 는 아직 없다.
-  - known blockers/open questions: `TcpCommandDecoder` 이름을 그대로 재사용할지, UDP handler 도 같은 wire grammar 를 쓰는 command decoder 로
-    이름을 넓힐지는 구현 중 영향 범위를 보고 결정한다. 이름 변경이 커지면 decoder rename 은 별도 refactor 로 분리한다.
-  - next step: Red 테스트로 UDP `SUBSCRIBE alpha` datagram 이 remote target 을 등록하고 datagram ref 를 release 하는 경계를 먼저 고정한다.
+- [ ] `P1_SOON` BrokerServer UDP bind wiring 을 구현한다.
+  - 무엇이 남았는지: Broker 계층의 `BrokerUdpDatagramHandler`는 구현됐지만, `BrokerServer`가 아직
+    `ITransport.SetDatagramHandler`와 `ITransport.BindUdpAsync`를 호출하지 않는다. 따라서 실제 host 에서는 UDP datagram command 가
+    Broker routing/fan-out 으로 들어올 수 없다.
+  - 왜 defer 되었는지: 이번 단위는 Broker handler 와 routing cleanup 만 닫았다. Server 수명 API, UDP endpoint handle 보관,
+    `StopAsync`/`Dispose` 정리는 host lifecycle 을 바꾸므로 별도 커밋으로 분리한다.
+  - objective: `BrokerServer`가 UDP endpoint 를 bind 하고 `BrokerUdpDatagramHandler`를 Transport 에 등록하며,
+    중지 시 UDP endpoint 를 닫아 endpoint close cleanup 이 실행될 수 있는 host 경계를 만든다.
+  - relevant context: DECISIONS D060, `src/Hps.Server/BrokerServer.cs`, `tests/Hps.Server.Tests/BrokerServerTests.cs`,
+    `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `ITransport.SetDatagramHandler`, `ITransport.BindUdpAsync`, `IUdpEndpoint`.
+  - 관련 파일/범위: `src/Hps.Server/`, `tests/Hps.Server.Tests/`, 필요 시 server test double.
+    실제 SAEA UDP loopback 통합 테스트는 wiring 계약 뒤 별도 단위로 분리한다.
+  - 현재 상태: TCP host 는 `StartTcpAsync`/`StopAsync`로 listen/accept loop 를 관리한다.
+    UDP host API 형태(`StartUdpAsync` 별도 메서드인지, TCP/UDP 동시 start API 인지)는 아직 코드로 확정하지 않았다.
+  - known blockers/open questions: 기존 `_started` 플래그가 TCP listener 하나를 전제로 하므로 TCP와 UDP를 동시에 시작할 수 있게 할지,
+    이번 단위에서는 UDP-only bind 진입점만 추가할지 결정해야 한다. 선택은 Red 테스트에서 가장 작은 public host 계약으로 먼저 고정한다.
+  - next step: Red 테스트로 `BrokerServer`가 UDP bind 진입점을 노출하고 `SetDatagramHandler`/`BindUdpAsync`를 호출하는지 먼저 고정한다.
 
 - [ ] `P2_LATER` 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정한다.
   - 무엇이 남았는지: 현재 public diagnostics 와 benchmark report 는 TCP/UDP 별 누적 drop count 와 pending send queue high-watermark 를 제공하지만,
@@ -118,6 +119,21 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] UDP broker datagram handler 를 구현했다.
+  - 범위: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `src/Hps.Broker/SubscriptionTable.cs`,
+    `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`, `tests/Hps.Broker.Tests/TestDoubles/FakeUdpEndpoint.cs`,
+    root state docs.
+  - Red: handler 계약 테스트가 `BrokerUdpDatagramHandler` 부재로 실패했다.
+  - Red: UDP subscribe/unsubscribe/publish/malformed drop/endpoint close cleanup 행위 테스트 5개가 빈 handler 에서 실패했다.
+  - 구현: datagram payload 를 기존 command decoder 로 해석해 `BrokerSubscriber.ForUdp(endpoint, remoteEndPoint)` target 을
+    subscribe/unsubscribe 하고, publish 는 datagram buffer 의 payload range 를 `BrokerPublisher`로 넘긴다.
+    malformed UDP command 는 endpoint 를 닫지 않고 datagram 만 release/drop 한다.
+  - cleanup: `SubscriptionTable.UnsubscribeAll(IUdpEndpoint)`를 추가해 endpoint close notification 때 같은 local UDP endpoint 의
+    모든 remote 구독을 제거한다. D008 정책대로 빈 topic entry 는 제거하지 않는다.
+  - 후속: `BrokerServer`가 UDP datagram handler 를 등록하고 bind endpoint 수명을 관리하는 host wiring 이 남았다.
+  - 검증: focused Red 실패 1, focused Green 통과 1, behavior Red 실패 5/통과 1, focused Green 통과 6,
+    Broker tests 통과 30, solution build 경고 0/오류 0, solution test 통과 129/실패 0.
 
 - [x] protocol command grammar 에 `UNSUBSCRIBE <topic>`를 추가했다.
   - 범위: `src/Hps.Protocol/TcpCommandKind.cs`, `src/Hps.Protocol/TcpCommand.cs`,

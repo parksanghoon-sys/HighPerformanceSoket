@@ -250,26 +250,28 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   `ITransport.TrySendTo`를 호출한다.
 - TCP command grammar 가 `SUBSCRIBE`, `UNSUBSCRIBE`, `PUBLISH`를 모두 표현한다.
   `BrokerTcpFrameHandler`는 `UNSUBSCRIBE <topic>`를 `SubscriptionTable.Unsubscribe`로 연결하고 connection 은 닫지 않는다.
+- `BrokerUdpDatagramHandler`가 UDP datagram self-command 를 Broker routing/fan-out 으로 연결한다.
+  `SUBSCRIBE`/`UNSUBSCRIBE`는 `(IUdpEndpoint, remote EndPoint)` runtime target 을 구독/해제하고,
+  `PUBLISH`는 datagram buffer 의 payload range 를 추가 복사 없이 fan-out 한다. malformed UDP command 는 endpoint 를 닫지 않고
+  datagram 만 폐기한다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가한다.
-현재 권장 후보는 UDP broker datagram handler 를 구현하는 단위다.
-D060의 UDP datagram self-command 정책에 따라 `SUBSCRIBE`, `UNSUBSCRIBE`, `PUBLISH` datagram 을
-`SubscriptionTable`/`BrokerPublisher`에 연결한다. 이 단위에서도 server UDP bind wiring 과 idle expiry 는 뒤로 분리한다.
+현재 권장 후보는 BrokerServer UDP bind wiring 단위다.
+Transport 의 `SetDatagramHandler`/`BindUdpAsync`를 기존 `BrokerUdpDatagramHandler`와 연결하고,
+UDP endpoint 수명을 `StopAsync`/`Dispose`에서 정리하는 host 경계를 검증한다. idle expiry 와 UDP 통합 loopback 은 뒤로 분리한다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --no-restore --filter "FullyQualifiedName~TcpCommandKind_Contract_ExposesUnsubscribeCommand"` 실패 1.
-- Green focused: 같은 enum 계약 테스트 통과 1.
-- Red: `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --no-restore --filter "FullyQualifiedName~Unsubscribe"` 실패 1, 통과 1.
-- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --no-restore --filter "FullyQualifiedName~Unsubscribe"` 실패 1, 통과 3.
-- Green focused: Protocol unsubscribe focused 통과 2, Broker unsubscribe focused 통과 4.
-- Protocol 전체: `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --no-restore` 통과 33.
-- Broker 전체: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --no-restore` 통과 24.
+- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --no-restore --filter "FullyQualifiedName~BrokerUdpDatagramHandler_Contract_ExistsAndImplementsDatagramHandler"` 실패 1.
+- Green focused: 같은 handler 계약 테스트 통과 1.
+- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --no-restore --filter "FullyQualifiedName~BrokerUdpDatagramHandlerTests"` 실패 5, 통과 1.
+- Green focused: `BrokerUdpDatagramHandlerTests` 통과 6.
+- Broker 전체: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --no-restore` 통과 30.
 - `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 123, 실패 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 129, 실패 0.
 - `git diff --check`
 
 ## 이번 작업에서 건드리지 않은 범위
@@ -285,8 +287,8 @@ D060의 UDP datagram self-command 정책에 따라 `SUBSCRIBE`, `UNSUBSCRIBE`, `
 - Markdown report, report history, CI gate
 - 백프레셔 기본 정책 정합성 결정
 - stable subscriber identity 구현
-- UDP broker datagram handler 구현
 - UDP broker server bind wiring 구현
+- UDP broker 실제 socket loopback 통합 테스트
 - UDP stale remote idle expiry 구현
 - protocol error 응답
 

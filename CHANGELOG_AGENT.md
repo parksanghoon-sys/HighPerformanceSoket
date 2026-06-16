@@ -1,5 +1,38 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-17 (Codex - UDP broker datagram handler)
+
+### 작업 단위
+- D060 UDP datagram self-command 정책을 Broker handler 로 연결했다.
+- 범위는 `Hps.Broker`, Broker tests, root state docs 로 제한했다.
+- `BrokerServer` UDP bind wiring, 실제 UDP socket loopback 통합 테스트, idle expiry 는 다음 단위로 분리했다.
+
+### Red
+- `BrokerUdpDatagramHandler_Contract_ExistsAndImplementsDatagramHandler`가 handler 타입 부재로 실패했다.
+- `BrokerUdpDatagramHandlerTests`의 subscribe, unsubscribe, publish, malformed drop, endpoint close cleanup 테스트 5개가 빈 handler 에서 실패했다.
+
+### Green
+- `BrokerUdpDatagramHandler`를 추가해 `ITransportDatagramHandler`를 구현했다.
+- UDP `SUBSCRIBE`/`UNSUBSCRIBE` datagram 은 `(IUdpEndpoint, remote EndPoint)` runtime target 을 routing table 에 추가/제거한다.
+- UDP `PUBLISH` datagram 은 command prefix 뒤 payload range 만 `BrokerPublisher`로 넘겨 추가 복사 없이 fan-out 한다.
+- malformed UDP command 는 endpoint 를 닫지 않고 datagram 만 release/drop 한다.
+- `SubscriptionTable.UnsubscribeAll(IUdpEndpoint)`를 추가해 endpoint close notification 때 해당 local UDP endpoint 의 모든 remote 구독을 제거한다.
+
+### 상태 갱신
+- `TODOS.md`에서 UDP broker datagram handler 항목을 Completed 로 이동했다.
+- 다음 후보를 `BrokerServer` UDP bind wiring 으로 올렸다.
+- `CURRENT_PLAN.md`의 이번 검증 경로와 다음 실행 지점을 갱신했다.
+
+### 검증
+- Red focused 실패 1.
+- Green focused 통과 1.
+- Behavior Red focused 실패 5, 통과 1.
+- Handler focused Green 통과 6.
+- Broker 전체 테스트 통과 30.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 129, 실패 0.
+- `git diff --check` 통과, whitespace 오류 없음.
+
 ## 2026-06-17 (Codex - UNSUBSCRIBE command grammar)
 
 ### 작업 단위

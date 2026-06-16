@@ -10,10 +10,13 @@ namespace Hps.Broker.Tests
             LocalEndPoint = localEndPoint;
         }
 
+        internal int CloseCallCount { get; private set; }
+
         public EndPoint LocalEndPoint { get; }
 
         public void Close()
         {
+            CloseCallCount++;
         }
 
         public void Dispose()

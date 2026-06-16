@@ -102,6 +102,29 @@ namespace Hps.Broker
         }
 
         /// <summary>
+        /// 지정 UDP endpoint 에 묶인 모든 remote 구독을 모든 topic set 에서 제거하고 실제 제거된 구독 수를 반환한다.
+        ///
+        /// UDP endpoint 는 여러 remote sender 를 공유할 수 있으므로 endpoint close 시점에는 remote endpoint 를 특정할 수 없다.
+        /// 따라서 같은 local endpoint handle 을 가진 UDP 구독자를 모두 제거해 닫힌 socket 으로 fan-out 이 계속 시도되지 않게 한다.
+        /// D008 NoCleanup 정책에 따라 topic entry 자체는 제거하지 않는다.
+        /// </summary>
+        public int UnsubscribeAll(IUdpEndpoint endpoint)
+        {
+            ValidateUdpEndpoint(endpoint);
+
+            int removed = 0;
+
+            // Endpoint close cleanup 은 hot publish 경로가 아니므로 전체 topic 을 순회한다.
+            // ConcurrentDictionary 열거는 mutation 과 동시에 안전하며, 각 topic set 내부 제거도 TryRemove 로 처리한다.
+            foreach (KeyValuePair<string, TopicSubscriptions> pair in _topics)
+            {
+                removed += pair.Value.RemoveUdpEndpoint(endpoint);
+            }
+
+            return removed;
+        }
+
+        /// <summary>
         /// 지정 TCP connection 이 topic 에 현재 구독되어 있는지 확인한다.
         /// </summary>
         public bool IsSubscribed(string topic, IConnection connection)
@@ -195,6 +218,12 @@ namespace Hps.Broker
                 throw new ArgumentNullException(nameof(connection));
         }
 
+        private static void ValidateUdpEndpoint(IUdpEndpoint endpoint)
+        {
+            if (endpoint == null)
+                throw new ArgumentNullException(nameof(endpoint));
+        }
+
         private static void ValidateSubscriber(BrokerSubscriber subscriber)
         {
             if (!subscriber.IsValid)
@@ -221,6 +250,26 @@ namespace Hps.Broker
             {
                 byte ignored;
                 return _subscribers.TryRemove(subscriber, out ignored);
+            }
+
+            internal int RemoveUdpEndpoint(IUdpEndpoint endpoint)
+            {
+                int removed = 0;
+
+                // 같은 local UDP endpoint 에 여러 remote 가 구독되어 있을 수 있으므로 remote 값을 모르는 close cleanup 에서는
+                // endpoint reference 가 같은 모든 UDP subscriber 를 제거한다. TCP subscriber 는 같은 topic 에 있어도 건드리지 않는다.
+                foreach (KeyValuePair<BrokerSubscriber, byte> pair in _subscribers)
+                {
+                    BrokerSubscriber subscriber = pair.Key;
+                    if (subscriber.TransportKind == EndpointTransportKind.Udp
+                        && object.ReferenceEquals(subscriber.UdpEndpoint, endpoint)
+                        && Remove(subscriber))
+                    {
+                        removed++;
+                    }
+                }
+
+                return removed;
             }
 
             internal bool Contains(BrokerSubscriber subscriber)
