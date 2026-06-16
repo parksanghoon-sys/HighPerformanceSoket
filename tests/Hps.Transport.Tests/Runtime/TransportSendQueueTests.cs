@@ -399,12 +399,12 @@ namespace Hps.Transport.Tests
         {
             public override ValueTask<IConnectionListener> ListenTcpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
             {
-                throw new NotImplementedException();
+                throw new NotSupportedException("송신 큐 단위 테스트용 transport 는 TCP listener 를 열지 않는다.");
             }
 
             public override ValueTask<IConnection> ConnectTcpAsync(EndPoint remoteEndPoint, CancellationToken cancellationToken = default)
             {
-                throw new NotImplementedException();
+                throw new NotSupportedException("송신 큐 단위 테스트용 transport 는 TCP connect 를 수행하지 않는다.");
             }
 
             public override ValueTask StartAsync(CancellationToken cancellationToken = default)
