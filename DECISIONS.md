@@ -1,5 +1,19 @@
 # DECISIONS.md
 
+## D055 — Benchmark report high-watermark 필드는 schema-version 1의 additive field 로 유지한다
+
+- 날짜: 2026-06-16
+- 상태: Accepted
+- 결정: `tcp-pending-send-queue-high-watermark`와 `udp-pending-send-queue-high-watermark`는 D052의 benchmark report schema 에
+  additive field 로 추가하고, `schema-version`은 1로 유지한다. 이 두 필드는 기존 key 의 의미를 바꾸지 않고, 기존 runner 공통 결과에
+  send-side 관측값을 덧붙이는 확장이다. 세 runner 는 계속 같은 key 집합을 항상 출력한다.
+- 근거: 현재 report consumer 는 repo 안에 버전 분기 로직을 요구하지 않으며, high-watermark 필드는 누락 시 기존 결과 해석을 깨는
+  breaking change 가 아니다. version 을 올리면 실제 호환성 단절이 없는데도 비교 도구가 불필요하게 schema 를 나눌 수 있다.
+  반대로 D052의 key 목록을 최신화하지 않으면 report writer 와 결정 문서가 어긋나므로 field 목록은 즉시 보강한다.
+- 영향: 이후 field 삭제, 타입 변경, 기존 key 의미 변경, pass/fail gate 의미 변경처럼 consumer 호환성을 깨는 변경이 생길 때만
+  `schema-version`을 올린다. last-drop scope 나 endpoint 별 queue depth 처럼 새 진단값을 추가하는 경우도 additive 이면 version 1을
+  유지할 수 있지만, 해당 단위에서 다시 판단한다.
+
 ## D054 — Endpoint identity 최소 계약은 Transport abstraction 의 값 snapshot 으로 시작한다
 
 - 날짜: 2026-06-16
@@ -44,8 +58,9 @@
   기존 파일은 덮어쓰고, 상위 디렉터리가 없으면 생성한다. `--report` 단독 사용, `--target --report`, path 누락은 usage error 로 처리한다.
   세 runner 는 모두 같은 key 집합을 항상 출력한다. schema 는 `schema-version: 1`, `result-name`, `passed`, `scenario`,
   `payload-bytes`, `target-rate-hz`, `target-duration-seconds`, `planned-message-count`, `sent`, `received`, `dropped`,
-  `payload-errors`, `pool-rented`, `actual-rate-hz`, `p50-latency-us`, `p99-latency-us`, `first-half-p99-latency-us`,
-  `second-half-p99-latency-us`, `p99-latency-growth-ratio`, `elapsed-ms`를 포함한다.
+  `tcp-pending-send-queue-high-watermark`, `udp-pending-send-queue-high-watermark`, `payload-errors`, `pool-rented`,
+  `actual-rate-hz`, `p50-latency-us`, `p99-latency-us`, `first-half-p99-latency-us`, `second-half-p99-latency-us`,
+  `p99-latency-growth-ratio`, `elapsed-ms`를 포함한다.
 - 근거: 세 runner 는 이미 같은 `TcpLoopbackRunResult`를 반환하므로 Transport/Broker public 계약을 넓히지 않고도 같은 결과 schema 를 만들 수 있다.
   stdout 은 사람이 보는 즉시 요약으로 유지하고, JSON report 는 리뷰와 추세 비교를 위한 파일 산출물로 둔다.
   latency 값은 아직 환경별 SLO 가 확정되지 않았으므로 report 에 관측값으로만 남기고 pass/fail gate 로 승격하지 않는다.

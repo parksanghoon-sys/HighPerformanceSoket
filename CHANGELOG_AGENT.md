@@ -1,5 +1,24 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — high-watermark 리뷰 후속 문서 정합성)
+
+### 작업 단위
+- `.claude/review/2026-06-16-send-queue-high-watermark-impl.md`의 비차단 후속 2건을 상태 문서에 반영했다.
+- 범위는 `TODOS.md`, `DECISIONS.md`, `CHANGELOG_AGENT.md`, `CURRENT_PLAN.md` 문서에 한정했다.
+- 코드, public API, benchmark runner, 테스트 코드는 변경하지 않았다.
+
+### 반영 내용
+- `TODOS.md`에 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정하는 `P2_LATER` 항목을 추가했다.
+- `DECISIONS.md`에 D055를 추가해 high-watermark report field 는 additive field 이므로 `schema-version: 1`을 유지한다고 기록했다.
+- D052의 benchmark JSON schema key 목록에 `tcp-pending-send-queue-high-watermark`와 `udp-pending-send-queue-high-watermark`를 추가해
+  실제 `TcpLoopbackReportWriter` 출력과 결정 문서를 맞췄다.
+
+### 검증
+- `rg -n "D055|last drop|마지막 drop|tcp-pending-send-queue-high-watermark|udp-pending-send-queue-high-watermark|schema-version" CURRENT_PLAN.md TODOS.md DECISIONS.md CHANGELOG_AGENT.md tests/Hps.Benchmarks`
+  로 문서와 writer의 연결을 확인한다.
+- 문서 전용 변경이므로 `dotnet build`/`dotnet test`는 실행하지 않는다.
+- `git diff --check`로 whitespace 오류를 확인한다.
+
 ## 2026-06-16 (Codex — EndpointId/snapshot 최소 계약)
 
 ### 작업 단위

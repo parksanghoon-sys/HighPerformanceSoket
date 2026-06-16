@@ -221,6 +221,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   Transport 수명 기준 TCP/UDP kind 별 max pending depth 를 기록하며, capacity 16에서 포화되므로 drop count 와 함께 해석한다.
 - EndpointId 와 endpoint snapshot 최소 public 계약이 `Hps.Transport` abstraction 에 추가됐다.
   아직 TCP/UDP runtime lifecycle 에 발급/등록/수집을 연결하지 않았으므로 실제 endpoint 목록 snapshot 은 후속 단위로 남아 있다.
+- high-watermark 구현 리뷰의 비차단 후속 2건을 상태 문서에 반영했다.
+  마지막 drop 발생 범위는 EndpointId runtime wiring 뒤 판단할 `P2_LATER` backlog 로 남겼고,
+  report high-watermark field 는 additive field 이므로 `schema-version: 1`을 유지한다고 D055로 기록했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
@@ -232,10 +235,7 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 Phase 4 latency SLO gate 는 endpoint/send-side 관측값을 확보한 뒤 판단한다.
 
 ## 이번 단위의 검증 경로
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-restore --filter "FullyQualifiedName~EndpointSnapshot_Contract"`
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-restore`
-- `dotnet build HighPerformanceSocket.slnx --no-restore`
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`
+- `rg -n "D055|last drop|마지막 drop|tcp-pending-send-queue-high-watermark|udp-pending-send-queue-high-watermark|schema-version" CURRENT_PLAN.md TODOS.md DECISIONS.md CHANGELOG_AGENT.md tests/Hps.Benchmarks`
 - `git diff --check`
 
 ## 이번 작업에서 건드리지 않은 범위
