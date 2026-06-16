@@ -87,31 +87,36 @@ namespace Hps.Benchmarks
             if (string.Equals(commandArg, "--help", StringComparison.OrdinalIgnoreCase))
             {
                 command = BenchmarkCommand.Help;
-                return ValidateNoReportOption(args, out errorMessage);
+                ValidateNoReportOption(args, out errorMessage);
+                return true;
             }
 
             if (string.Equals(commandArg, "--target", StringComparison.OrdinalIgnoreCase))
             {
                 command = BenchmarkCommand.Target;
-                return ValidateNoReportOption(args, out errorMessage);
+                ValidateNoReportOption(args, out errorMessage);
+                return true;
             }
 
             if (string.Equals(commandArg, "--smoke", StringComparison.OrdinalIgnoreCase))
             {
                 command = BenchmarkCommand.Smoke;
-                return TryParseOptionalReport(args, out reportPath, out errorMessage);
+                ParseOptionalReport(args, out reportPath, out errorMessage);
+                return true;
             }
 
             if (string.Equals(commandArg, "--load", StringComparison.OrdinalIgnoreCase))
             {
                 command = BenchmarkCommand.Load;
-                return TryParseOptionalReport(args, out reportPath, out errorMessage);
+                ParseOptionalReport(args, out reportPath, out errorMessage);
+                return true;
             }
 
             if (string.Equals(commandArg, "--load-open-loop", StringComparison.OrdinalIgnoreCase))
             {
                 command = BenchmarkCommand.LoadOpenLoop;
-                return TryParseOptionalReport(args, out reportPath, out errorMessage);
+                ParseOptionalReport(args, out reportPath, out errorMessage);
+                return true;
             }
 
             if (ContainsReportOption(args))
@@ -123,43 +128,40 @@ namespace Hps.Benchmarks
             return false;
         }
 
-        private static bool TryParseOptionalReport(string[] args, out string? reportPath, out string? errorMessage)
+        private static void ParseOptionalReport(string[] args, out string? reportPath, out string? errorMessage)
         {
             reportPath = null;
             errorMessage = null;
 
             if (args.Length == 1)
-                return true;
+                return;
 
             if (args.Length != 3 || !string.Equals(args[1], "--report", StringComparison.OrdinalIgnoreCase))
             {
                 errorMessage = MessageUnknownRunnerArgs;
-                return true;
+                return;
             }
 
             if (string.IsNullOrWhiteSpace(args[2]))
             {
                 errorMessage = MessageReportPathRequired;
-                return true;
+                return;
             }
 
             reportPath = args[2];
-            return true;
         }
 
-        private static bool ValidateNoReportOption(string[] args, out string? errorMessage)
+        private static void ValidateNoReportOption(string[] args, out string? errorMessage)
         {
             errorMessage = null;
 
             if (args.Length == 1)
-                return true;
+                return;
 
             if (ContainsReportOption(args))
                 errorMessage = MessageReportExecutionOnly;
             else
                 errorMessage = MessageUnknownRunnerArgs;
-
-            return true;
         }
 
         private static bool ContainsReportOption(string[] args)
