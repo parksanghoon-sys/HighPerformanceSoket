@@ -1,5 +1,22 @@
 # DECISIONS.md
 
+## D052 — Phase 4 benchmark report 는 공통 JSON schema 로 저장한다
+
+- 날짜: 2026-06-16
+- 상태: Accepted
+- 결정: `tests/Hps.Benchmarks`의 `--smoke`, `--load`, `--load-open-loop` 명령은 선택적 `--report <path>` 옵션을 받는다.
+  report 는 `System.Text.Json.Utf8JsonWriter`로 명시 필드를 쓰는 JSON 파일이며, 신규 NuGet 의존성은 추가하지 않는다.
+  기존 파일은 덮어쓰고, 상위 디렉터리가 없으면 생성한다. `--report` 단독 사용, `--target --report`, path 누락은 usage error 로 처리한다.
+  세 runner 는 모두 같은 key 집합을 항상 출력한다. schema 는 `schema-version: 1`, `result-name`, `passed`, `scenario`,
+  `payload-bytes`, `target-rate-hz`, `target-duration-seconds`, `planned-message-count`, `sent`, `received`, `dropped`,
+  `payload-errors`, `pool-rented`, `actual-rate-hz`, `p50-latency-us`, `p99-latency-us`, `first-half-p99-latency-us`,
+  `second-half-p99-latency-us`, `p99-latency-growth-ratio`, `elapsed-ms`를 포함한다.
+- 근거: 세 runner 는 이미 같은 `TcpLoopbackRunResult`를 반환하므로 Transport/Broker public 계약을 넓히지 않고도 같은 결과 schema 를 만들 수 있다.
+  stdout 은 사람이 보는 즉시 요약으로 유지하고, JSON report 는 리뷰와 추세 비교를 위한 파일 산출물로 둔다.
+  latency 값은 아직 환경별 SLO 가 확정되지 않았으므로 report 에 관측값으로만 남기고 pass/fail gate 로 승격하지 않는다.
+- 영향: Phase 4 결과는 수동 실행이나 CI에서 같은 JSON schema 로 보존할 수 있다. latency SLO threshold, Markdown report,
+  report history 관리, queue depth diagnostics 는 별도 작업 단위에서 결정한다.
+
 ## D051 — Phase 4 closed-loop load 와 open-loop backpressure benchmark 를 분리한다
 
 - 날짜: 2026-06-15

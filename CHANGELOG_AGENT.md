@@ -1,5 +1,47 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — Phase 4 benchmark JSON report)
+
+### 작업 단위
+- Phase 4 benchmark runner 결과를 JSON report 파일로 저장하는 경로를 추가했다.
+- 범위는 `tests/Hps.Benchmarks`의 CLI parser, `TcpLoopbackReportWriter`, 상태 문서 갱신으로 제한했다.
+- latency SLO gate, queue depth diagnostics, Markdown report, report history, CI gate 는 포함하지 않았다.
+
+### Red
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --smoke --report $env:TEMP\hps-benchmark-red-report.json`를 먼저 실행했다.
+- 기존 구현은 `Program.Main`의 runner 분기가 모두 `args.Length == 1`에 묶여 있어 `--smoke --report <path>`가 smoke runner 로 라우팅되지 않았다.
+- BenchmarkDotNet fallback 이 `smoke`와 `report`를 unknown option 으로 출력했고, report 파일은 생성되지 않았다.
+
+### 구현
+- `Program`의 known benchmark runner parser 를 다중 인자 옵션 구조로 확장했다.
+- `--smoke`, `--load`, `--load-open-loop`에 선택적 `--report <path>`를 추가했다.
+- `--report` 단독 사용, `--target --report`, path 누락은 usage error 로 처리한다.
+- `TcpLoopbackReportWriter`를 추가해 `TcpLoopbackRunResult`의 공통 계측값을 `schema-version: 1` JSON 파일로 저장한다.
+- report writer 는 기존 파일을 덮어쓰고 상위 디렉터리가 없으면 생성한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D052로 benchmark report JSON schema 와 파일 동작을 기록했다.
+- `TODOS.md`에서 report persistence 를 Completed 로 이동하고, latency SLO gate 판단만 P1 후속으로 남겼다.
+- `CURRENT_PLAN.md`의 다음 후보에서 report persistence 를 제거했다.
+
+### 검증
+- Red: `--smoke --report`는 기존 구현에서 BenchmarkDotNet unknown option 으로 흘러가 report 를 생성하지 않았다.
+- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore` → 경고 0, 오류 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --smoke --report $env:TEMP\hps-benchmark-smoke-report.json` →
+  `smoke-result: pass`, report JSON 생성, schema key 확인.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load --report $env:TEMP\hps-benchmark-load-report.json` →
+  `load-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load-open-loop --report $env:TEMP\hps-benchmark-open-loop-report.json` →
+  `open-loop-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --target` → 기존 target 출력 유지.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --report $env:TEMP\hps-benchmark-invalid-report.json` →
+  usage error 와 non-zero 종료 확인.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` → `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 37 + `Hps.Protocol.Tests` 통과 28 + `Hps.Broker.Tests` 통과 18 +
+  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
 ## 2026-06-16 (Codex — Phase 4 open-loop TCP load benchmark)
 
 ### 작업 단위

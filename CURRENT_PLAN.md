@@ -220,29 +220,30 @@ Phase 4 — 벤치마크 하니스와 SAEA 기준선 수치 기록.
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가해 가장 작은 다음 단위를 선택한다.
-현재 실행 가능한 큰 후보는 Phase 4 benchmark report persistence/latency SLO gate, queue depth diagnostics 확장 여부,
-백프레셔 기본 정책 정합성 결정, UDP broker v1 범위 결정이다.
+현재 실행 가능한 큰 후보는 Phase 4 latency SLO gate 여부, queue depth diagnostics 확장 여부,
+백프레셔 기본 정책 정합성 결정, UDP broker v1 범위 결정이다. benchmark report persistence 는 D052와 이번 단위에서 완료했다.
 
 ## 이번 단위의 검증 경로
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --load-open-loop` 출력 검증 — Red:
-  기존 구현은 BenchmarkDotNet 이 `--load-open-loop`를 unknown option 으로 처리했고 `open-loop-result:`를 출력하지 않았다.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --smoke --report $env:TEMP\hps-benchmark-red-report.json` — Red:
+  기존 구현은 `Program.Main`의 runner 분기가 모두 `args.Length == 1`에 묶여 있어 `--smoke --report <path>`가 smoke runner 로
+  라우팅되지 않았다. BenchmarkDotNet fallback 이 `smoke`/`report` unknown option 을 출력했고 report 파일도 생성되지 않았다.
 - `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore`
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load-open-loop`
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load`
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --smoke`
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --smoke --report $env:TEMP\hps-benchmark-smoke-report.json`
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load --report $env:TEMP\hps-benchmark-load-report.json`
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load-open-loop --report $env:TEMP\hps-benchmark-open-loop-report.json`
 - `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --target`
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --report $env:TEMP\hps-benchmark-invalid-report.json`
 - `dotnet build HighPerformanceSocket.slnx --no-restore`
 - `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`
 - `git diff --check`
-- 결과: 구현 뒤 focused open-loop 는 `open-loop-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0,
-  pool-rented 0, actual-rate-hz 99.9, p50 221.6us, p99 867.6us, first-half p99 873.3us,
-  second-half p99 850.3us, p99 growth ratio 0.97을 출력했다. closed-loop `--load`는 `load-result: pass`,
-  planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0으로 통과했다. `--smoke`는
-  `smoke-result: pass`, sent 8, received 8, dropped 0, payload-errors 0, pool-rented 0으로 통과했다.
-  `--target`은 closed-loop/open-loop 명령과 payload-errors gate 를 출력한다. solution build 는 경고 0, 오류 0으로 통과했다.
-  솔루션 전체 테스트는 `Hps.Buffers.Tests` 통과 18, `Hps.Transport.Tests` 통과 37, `Hps.Protocol.Tests` 통과 28,
-  `Hps.Broker.Tests` 통과 18, `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0으로 통과했다.
-  `git diff --check`는 whitespace 오류 없이 통과했고 Git의 LF→CRLF 안내 경고만 출력됐다.
+- 결과: 구현 뒤 `--smoke --report`는 `smoke-result: pass`와 JSON report 를 생성했고, report 는
+  `schema-version`, `result-name`, `passed`, count/drop/payload-error/pool/latency key 를 포함했다.
+  `--load --report`는 `load-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0으로 통과했다.
+  `--load-open-loop --report`는 `open-loop-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0,
+  p99 growth ratio 1.01로 통과했다. `--target`은 기존 목표 출력을 유지했고, `--report` 단독 사용은 usage error 로 non-zero 종료했다.
+  solution build 는 경고 0, 오류 0으로 통과했다. 솔루션 전체 테스트는 `Hps.Buffers.Tests` 통과 18,
+  `Hps.Transport.Tests` 통과 37, `Hps.Protocol.Tests` 통과 28, `Hps.Broker.Tests` 통과 18, `Hps.Server.Tests` 통과 5,
+  실패 0, 건너뜀 0으로 통과했다. `git diff --check`는 whitespace 오류 없이 통과했고 Git의 LF→CRLF 안내 경고만 출력됐다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
@@ -253,8 +254,8 @@ Phase 4 — 벤치마크 하니스와 SAEA 기준선 수치 기록.
 - 다중 메시지 fan-out 순서/부하 통합 테스트
 - `TransportFactory.CreateDefault()`를 직접 사용하는 server factory/convenience API
 - 샘플 기반 수동 fan-out 확인
-- benchmark summary 파일 저장
 - p50/p99 latency 합격선 확정 및 실패 gate
+- Markdown report, report history, CI gate
 - queue depth public diagnostics 와 send backlog 직접 관측
 - 백프레셔 기본 정책 정합성 결정
 - UDP broker v1 범위 결정
