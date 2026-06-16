@@ -15,7 +15,7 @@ namespace Hps.Transport
     /// 이름은 SAEA 기준선을 나타내지만, 현재 구현은 TCP listen/connect/accept 와 최소 send/receive chunk 전달만 다룬다.
     /// 명시적인 SocketAsyncEventArgs 기반 최적화와 프레이밍은 후속 단위에서 붙인다.
     /// </summary>
-    public sealed class SaeaTransport : TransportBase
+    public sealed class SaeaTransport : TransportBase, ITransportEndpointDiagnostics
     {
         private const int ListenBacklog = 512;
         private const int ReceiveBlockSize = 8192;
@@ -164,6 +164,36 @@ namespace Hps.Transport
         }
 
         /// <inheritdoc />
+        public EndpointSnapshot[] GetEndpointSnapshots()
+        {
+            TransportConnection[] connections;
+            SaeaUdpEndpoint[] udpEndpoints;
+
+            lock (_gate)
+            {
+                connections = _connections.ToArray();
+                udpEndpoints = _udpEndpoints.ToArray();
+            }
+
+            EndpointSnapshot[] snapshots = new EndpointSnapshot[connections.Length + udpEndpoints.Length];
+            int snapshotIndex = 0;
+
+            for (int index = 0; index < connections.Length; index++)
+            {
+                snapshots[snapshotIndex] = connections[index].CreateSnapshot(EndpointTransportKind.Tcp);
+                snapshotIndex++;
+            }
+
+            for (int index = 0; index < udpEndpoints.Length; index++)
+            {
+                snapshots[snapshotIndex] = udpEndpoints[index].CreateSnapshot();
+                snapshotIndex++;
+            }
+
+            return snapshots;
+        }
+
+        /// <inheritdoc />
         public override ValueTask StopAsync(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -205,6 +235,7 @@ namespace Hps.Transport
         private TransportConnection CreateSocketConnection(Socket socket)
         {
             TransportConnection connection = new TransportConnection(
+                CreateEndpointId(),
                 socket,
                 UnregisterConnection,
                 RecordTcpPendingSendDrop,

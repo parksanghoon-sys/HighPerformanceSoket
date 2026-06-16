@@ -23,8 +23,10 @@ namespace Hps.Transport
         private readonly object _sendGate;
         private readonly Queue<UdpSendRequest> _pendingSends;
         private readonly SemaphoreSlim _sendSignal;
+        private readonly EndpointId _endpointId;
         private readonly int _pendingSendCapacity;
         private long _droppedPendingSendCount;
+        private int _pendingSendQueueHighWatermark;
         private int _closed;
 
         internal SaeaUdpEndpoint(SaeaTransport transport, Socket socket)
@@ -35,6 +37,7 @@ namespace Hps.Transport
             _sendGate = new object();
             _pendingSends = new Queue<UdpSendRequest>();
             _sendSignal = new SemaphoreSlim(0);
+            _endpointId = transport.CreateEndpointId();
             _pendingSendCapacity = DefaultPendingSendCapacity;
         }
 
@@ -86,6 +89,8 @@ namespace Hps.Transport
 
                 _pendingSends.Enqueue(new UdpSendRequest(remoteEndPoint, sendBuffer));
                 pendingDepthAfterEnqueue = _pendingSends.Count;
+                if (pendingDepthAfterEnqueue > _pendingSendQueueHighWatermark)
+                    _pendingSendQueueHighWatermark = pendingDepthAfterEnqueue;
             }
 
             // drop-oldest 는 queue mutation 을 _sendGate 안에서 끝낸 뒤, 실제 ref 반환만 lock 밖에서 수행한다.
@@ -125,6 +130,32 @@ namespace Hps.Transport
         internal Task WaitForSendSignalAsync()
         {
             return _sendSignal.WaitAsync();
+        }
+
+        /// <summary>
+        /// bind 된 UDP endpoint 의 현재 send queue 상태를 logical endpoint snapshot 으로 만든다.
+        /// UDP socket 참조나 remote endpoint 목록은 포함하지 않고, 운영자가 endpoint 단위 backlog/drop 상태만 읽게 한다.
+        /// </summary>
+        internal EndpointSnapshot CreateSnapshot()
+        {
+            int pendingSendCount;
+            int pendingSendQueueHighWatermark;
+            EndpointState state;
+
+            lock (_sendGate)
+            {
+                pendingSendCount = _pendingSends.Count;
+                pendingSendQueueHighWatermark = _pendingSendQueueHighWatermark;
+                state = IsClosed ? EndpointState.Closed : EndpointState.Open;
+            }
+
+            return new EndpointSnapshot(
+                _endpointId,
+                EndpointTransportKind.Udp,
+                state,
+                pendingSendCount,
+                pendingSendQueueHighWatermark,
+                ReadDroppedPendingSendCount());
         }
 
         /// <inheritdoc />

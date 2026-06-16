@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Hps.Buffers;
@@ -372,6 +373,60 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // TCP endpoint snapshot 테스트: transport-wide HWM 과 별개로 각 connection snapshot 도 현재 pending depth,
+        // connection 수명 high-watermark, drop count, close 상태를 담아야 endpoint 단위 병목을 추적할 수 있다.
+        [Fact]
+        public void CreateSnapshot_WhenTcpConnectionQueueChanges_ReportsEndpointSendDiagnostics()
+        {
+            const int Capacity = 16;
+            const int SendCount = Capacity + 2;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer[] buffers = RentNumberedBuffers(pool, SendCount);
+            TestTransport transport = new TestTransport();
+            TransportConnection connection = transport.CreateConnection();
+            bool publisherRefsReleased = false;
+
+            try
+            {
+                for (int index = 0; index < buffers.Length; index++)
+                {
+                    buffers[index].AddRef();
+                    Assert.True(transport.TrySend(connection, new TransportSendBuffer(buffers[index], 0, buffers[index].Length)));
+                }
+
+                EndpointSnapshot openSnapshot = CreateConnectionSnapshot(connection, EndpointTransportKind.Tcp);
+
+                Assert.Equal(EndpointTransportKind.Tcp, openSnapshot.TransportKind);
+                Assert.Equal(EndpointState.Open, openSnapshot.State);
+                Assert.True(openSnapshot.Id.Value > 0);
+                Assert.Equal(Capacity, openSnapshot.PendingSendCount);
+                Assert.Equal(Capacity, openSnapshot.PendingSendQueueHighWatermark);
+                Assert.Equal(2, openSnapshot.DroppedPendingSendCount);
+
+                ReleasePublisherRefs(buffers);
+                publisherRefsReleased = true;
+
+                connection.Close();
+
+                EndpointSnapshot closedSnapshot = CreateConnectionSnapshot(connection, EndpointTransportKind.Tcp);
+
+                Assert.Equal(openSnapshot.Id, closedSnapshot.Id);
+                Assert.Equal(EndpointState.Closed, closedSnapshot.State);
+                Assert.Equal(0, closedSnapshot.PendingSendCount);
+                Assert.Equal(Capacity, closedSnapshot.PendingSendQueueHighWatermark);
+                Assert.Equal(2, closedSnapshot.DroppedPendingSendCount);
+                Assert.Equal(0, pool.RentedCount);
+            }
+            finally
+            {
+                if (!publisherRefsReleased)
+                    ReleasePublisherRefs(buffers);
+
+                connection.Close();
+            }
+        }
+
         private static RefCountedBuffer[] RentNumberedBuffers(PinnedBlockMemoryPool pool, int count)
         {
             RefCountedBuffer[] buffers = new RefCountedBuffer[count];
@@ -393,6 +448,17 @@ namespace Hps.Transport.Tests
             {
                 buffers[index].Release();
             }
+        }
+
+        private static EndpointSnapshot CreateConnectionSnapshot(TransportConnection connection, EndpointTransportKind transportKind)
+        {
+            MethodInfo? method = typeof(TransportConnection).GetMethod(
+                "CreateSnapshot",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(method);
+
+            object? result = method!.Invoke(connection, new object[] { transportKind });
+            return Assert.IsType<EndpointSnapshot>(result);
         }
 
         private sealed class TestTransport : TransportBase

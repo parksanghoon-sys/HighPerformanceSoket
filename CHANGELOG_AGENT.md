@@ -1,5 +1,40 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — EndpointId runtime wiring 과 endpoint snapshot collection)
+
+### 작업 단위
+- EndpointId/snapshot 최소 계약을 실제 TCP/UDP endpoint lifecycle 에 연결했다.
+- 범위는 `Hps.Transport`의 선택적 diagnostics capability, TCP/UDP runtime endpoint snapshot 생성, SAEA snapshot collection,
+  관련 transport tests, root state docs 로 제한했다.
+- Broker subscription value 전환과 UDP broker 결선은 다음 독립 단위로 남겼다.
+
+### Red
+- `EndpointDiagnostics_Contract_UsesOptionalCapabilityWithoutExpandingITransport`,
+  `CreateSnapshot_WhenTcpConnectionQueueChanges_ReportsEndpointSendDiagnostics`,
+  `GetEndpointSnapshots_WhenTcpAndUdpEndpointsAreOpen_ReturnsActiveEndpointSnapshots` 테스트를 먼저 추가했다.
+- 기존 구현에서는 endpoint diagnostics capability 와 snapshot 생성 경로가 없어 assertion 실패 3건으로 Red 를 확인했다.
+
+### Green
+- `ITransportEndpointDiagnostics.GetEndpointSnapshots()`를 선택적 capability 로 추가했다.
+- `TransportBase`가 backend 수명 안에서 transient `EndpointId`를 발급하도록 했다.
+- TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`가 endpoint id, transport kind, open/closed state,
+  현재 pending send count, pending send queue high-watermark, drop count 를 `EndpointSnapshot`으로 반환한다.
+- `SaeaTransport`는 active TCP connection 과 UDP endpoint 를 tracking 목록에서 복사해 값 snapshot 배열로 반환한다.
+  닫힌 endpoint 는 기존 close/unregister 경로로 목록에서 빠진다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D056을 추가해 endpoint snapshot collection 은 기본 `ITransport`가 아니라 선택적 diagnostics capability 로 둔다고 기록했다.
+- `TODOS.md`에서 EndpointId runtime wiring 항목을 Completed 로 옮기고, Broker subscription value 의 endpoint 중심 전환을 새 `P1_SOON`으로 남겼다.
+- `CURRENT_PLAN.md`의 다음 후보를 Broker subscription value 전환 설계/구현으로 갱신했다.
+
+### 검증
+- Red: focused 3개 테스트가 기존 구현에서 assertion 실패 3건으로 실패했다.
+- Green: 같은 focused 테스트 통과 3.
+- Transport 전체: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-restore` 통과 43, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 112, 실패 0, 건너뜀 0.
+- `git diff --check` whitespace 오류 없음. Windows 줄바꿈 안내만 출력됐다.
+
 ## 2026-06-16 (Codex — high-watermark 리뷰 후속 문서 정합성)
 
 ### 작업 단위

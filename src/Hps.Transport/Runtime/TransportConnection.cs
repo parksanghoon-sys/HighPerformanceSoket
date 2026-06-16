@@ -14,53 +14,58 @@ namespace Hps.Transport
     internal sealed class TransportConnection : IConnection
     {
         private const int DefaultPendingSendCapacity = 16;
+        private static long s_nextStandaloneEndpointId;
 
         private readonly object _gate;
         private readonly Queue<TransportSendBuffer> _pendingSends;
         private readonly SemaphoreSlim _sendSignal;
+        private readonly EndpointId _endpointId;
         private readonly IDisposable? _transportResource;
         private readonly Action<TransportConnection>? _onClosed;
         private readonly Action? _onPendingSendDropped;
         private readonly Action<int>? _onPendingSendDepthObserved;
         private readonly int _pendingSendCapacity;
         private long _droppedPendingSendCount;
+        private int _pendingSendQueueHighWatermark;
         private bool _closed;
 
         internal TransportConnection()
-            : this(null)
+            : this(CreateStandaloneEndpointId(), null, null, null, null, DefaultPendingSendCapacity)
         {
         }
 
         internal TransportConnection(IDisposable? transportResource)
-            : this(transportResource, null)
+            : this(CreateStandaloneEndpointId(), transportResource, null, null, null, DefaultPendingSendCapacity)
         {
         }
 
         internal TransportConnection(IDisposable? transportResource, Action<TransportConnection>? onClosed)
-            : this(transportResource, onClosed, null)
+            : this(CreateStandaloneEndpointId(), transportResource, onClosed, null, null, DefaultPendingSendCapacity)
         {
         }
 
         internal TransportConnection(IDisposable? transportResource, Action<TransportConnection>? onClosed, Action? onPendingSendDropped)
-            : this(transportResource, onClosed, onPendingSendDropped, null, DefaultPendingSendCapacity)
+            : this(CreateStandaloneEndpointId(), transportResource, onClosed, onPendingSendDropped, null, DefaultPendingSendCapacity)
         {
         }
 
         internal TransportConnection(
+            EndpointId endpointId,
             IDisposable? transportResource,
             Action<TransportConnection>? onClosed,
             Action? onPendingSendDropped,
             Action<int>? onPendingSendDepthObserved)
-            : this(transportResource, onClosed, onPendingSendDropped, onPendingSendDepthObserved, DefaultPendingSendCapacity)
+            : this(endpointId, transportResource, onClosed, onPendingSendDropped, onPendingSendDepthObserved, DefaultPendingSendCapacity)
         {
         }
 
         internal TransportConnection(IDisposable? transportResource, Action<TransportConnection>? onClosed, int pendingSendCapacity)
-            : this(transportResource, onClosed, null, null, pendingSendCapacity)
+            : this(CreateStandaloneEndpointId(), transportResource, onClosed, null, null, pendingSendCapacity)
         {
         }
 
         internal TransportConnection(
+            EndpointId endpointId,
             IDisposable? transportResource,
             Action<TransportConnection>? onClosed,
             Action? onPendingSendDropped,
@@ -73,11 +78,20 @@ namespace Hps.Transport
             _gate = new object();
             _pendingSends = new Queue<TransportSendBuffer>();
             _sendSignal = new SemaphoreSlim(0);
+            _endpointId = endpointId;
             _transportResource = transportResource;
             _onClosed = onClosed;
             _onPendingSendDropped = onPendingSendDropped;
             _onPendingSendDepthObserved = onPendingSendDepthObserved;
             _pendingSendCapacity = pendingSendCapacity;
+        }
+
+        private static EndpointId CreateStandaloneEndpointId()
+        {
+            // 정상 production 경로는 TransportBase.CreateEndpointId()를 사용한다.
+            // 이 helper 는 오래된 내부 테스트/보조 생성자 경로가 중복 id 를 만들지 않게 하는 안전장치다.
+            long value = Interlocked.Increment(ref s_nextStandaloneEndpointId);
+            return new EndpointId(value);
         }
 
         /// <summary>
@@ -124,6 +138,8 @@ namespace Hps.Transport
 
                 _pendingSends.Enqueue(sendBuffer);
                 pendingDepthAfterEnqueue = _pendingSends.Count;
+                if (pendingDepthAfterEnqueue > _pendingSendQueueHighWatermark)
+                    _pendingSendQueueHighWatermark = pendingDepthAfterEnqueue;
             }
 
             // evict 대상 선택과 큐 제거는 _gate 안에서 끝낸다. Release 는 pool 반환까지 이어질 수 있으므로
@@ -184,6 +200,32 @@ namespace Hps.Transport
                     return _closed;
                 }
             }
+        }
+
+        /// <summary>
+        /// 현재 connection 상태를 logical endpoint 값 snapshot 으로 만든다.
+        /// socket 이나 connection 객체 참조를 반환하지 않으므로 호출자가 snapshot 을 보관해도 connection 수명을 연장하지 않는다.
+        /// </summary>
+        internal EndpointSnapshot CreateSnapshot(EndpointTransportKind transportKind)
+        {
+            int pendingSendCount;
+            int pendingSendQueueHighWatermark;
+            EndpointState state;
+
+            lock (_gate)
+            {
+                pendingSendCount = _pendingSends.Count;
+                pendingSendQueueHighWatermark = _pendingSendQueueHighWatermark;
+                state = _closed ? EndpointState.Closed : EndpointState.Open;
+            }
+
+            return new EndpointSnapshot(
+                _endpointId,
+                transportKind,
+                state,
+                pendingSendCount,
+                pendingSendQueueHighWatermark,
+                ReadDroppedPendingSendCount());
         }
 
         /// <summary>

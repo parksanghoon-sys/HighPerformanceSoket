@@ -20,6 +20,7 @@ namespace Hps.Transport
         private long _udpDroppedPendingSendCount;
         private int _tcpPendingSendQueueHighWatermark;
         private int _udpPendingSendQueueHighWatermark;
+        private long _nextEndpointId;
 
         /// <summary>
         /// 새 내부 연결 상태를 만든다. 이후 listen/accept/connect 구현은 이 연결을 <see cref="IConnection"/>
@@ -27,7 +28,7 @@ namespace Hps.Transport
         /// </summary>
         internal TransportConnection CreateConnection()
         {
-            return new TransportConnection(null, null, RecordTcpPendingSendDrop, RecordTcpPendingSendDepth);
+            return new TransportConnection(CreateEndpointId(), null, null, RecordTcpPendingSendDrop, RecordTcpPendingSendDepth);
         }
 
         /// <inheritdoc />
@@ -149,6 +150,16 @@ namespace Hps.Transport
         internal void RecordUdpPendingSendDepth(int pendingDepth)
         {
             UpdateMax(ref _udpPendingSendQueueHighWatermark, pendingDepth);
+        }
+
+        /// <summary>
+        /// Transport 수명 안에서 TCP connection 과 UDP endpoint 에 공통으로 쓸 transient endpoint id 를 발급한다.
+        /// id 는 외부 subscriber 의 stable id 가 아니라 현재 process/runtime 관측용 값이므로 reconnect binding 은 후속 registry 가 맡는다.
+        /// </summary>
+        internal EndpointId CreateEndpointId()
+        {
+            long value = Interlocked.Increment(ref _nextEndpointId);
+            return new EndpointId(value);
         }
 
         /// <summary>

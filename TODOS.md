@@ -27,24 +27,26 @@
   - Phase 4 TCP loopback load runner 로 4096B×100Hz×30초 stdout gate 를 추가했다.
   - `overall-state-2026-06-15.md`의 closed-loop 한계 지적을 상태 문서와 후속 backlog 에 반영했다.
   - Phase 4 open-loop TCP load/backpressure benchmark 를 추가했다.
+  - EndpointId 를 실제 TCP/UDP endpoint lifecycle 에 연결하고 active endpoint snapshot collection API 를 추가했다.
   - 다음 후보: 사용자 검토 후 Deferred Backlog 를 다시 평가한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` EndpointId 를 실제 TCP/UDP endpoint lifecycle 에 연결하고 snapshot collection API 를 설계/구현한다.
-  - 무엇이 남았는지: `EndpointId`, `EndpointTransportKind`, `EndpointState`, `EndpointSnapshot` public 계약은 생겼지만,
-    Transport runtime 이 TCP connection/UDP endpoint 에 id 를 발급하거나 endpoint snapshot 목록을 수집하는 API 는 아직 없다.
-  - 왜 defer 되었는지: 이번 단위는 public 값 타입 계약만 고정했다. 발급/등록/수집을 붙이면 `TransportBase`, `TransportConnection`,
-    `SaeaUdpEndpoint`, diagnostics surface, Broker/Server 후속 연결까지 영향 범위가 넓어진다.
-  - objective: TCP connection 과 UDP remote endpoint 를 같은 logical endpoint 모델로 관찰하고, 이후 TCP/UDP fan-out 정책을 같은 개념으로 다룰 수 있게 한다.
-  - relevant context: `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`, `SubscriptionTable`,
-    `BrokerPublisher`, `BrokerTcpFrameHandler`, `IConnection`, `IUdpEndpoint`, `EndpointSnapshot`, `TransportBase`.
-  - 관련 파일/범위: `src/Hps.Transport/Runtime/`, `src/Hps.Transport/Saea/`, `src/Hps.Transport/Abstractions/`, 관련 테스트 프로젝트.
-  - 현재 상태: TCP broker 는 동작하지만 endpoint id 가 실제 connection/UDP endpoint lifecycle 에 연결되지 않았다.
-    선행 HWM snapshot 은 endpoint 식별 없이 TCP/UDP transport kind 별 max 만 제공하고, 새 `EndpointSnapshot`은 아직 값 계약만 존재한다.
-  - known blockers/open questions: endpoint identity 를 broker 내부 transient id 로 시작할지, 외부 subscriber 가 제공하는 stable id 를 요구할지 결정해야 한다.
-    이번 값 타입 계약은 transient/stable 정책을 강제하지 않는다.
-  - next step: Transport runtime 이 새 TCP/UDP endpoint 에 transient `EndpointId`를 발급하고 snapshot 목록을 반환하는 최소 API 를 Red 테스트로 고정한다.
+- [ ] `P1_SOON` Broker subscription value 를 TCP/UDP endpoint 중심 모델로 전환할지 설계/구현한다.
+  - 무엇이 남았는지: Transport 는 active TCP/UDP endpoint snapshot 을 값으로 노출하지만, Broker routing 은 아직 `IConnection` 중심이다.
+    UDP endpoint 가 Broker fan-out 대상으로 들어오려면 subscription value 가 connection 객체 참조만으로는 부족하다.
+  - 왜 defer 되었는지: 이번 단위는 Transport diagnostics wiring 만 닫았다. Broker subscription value 를 바꾸면 `SubscriptionTable`,
+    `BrokerPublisher`, `BrokerTcpFrameHandler`, Server 통합 테스트, 향후 UDP wire/control 정책까지 영향이 이어진다.
+  - objective: TCP connection 과 UDP endpoint 를 같은 "발행 대상" 개념으로 다루며, publish fan-out 이 endpoint identity 와 transport kind 를 기준으로
+    진단/확장될 수 있게 한다.
+  - relevant context: `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`, DECISIONS D053~D056,
+    `SubscriptionTable`, `BrokerPublisher`, `BrokerTcpFrameHandler`, `ITransportEndpointDiagnostics`, `EndpointSnapshot`.
+  - 관련 파일/범위: `src/Hps.Broker/`, `src/Hps.Protocol/`, `src/Hps.Server/`, `src/Hps.Transport/Abstractions/`, 관련 Broker/Server/Transport tests.
+  - 현재 상태: TCP broker 는 `IConnection` subscription 으로 동작하고, Transport endpoint snapshot 은 진단용으로만 존재한다.
+    UDP datagram transport 는 검증됐지만 UDP broker command/subscription 결선은 없다.
+  - known blockers/open questions: subscription value 가 runtime endpoint id 만 저장할지, 실제 send target handle 을 함께 감쌀지,
+    stable 외부 endpoint id/reconnect binding 을 v1에 요구할지, UDP command wire format 을 TCP text command 와 맞출지 결정해야 한다.
+  - next step: 먼저 TCP 동작을 깨지 않는 최소 endpoint-target value 모델을 Red 테스트로 고정하고, UDP 결선은 같은 단위에 넣을지 별도 설계로 뺄지 판단한다.
 
 - [ ] `P2_LATER` 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정한다.
   - 무엇이 남았는지: 현재 public diagnostics 와 benchmark report 는 TCP/UDP 별 누적 drop count 와 pending send queue high-watermark 를 제공하지만,
@@ -120,6 +122,23 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] EndpointId 를 실제 TCP/UDP endpoint lifecycle 에 연결하고 snapshot collection API 를 추가했다.
+  - 범위: `src/Hps.Transport/Abstractions/ITransportEndpointDiagnostics.cs`,
+    `src/Hps.Transport/Runtime/TransportBase.cs`, `src/Hps.Transport/Runtime/TransportConnection.cs`,
+    `src/Hps.Transport/Saea/SaeaTransport.cs`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,
+    `tests/Hps.Transport.Tests/Contracts/TransportContractTests.cs`, `tests/Hps.Transport.Tests/Runtime/TransportSendQueueTests.cs`,
+    `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`, root state docs.
+  - Red: endpoint diagnostics capability, TCP connection snapshot, SAEA TCP/UDP snapshot collection 테스트 3건을 먼저 추가했고
+    기존 구현에서 `Assert.NotNull` 기반 assertion 실패 3건으로 Red 를 확인했다.
+  - 구현: `ITransportEndpointDiagnostics.GetEndpointSnapshots()` 선택적 capability 를 추가하고,
+    `TransportBase`가 transient `EndpointId`를 발급하도록 했다. TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`는
+    현재 pending depth, endpoint 수명 high-watermark, drop count, open/closed 상태를 `EndpointSnapshot`으로 만든다.
+  - 구현: `SaeaTransport`는 tracking 중인 TCP connection 과 UDP endpoint 를 lock 안에서 값 배열로 복사한 뒤,
+    lock 밖에서 snapshot 을 생성한다. 닫힌 endpoint 는 기존 unregister 경로로 tracking 목록에서 제거된다.
+  - 후속: Broker subscription value 를 endpoint 중심으로 전환할지, stable endpoint id/reconnect binding 을 요구할지는 별도 `P1_SOON` 항목으로 남겼다.
+  - 검증: focused Red 실패 3, focused Green 통과 3. Transport 전체 통과 43, solution build 경고 0/오류 0,
+    solution test 통과 112/실패 0/건너뜀 0. `git diff --check` whitespace 오류 없음.
 
 - [x] EndpointId 와 endpoint snapshot 최소 public 계약을 추가했다.
   - 범위: `src/Hps.Transport/Abstractions/EndpointId.cs`, `EndpointTransportKind.cs`, `EndpointState.cs`, `EndpointSnapshot.cs`,

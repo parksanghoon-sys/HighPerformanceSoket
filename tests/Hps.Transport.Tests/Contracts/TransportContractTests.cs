@@ -352,6 +352,25 @@ namespace Hps.Transport.Tests
             AssertDoesNotExposeRawMemoryProperties(endpointSnapshotType);
         }
 
+        // Endpoint 진단 capability 계약 테스트: endpoint 목록 관측은 기본 ITransport 송수신 계약이 아니라 선택적 diagnostics 표면이어야 한다.
+        // 그래야 backend 교체와 hot path 송수신 API를 넓히지 않으면서 운영자가 active TCP/UDP endpoint snapshot 을 읽을 수 있다.
+        [Fact]
+        public void EndpointDiagnostics_Contract_UsesOptionalCapabilityWithoutExpandingITransport()
+        {
+            Type? endpointDiagnosticsType = Type.GetType("Hps.Transport.ITransportEndpointDiagnostics, Hps.Transport");
+
+            Assert.NotNull(endpointDiagnosticsType);
+
+            MethodInfo? getEndpointSnapshots = endpointDiagnosticsType!.GetMethod("GetEndpointSnapshots", Type.EmptyTypes);
+
+            Assert.NotNull(getEndpointSnapshots);
+            Assert.Equal(typeof(EndpointSnapshot[]), getEndpointSnapshots!.ReturnType);
+            Assert.True(endpointDiagnosticsType.IsAssignableFrom(typeof(SaeaTransport)));
+            Assert.Null(typeof(ITransport).GetMethod("GetEndpointSnapshots", Type.EmptyTypes));
+            AssertDoesNotExposeRawMemoryParameters(endpointDiagnosticsType);
+            AssertDoesNotExposeRawMemoryProperties(endpointDiagnosticsType);
+        }
+
         private static void AssertDoesNotExposeRawMemoryParameters(Type contractType)
         {
             Assert.DoesNotContain(contractType.GetMethods(), delegate(MethodInfo method)

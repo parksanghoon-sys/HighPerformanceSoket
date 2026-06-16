@@ -53,6 +53,65 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // endpoint snapshot collection 테스트: Interface Server 운영 표면은 Transport 가 현재 보유한 TCP/UDP endpoint 를
+        // connection 객체나 socket 참조 없이 값 snapshot 으로 읽을 수 있어야 한다. 닫힌 endpoint 는 tracking 목록에서 빠져야 한다.
+        [Fact]
+        public async Task GetEndpointSnapshots_WhenTcpAndUdpEndpointsAreOpen_ReturnsActiveEndpointSnapshots()
+        {
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                await transport.StartAsync();
+
+                IConnectionListener? listener = null;
+                IConnection? outbound = null;
+                IConnection? inbound = null;
+                IUdpEndpoint? udpEndpoint = null;
+
+                try
+                {
+                    using (CancellationTokenSource timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+                    {
+                        listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0), timeout.Token);
+                        IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(listener.LocalEndPoint);
+
+                        ValueTask<IConnection> accept = listener.AcceptAsync(timeout.Token);
+                        outbound = await transport.ConnectTcpAsync(boundEndPoint, timeout.Token);
+                        inbound = await accept;
+                        udpEndpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0), timeout.Token);
+
+                        EndpointSnapshot[] snapshots = GetEndpointSnapshots(transport);
+
+                        Assert.Equal(3, snapshots.Length);
+                        Assert.Equal(2, CountSnapshots(snapshots, EndpointTransportKind.Tcp));
+                        Assert.Equal(1, CountSnapshots(snapshots, EndpointTransportKind.Udp));
+                        AssertUniquePositiveEndpointIds(snapshots);
+
+                        for (int index = 0; index < snapshots.Length; index++)
+                        {
+                            Assert.Equal(EndpointState.Open, snapshots[index].State);
+                            Assert.Equal(0, snapshots[index].PendingSendCount);
+                            Assert.Equal(0, snapshots[index].PendingSendQueueHighWatermark);
+                            Assert.Equal(0, snapshots[index].DroppedPendingSendCount);
+                        }
+
+                        outbound.Close();
+                        inbound.Close();
+                        udpEndpoint.Close();
+
+                        Assert.Empty(GetEndpointSnapshots(transport));
+                    }
+                }
+                finally
+                {
+                    udpEndpoint?.Close();
+                    outbound?.Close();
+                    inbound?.Close();
+                    listener?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         // TCP recv pump 기준선 테스트: Transport 는 아직 프레이밍을 하지 않고 raw byte stream 조각만
         // borrowed receive buffer 로 전달해야 한다. 이 테스트는 실제 socket 에서 들어온 바이트가 handler 까지 도달하는지 고정한다.
         [Fact]
@@ -1055,6 +1114,45 @@ namespace Hps.Transport.Tests
 
             object? result = method!.Invoke(transport, new object[] { udpEndpoint });
             return Assert.IsAssignableFrom<Task>(result);
+        }
+
+        private static EndpointSnapshot[] GetEndpointSnapshots(SaeaTransport transport)
+        {
+            Type? endpointDiagnosticsType = Type.GetType("Hps.Transport.ITransportEndpointDiagnostics, Hps.Transport");
+            Assert.NotNull(endpointDiagnosticsType);
+            Assert.True(endpointDiagnosticsType!.IsAssignableFrom(typeof(SaeaTransport)));
+
+            MethodInfo? method = endpointDiagnosticsType.GetMethod("GetEndpointSnapshots", Type.EmptyTypes);
+            Assert.NotNull(method);
+
+            object? result = method!.Invoke(transport, null);
+            return Assert.IsType<EndpointSnapshot[]>(result);
+        }
+
+        private static int CountSnapshots(EndpointSnapshot[] snapshots, EndpointTransportKind transportKind)
+        {
+            int count = 0;
+
+            for (int index = 0; index < snapshots.Length; index++)
+            {
+                if (snapshots[index].TransportKind == transportKind)
+                    count++;
+            }
+
+            return count;
+        }
+
+        private static void AssertUniquePositiveEndpointIds(EndpointSnapshot[] snapshots)
+        {
+            for (int index = 0; index < snapshots.Length; index++)
+            {
+                Assert.True(snapshots[index].Id.Value > 0);
+
+                for (int compareIndex = index + 1; compareIndex < snapshots.Length; compareIndex++)
+                {
+                    Assert.NotEqual(snapshots[index].Id, snapshots[compareIndex].Id);
+                }
+            }
         }
 
         private static async Task<byte[]> ReceiveExactCoreAsync(Socket socket, int length)

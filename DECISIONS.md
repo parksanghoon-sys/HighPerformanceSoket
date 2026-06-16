@@ -1,5 +1,20 @@
 # DECISIONS.md
 
+## D056 — Endpoint snapshot collection 은 선택적 Transport diagnostics capability 로 노출한다
+
+- 날짜: 2026-06-16
+- 상태: Accepted
+- 결정: 실제 TCP/UDP endpoint lifecycle 에 발급된 transient `EndpointId`와 send queue 상태는
+  `ITransportEndpointDiagnostics.GetEndpointSnapshots()` 선택적 capability 로 읽는다. 기본 `ITransport` 계약은 넓히지 않는다.
+  SAEA 기준선은 active TCP connection 과 UDP endpoint 를 `EndpointSnapshot[]` 값 배열로 반환하며, 각 snapshot 은 id, transport kind,
+  open/closed state, 현재 pending send count, endpoint 수명 high-watermark, dropped pending send count 만 담는다.
+- 근거: Endpoint 관측은 운영/벤치마크/후속 Broker 전환에 필요하지만 hot path 송수신 API의 필수 계약이 아니다.
+  선택적 capability 로 두면 backend 가 같은 값을 제공할 수 있을 때만 좁혀서 사용하고, Transport/Broker 의 기본 송수신 경계를 흔들지 않는다.
+  snapshot 은 connection/socket handle 을 담지 않으므로 닫힌 endpoint 참조를 상위 계층이 붙잡지 않는다.
+- 영향: `TransportBase`는 backend 수명 안에서 증가하는 transient endpoint id 를 발급한다. 이 id 는 실행 중 관측용이며,
+  stable external endpoint id 나 reconnect binding 을 보장하지 않는다. Broker subscription value 의 endpoint 중심 전환과 UDP broker 결선은
+  이 capability 를 기반으로 별도 단위에서 결정한다.
+
 ## D055 — Benchmark report high-watermark 필드는 schema-version 1의 additive field 로 유지한다
 
 - 날짜: 2026-06-16
