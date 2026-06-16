@@ -29,7 +29,7 @@ namespace Hps.Protocol
             int commandSeparator = IndexOfSpace(frame);
             if (commandSeparator < 0)
             {
-                if (IsSubscribeCommand(frame) || IsPublishCommand(frame))
+                if (IsSubscribeCommand(frame) || IsUnsubscribeCommand(frame) || IsPublishCommand(frame))
                     error = TcpCommandDecodeError.MissingTopic;
                 else
                     error = TcpCommandDecodeError.UnknownCommand;
@@ -48,7 +48,10 @@ namespace Hps.Protocol
             int commandBodyOffset = commandSeparator + 1;
 
             if (IsSubscribeCommand(commandName))
-                return TryDecodeSubscribe(commandBody, out command, out error);
+                return TryDecodeTopicOnlyCommand(commandBody, TcpCommandKind.Subscribe, out command, out error);
+
+            if (IsUnsubscribeCommand(commandName))
+                return TryDecodeTopicOnlyCommand(commandBody, TcpCommandKind.Unsubscribe, out command, out error);
 
             if (IsPublishCommand(commandName))
                 return TryDecodePublish(commandBody, commandBodyOffset, out command, out error);
@@ -57,7 +60,7 @@ namespace Hps.Protocol
             return false;
         }
 
-        private static bool TryDecodeSubscribe(ReadOnlySpan<byte> commandBody, out TcpCommand command, out TcpCommandDecodeError error)
+        private static bool TryDecodeTopicOnlyCommand(ReadOnlySpan<byte> commandBody, TcpCommandKind kind, out TcpCommand command, out TcpCommandDecodeError error)
         {
             command = default(TcpCommand);
 
@@ -67,14 +70,15 @@ namespace Hps.Protocol
                 return false;
             }
 
-            // SUBSCRIBE 는 topic 하나만 받는다. 공백을 허용하면 publish 문법과 달리 topic token 경계가 모호해진다.
+            // SUBSCRIBE/UNSUBSCRIBE 는 topic 하나만 받는다.
+            // 공백을 허용하면 PUBLISH 처럼 payload 가 뒤따르는 명령과 topic token 경계가 모호해진다.
             if (IndexOfSpace(commandBody) >= 0)
             {
                 error = TcpCommandDecodeError.InvalidTopic;
                 return false;
             }
 
-            command = new TcpCommand(TcpCommandKind.Subscribe, commandBody, ReadOnlySpan<byte>.Empty);
+            command = new TcpCommand(kind, commandBody, ReadOnlySpan<byte>.Empty);
             error = TcpCommandDecodeError.None;
             return true;
         }
@@ -146,6 +150,24 @@ namespace Hps.Protocol
                 && commandName[4] == (byte)'I'
                 && commandName[5] == (byte)'S'
                 && commandName[6] == (byte)'H';
+        }
+
+        // command name 비교는 frame span 위에서 직접 수행한다.
+        // 여기서 string 으로 변환하면 모든 수신 command 마다 관리힙 할당이 생기므로 byte 비교로 고정한다.
+        private static bool IsUnsubscribeCommand(ReadOnlySpan<byte> commandName)
+        {
+            return commandName.Length == 11
+                && commandName[0] == (byte)'U'
+                && commandName[1] == (byte)'N'
+                && commandName[2] == (byte)'S'
+                && commandName[3] == (byte)'U'
+                && commandName[4] == (byte)'B'
+                && commandName[5] == (byte)'S'
+                && commandName[6] == (byte)'C'
+                && commandName[7] == (byte)'R'
+                && commandName[8] == (byte)'I'
+                && commandName[9] == (byte)'B'
+                && commandName[10] == (byte)'E';
         }
     }
 }

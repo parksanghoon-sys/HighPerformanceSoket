@@ -58,6 +58,13 @@ namespace Hps.Broker
                     return;
                 }
 
+                if (command.Kind == TcpCommandKind.Unsubscribe)
+                {
+                    string topic = DecodeTopic(command.Topic);
+                    _subscriptions.Unsubscribe(topic, connection);
+                    return;
+                }
+
                 if (command.Kind == TcpCommandKind.Publish)
                 {
                     string topic = DecodeTopic(command.Topic);

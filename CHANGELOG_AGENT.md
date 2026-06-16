@@ -1,5 +1,39 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-17 (Codex - UNSUBSCRIBE command grammar)
+
+### 작업 단위
+- D060 command set 의 누락분인 `UNSUBSCRIBE <topic>`를 protocol decoder 와 TCP broker handler 에 연결했다.
+- 범위는 `Hps.Protocol`, `BrokerTcpFrameHandler`, protocol/broker tests, root state docs 로 제한했다.
+- UDP datagram handler, server UDP bind wiring, idle expiry 는 다음 단위로 분리했다.
+
+### Red
+- `TcpCommandKind_Contract_ExposesUnsubscribeCommand`가 기존 enum 에 `Unsubscribe`가 없어 실패했다.
+- `TryDecode_WhenUnsubscribeFrameContainsTopic_ReturnsUnsubscribeCommand`가 기존 decoder 에서 unknown command 로 실패했다.
+- `OnFrame_WhenUnsubscribeCommandArrives_RemovesConnectionFromTopicAndKeepsConnectionOpen`가 기존 handler 에서 connection close 경로로 실패했다.
+
+### Green
+- `TcpCommandKind.Unsubscribe`를 추가했다.
+- `TcpCommandDecoder`의 topic-only command 검증 경로를 `SUBSCRIBE`와 `UNSUBSCRIBE`가 공유하게 했다.
+- malformed `UNSUBSCRIBE` topic 은 기존 `MissingTopic`/`InvalidTopic` error 로 보고한다.
+- `BrokerTcpFrameHandler`가 `UNSUBSCRIBE <topic>`를 `SubscriptionTable.Unsubscribe(topic, connection)`로 연결하고 connection 은 닫지 않게 했다.
+
+### 상태 갱신
+- `TODOS.md`에서 protocol command grammar 항목을 Completed 로 이동했다.
+- 다음 후보를 UDP broker datagram handler 구현으로 올렸다.
+- `CURRENT_PLAN.md`의 이번 검증 경로와 다음 실행 지점을 갱신했다.
+
+### 검증
+- Red focused 실패 1.
+- Green focused 통과 1.
+- Red unsubscribe focused 실패 2.
+- Green unsubscribe focused 통과 6.
+- Protocol 전체 테스트 통과 33.
+- Broker 전체 테스트 통과 24.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 123, 실패 0.
+- `git diff --check` 통과, whitespace 오류 없음.
+
 ## 2026-06-16 (Codex — BrokerSubscriber UDP runtime target)
 
 ### 작업 단위

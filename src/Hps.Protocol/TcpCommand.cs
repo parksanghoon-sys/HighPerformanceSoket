@@ -44,7 +44,8 @@ namespace Hps.Protocol
         public ReadOnlySpan<byte> Topic => _topic;
 
         /// <summary>
-        /// publish payload 이다. `SUBSCRIBE`에서는 빈 span 이고, `PUBLISH`에서는 topic 뒤 공백 이후의 나머지 전체이다.
+        /// publish payload 이다. `SUBSCRIBE`/`UNSUBSCRIBE` 에서는 빈 span 이고,
+        /// `PUBLISH` 에서는 topic 뒤 공백 이후의 나머지 전체이다.
         /// </summary>
         public ReadOnlySpan<byte> Payload => _payload;
 

@@ -18,6 +18,14 @@ namespace Hps.Protocol.Tests
             Assert.Equal(typeof(int), payloadOffset!.PropertyType);
         }
 
+        // UNSUBSCRIBE 는 endpoint 가 더 이상 특정 topic 을 받지 않겠다는 제어 명령이다.
+        // 먼저 enum 계약을 고정해 decoder/handler 구현이 기존 SUBSCRIBE/PUBLISH 분기만으로 남지 않게 한다.
+        [Fact]
+        public void TcpCommandKind_Contract_ExposesUnsubscribeCommand()
+        {
+            Assert.Contains("Unsubscribe", Enum.GetNames(typeof(TcpCommandKind)));
+        }
+
         // SUBSCRIBE decode 테스트: frame payload 는 ASCII command 와 topic token 만 포함한다.
         // topic 은 frame buffer 안의 span view 로 반환되어 이후 라우팅 계층이 필요한 방식으로 해석할 수 있어야 한다.
         [Fact]
@@ -33,6 +41,24 @@ namespace Hps.Protocol.Tests
             Assert.Equal(TcpCommandKind.Subscribe, command.Kind);
             Assert.Equal("alpha", AsString(command.Topic));
             Assert.True(command.Payload.IsEmpty);
+        }
+
+        // UNSUBSCRIBE decode 테스트: SUBSCRIBE 와 같은 topic-only 문법을 쓰지만 broker handler 에서는 제거 경로로 분기해야 한다.
+        // payload 가 비어 있음을 함께 확인해 fan-out payload command 로 잘못 해석되는 회귀를 막는다.
+        [Fact]
+        public void TryDecode_WhenUnsubscribeFrameContainsTopic_ReturnsUnsubscribeCommand()
+        {
+            TcpCommand command;
+            TcpCommandDecodeError error;
+
+            bool decoded = TcpCommandDecoder.TryDecode(Ascii("UNSUBSCRIBE alpha"), out command, out error);
+
+            Assert.True(decoded);
+            Assert.Equal(TcpCommandDecodeError.None, error);
+            Assert.Equal(TcpCommandKind.Unsubscribe, command.Kind);
+            Assert.Equal("alpha", AsString(command.Topic));
+            Assert.True(command.Payload.IsEmpty);
+            Assert.Equal(0, command.PayloadOffset);
         }
 
         // PUBLISH decode 테스트: payload 는 topic 뒤 공백 다음의 나머지 전체 byte 이다.
@@ -84,6 +110,9 @@ namespace Hps.Protocol.Tests
         [InlineData("UNKNOWN alpha", TcpCommandDecodeError.UnknownCommand)]
         [InlineData("SUBSCRIBE ", TcpCommandDecodeError.MissingTopic)]
         [InlineData("SUBSCRIBE alpha beta", TcpCommandDecodeError.InvalidTopic)]
+        [InlineData("UNSUBSCRIBE", TcpCommandDecodeError.MissingTopic)]
+        [InlineData("UNSUBSCRIBE ", TcpCommandDecodeError.MissingTopic)]
+        [InlineData("UNSUBSCRIBE alpha beta", TcpCommandDecodeError.InvalidTopic)]
         [InlineData("PUBLISH ", TcpCommandDecodeError.MissingTopic)]
         [InlineData("PUBLISH alpha", TcpCommandDecodeError.MissingPayloadSeparator)]
         public void TryDecode_WhenFrameIsMalformed_ReturnsFalseWithError(string frameText, TcpCommandDecodeError expectedError)

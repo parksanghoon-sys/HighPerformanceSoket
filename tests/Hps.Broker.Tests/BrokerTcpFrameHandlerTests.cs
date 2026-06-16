@@ -39,6 +39,32 @@ namespace Hps.Broker.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // UNSUBSCRIBE frame 처리 테스트: 명시적 구독 해제는 protocol error 가 아니므로 connection 을 닫지 않는다.
+        // handler 가 routing table 에서 해당 topic/connection 쌍만 제거하고 frame guard ref 를 반환하는지 확인한다.
+        [Fact]
+        public void OnFrame_WhenUnsubscribeCommandArrives_RemovesConnectionFromTopicAndKeepsConnectionOpen()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+            RefCountedBuffer frame = RentFrame(pool, "UNSUBSCRIBE alpha");
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            FakeTransport transport = new FakeTransport();
+            BrokerTcpFrameHandler handler = CreateHandler(subscriptions, transport);
+            FakeConnection connection = new FakeConnection();
+            FakeConnection survivor = new FakeConnection();
+            subscriptions.Subscribe("alpha", connection);
+            subscriptions.Subscribe("alpha", survivor);
+            subscriptions.Subscribe("beta", connection);
+
+            handler.OnFrame(connection, frame);
+
+            Assert.False(subscriptions.IsSubscribed("alpha", connection));
+            Assert.True(subscriptions.IsSubscribed("alpha", survivor));
+            Assert.True(subscriptions.IsSubscribed("beta", connection));
+            Assert.Equal(1, subscriptions.CountSubscribers("alpha"));
+            Assert.Equal(0, connection.CloseCallCount);
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         // PUBLISH frame 처리 테스트: handler 는 command prefix 전체가 담긴 RefCountedBuffer 를 새로 복사하지 않고
         // decoder 가 계산한 payload offset/length 만 BrokerPublisher 에 넘겨 구독자에게 실제 payload slice 만 송신해야 한다.
         [Fact]

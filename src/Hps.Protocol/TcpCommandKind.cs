@@ -13,6 +13,11 @@ namespace Hps.Protocol
         /// <summary>
         /// 지정 topic 으로 payload 를 발행한다.
         /// </summary>
-        Publish = 2
+        Publish = 2,
+
+        /// <summary>
+        /// 지정 topic 구독을 해제한다.
+        /// </summary>
+        Unsubscribe = 3
     }
 }
