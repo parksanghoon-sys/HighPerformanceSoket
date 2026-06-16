@@ -7,9 +7,7 @@ namespace Hps.Benchmarks
     internal static class Program
     {
         private const int SuccessExitCode = 0;
-        private const int FailedSmokeExitCode = 1;
-        private const int FailedLoadExitCode = 1;
-        private const int FailedOpenLoopExitCode = 1;
+        private const int FailedRunExitCode = 1;
         private const int UsageErrorExitCode = 2;
         private const int ReportWriteFailedExitCode = 2;
 
@@ -47,19 +45,19 @@ namespace Hps.Benchmarks
             if (command == BenchmarkCommand.Smoke)
             {
                 TcpLoopbackRunResult result = TcpLoopbackScenarioRunner.RunSmokeAsync().GetAwaiter().GetResult();
-                return CompleteRun(result, reportPath, FailedSmokeExitCode);
+                return CompleteRun(result, reportPath);
             }
 
             if (command == BenchmarkCommand.Load)
             {
                 TcpLoopbackRunResult result = TcpLoopbackScenarioRunner.RunLoadAsync().GetAwaiter().GetResult();
-                return CompleteRun(result, reportPath, FailedLoadExitCode);
+                return CompleteRun(result, reportPath);
             }
 
             if (command == BenchmarkCommand.LoadOpenLoop)
             {
                 TcpLoopbackRunResult result = TcpLoopbackScenarioRunner.RunOpenLoopAsync().GetAwaiter().GetResult();
-                return CompleteRun(result, reportPath, FailedOpenLoopExitCode);
+                return CompleteRun(result, reportPath);
             }
 
             if (command == BenchmarkCommand.Help)
@@ -175,7 +173,7 @@ namespace Hps.Benchmarks
             return false;
         }
 
-        private static int CompleteRun(TcpLoopbackRunResult result, string? reportPath, int failedRunExitCode)
+        private static int CompleteRun(TcpLoopbackRunResult result, string? reportPath)
         {
             result.Print(Console.Out);
 
@@ -192,7 +190,7 @@ namespace Hps.Benchmarks
                 }
             }
 
-            return result.Passed ? SuccessExitCode : failedRunExitCode;
+            return result.Passed ? SuccessExitCode : FailedRunExitCode;
         }
 
         private static void PrintUsage(TextWriter writer)
