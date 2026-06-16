@@ -31,35 +31,19 @@
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` TCP/UDP send queue high-watermark diagnostics 를 public snapshot 과 benchmark report 에 연결한다.
-  - 무엇이 남았는지: 현재 `--load-open-loop`는 dropped count, received count, payload-errors, p50/p99 latency trend 를 보여주지만,
-    실제 TCP/UDP pending send queue 가 어디까지 찼는지는 public diagnostics 로 볼 수 없다.
-  - 왜 defer 되었는지: Interface Server 목표상 send 쪽 병목 설명이 필요하다는 설계 판단은 끝났지만, 이번 단위는 문서화로 제한한다.
-    diagnostics surface 와 benchmark schema 변경은 Red→Green 테스트가 필요한 별도 구현 단위다.
-  - objective: `ITransportDiagnostics`/`TransportDiagnosticsSnapshot`에 TCP/UDP pending queue high-watermark 를 추가하고,
-    benchmark JSON report 가 해당 값을 항상 기록하게 한다.
-  - relevant context: `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`, DECISIONS D041/D042/D051/D052/D053,
-    `TransportConnection`, `SaeaUdpEndpoint`, `TransportBase`, `TransportDiagnosticsSnapshot`,
-    `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`.
-  - 관련 파일/범위: `src/Hps.Transport/Abstractions/TransportDiagnosticsSnapshot.cs`, `src/Hps.Transport/Runtime/TransportBase.cs`,
-    `src/Hps.Transport/Runtime/TransportConnection.cs`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,
-    `tests/Hps.Transport.Tests/`, `tests/Hps.Benchmarks/`.
-  - 현재 상태: drop-oldest evict 수는 누적 snapshot 으로 볼 수 있지만, drop 이 발생하기 전의 send queue backlog 는 볼 수 없다.
-  - known blockers/open questions: current depth 는 connection/endpoint lifetime 이후 의미가 약하므로 v1 snapshot 은 high-watermark 가 더 적합하다.
-  - next step: high-watermark 필드 부재를 Red 테스트로 먼저 고정한 뒤 TCP/UDP enqueue 경로에서 최대 pending depth 를 갱신한다.
-
 - [ ] `P1_SOON` EndpointId 와 endpoint snapshot 최소 계약을 설계/구현한다.
   - 무엇이 남았는지: 현재 broker subscription 은 `IConnection` 중심이며, Interface Server 가 요구하는 안정적인 endpoint identity,
     transport kind, endpoint state, endpoint-level diagnostics 모델이 없다.
-  - 왜 defer 되었는지: subscription value 를 바꾸면 Broker/Server/Protocol 테스트 범위가 넓어진다. send queue high-watermark 처럼
-    더 작은 관측성 단위를 먼저 구현한 뒤 진행하는 편이 리뷰 가능하다.
+  - 왜 defer 되었는지: subscription value 를 바꾸면 Broker/Server/Protocol 테스트 범위가 넓어진다. send queue high-watermark
+    구현으로 transport kind 별 backlog 관측은 확보됐으므로, 이제 다음 P1 후보로 올릴 수 있다.
   - objective: TCP connection 과 UDP remote endpoint 를 같은 logical endpoint 모델로 관찰하고, 이후 TCP/UDP fan-out 정책을 같은 개념으로 다룰 수 있게 한다.
   - relevant context: `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`, `SubscriptionTable`,
     `BrokerPublisher`, `BrokerTcpFrameHandler`, `IConnection`, `IUdpEndpoint`.
   - 관련 파일/범위: `src/Hps.Broker/`, `src/Hps.Server/`, `src/Hps.Transport/Abstractions/`, 관련 테스트 프로젝트.
   - 현재 상태: TCP broker 는 동작하지만 endpoint identity 가 없어 reconnect, UDP endpoint, endpoint별 상태 관측을 자연스럽게 표현하지 못한다.
+    선행 HWM snapshot 은 endpoint 식별 없이 TCP/UDP transport kind 별 max 만 제공한다.
   - known blockers/open questions: endpoint identity 를 broker 내부 transient id 로 시작할지, 외부 subscriber 가 제공하는 stable id 를 요구할지 결정해야 한다.
-  - next step: high-watermark 구현 후 endpoint snapshot 이 실제로 담아야 할 최소 필드를 Red 테스트로 고정한다.
+  - next step: endpoint snapshot 이 실제로 담아야 할 최소 필드를 Red 테스트로 고정한다.
 
 - [ ] `P2_LATER` Phase 4 benchmark latency SLO gate 여부를 결정한다.
   - 무엇이 남았는지: `--smoke`, `--load`, `--load-open-loop` 결과를 JSON report 로 저장하는 경로는 D052와 이번 완료 항목으로 닫혔다.
@@ -75,7 +59,7 @@
   - 현재 상태: runner pass/fail 은 sent==planned==received, dropped==0, payload-errors==0, pool-rented==0 만 본다.
     latency 값은 stdout 과 JSON report 에 기록되지만 실패 조건은 아니다.
   - known blockers/open questions: 개발/CI 환경별 변동을 감안한 threshold 를 고정할지, baseline 대비 상대 변화율만 볼지 결정해야 한다.
-  - next step: send queue high-watermark diagnostics 를 확보한 뒤 최근 `--load`/`--load-open-loop --report` 결과와 함께
+  - next step: 최근 `--load`/`--load-open-loop --report` 결과와 send queue high-watermark 값을 함께 보고
     절대 threshold, p99 증가율 threshold, 또는 관측-only 유지 중 하나를 선택한다.
 
 - [ ] `P2_LATER` 백프레셔 기본 정책을 PLAN/AGENTS 설계 의도와 재정렬한다.
@@ -121,6 +105,17 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] TCP/UDP send queue high-watermark diagnostics 를 public snapshot 과 benchmark report 에 연결했다.
+  - 범위: `src/Hps.Transport/Abstractions/TransportDiagnosticsSnapshot.cs`, `src/Hps.Transport/Runtime/TransportBase.cs`,
+    `src/Hps.Transport/Runtime/TransportConnection.cs`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,
+    `tests/Hps.Transport.Tests/`, `tests/Hps.Benchmarks/`.
+  - 결과: Transport lifetime 기준 TCP/UDP kind 별 pending send queue high-watermark 를 기록하고 stdout/JSON report 에
+    `tcp-pending-send-queue-high-watermark`, `udp-pending-send-queue-high-watermark` 로 남긴다.
+  - 비고: high-watermark 는 endpoint identity 가 아니라 TCP/UDP transport kind 별 max pending depth 이며,
+    capacity 16에서 포화되므로 drop count 와 함께 해석한다.
+  - 근거: `22591b5`에서 high-watermark tracking 을 추가했고, `db8984f`에서 benchmark stdout/JSON report 연결을 추가했다.
+  - 검증: 실제 구현 존재는 `rg`로 확인했고, 이번 문서 동기화 단위는 `git diff --check`로 검증한다.
 
 - [x] Interface Server endpoint model 설계를 문서화했다.
   - 범위: `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`, `CURRENT_PLAN.md`,

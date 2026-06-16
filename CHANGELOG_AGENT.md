@@ -1,5 +1,41 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — high-watermark 상태 문서 동기화)
+
+### 작업 단위
+- 이미 구현된 TCP/UDP pending send queue high-watermark diagnostics 를 root state docs 에 완료 상태로 반영했다.
+- 범위는 `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`만이다.
+- 코드, public API, benchmark runner 변경은 포함하지 않았다.
+
+### 반영 내용
+- `TODOS.md`의 high-watermark backlog 를 Completed 로 이동하고 다음 P1 후보를 EndpointId/endpoint snapshot 으로 정리했다.
+- `CURRENT_PLAN.md`와 `DECISIONS.md`에서 high-watermark 를 다음 작업이 아니라 구현 완료된 관측성 기준으로 표현했다.
+- high-watermark 는 endpoint identity 가 아니라 TCP/UDP transport kind 별 lifetime max pending depth 라는 해석을 유지했다.
+
+### 검증
+- `rg -n "HighWatermark|high-watermark|PendingSendQueueHighWatermark|tcp-pending-send-queue-high-watermark|udp-pending-send-queue-high-watermark" src tests CURRENT_PLAN.md TODOS.md DECISIONS.md CHANGELOG_AGENT.md`로 실제 구현과 문서 연결을 확인한다.
+- `git log --oneline --grep="high watermark\|high-watermark" --all`로 관련 구현 커밋(`22591b5`, `db8984f`)을 확인한다.
+- 문서 전용 변경이므로 `dotnet build`/`dotnet test`는 새로 실행하지 않는다.
+- `git diff --check`로 whitespace 오류를 확인한다.
+
+## 2026-06-16 (Codex — Interface Server 설계 문서 구현 인계 보강)
+
+### 작업 단위
+- Interface Server endpoint model 설계와 검토 문서를 다음 구현 세션이 그대로 사용할 수 있도록 정합화했다.
+- 범위는 문서만이다. 코드 구현, public API 변경, benchmark runner 변경은 포함하지 않았다.
+
+### 반영 내용
+- `PLAN.md`의 Phase 3 백프레셔 기본 정책을 D053/spec와 맞춰 v1 bounded drop-oldest 로 정리했다.
+- high-watermark 의미를 endpoint identity 가 아니라 TCP/UDP transport kind 별 lifetime max pending depth 로 명확히 했다.
+- HWM이 capacity 16에서 포화되며, 초과 적체량은 drop count 와 함께 해석해야 한다는 한계를 설계 문서와 검토 문서에 남겼다.
+- 다음 구현 방식은 active connection/endpoint 목록을 나중에 훑는 방식이 아니라 enqueue 직후 depth 로 Transport 수명 max 를 갱신하는 방식으로 고정했다.
+- Source adapter/IngressMessage 모델은 1순위 high-watermark 단위 범위 밖이며, wire format/API 변경을 하지 않는다고 명시했다.
+
+### 검증
+- 문서 전용 변경이므로 `dotnet build`/`dotnet test`는 실행하지 않는다.
+- `rg -n "bounded drop-oldest|high-watermark|transport kind|IngressMessage|EndpointId" PLAN.md CURRENT_PLAN.md TODOS.md DECISIONS.md docs .claude/review/2026-06-16-interface-server-endpoint-model.md`로 문서 연결을 확인한다.
+- `git diff --check`로 whitespace 오류를 확인한다.
+
 ## 2026-06-16 (Codex — Interface Server endpoint model 설계)
 
 ### 작업 단위
