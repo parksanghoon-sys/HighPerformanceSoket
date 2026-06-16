@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Runtime.CompilerServices;
 using Hps.Transport;
 
@@ -14,11 +15,19 @@ namespace Hps.Broker
     public readonly struct BrokerSubscriber : IEquatable<BrokerSubscriber>
     {
         private readonly IConnection? _tcpConnection;
+        private readonly IUdpEndpoint? _udpEndpoint;
+        private readonly EndPoint? _udpRemoteEndPoint;
 
-        private BrokerSubscriber(EndpointTransportKind transportKind, IConnection? tcpConnection)
+        private BrokerSubscriber(
+            EndpointTransportKind transportKind,
+            IConnection? tcpConnection,
+            IUdpEndpoint? udpEndpoint,
+            EndPoint? udpRemoteEndPoint)
         {
             TransportKind = transportKind;
             _tcpConnection = tcpConnection;
+            _udpEndpoint = udpEndpoint;
+            _udpRemoteEndPoint = udpRemoteEndPoint;
         }
 
         /// <summary>
@@ -33,7 +42,13 @@ namespace Hps.Broker
         {
             get
             {
-                return TransportKind == EndpointTransportKind.Tcp && _tcpConnection != null;
+                if (TransportKind == EndpointTransportKind.Tcp)
+                    return _tcpConnection != null;
+
+                if (TransportKind == EndpointTransportKind.Udp)
+                    return _udpEndpoint != null && _udpRemoteEndPoint != null;
+
+                return false;
             }
         }
 
@@ -48,6 +63,28 @@ namespace Hps.Broker
             }
         }
 
+        internal IUdpEndpoint UdpEndpoint
+        {
+            get
+            {
+                if (TransportKind != EndpointTransportKind.Udp || _udpEndpoint == null)
+                    throw new InvalidOperationException("UDP 구독자가 아닌 BrokerSubscriber 에서 UDP endpoint 를 꺼낼 수 없다.");
+
+                return _udpEndpoint;
+            }
+        }
+
+        internal EndPoint UdpRemoteEndPoint
+        {
+            get
+            {
+                if (TransportKind != EndpointTransportKind.Udp || _udpRemoteEndPoint == null)
+                    throw new InvalidOperationException("UDP 구독자가 아닌 BrokerSubscriber 에서 remote endpoint 를 꺼낼 수 없다.");
+
+                return _udpRemoteEndPoint;
+            }
+        }
+
         /// <summary>
         /// TCP connection 을 Broker 발행 대상으로 감싼다.
         ///
@@ -59,7 +96,23 @@ namespace Hps.Broker
             if (connection == null)
                 throw new ArgumentNullException(nameof(connection));
 
-            return new BrokerSubscriber(EndpointTransportKind.Tcp, connection);
+            return new BrokerSubscriber(EndpointTransportKind.Tcp, connection, null, null);
+        }
+
+        /// <summary>
+        /// UDP local endpoint 와 remote endpoint 조합을 Broker 발행 대상으로 감싼다.
+        ///
+        /// D060의 v1 정책은 stable subscriber id 를 만들지 않고, 실제 datagram 송신에 필요한 runtime handle 조합을
+        /// 구독자 identity 로 사용한다. 따라서 같은 local endpoint 객체와 같은 remote endpoint 값이 같은 UDP 구독자를 뜻한다.
+        /// </summary>
+        public static BrokerSubscriber ForUdp(IUdpEndpoint endpoint, EndPoint remoteEndPoint)
+        {
+            if (endpoint == null)
+                throw new ArgumentNullException(nameof(endpoint));
+            if (remoteEndPoint == null)
+                throw new ArgumentNullException(nameof(remoteEndPoint));
+
+            return new BrokerSubscriber(EndpointTransportKind.Udp, null, endpoint, remoteEndPoint);
         }
 
         internal bool TrySend(ITransport transport, TransportSendBuffer sendBuffer)
@@ -69,6 +122,9 @@ namespace Hps.Broker
 
             if (TransportKind == EndpointTransportKind.Tcp)
                 return transport.TrySend(TcpConnection, sendBuffer);
+
+            if (TransportKind == EndpointTransportKind.Udp)
+                return transport.TrySendTo(UdpEndpoint, UdpRemoteEndPoint, sendBuffer);
 
             throw new InvalidOperationException("지원하지 않는 BrokerSubscriber transport kind 이다.");
         }
@@ -87,6 +143,12 @@ namespace Hps.Broker
             if (TransportKind == EndpointTransportKind.Tcp)
                 return object.ReferenceEquals(_tcpConnection, other._tcpConnection);
 
+            if (TransportKind == EndpointTransportKind.Udp)
+            {
+                return object.ReferenceEquals(_udpEndpoint, other._udpEndpoint)
+                    && object.Equals(_udpRemoteEndPoint, other._udpRemoteEndPoint);
+            }
+
             return false;
         }
 
@@ -102,6 +164,15 @@ namespace Hps.Broker
         {
             if (TransportKind == EndpointTransportKind.Tcp && _tcpConnection != null)
                 return ((int)EndpointTransportKind.Tcp * 397) ^ RuntimeHelpers.GetHashCode(_tcpConnection);
+
+            if (TransportKind == EndpointTransportKind.Udp && _udpEndpoint != null && _udpRemoteEndPoint != null)
+            {
+                unchecked
+                {
+                    int hash = ((int)EndpointTransportKind.Udp * 397) ^ RuntimeHelpers.GetHashCode(_udpEndpoint);
+                    return (hash * 397) ^ _udpRemoteEndPoint.GetHashCode();
+                }
+            }
 
             return (int)TransportKind;
         }

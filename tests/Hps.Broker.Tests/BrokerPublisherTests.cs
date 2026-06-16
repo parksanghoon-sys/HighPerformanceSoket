@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Reflection;
 using Hps.Buffers;
 using Hps.Transport;
@@ -155,5 +156,42 @@ namespace Hps.Broker.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // mixed fan-out 테스트: Interface Server 목표에서는 같은 topic 의 발행 대상이 TCP connection 과 UDP remote target 을 함께 포함할 수 있다.
+        // BrokerPublisher 는 payload 를 복사하지 않고 같은 RefCountedBuffer ref 를 TCP TrySend 와 UDP TrySendTo 로 각각 넘겨야 한다.
+        [Fact]
+        public void Publish_WhenTopicHasTcpAndUdpSubscribers_SendsToEachTransportTarget()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer payload = pool.RentCounted();
+            payload.SetLength(6);
+
+            FakeConnection tcpSubscriber = new FakeConnection();
+            FakeUdpEndpoint udpEndpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, 20000);
+
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            subscriptions.Subscribe("topic", tcpSubscriber);
+            subscriptions.Subscribe("topic", BrokerSubscriber.ForUdp(udpEndpoint, remoteEndPoint));
+
+            FakeTransport transport = new FakeTransport();
+            BrokerPublisher publisher = new BrokerPublisher(subscriptions, transport);
+
+            int accepted = publisher.Publish("topic", payload, 1, 4);
+
+            Assert.Equal(2, accepted);
+            Assert.Single(transport.AcceptedSends);
+            Assert.Single(transport.AcceptedUdpSends);
+            Assert.Same(tcpSubscriber, transport.AcceptedSends[0].Connection);
+            Assert.Same(udpEndpoint, transport.AcceptedUdpSends[0].Endpoint);
+            Assert.Equal(remoteEndPoint, transport.AcceptedUdpSends[0].RemoteEndPoint);
+            Assert.Same(payload, transport.AcceptedSends[0].Buffer.Buffer);
+            Assert.Same(payload, transport.AcceptedUdpSends[0].Buffer.Buffer);
+            Assert.Equal(1, transport.AcceptedUdpSends[0].Buffer.Offset);
+            Assert.Equal(4, transport.AcceptedUdpSends[0].Buffer.Length);
+
+            transport.ReleaseAcceptedBuffers();
+            payload.Release();
+            Assert.Equal(0, pool.RentedCount);
+        }
     }
 }

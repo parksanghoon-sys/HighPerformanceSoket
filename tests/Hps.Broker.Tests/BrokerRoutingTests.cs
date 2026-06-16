@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -115,6 +116,55 @@ namespace Hps.Broker.Tests
             Assert.Equal(1, total);
             Assert.NotNull(subscriber);
             Assert.Equal(EndpointTransportKind.Tcp, transportKind!.GetValue(subscriber));
+        }
+
+        // UDP runtime target 계약 테스트: D060은 UDP 구독자를 stable id 가 아니라
+        // bind 된 IUdpEndpoint 와 remote EndPoint 조합으로 표현한다고 결정했다.
+        // 먼저 public factory 존재와 TransportKind 를 Red 로 고정해 TCP 전용 BrokerSubscriber 경계를 깨는 첫 단계를 검증한다.
+        [Fact]
+        public void BrokerSubscriber_Contract_ExposesUdpRuntimeTargetFactory()
+        {
+            Type? subscriberType = Type.GetType("Hps.Broker.BrokerSubscriber, Hps.Broker");
+            Assert.NotNull(subscriberType);
+
+            MethodInfo? forUdp = subscriberType!.GetMethod("ForUdp", new Type[] { typeof(IUdpEndpoint), typeof(EndPoint) });
+
+            Assert.NotNull(forUdp);
+
+            FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, 10001);
+            object? subscriber = forUdp!.Invoke(null, new object[] { endpoint, remoteEndPoint });
+            PropertyInfo? transportKind = subscriberType.GetProperty("TransportKind");
+            Assert.NotNull(transportKind);
+
+            Assert.NotNull(subscriber);
+            Assert.Equal(EndpointTransportKind.Udp, transportKind!.GetValue(subscriber));
+        }
+
+        // UDP target identity 테스트: D060의 runtime target 은 local endpoint 객체와 remote EndPoint 값의 조합이다.
+        // 같은 endpoint 객체와 같은 remote 주소는 duplicate subscribe 로 막고, 같은 endpoint 의 다른 remote 는 별도 구독자로 유지해야 한다.
+        [Fact]
+        public void Subscribe_WhenUdpRuntimeTargetsAreUsed_DeduplicatesByEndpointAndRemote()
+        {
+            SubscriptionTable table = new SubscriptionTable();
+            FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            EndPoint remote = new IPEndPoint(IPAddress.Loopback, 20000);
+            EndPoint sameRemoteValue = new IPEndPoint(IPAddress.Loopback, 20000);
+            EndPoint otherRemote = new IPEndPoint(IPAddress.Loopback, 20001);
+
+            BrokerSubscriber first = BrokerSubscriber.ForUdp(endpoint, remote);
+            BrokerSubscriber duplicate = BrokerSubscriber.ForUdp(endpoint, sameRemoteValue);
+            BrokerSubscriber other = BrokerSubscriber.ForUdp(endpoint, otherRemote);
+
+            bool added = table.Subscribe("topic", first);
+            bool addedDuplicate = table.Subscribe("topic", duplicate);
+            bool addedOther = table.Subscribe("topic", other);
+
+            Assert.True(added);
+            Assert.False(addedDuplicate);
+            Assert.True(addedOther);
+            Assert.True(table.IsSubscribed("topic", duplicate));
+            Assert.Equal(2, table.CountSubscribers("topic"));
         }
 
         // 연결 종료 정리 동작 테스트: 하나의 connection 이 여러 topic 에 구독된 뒤 닫히면

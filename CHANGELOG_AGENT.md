@@ -1,5 +1,37 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — BrokerSubscriber UDP runtime target)
+
+### 작업 단위
+- D060의 첫 코드 단위로 `BrokerSubscriber`에 UDP runtime target 값을 추가했다.
+- 범위는 Broker routing value, publisher fan-out 분기, Broker tests, root state docs 로 제한했다.
+- UDP datagram command parser, server UDP bind wiring, idle expiry 는 포함하지 않았다.
+
+### Red
+- `BrokerSubscriber_Contract_ExposesUdpRuntimeTargetFactory`가 기존 구현에서 `ForUdp(IUdpEndpoint, EndPoint)` 부재로 실패했다.
+- `Subscribe_WhenUdpRuntimeTargetsAreUsed_DeduplicatesByEndpointAndRemote`가 기존 UDP equality 부재로 duplicate subscribe 를 막지 못해 실패했다.
+- `Publish_WhenTopicHasTcpAndUdpSubscribers_SendsToEachTransportTarget`가 기존 publisher UDP send 분기 부재로 `InvalidOperationException`에 실패했다.
+
+### Green
+- `BrokerSubscriber.ForUdp(IUdpEndpoint, EndPoint)`를 추가했다.
+- UDP 구독자 identity 를 local endpoint object reference 와 remote `EndPoint` 값 조합으로 고정했다.
+- `BrokerSubscriber.TrySend`가 UDP target 에 대해 `ITransport.TrySendTo`를 호출하게 했다.
+- Broker test double 에 UDP send capture 를 추가해 TCP/UDP mixed fan-out 을 검증했다.
+
+### 상태 갱신
+- `TODOS.md`에서 BrokerSubscriber UDP target 항목을 Completed 로 이동했다.
+- 다음 후보를 protocol command grammar 의 `UNSUBSCRIBE <topic>` 추가로 올렸다.
+- `CURRENT_PLAN.md`에 이번 Red/Green 경로와 다음 실행 후보를 반영했다.
+
+### 검증
+- Red focused 실패 1.
+- Red focused 실패 2.
+- Green focused 통과 3.
+- Broker 전체 테스트 통과 23.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 117, 실패 0.
+- `git diff --check` 통과, whitespace 오류 없음.
+
 ## 2026-06-16 (Codex — UDP broker v1 wire/control 설계)
 
 ### 작업 단위

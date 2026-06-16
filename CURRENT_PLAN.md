@@ -244,18 +244,28 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   v1 command set 은 `SUBSCRIBE`, `UNSUBSCRIBE`, `PUBLISH`이며, UDP subscriber runtime target 은
   `(IUdpEndpoint localEndpoint, EndPoint remoteEndPoint)` 조합이다. malformed UDP command 는 shared endpoint 를 닫지 않고
   해당 datagram 만 폐기한다.
+- `BrokerSubscriber`가 UDP runtime target 값을 표현하고 `BrokerPublisher`가 TCP/UDP mixed fan-out 을 분기할 수 있게 됐다.
+  UDP 구독자 identity 는 D060대로 local `IUdpEndpoint` 객체 reference 와 remote `EndPoint` 값 조합으로 비교한다.
+  `SubscriptionTable`은 같은 endpoint/remote duplicate subscribe 를 제거하고, `BrokerPublisher`는 UDP target 에
+  `ITransport.TrySendTo`를 호출한다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가한다.
-현재 권장 후보는 `BrokerSubscriber` UDP runtime target 값 구현이다. D060에 따라 첫 코드 단위는
-`BrokerSubscriber.ForUdp(IUdpEndpoint, EndPoint)`와 TCP/UDP mixed fan-out 분기까지만 다루고,
-UDP datagram command parser, server UDP bind wiring, idle expiry 는 뒤 단위로 분리한다.
+현재 권장 후보는 protocol command grammar 에 `UNSUBSCRIBE <topic>`를 추가하는 단위다.
+D060의 UDP cleanup 정책은 explicit unsubscribe 를 전제로 하므로, UDP datagram handler 를 붙이기 전에
+shared command 모델이 unsubscribe 를 표현할 수 있어야 한다. 이 단위에서도 UDP datagram handler, server UDP bind wiring,
+idle expiry 는 뒤로 분리한다.
 
 ## 이번 단위의 검증 경로
-- `rg -n "D060|UDP broker v1|datagram self-command|UNSUBSCRIBE|BrokerSubscriber.*UDP|runtime remote target" CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md DECISIONS.md docs/superpowers/specs/2026-06-16-udp-broker-runtime-target-wire-control-design.md`
+- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --no-restore --filter "FullyQualifiedName~BrokerSubscriber_Contract_ExposesUdpRuntimeTargetFactory"` 실패 1.
+- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --no-restore --filter "FullyQualifiedName~Subscribe_WhenUdpRuntimeTargetsAreUsed_DeduplicatesByEndpointAndRemote|FullyQualifiedName~Publish_WhenTopicHasTcpAndUdpSubscribers_SendsToEachTransportTarget"` 실패 2.
+- Green focused: 같은 UDP target/fan-out focused 테스트 통과 3.
+- Broker 전체: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --no-restore` 통과 23.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 117, 실패 0.
 - `git diff --check`
 
 ## 이번 작업에서 건드리지 않은 범위

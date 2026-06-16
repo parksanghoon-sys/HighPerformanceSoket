@@ -31,26 +31,29 @@
   - D058로 `EndpointId`가 stable routing key 가 아니라 runtime diagnostics id 임을 결정했다.
   - D059로 v1 subscription 은 runtime endpoint 수명에 묶고 reconnect rebinding 은 제공하지 않기로 결정했다.
   - D060으로 UDP broker v1 wire/control 을 datagram self-command 와 runtime remote target 정책으로 확정했다.
+  - `BrokerSubscriber`에 UDP runtime target 값을 추가하고 `BrokerPublisher`의 TCP/UDP mixed fan-out 분기를 구현했다.
   - 다음 후보: 사용자 검토 후 Deferred Backlog 를 다시 평가한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` `BrokerSubscriber`에 UDP runtime target 값을 추가한다.
-  - 무엇이 남았는지: D060은 UDP subscriber target 을 `(IUdpEndpoint localEndpoint, EndPoint remoteEndPoint)` 조합으로 확정했다.
-    이제 Broker routing value 가 TCP `IConnection`과 UDP remote target 을 모두 표현하고, publisher 가 target kind 에 맞춰 send 경로를 선택해야 한다.
-  - 왜 defer 되었는지: D060 단위는 wire/control 설계와 상태 문서 갱신까지만 수행했다. UDP target 값 구현은 production code 와
-    Broker tests 를 바꾸는 첫 TDD 단위이므로 별도 리뷰 가능한 커밋으로 분리한다.
-  - objective: `BrokerSubscriber.ForUdp(IUdpEndpoint, EndPoint)`와 UDP target equality/hash, `BrokerPublisher`의 TCP/UDP mixed fan-out 분기를 구현한다.
-    이 단계에서는 UDP datagram command parser 와 server UDP bind wiring 을 만들지 않는다.
-  - relevant context: DECISIONS D057, D059, D060,
+- [ ] `P1_SOON` protocol command grammar 에 `UNSUBSCRIBE <topic>`를 추가한다.
+  - 무엇이 남았는지: D060은 UDP stale remote cleanup 을 explicit `UNSUBSCRIBE`와 endpoint close cleanup 으로 제한했다.
+    현재 command model 은 `SUBSCRIBE`와 `PUBLISH`만 표현하므로 UDP datagram handler 를 붙이기 전에 unsubscribe command 를 표현할 수 있어야 한다.
+  - 왜 defer 되었는지: 이번 단위는 Broker routing value 와 publisher fan-out 분기까지만 구현했다. command grammar 변경은
+    `Hps.Protocol`, `BrokerTcpFrameHandler`, protocol tests 를 건드리므로 별도 TDD 커밋으로 분리한다.
+  - objective: `UNSUBSCRIBE <topic>` command decode 를 추가하고, TCP handler 에서는 기존 `SubscriptionTable.Unsubscribe`로 연결해
+    shared command model 이 subscribe/publish/unsubscribe 를 모두 표현하게 만든다.
+  - relevant context: DECISIONS D060,
     `docs/superpowers/specs/2026-06-16-udp-broker-runtime-target-wire-control-design.md`,
-    `BrokerSubscriber`, `SubscriptionTable`, `BrokerPublisher`, `ITransport.TrySendTo`, `IUdpEndpoint`.
-  - 관련 파일/범위: `src/Hps.Broker/BrokerSubscriber.cs`, `src/Hps.Broker/BrokerPublisher.cs`,
-    `src/Hps.Broker/SubscriptionTable.cs`, `tests/Hps.Broker.Tests/`, `tests/Hps.Broker.Tests/TestDoubles/FakeTransport.cs`.
-  - 현재 상태: `BrokerSubscriber`는 TCP `IConnection`만 감싼다. UDP transport send 경계와 fake transport `TrySendTo`는 이미 존재한다.
-  - known blockers/open questions: UDP target 의 remote `EndPoint` equality 는 BCL `EndPoint.Equals`에 의존해도 되는지 테스트로 고정해야 한다.
-    malformed UDP command, `UNSUBSCRIBE`, endpoint close cleanup 은 이 단위 밖이다.
-  - next step: Red 테스트로 UDP target 생성, TCP/UDP mixed snapshot, UDP publish fan-out 시 `ITransport.TrySendTo` 호출과 refcount 반환을 먼저 고정한다.
+    `src/Hps.Protocol/TcpCommandDecoder.cs`, `src/Hps.Protocol/TcpCommand.cs`,
+    `src/Hps.Broker/BrokerTcpFrameHandler.cs`, `tests/Hps.Protocol.Tests/`, `tests/Hps.Broker.Tests/`.
+  - 관련 파일/범위: `src/Hps.Protocol/`, `src/Hps.Broker/BrokerTcpFrameHandler.cs`,
+    `tests/Hps.Protocol.Tests/`, `tests/Hps.Broker.Tests/`.
+  - 현재 상태: `BrokerSubscriber`는 TCP/UDP target 을 모두 표현하고, publisher 는 target kind 에 따라 `TrySend`/`TrySendTo`를 호출한다.
+    UDP datagram handler 와 server UDP bind wiring 은 아직 없다.
+  - known blockers/open questions: parser 명칭을 `TcpCommandDecoder`로 유지한 채 command 를 늘릴지, UDP handler 구현 시 shared decoder 이름을
+    별도 단위에서 바꿀지 결정해야 한다. 이번 후보에서는 이름 변경 없이 command 의미만 추가하는 것이 가장 작다.
+  - next step: Red 테스트로 `UNSUBSCRIBE alpha` decode 와 malformed unsubscribe topic 경계를 먼저 고정한다.
 
 - [ ] `P2_LATER` 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정한다.
   - 무엇이 남았는지: 현재 public diagnostics 와 benchmark report 는 TCP/UDP 별 누적 drop count 와 pending send queue high-watermark 를 제공하지만,
@@ -116,6 +119,18 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] `BrokerSubscriber`에 UDP runtime target 값을 추가하고 TCP/UDP mixed fan-out 분기를 구현했다.
+  - 범위: `src/Hps.Broker/BrokerSubscriber.cs`, `tests/Hps.Broker.Tests/BrokerRoutingTests.cs`,
+    `tests/Hps.Broker.Tests/BrokerPublisherTests.cs`, `tests/Hps.Broker.Tests/TestDoubles/FakeTransport.cs`,
+    `tests/Hps.Broker.Tests/TestDoubles/FakeUdpEndpoint.cs`, root state docs.
+  - Red: `ForUdp(IUdpEndpoint, EndPoint)` factory 부재를 assertion 실패 1건으로 확인했다.
+  - Red: UDP runtime target duplicate 제거 부재와 publisher UDP send 분기 부재를 실패 2건으로 확인했다.
+  - 구현: `BrokerSubscriber.ForUdp`를 추가하고, UDP equality/hash 를 local endpoint reference + remote `EndPoint` 값으로 고정했다.
+    `BrokerSubscriber.TrySend`는 UDP target 에 대해 `ITransport.TrySendTo`를 호출한다.
+  - 후속: UDP datagram handler 전에 `UNSUBSCRIBE <topic>` command grammar 를 추가해야 한다.
+  - 검증: focused Red 실패 1, focused Red 실패 2, focused Green 통과 3, Broker tests 통과 23,
+    solution build 경고 0/오류 0, solution test 통과 117/실패 0.
 
 - [x] UDP broker v1 runtime target wire/control 정책을 확정했다.
   - 범위: `docs/superpowers/specs/2026-06-16-udp-broker-runtime-target-wire-control-design.md`, `DECISIONS.md`,

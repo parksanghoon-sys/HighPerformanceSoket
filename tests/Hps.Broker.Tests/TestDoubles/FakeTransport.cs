@@ -20,18 +20,38 @@ namespace Hps.Broker.Tests
         internal TransportSendBuffer Buffer { get; }
     }
 
+    internal sealed class CapturedUdpSend
+    {
+        internal CapturedUdpSend(IUdpEndpoint endpoint, EndPoint remoteEndPoint, TransportSendBuffer buffer)
+        {
+            Endpoint = endpoint;
+            RemoteEndPoint = remoteEndPoint;
+            Buffer = buffer;
+        }
+
+        internal IUdpEndpoint Endpoint { get; }
+
+        internal EndPoint RemoteEndPoint { get; }
+
+        internal TransportSendBuffer Buffer { get; }
+    }
+
     internal sealed class FakeTransport : ITransport
     {
         private readonly List<CapturedSend> _acceptedSends;
+        private readonly List<CapturedUdpSend> _acceptedUdpSends;
 
         internal FakeTransport()
         {
             _acceptedSends = new List<CapturedSend>();
+            _acceptedUdpSends = new List<CapturedUdpSend>();
         }
 
         internal IConnection? RejectConnection { get; set; }
 
         internal List<CapturedSend> AcceptedSends => _acceptedSends;
+
+        internal List<CapturedUdpSend> AcceptedUdpSends => _acceptedUdpSends;
 
         public void SetReceiveHandler(ITransportReceiveHandler receiveHandler)
         {
@@ -67,7 +87,8 @@ namespace Hps.Broker.Tests
 
         public bool TrySendTo(IUdpEndpoint endpoint, EndPoint remoteEndPoint, TransportSendBuffer sendBuffer)
         {
-            throw new NotSupportedException("Broker 단위 테스트용 transport 는 UDP send 를 수행하지 않는다.");
+            _acceptedUdpSends.Add(new CapturedUdpSend(endpoint, remoteEndPoint, sendBuffer));
+            return true;
         }
 
         public ValueTask StartAsync(CancellationToken cancellationToken = default)
@@ -92,6 +113,13 @@ namespace Hps.Broker.Tests
             }
 
             _acceptedSends.Clear();
+
+            for (int index = 0; index < _acceptedUdpSends.Count; index++)
+            {
+                _acceptedUdpSends[index].Buffer.Buffer.Release();
+            }
+
+            _acceptedUdpSends.Clear();
         }
     }
 }
