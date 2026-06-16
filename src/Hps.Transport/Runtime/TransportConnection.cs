@@ -21,6 +21,7 @@ namespace Hps.Transport
         private readonly IDisposable? _transportResource;
         private readonly Action<TransportConnection>? _onClosed;
         private readonly Action? _onPendingSendDropped;
+        private readonly Action<int>? _onPendingSendDepthObserved;
         private readonly int _pendingSendCapacity;
         private long _droppedPendingSendCount;
         private bool _closed;
@@ -41,12 +42,7 @@ namespace Hps.Transport
         }
 
         internal TransportConnection(IDisposable? transportResource, Action<TransportConnection>? onClosed, Action? onPendingSendDropped)
-            : this(transportResource, onClosed, onPendingSendDropped, DefaultPendingSendCapacity)
-        {
-        }
-
-        internal TransportConnection(IDisposable? transportResource, Action<TransportConnection>? onClosed, int pendingSendCapacity)
-            : this(transportResource, onClosed, null, pendingSendCapacity)
+            : this(transportResource, onClosed, onPendingSendDropped, null, DefaultPendingSendCapacity)
         {
         }
 
@@ -54,6 +50,21 @@ namespace Hps.Transport
             IDisposable? transportResource,
             Action<TransportConnection>? onClosed,
             Action? onPendingSendDropped,
+            Action<int>? onPendingSendDepthObserved)
+            : this(transportResource, onClosed, onPendingSendDropped, onPendingSendDepthObserved, DefaultPendingSendCapacity)
+        {
+        }
+
+        internal TransportConnection(IDisposable? transportResource, Action<TransportConnection>? onClosed, int pendingSendCapacity)
+            : this(transportResource, onClosed, null, null, pendingSendCapacity)
+        {
+        }
+
+        internal TransportConnection(
+            IDisposable? transportResource,
+            Action<TransportConnection>? onClosed,
+            Action? onPendingSendDropped,
+            Action<int>? onPendingSendDepthObserved,
             int pendingSendCapacity)
         {
             if (pendingSendCapacity <= 0)
@@ -65,6 +76,7 @@ namespace Hps.Transport
             _transportResource = transportResource;
             _onClosed = onClosed;
             _onPendingSendDropped = onPendingSendDropped;
+            _onPendingSendDepthObserved = onPendingSendDepthObserved;
             _pendingSendCapacity = pendingSendCapacity;
         }
 
@@ -98,6 +110,7 @@ namespace Hps.Transport
         {
             bool shouldWakePump;
             TransportSendBuffer? evictedSend = null;
+            int pendingDepthAfterEnqueue;
 
             lock (_gate)
             {
@@ -110,10 +123,13 @@ namespace Hps.Transport
                     evictedSend = _pendingSends.Dequeue();
 
                 _pendingSends.Enqueue(sendBuffer);
+                pendingDepthAfterEnqueue = _pendingSends.Count;
             }
 
             // evict 대상 선택과 큐 제거는 _gate 안에서 끝낸다. Release 는 pool 반환까지 이어질 수 있으므로
             // lock 밖에서 수행해 producer/consumer/close 직렬화 범위를 queue mutation 으로만 제한한다.
+            NotifyPendingSendDepthObserved(pendingDepthAfterEnqueue);
+
             if (evictedSend.HasValue)
             {
                 IncrementDroppedPendingSendCount();
@@ -198,6 +214,15 @@ namespace Hps.Transport
         private void NotifyPendingSendDropped()
         {
             _onPendingSendDropped?.Invoke();
+        }
+
+        /// <summary>
+        /// enqueue 직후의 queue 깊이를 Transport 수명 진단에 보고한다.
+        /// queue mutation 은 이미 _gate 안에서 끝났고 callback 은 단순 max update 이므로 lock 밖에서 호출한다.
+        /// </summary>
+        private void NotifyPendingSendDepthObserved(int pendingDepth)
+        {
+            _onPendingSendDepthObserved?.Invoke(pendingDepth);
         }
 
         /// <summary>

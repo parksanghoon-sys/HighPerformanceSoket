@@ -822,6 +822,65 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // UDP send backlog 관측성 테스트. endpoint pending queue 가 drop 전까지 차오른 깊이를
+        // Transport 수명 snapshot 에 남겨 막힌 remote 로 인한 send-side 정체를 설명할 수 있어야 한다.
+        [Fact]
+        public void UdpSendTo_WhenPendingQueueGrows_UpdatesTransportPendingSendQueueHighWatermark()
+        {
+            const int SendCount = 5;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            RefCountedBuffer[] buffers = RentNumberedUdpBuffers(pool, SendCount);
+            bool publisherRefsReleased = false;
+            SaeaUdpEndpoint? udpEndpoint = null;
+
+            using (SaeaTransport transport = new SaeaTransport())
+            {
+                ITransportDiagnostics diagnostics = transport;
+                Socket? socket = null;
+
+                try
+                {
+                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                    udpEndpoint = new SaeaUdpEndpoint(transport, socket);
+                    socket = null;
+
+                    EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, 9);
+                    for (int index = 0; index < buffers.Length; index++)
+                    {
+                        buffers[index].AddRef();
+                        TransportSendBuffer sendBuffer = new TransportSendBuffer(buffers[index], 0, buffers[index].Length);
+
+                        Assert.True(transport.TrySendTo(udpEndpoint, remoteEndPoint, sendBuffer));
+                    }
+
+                    TransportDiagnosticsSnapshot snapshot = diagnostics.GetDiagnosticsSnapshot();
+
+                    Assert.Equal(0, snapshot.TcpPendingSendQueueHighWatermark);
+                    Assert.Equal(SendCount, snapshot.UdpPendingSendQueueHighWatermark);
+                    Assert.Equal(0, snapshot.DroppedPendingSendCount);
+
+                    ReleasePublisherRefs(buffers);
+                    publisherRefsReleased = true;
+
+                    udpEndpoint.Close();
+
+                    TransportDiagnosticsSnapshot afterCloseSnapshot = diagnostics.GetDiagnosticsSnapshot();
+                    Assert.Equal(SendCount, afterCloseSnapshot.UdpPendingSendQueueHighWatermark);
+                    Assert.Equal(0, pool.RentedCount);
+                }
+                finally
+                {
+                    if (!publisherRefsReleased)
+                        ReleasePublisherRefs(buffers);
+
+                    udpEndpoint?.Close();
+                    socket?.Dispose();
+                }
+            }
+        }
+
         // UDP public 진단 누적 테스트: endpoint 내부 counter 만으로는 endpoint close 뒤 drop 이 운영 표면에서 사라진다.
         // Transport diagnostics snapshot 은 막힌 remote 로 인해 버려진 datagram 수를 endpoint 수명과 무관하게 보존해야 한다.
         [Fact]

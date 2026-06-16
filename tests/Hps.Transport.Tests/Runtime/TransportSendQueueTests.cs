@@ -279,6 +279,52 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // TCP send backlog 관측성 테스트. drop 이 발생하지 않아도 pending queue 가 어디까지 차올랐는지
+        // Transport 수명 snapshot 에 남겨 latency 증가 원인과 send-side backlog 를 구분할 수 있어야 한다.
+        [Fact]
+        public void TrySend_WhenPendingQueueGrows_UpdatesTransportPendingSendQueueHighWatermark()
+        {
+            const int SendCount = 5;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer[] buffers = RentNumberedBuffers(pool, SendCount);
+            TestTransport transport = new TestTransport();
+            ITransportDiagnostics diagnostics = transport;
+            TransportConnection connection = transport.CreateConnection();
+            bool publisherRefsReleased = false;
+
+            try
+            {
+                for (int index = 0; index < buffers.Length; index++)
+                {
+                    buffers[index].AddRef();
+                    Assert.True(transport.TrySend(connection, new TransportSendBuffer(buffers[index], 0, buffers[index].Length)));
+                }
+
+                TransportDiagnosticsSnapshot snapshot = diagnostics.GetDiagnosticsSnapshot();
+
+                Assert.Equal(SendCount, snapshot.TcpPendingSendQueueHighWatermark);
+                Assert.Equal(0, snapshot.UdpPendingSendQueueHighWatermark);
+                Assert.Equal(0, snapshot.DroppedPendingSendCount);
+
+                ReleasePublisherRefs(buffers);
+                publisherRefsReleased = true;
+
+                connection.Close();
+
+                TransportDiagnosticsSnapshot afterCloseSnapshot = diagnostics.GetDiagnosticsSnapshot();
+                Assert.Equal(SendCount, afterCloseSnapshot.TcpPendingSendQueueHighWatermark);
+                Assert.Equal(0, pool.RentedCount);
+            }
+            finally
+            {
+                if (!publisherRefsReleased)
+                    ReleasePublisherRefs(buffers);
+
+                connection.Close();
+            }
+        }
+
         // TCP public 진단 누적 테스트: connection 내부 counter 만 있으면 close 된 연결의 drop 이 운영 표면에서 사라진다.
         // Transport 단위 snapshot 은 느린 소비자 drop 을 connection 수명과 무관하게 누적해서 읽을 수 있어야 한다.
         [Fact]

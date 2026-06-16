@@ -235,6 +235,15 @@ namespace Hps.Transport.Tests
             PropertyInfo? tcpDrops = snapshotType.GetProperty("TcpDroppedPendingSendCount");
             PropertyInfo? udpDrops = snapshotType.GetProperty("UdpDroppedPendingSendCount");
             PropertyInfo? totalDrops = snapshotType.GetProperty("DroppedPendingSendCount");
+            PropertyInfo? tcpHighWatermark = snapshotType.GetProperty("TcpPendingSendQueueHighWatermark");
+            PropertyInfo? udpHighWatermark = snapshotType.GetProperty("UdpPendingSendQueueHighWatermark");
+            ConstructorInfo? extendedConstructor = snapshotType.GetConstructor(new Type[]
+            {
+                typeof(long),
+                typeof(long),
+                typeof(int),
+                typeof(int)
+            });
             TransportDiagnosticsSnapshot snapshot = new TransportDiagnosticsSnapshot(2, 3);
 
             Assert.NotNull(getSnapshot);
@@ -245,11 +254,22 @@ namespace Hps.Transport.Tests
             Assert.Equal(typeof(long), udpDrops!.PropertyType);
             Assert.NotNull(totalDrops);
             Assert.Equal(typeof(long), totalDrops!.PropertyType);
+            Assert.NotNull(tcpHighWatermark);
+            Assert.Equal(typeof(int), tcpHighWatermark!.PropertyType);
+            Assert.NotNull(udpHighWatermark);
+            Assert.Equal(typeof(int), udpHighWatermark!.PropertyType);
+            Assert.NotNull(extendedConstructor);
             Assert.True(diagnosticsType.IsAssignableFrom(typeof(TransportBase)));
             Assert.Null(typeof(ITransport).GetMethod("GetDiagnosticsSnapshot", Type.EmptyTypes));
             Assert.Equal(2, snapshot.TcpDroppedPendingSendCount);
             Assert.Equal(3, snapshot.UdpDroppedPendingSendCount);
             Assert.Equal(5, snapshot.DroppedPendingSendCount);
+
+            object extendedSnapshot = extendedConstructor!.Invoke(new object[] { 2L, 3L, 4, 5 });
+            Assert.Equal(4, tcpHighWatermark.GetValue(extendedSnapshot));
+            Assert.Equal(5, udpHighWatermark.GetValue(extendedSnapshot));
+            Assert.Equal(0, tcpHighWatermark.GetValue(snapshot));
+            Assert.Equal(0, udpHighWatermark.GetValue(snapshot));
 
             AssertDoesNotExposeRawMemoryParameters(diagnosticsType);
         }

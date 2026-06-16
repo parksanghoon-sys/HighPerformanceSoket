@@ -18,6 +18,8 @@ namespace Hps.Transport
         private ITransportDatagramHandler? _datagramHandler;
         private long _tcpDroppedPendingSendCount;
         private long _udpDroppedPendingSendCount;
+        private int _tcpPendingSendQueueHighWatermark;
+        private int _udpPendingSendQueueHighWatermark;
 
         /// <summary>
         /// 새 내부 연결 상태를 만든다. 이후 listen/accept/connect 구현은 이 연결을 <see cref="IConnection"/>
@@ -25,7 +27,7 @@ namespace Hps.Transport
         /// </summary>
         internal TransportConnection CreateConnection()
         {
-            return new TransportConnection(null, null, RecordTcpPendingSendDrop);
+            return new TransportConnection(null, null, RecordTcpPendingSendDrop, RecordTcpPendingSendDepth);
         }
 
         /// <inheritdoc />
@@ -69,7 +71,9 @@ namespace Hps.Transport
         {
             return new TransportDiagnosticsSnapshot(
                 ReadTcpDroppedPendingSendCount(),
-                ReadUdpDroppedPendingSendCount());
+                ReadUdpDroppedPendingSendCount(),
+                ReadTcpPendingSendQueueHighWatermark(),
+                ReadUdpPendingSendQueueHighWatermark());
         }
 
         /// <summary>
@@ -130,6 +134,24 @@ namespace Hps.Transport
         }
 
         /// <summary>
+        /// TCP pending send queue 가 enqueue 직후 관측한 깊이를 Transport lifetime high-watermark 에 반영한다.
+        /// 여러 connection 의 send path 가 동시에 호출될 수 있으므로 lock 없이 CAS max update 로 합류시킨다.
+        /// </summary>
+        internal void RecordTcpPendingSendDepth(int pendingDepth)
+        {
+            UpdateMax(ref _tcpPendingSendQueueHighWatermark, pendingDepth);
+        }
+
+        /// <summary>
+        /// UDP endpoint pending send queue 가 enqueue 직후 관측한 깊이를 Transport lifetime high-watermark 에 반영한다.
+        /// endpoint 가 닫히면 queue 를 다시 볼 수 없으므로 enqueue 시점에만 누적 max 를 갱신한다.
+        /// </summary>
+        internal void RecordUdpPendingSendDepth(int pendingDepth)
+        {
+            UpdateMax(ref _udpPendingSendQueueHighWatermark, pendingDepth);
+        }
+
+        /// <summary>
         /// diagnostics snapshot 생성 시 TCP drop 누적값을 원자적으로 관측한다.
         /// counter 는 drop hot path 에서 Interlocked 로 증가하므로 snapshot 도 같은 메모리 가시성 경계로 읽는다.
         /// </summary>
@@ -145,6 +167,41 @@ namespace Hps.Transport
         private long ReadUdpDroppedPendingSendCount()
         {
             return Volatile.Read(ref _udpDroppedPendingSendCount);
+        }
+
+        /// <summary>
+        /// diagnostics snapshot 생성을 위해 TCP pending send queue lifetime high-watermark 를 읽는다.
+        /// 값은 Interlocked.CompareExchange 로만 증가하므로 Volatile.Read 만으로 최신 관측값을 안전하게 얻는다.
+        /// </summary>
+        private int ReadTcpPendingSendQueueHighWatermark()
+        {
+            return Volatile.Read(ref _tcpPendingSendQueueHighWatermark);
+        }
+
+        /// <summary>
+        /// diagnostics snapshot 생성을 위해 UDP pending send queue lifetime high-watermark 를 읽는다.
+        /// endpoint 목록 lock 을 잡지 않고 Transport 단위 누적 max 만 읽어 close 된 endpoint 도 포함한다.
+        /// </summary>
+        private int ReadUdpPendingSendQueueHighWatermark()
+        {
+            return Volatile.Read(ref _udpPendingSendQueueHighWatermark);
+        }
+
+        private static void UpdateMax(ref int target, int candidate)
+        {
+            if (candidate < 0)
+                throw new ArgumentOutOfRangeException(nameof(candidate));
+
+            while (true)
+            {
+                int observed = Volatile.Read(ref target);
+                if (candidate <= observed)
+                    return;
+
+                int exchanged = Interlocked.CompareExchange(ref target, candidate, observed);
+                if (exchanged == observed)
+                    return;
+            }
         }
 
         /// <inheritdoc />

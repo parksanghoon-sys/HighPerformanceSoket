@@ -204,7 +204,11 @@ namespace Hps.Transport
 
         private TransportConnection CreateSocketConnection(Socket socket)
         {
-            TransportConnection connection = new TransportConnection(socket, UnregisterConnection, RecordTcpPendingSendDrop);
+            TransportConnection connection = new TransportConnection(
+                socket,
+                UnregisterConnection,
+                RecordTcpPendingSendDrop,
+                RecordTcpPendingSendDepth);
 
             try
             {

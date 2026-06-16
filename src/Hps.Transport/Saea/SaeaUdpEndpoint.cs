@@ -72,6 +72,7 @@ namespace Hps.Transport
 
             bool shouldWakePump;
             UdpSendRequest? evictedSend = null;
+            int pendingDepthAfterEnqueue;
 
             lock (_sendGate)
             {
@@ -84,10 +85,13 @@ namespace Hps.Transport
                     evictedSend = _pendingSends.Dequeue();
 
                 _pendingSends.Enqueue(new UdpSendRequest(remoteEndPoint, sendBuffer));
+                pendingDepthAfterEnqueue = _pendingSends.Count;
             }
 
             // drop-oldest 는 queue mutation 을 _sendGate 안에서 끝낸 뒤, 실제 ref 반환만 lock 밖에서 수행한다.
             // Release 가 pool 반환까지 이어져도 producer, pump, close 가 같은 endpoint queue lock 에 묶이지 않게 하기 위함이다.
+            _transport.RecordUdpPendingSendDepth(pendingDepthAfterEnqueue);
+
             if (evictedSend.HasValue)
             {
                 IncrementDroppedPendingSendCount();
