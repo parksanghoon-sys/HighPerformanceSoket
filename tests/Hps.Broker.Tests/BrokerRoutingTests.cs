@@ -147,16 +147,5 @@ namespace Hps.Broker.Tests
                 Assert.True(table.IsSubscribed("topic", incoming), "iteration=" + iteration);
             }
         }
-
-        private sealed class FakeConnection : IConnection
-        {
-            public void Close()
-            {
-            }
-
-            public void Dispose()
-            {
-            }
-        }
     }
 }

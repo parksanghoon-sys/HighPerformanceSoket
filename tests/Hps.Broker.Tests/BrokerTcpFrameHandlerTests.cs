@@ -1,13 +1,8 @@
 using System;
-using System.Collections.Generic;
-using System.Net;
 using System.Reflection;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using Hps.Buffers;
 using Hps.Protocol;
-using Hps.Transport;
 using Xunit;
 
 namespace Hps.Broker.Tests
@@ -152,101 +147,5 @@ namespace Hps.Broker.Tests
             return frame;
         }
 
-        private sealed class CapturedSend
-        {
-            internal CapturedSend(IConnection connection, TransportSendBuffer buffer)
-            {
-                Connection = connection;
-                Buffer = buffer;
-            }
-
-            internal IConnection Connection { get; }
-
-            internal TransportSendBuffer Buffer { get; }
-        }
-
-        private sealed class FakeConnection : IConnection
-        {
-            internal int CloseCallCount { get; private set; }
-
-            public void Close()
-            {
-                CloseCallCount++;
-            }
-
-            public void Dispose()
-            {
-            }
-        }
-
-        private sealed class FakeTransport : ITransport
-        {
-            private readonly List<CapturedSend> _acceptedSends;
-
-            internal FakeTransport()
-            {
-                _acceptedSends = new List<CapturedSend>();
-            }
-
-            internal List<CapturedSend> AcceptedSends => _acceptedSends;
-
-            public void SetReceiveHandler(ITransportReceiveHandler receiveHandler)
-            {
-            }
-
-            public void SetDatagramHandler(ITransportDatagramHandler datagramHandler)
-            {
-            }
-
-            public ValueTask<IConnectionListener> ListenTcpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
-            {
-                throw new NotImplementedException();
-            }
-
-            public ValueTask<IConnection> ConnectTcpAsync(EndPoint remoteEndPoint, CancellationToken cancellationToken = default)
-            {
-                throw new NotImplementedException();
-            }
-
-            public ValueTask<IUdpEndpoint> BindUdpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
-            {
-                throw new NotImplementedException();
-            }
-
-            public bool TrySend(IConnection connection, TransportSendBuffer sendBuffer)
-            {
-                _acceptedSends.Add(new CapturedSend(connection, sendBuffer));
-                return true;
-            }
-
-            public bool TrySendTo(IUdpEndpoint endpoint, EndPoint remoteEndPoint, TransportSendBuffer sendBuffer)
-            {
-                throw new NotImplementedException();
-            }
-
-            public ValueTask StartAsync(CancellationToken cancellationToken = default)
-            {
-                return default(ValueTask);
-            }
-
-            public ValueTask StopAsync(CancellationToken cancellationToken = default)
-            {
-                return default(ValueTask);
-            }
-
-            public void Dispose()
-            {
-            }
-
-            internal void ReleaseAcceptedBuffers()
-            {
-                for (int index = 0; index < _acceptedSends.Count; index++)
-                {
-                    _acceptedSends[index].Buffer.Buffer.Release();
-                }
-
-                _acceptedSends.Clear();
-            }
-        }
     }
 }
