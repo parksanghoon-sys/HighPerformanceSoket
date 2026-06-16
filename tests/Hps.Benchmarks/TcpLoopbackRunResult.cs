@@ -7,7 +7,7 @@ namespace Hps.Benchmarks
     /// <summary>
     /// TCP loopback benchmark 계열 실행 결과이다.
     ///
-    /// 이 값은 smoke 와 30초/100Hz load runner 가 같은 출력 형식을 쓰게 하여,
+    /// 이 값은 smoke, closed-loop load, open-loop load runner 가 같은 출력 형식을 쓰게 하여,
     /// sent/received/drop/leak/latency 계측 경계를 사람과 자동화가 동일하게 확인할 수 있게 한다.
     /// 현재 pass/fail 은 전달 완결성, drop 없음, pool leak 없음, payload 순서/무결성만 판정하며 latency 는 관측값으로만 출력한다.
     /// </summary>

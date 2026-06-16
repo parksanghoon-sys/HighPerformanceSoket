@@ -17,8 +17,9 @@ namespace Hps.Benchmarks
     /// Phase 4 TCP loopback benchmark 시나리오 runner 이다.
     ///
     /// smoke 는 짧은 경로 검증으로 빠르게 실패를 잡고, load 는 같은 BrokerServer/SaeaTransport 경로에서
-    /// 4096B payload 를 100Hz 로 30초 동안 전송한다. 두 경로를 같은 구현으로 묶어 측정 방식 차이 때문에
-    /// 결과 해석이 갈라지지 않게 한다.
+    /// 4096B payload 를 100Hz 로 30초 동안 전송한다. open-loop 는 publisher 와 subscriber receive 를 분리해
+    /// closed-loop 가 가리는 send queue/backpressure 경로를 관측한다. 세 경로를 같은 구현으로 묶어
+    /// 측정 방식 차이 때문에 결과 해석이 갈라지지 않게 한다.
     /// </summary>
     internal static class TcpLoopbackScenarioRunner
     {
