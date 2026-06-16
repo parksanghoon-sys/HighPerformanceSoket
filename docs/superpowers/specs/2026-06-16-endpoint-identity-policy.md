@@ -3,7 +3,7 @@
 - 날짜: 2026-06-16
 - 상태: Accepted
 - 근거 리뷰: `.claude/review/2026-06-16-endpoint-model-cross-verification.md`
-- 관련 결정: D053, D054, D056, D057, D058
+- 관련 결정: D053, D054, D056, D057, D058, D059
 
 ## 결론
 
@@ -12,6 +12,21 @@ transient diagnostics id 이다. `EndpointId`는 reconnect 이후 같은 외부 
 
 Broker routing 이 reconnect 를 같은 endpoint 로 재바인딩해야 한다면, 그 identity 는 socket handle 이나 `EndpointId`에서
 추론하지 않고 별도 control-plane 또는 설정에서 명시적으로 받아야 한다.
+
+## v1 subscription 정책
+
+v1은 reconnect 후 subscription 유지까지 제공하지 않는다. Subscription 은 현재 살아 있는 runtime send target 의 수명에
+묶인다.
+
+- TCP subscription 은 현재 TCP `IConnection` 수명에 묶인다.
+- TCP connection 이 닫히면 기존처럼 모든 topic 에서 해당 connection subscription 을 제거한다.
+- TCP client 가 reconnect 하면 새 connection 으로 다시 `SUBSCRIBE` 해야 한다.
+- UDP subscription 을 v1에 포함하더라도 stable subscriber identity 없이 bind 된 UDP endpoint 와 remote endpoint 조합을
+  runtime send target 으로 다룬다.
+- UDP remote 의 stale/expiry, explicit unsubscribe, remote endpoint 등록 방식은 UDP broker v1 wire/control 설계에서 별도로 닫는다.
+
+이 결정은 stable identity 를 폐기하는 것이 아니라, stable identity 를 요구하는 기능을 v1 runtime routing 뒤의 별도 단계로
+분리한다는 뜻이다.
 
 ## 왜 `EndpointId`를 routing key 로 쓰지 않는가
 

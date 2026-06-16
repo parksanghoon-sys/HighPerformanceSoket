@@ -29,29 +29,26 @@
   - Phase 4 open-loop TCP load/backpressure benchmark 를 추가했다.
   - EndpointId 를 실제 TCP/UDP endpoint lifecycle 에 연결하고 active endpoint snapshot collection API 를 추가했다.
   - D058로 `EndpointId`가 stable routing key 가 아니라 runtime diagnostics id 임을 결정했다.
+  - D059로 v1 subscription 은 runtime endpoint 수명에 묶고 reconnect rebinding 은 제공하지 않기로 결정했다.
   - 다음 후보: 사용자 검토 후 Deferred Backlog 를 다시 평가한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` TCP/UDP stable subscriber identity source 와 reconnect binding 정책을 결정한다.
-  - 무엇이 남았는지: D058에 따라 `EndpointId`는 stable routing key 가 아니다. Broker 가 reconnect 뒤 같은 logical subscriber 를
-    유지해야 한다면 별도 identity source 와 rebinding 정책이 필요하다.
-  - 왜 defer 되었는지: 이번 단위는 `.claude/review/2026-06-16-endpoint-model-cross-verification.md`의 F1을 반영해
-    `EndpointId`의 의미를 닫는 문서 결정까지만 수행했다. 실제 protocol/control-plane 변경은 Broker, Protocol, Server, UDP 결선에
-    함께 영향을 주므로 별도 구현 단위로 분리한다.
-  - objective: v1에서 explicit endpoint identity 를 요구할지, 아니면 runtime connection/UDP endpoint subscription 만 보장할지 결정한다.
-    explicit identity 를 요구한다면 TCP/UDP 가 공유할 broker-level subscriber key 와 duplicate/reconnect 처리 방식을 정한다.
-  - relevant context: DECISIONS D058, `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`,
-    `.claude/review/2026-06-16-endpoint-model-cross-verification.md`, `BrokerSubscriber`, `SubscriptionTable`,
-    `BrokerTcpFrameHandler`, `EndpointSnapshot`, `ITransportEndpointDiagnostics`.
-  - 관련 파일/범위: `src/Hps.Protocol/`, `src/Hps.Broker/`, `src/Hps.Server/`, `src/Hps.Transport/Abstractions/`,
-    `tests/Hps.Broker.Tests/`, `tests/Hps.Server.Tests/`, 신규 UDP broker tests.
-  - 현재 상태: `BrokerSubscriber`는 TCP `IConnection` reference identity 를 runtime send target 으로 감싼다.
-    `EndpointId`는 endpoint snapshot 에서만 쓰이며 reconnect stable identity 를 보장하지 않는다.
-  - known blockers/open questions: stable identity 를 wire protocol handshake 로 받을지, server configuration 으로 둘지,
-    host API 로 주입할지 결정해야 한다. 동일 stable identity 로 새 endpoint 가 들어왔을 때 기존 subscription 을 이전할지,
-    기존 endpoint 를 닫을지, 중복으로 거부할지도 결정해야 한다.
-  - next step: TCP text command 확장(`REGISTER` 또는 `SUBSCRIBE ... AS ...`)과 UDP command wire format 을 같은 설계 단위에서 비교한다.
+- [ ] `P1_SOON` UDP broker v1 runtime target wire/control 을 설계한다.
+  - 무엇이 남았는지: D059에 따라 v1은 stable subscriber identity 없이 runtime endpoint 수명 기반 subscription 으로 간다.
+    이제 UDP broker 가 어떤 datagram 또는 control 경로로 runtime UDP send target 을 등록/해지하고 publish fan-out 에 연결할지 정해야 한다.
+  - 왜 defer 되었는지: 이번 단위는 stable identity/reconnect 정책 결정까지만 수행했다. UDP wire/control 을 함께 정하면
+    `ITransportDatagramHandler`, `BrokerSubscriber`, `SubscriptionTable`, `BrokerPublisher`, Server tests 까지 영향이 넓어진다.
+  - objective: UDP `1 datagram = 1 message` 원칙 안에서 subscribe/publish/register/unsubscribe 중 v1에 필요한 최소 command set 과
+    runtime target identity(`IUdpEndpoint` + remote `EndPoint`)를 확정한다.
+  - relevant context: DECISIONS D024, D046, D058, D059, `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`,
+    `ITransportDatagramHandler`, `IUdpEndpoint`, `SaeaTransport` UDP tests, `BrokerSubscriber`, `SubscriptionTable`, `BrokerPublisher`.
+  - 관련 파일/범위: `src/Hps.Transport/Abstractions/`, `src/Hps.Protocol/`, `src/Hps.Broker/`, `src/Hps.Server/`,
+    `tests/Hps.Transport.Tests/`, `tests/Hps.Broker.Tests/`, `tests/Hps.Server.Tests/`.
+  - 현재 상태: UDP transport bind/send/receive/echo 와 endpoint send queue 는 검증됐다. Broker subscription/fan-out 은 TCP connection target 만 사용한다.
+  - known blockers/open questions: UDP datagram 자체에 `SUBSCRIBE`/`PUBLISH` command 를 실을지, TCP control plane 으로 UDP remote 를 등록할지,
+    UDP stale target 정리를 explicit unsubscribe 로만 둘지, idle expiry 를 둘지 결정해야 한다.
+  - next step: 가장 작은 설계 후보는 UDP datagram command 를 TCP text command 와 맞추되, stable identity 없이 remote endpoint 를 runtime target 으로 쓰는 것이다.
 
 - [ ] `P2_LATER` 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정한다.
   - 무엇이 남았는지: 현재 public diagnostics 와 benchmark report 는 TCP/UDP 별 누적 drop count 와 pending send queue high-watermark 를 제공하지만,
@@ -102,21 +99,6 @@
   - known blockers/open questions: v1 기본 정책을 안정성 중심 disconnect 로 둘지, 최신성 중심 drop-oldest 로 둘지 사용자 결정이 필요하다.
   - next step: Phase 4 open-loop 결과를 검토한 뒤 drop-oldest 만으로 충분한지, disconnect 정책과 설정 surface 가 필요한지 설계 결정을 요청한다.
 
-- [ ] `P2_LATER` UDP pub/sub 를 v1 범위에 포함할지 결정한다.
-  - 무엇이 남았는지: UDP transport bind/send/recv/echo 기준선은 있으나, UDP command decode, Broker fan-out 연결,
-    UDP end-to-end pub/sub 테스트는 없다.
-  - 왜 defer 되었는지: Phase 1~3 리뷰는 TCP broker 완성을 인정했고, UDP broker 는 별도 범위 결정이 필요한 항목으로 남았다.
-    TCP benchmark 진입과 UDP feature 결선을 같은 단위에 섞으면 검증 축이 달라진다.
-  - objective: v1을 TCP broker 로 고정할지, UDP `1 datagram = 1 메시지` pub/sub 도 Phase 3/4 범위에 포함할지 결정한다.
-  - relevant context: `.claude/review/overall-state-2026-06-15.md` P3, AGENTS 프레이밍 규칙, D024/D046,
-    `ITransportDatagramHandler`, `SaeaTransport` UDP tests.
-  - 관련 파일/범위: `src/Hps.Protocol/`, `src/Hps.Broker/`, `src/Hps.Server/`, `tests/Hps.Transport.Tests/`,
-    신규 UDP broker tests.
-  - 현재 상태: UDP datagram ownership 과 endpoint send queue 는 검증됐지만 Broker command path 는 TCP 전용이다.
-  - known blockers/open questions: UDP command wire format 을 TCP text command 와 동일하게 둘지, datagram payload 자체를 publish message 로 볼지 결정해야 한다.
-    D058에 따라 UDP broker 가 reconnect 또는 stable endpoint semantics 를 요구하면 `EndpointId`가 아니라 별도 stable subscriber identity 가 필요하다.
-  - next step: 사용자에게 v1 UDP 포함 여부를 확인한 뒤 포함이면 D058의 stable identity 정책과 함께 별도 설계/테스트 단위로 승격한다.
-
 - [ ] `P2_LATER` drop log/sampling 과 Server convenience diagnostics API 필요성을 검토한다.
   - 무엇이 남았는지: `ITransportDiagnostics.GetDiagnosticsSnapshot()`으로 Transport-level public 누적 metric 은 제공하지만,
     drop 발생 시 log 를 남기거나 `BrokerServer`가 Transport diagnostics 를 직접 감싸는 convenience API 는 없다.
@@ -133,6 +115,22 @@
 
 ## Completed
 
+- [x] UDP pub/sub v1 범위 판단을 runtime target wire/control 설계 단위로 승격했다.
+  - 기존 `P2_LATER` 항목은 UDP broker 를 v1에 포함할지 묻는 범위 판단이었다.
+  - D059 이후 v1은 stable identity 없이 runtime target subscription 으로 가는 방향이 정해졌으므로,
+    실제 남은 판단은 UDP command/control 과 stale runtime target 정책이다.
+  - 후속: `P1_SOON` UDP broker v1 runtime target wire/control 설계 항목에서 이어간다.
+
+- [x] v1 subscription 을 runtime endpoint 수명 기반으로 확정하고 reconnect rebinding 을 v1 범위 밖으로 뺐다.
+  - 범위: `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`, `DECISIONS.md`, `CURRENT_PLAN.md`,
+    `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결정: TCP subscription 은 현재 `IConnection` 수명에 묶고, reconnect client 는 다시 `SUBSCRIBE` 해야 한다.
+    UDP broker 를 v1에 포함하더라도 stable subscriber identity 없이 bind 된 UDP endpoint 와 remote `EndPoint` 조합을 runtime target 으로 다룬다.
+  - 근거: stable identity 는 handshake/config/host API, duplicate id, reconnect transfer, UDP stale 정리까지 함께 결정해야 하므로
+    TCP/UDP runtime fan-out 경계보다 뒤로 미룬다.
+  - 후속: UDP broker v1 runtime target wire/control 설계를 새 `P1_SOON` 항목으로 올렸다.
+  - 검증: 문서 연결은 `rg`로 확인하고, whitespace 는 `git diff --check`로 검증한다.
+
 - [x] Endpoint identity 정책을 문서화해 `EndpointId`의 의미를 runtime diagnostics id 로 고정했다.
   - 범위: `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`, `DECISIONS.md`, `CURRENT_PLAN.md`,
     `TODOS.md`, `CHANGELOG_AGENT.md`.
@@ -141,6 +139,7 @@
   - 결정: `EndpointId`는 Transport 수명 안에서 살아 있는 endpoint 를 관측하는 transient diagnostics id 로 유지한다.
     Broker stable routing/reconnect binding 은 explicit control-plane/configuration/host identity 가 생기기 전까지 제공하지 않는다.
   - 후속: stable subscriber identity source, duplicate/reconnect 처리, TCP/UDP command wire format 은 새 `P1_SOON` 항목으로 분리했다.
+    이후 D059에서 v1은 runtime endpoint 수명 기반으로 가고 reconnect rebinding 은 제공하지 않기로 결정했다.
   - 검증: 문서 연결은 `rg`로 확인하고, whitespace 는 `git diff --check`로 검증한다.
 
 - [x] Broker subscription value 를 TCP endpoint-target 값으로 1차 전환했다.
@@ -149,7 +148,8 @@
   - Red: `BrokerSubscriber` snapshot 계약 테스트 2건을 먼저 추가했고 기존 구현에서 type 부재 `Assert.NotNull` 실패로 확인했다.
   - 구현: `SubscriptionTable` 내부 구독자 key 를 `BrokerSubscriber` 로 바꾸고, 기존 TCP `IConnection` overload 는 compatibility API 로 유지했다.
     `BrokerPublisher`는 `BrokerSubscriber[]` snapshot 으로 fan-out 한다.
-  - 후속: UDP broker v1 wire/control, UDP send target 값, stable endpoint id/reconnect binding 은 아직 결정하지 않았다.
+  - 후속: UDP broker v1 wire/control 과 UDP send target 값은 남아 있다. Stable endpoint id/reconnect binding 은 이후 D059에서
+    v1 범위 밖으로 결정했다.
   - 검증: focused Red 실패 2, focused Green 통과 2, Broker tests 통과 20, solution build 경고 0/오류 0, solution test 통과 114.
 
 - [x] EndpointId 를 실제 TCP/UDP endpoint lifecycle 에 연결하고 snapshot collection API 를 추가했다.
@@ -165,7 +165,8 @@
     현재 pending depth, endpoint 수명 high-watermark, drop count, open/closed 상태를 `EndpointSnapshot`으로 만든다.
   - 구현: `SaeaTransport`는 tracking 중인 TCP connection 과 UDP endpoint 를 lock 안에서 값 배열로 복사한 뒤,
     lock 밖에서 snapshot 을 생성한다. 닫힌 endpoint 는 기존 unregister 경로로 tracking 목록에서 제거된다.
-  - 후속: Broker subscription value 를 endpoint 중심으로 전환할지, stable endpoint id/reconnect binding 을 요구할지는 별도 `P1_SOON` 항목으로 남겼다.
+  - 후속: Broker subscription value endpoint-target 전환은 D057에서 완료했고, stable endpoint id/reconnect binding 은 D059에서
+    v1 범위 밖으로 결정했다.
   - 검증: focused Red 실패 3, focused Green 통과 3. Transport 전체 통과 43, solution build 경고 0/오류 0,
     solution test 통과 112/실패 0/건너뜀 0. `git diff --check` whitespace 오류 없음.
 

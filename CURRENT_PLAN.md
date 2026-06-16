@@ -236,18 +236,21 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - `.claude/review/2026-06-16-endpoint-model-cross-verification.md`의 F1을 반영해 endpoint identity 정책을 문서화했다.
   `EndpointId`는 runtime diagnostics id 로 유지하고 stable routing/reconnect key 로 쓰지 않는다(D058).
   stable subscription 재바인딩이 필요하면 별도 control-plane 또는 configuration identity 가 먼저 필요하다.
+- v1 subscription 정책을 runtime endpoint 수명 기반으로 확정했다(D059). TCP reconnect 는 기존 subscription 을 이어받지 않고
+  새 connection 에서 다시 `SUBSCRIBE`해야 한다. UDP broker 를 v1에 포함하더라도 stable subscriber identity 없이
+  bind 된 UDP endpoint 와 remote `EndPoint` 조합을 runtime send target 으로 다룬다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가한다.
-현재 권장 후보는 D058 기준으로 TCP/UDP stable subscriber identity source 와 UDP broker v1 wire/control 범위를 결정하는 것이다.
-이 단위에서는 `EndpointId`를 stable key 로 쓰지 않고, v1에서 explicit endpoint identity 를 요구할지
-또는 runtime connection/UDP endpoint subscription 만 보장할지 먼저 좁게 닫는다.
+현재 권장 후보는 UDP broker v1 runtime target wire/control 설계다. D059에 따라 stable subscriber identity,
+`REGISTER`, reconnect subscription transfer 는 넣지 않는다. 먼저 UDP datagram command 를 TCP text command 와 맞출지,
+또는 TCP control plane 으로 UDP remote 를 등록할지 비교하고, 가장 작은 TDD 구현 단위로 쪼갠다.
 
 ## 이번 단위의 검증 경로
-- `rg -n "D058|EndpointId.*transient|stable routing|stable subscriber|endpoint-identity-policy|2026-06-16-endpoint-identity-policy" CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md DECISIONS.md docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`
+- `rg -n "D059|runtime endpoint|runtime target|reconnect|UDP broker v1 runtime target|EndpointId.*diagnostics" CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md DECISIONS.md docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`
 - `git diff --check`
 
 ## 이번 작업에서 건드리지 않은 범위
@@ -262,8 +265,8 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - p50/p99 latency 합격선 확정 및 실패 gate
 - Markdown report, report history, CI gate
 - 백프레셔 기본 정책 정합성 결정
-- stable subscriber identity source 결정
-- UDP broker v1 범위 결정
+- stable subscriber identity 구현
+- UDP broker v1 runtime target wire/control 구현
 - protocol error 응답
 
 위 범위는 사용자 리뷰 후 다음 단일 작업 단위에서 필요 범위만 다시 확인하고 진행한다.

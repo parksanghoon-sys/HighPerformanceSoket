@@ -1,5 +1,19 @@
 # DECISIONS.md
 
+## D059 — v1 subscription 은 runtime endpoint 수명에 묶고 reconnect rebinding 은 제공하지 않는다
+
+- 날짜: 2026-06-16
+- 상태: Accepted
+- 결정: v1에서는 reconnect 후 기존 subscription 유지나 stable subscriber rebinding 을 제공하지 않는다.
+  TCP subscription 은 현재 TCP `IConnection` 수명에 묶이며, connection 이 닫히면 기존처럼 `UnsubscribeAll(connection)`으로 제거한다.
+  reconnect 한 client 는 새 connection 에서 다시 `SUBSCRIBE` 해야 한다. UDP broker 를 v1에 포함하더라도 stable subscriber identity 없이
+  bind 된 UDP endpoint 와 remote endpoint 조합을 runtime send target 으로 다룬다.
+- 근거: stable subscriber identity 는 handshake/configuration/host API, duplicate id 처리, reconnect 시 기존 endpoint 처리,
+  UDP stale target 정리까지 함께 결정해야 한다. 이를 지금 routing key 로 끌어들이면 UDP broker 결선과 TCP command 경계를 동시에 넓힌다.
+  현재 목표는 TCP/UDP runtime send target 으로 payload fan-out 경계를 먼저 완성하고, stable identity 는 실제 요구가 선명해진 뒤 설계하는 것이다.
+- 영향: `EndpointId`는 D058처럼 diagnostics id 로 유지한다. `REGISTER`, `SUBSCRIBE ... AS ...`, reconnect subscription transfer 는
+  v1 범위 밖이다. 다음 단위는 stable identity 없이 UDP runtime target 을 어떻게 등록/해지하고 fan-out 할지 결정한다.
+
 ## D058 — `EndpointId`는 transient diagnostics id 이며 stable routing id 가 아니다
 
 - 날짜: 2026-06-16

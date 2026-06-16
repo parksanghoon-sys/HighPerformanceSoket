@@ -1,5 +1,29 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — v1 runtime subscription 정책 확정)
+
+### 작업 단위
+- D058 이후 남은 stable subscriber identity/reconnect binding 질문을 v1 범위 기준으로 닫았다.
+- 범위는 endpoint identity 정책 문서와 root state docs 에 한정했다.
+- production code, public API, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- v1 subscription 은 runtime endpoint 수명에 묶는다.
+- TCP reconnect 는 기존 subscription 을 이어받지 않으며, 새 connection 에서 다시 `SUBSCRIBE` 해야 한다.
+- UDP broker 를 v1에 포함하더라도 stable subscriber identity 없이 bind 된 UDP endpoint 와 remote `EndPoint` 조합을 runtime target 으로 다룬다.
+- `REGISTER`, `SUBSCRIBE ... AS ...`, reconnect subscription transfer 는 v1 범위 밖으로 유지한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D059를 추가했다.
+- `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`에 v1 subscription 정책을 추가했다.
+- `TODOS.md`에서 stable subscriber identity 결정 항목을 완료하고, UDP broker v1 runtime target wire/control 설계를 새 `P1_SOON` 항목으로 올렸다.
+- `CURRENT_PLAN.md`의 다음 후보를 UDP broker v1 runtime target wire/control 설계로 갱신했다.
+
+### 검증
+- 문서 연결은 `rg`로 확인한다.
+- 문서 전용 변경이므로 solution build/test 는 실행하지 않는다.
+- whitespace 는 `git diff --check`로 확인한다.
+
 ## 2026-06-16 (Codex — Endpoint identity 정책 결정)
 
 ### 작업 단위
