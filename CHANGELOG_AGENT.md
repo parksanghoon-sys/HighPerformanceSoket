@@ -1,5 +1,35 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — EndpointId/snapshot 최소 계약)
+
+### 작업 단위
+- Interface Server endpoint model 의 다음 단위로 `Hps.Transport` public abstraction 에 EndpointId/snapshot 최소 계약을 추가했다.
+- 범위는 값 타입/enum/snapshot 계약과 Transport contract 테스트, root state docs 로 제한했다.
+- TCP/UDP runtime lifecycle 에 id 를 발급하거나 Broker subscription value 를 바꾸는 작업은 포함하지 않았다.
+
+### Red
+- `EndpointSnapshot_Contract_ExposesStableIdentityAndSendDiagnostics` 테스트를 먼저 추가했다.
+- 기존 구현에서는 `Hps.Transport.EndpointId` 타입이 없어 `Assert.NotNull` 실패로 Red 를 확인했다.
+
+### Green
+- `EndpointId` 값 타입을 추가해 connection 객체 참조와 분리된 logical endpoint identity 를 표현했다.
+- `EndpointTransportKind`, `EndpointState` enum 으로 TCP/UDP 구분과 Open/Closing/Closed/Faulted 상태를 고정했다.
+- `EndpointSnapshot`에 id, transport kind, state, pending send count, pending send queue high-watermark, dropped pending send count 를 담았다.
+- Snapshot 은 socket, `IConnection`, `IUdpEndpoint`, raw `Memory<byte>`를 노출하지 않는다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D054를 추가해 endpoint identity 최소 계약을 값 snapshot 으로 시작한다고 기록했다.
+- `TODOS.md`에서 EndpointId/snapshot 최소 계약을 Completed 로 이동하고, runtime endpoint id 발급/snapshot collection API 를 새 P1 후속으로 남겼다.
+- `CURRENT_PLAN.md`의 다음 후보를 endpoint lifecycle wiring 으로 갱신했다.
+
+### 검증
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-restore --filter "FullyQualifiedName~EndpointSnapshot_Contract"` 실패 1.
+- Green: 같은 focused 테스트 통과 1.
+- Transport 전체: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-restore` 통과 40.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 109, 실패 0, 건너뜀 0.
+- `git diff --check` whitespace 오류 없음.
+
 ## 2026-06-16 (Codex — high-watermark 상태 문서 동기화)
 
 ### 작업 단위

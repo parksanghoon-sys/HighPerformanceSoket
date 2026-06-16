@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D054 — Endpoint identity 최소 계약은 Transport abstraction 의 값 snapshot 으로 시작한다
+
+- 날짜: 2026-06-16
+- 상태: Accepted
+- 결정: Endpoint 중심 Interface Server 로 가기 위한 첫 코드 단위는 runtime registry 가 아니라 `Hps.Transport` public abstraction 의
+  값 계약으로 제한한다. `EndpointId`는 connection 객체나 UDP endpoint 객체와 분리된 logical id 값이며,
+  `EndpointSnapshot`은 id, transport kind, state, pending send count, pending send queue high-watermark,
+  dropped pending send count 만 담는다. Snapshot 은 socket, `IConnection`, `IUdpEndpoint`, `RefCountedBuffer`,
+  `Memory<byte>` 같은 수명 있는 handle 을 포함하지 않는다.
+- 근거: Broker subscription value 를 곧바로 바꾸면 Broker/Server/Protocol 테스트 범위가 넓어진다. 먼저 값 계약을 고정하면
+  후속 runtime registry, snapshot collection, Broker endpoint 전환이 같은 필드 집합을 기준으로 진행된다.
+  또한 snapshot 이 transport handle 을 보관하면 닫힌 connection 이 불필요하게 살아남거나 상위 계층이 Transport 수명 경계를 우회할 수 있다.
+- 영향: 다음 P1 단위는 TCP connection/UDP endpoint lifecycle 에 transient `EndpointId`를 발급하고 snapshot collection API 를
+  제공하는 runtime wiring 이다. Stable external endpoint id, reconnect binding, UDP broker subscription 정책은 이 값 계약이 아니라
+  후속 Endpoint registry/Broker 단위에서 결정한다.
+
 ## D053 — Interface Server 목표는 endpoint-aware publish model 과 send-side 관측성을 우선한다
 
 - 날짜: 2026-06-16

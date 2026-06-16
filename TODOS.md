@@ -31,19 +31,20 @@
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` EndpointId 와 endpoint snapshot 최소 계약을 설계/구현한다.
-  - 무엇이 남았는지: 현재 broker subscription 은 `IConnection` 중심이며, Interface Server 가 요구하는 안정적인 endpoint identity,
-    transport kind, endpoint state, endpoint-level diagnostics 모델이 없다.
-  - 왜 defer 되었는지: subscription value 를 바꾸면 Broker/Server/Protocol 테스트 범위가 넓어진다. send queue high-watermark
-    구현으로 transport kind 별 backlog 관측은 확보됐으므로, 이제 다음 P1 후보로 올릴 수 있다.
+- [ ] `P1_SOON` EndpointId 를 실제 TCP/UDP endpoint lifecycle 에 연결하고 snapshot collection API 를 설계/구현한다.
+  - 무엇이 남았는지: `EndpointId`, `EndpointTransportKind`, `EndpointState`, `EndpointSnapshot` public 계약은 생겼지만,
+    Transport runtime 이 TCP connection/UDP endpoint 에 id 를 발급하거나 endpoint snapshot 목록을 수집하는 API 는 아직 없다.
+  - 왜 defer 되었는지: 이번 단위는 public 값 타입 계약만 고정했다. 발급/등록/수집을 붙이면 `TransportBase`, `TransportConnection`,
+    `SaeaUdpEndpoint`, diagnostics surface, Broker/Server 후속 연결까지 영향 범위가 넓어진다.
   - objective: TCP connection 과 UDP remote endpoint 를 같은 logical endpoint 모델로 관찰하고, 이후 TCP/UDP fan-out 정책을 같은 개념으로 다룰 수 있게 한다.
   - relevant context: `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`, `SubscriptionTable`,
-    `BrokerPublisher`, `BrokerTcpFrameHandler`, `IConnection`, `IUdpEndpoint`.
-  - 관련 파일/범위: `src/Hps.Broker/`, `src/Hps.Server/`, `src/Hps.Transport/Abstractions/`, 관련 테스트 프로젝트.
-  - 현재 상태: TCP broker 는 동작하지만 endpoint identity 가 없어 reconnect, UDP endpoint, endpoint별 상태 관측을 자연스럽게 표현하지 못한다.
-    선행 HWM snapshot 은 endpoint 식별 없이 TCP/UDP transport kind 별 max 만 제공한다.
+    `BrokerPublisher`, `BrokerTcpFrameHandler`, `IConnection`, `IUdpEndpoint`, `EndpointSnapshot`, `TransportBase`.
+  - 관련 파일/범위: `src/Hps.Transport/Runtime/`, `src/Hps.Transport/Saea/`, `src/Hps.Transport/Abstractions/`, 관련 테스트 프로젝트.
+  - 현재 상태: TCP broker 는 동작하지만 endpoint id 가 실제 connection/UDP endpoint lifecycle 에 연결되지 않았다.
+    선행 HWM snapshot 은 endpoint 식별 없이 TCP/UDP transport kind 별 max 만 제공하고, 새 `EndpointSnapshot`은 아직 값 계약만 존재한다.
   - known blockers/open questions: endpoint identity 를 broker 내부 transient id 로 시작할지, 외부 subscriber 가 제공하는 stable id 를 요구할지 결정해야 한다.
-  - next step: endpoint snapshot 이 실제로 담아야 할 최소 필드를 Red 테스트로 고정한다.
+    이번 값 타입 계약은 transient/stable 정책을 강제하지 않는다.
+  - next step: Transport runtime 이 새 TCP/UDP endpoint 에 transient `EndpointId`를 발급하고 snapshot 목록을 반환하는 최소 API 를 Red 테스트로 고정한다.
 
 - [ ] `P2_LATER` Phase 4 benchmark latency SLO gate 여부를 결정한다.
   - 무엇이 남았는지: `--smoke`, `--load`, `--load-open-loop` 결과를 JSON report 로 저장하는 경로는 D052와 이번 완료 항목으로 닫혔다.
@@ -105,6 +106,16 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] EndpointId 와 endpoint snapshot 최소 public 계약을 추가했다.
+  - 범위: `src/Hps.Transport/Abstractions/EndpointId.cs`, `EndpointTransportKind.cs`, `EndpointState.cs`, `EndpointSnapshot.cs`,
+    `tests/Hps.Transport.Tests/Contracts/TransportContractTests.cs`, root state docs.
+  - Red: `EndpointSnapshot_Contract_ExposesStableIdentityAndSendDiagnostics`가 기존 구현에서 `EndpointId` 타입 부재로 실패했다.
+  - 구현: connection 객체 참조를 직접 노출하지 않는 `EndpointId` 값 타입, TCP/UDP transport kind, endpoint state,
+    pending send count/high-watermark/drop count 를 담는 immutable snapshot 계약을 추가했다.
+  - 후속: endpoint id 발급, TCP/UDP lifecycle 등록, snapshot collection API, Broker subscription value 전환은 별도 P1 항목으로 남겼다.
+  - 검증: focused Red 실패 1, Green 통과 1. Transport 전체 통과 40. 솔루션 build 경고 0/오류 0,
+    솔루션 테스트 통과 109/실패 0/건너뜀 0, `git diff --check` whitespace 오류 없음.
 
 - [x] TCP/UDP send queue high-watermark diagnostics 를 public snapshot 과 benchmark report 에 연결했다.
   - 범위: `src/Hps.Transport/Abstractions/TransportDiagnosticsSnapshot.cs`, `src/Hps.Transport/Runtime/TransportBase.cs`,

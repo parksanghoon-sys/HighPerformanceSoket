@@ -219,21 +219,24 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   sequence 를 넣어 수신 순서/무결성을 `payload-errors`로 관측하고, p99 지연을 first-half/second-half 로 나눠 지연 증가 추세를 출력한다.
 - TCP/UDP pending send queue high-watermark 가 public diagnostics snapshot 과 benchmark stdout/JSON report 에 연결됐다.
   Transport 수명 기준 TCP/UDP kind 별 max pending depth 를 기록하며, capacity 16에서 포화되므로 drop count 와 함께 해석한다.
+- EndpointId 와 endpoint snapshot 최소 public 계약이 `Hps.Transport` abstraction 에 추가됐다.
+  아직 TCP/UDP runtime lifecycle 에 발급/등록/수집을 연결하지 않았으므로 실제 endpoint 목록 snapshot 은 후속 단위로 남아 있다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가해 가장 작은 다음 단위를 선택한다.
-현재 권장 후보는 EndpointId 와 endpoint snapshot 최소 계약을 설계/구현하는 것이다.
+현재 권장 후보는 EndpointId 를 실제 TCP/UDP endpoint lifecycle 에 연결하고 snapshot collection API 를 설계/구현하는 것이다.
 그 다음 후보는 UDP broker v1 wire/control 정책 결정이다.
 Phase 4 latency SLO gate 는 endpoint/send-side 관측값을 확보한 뒤 판단한다.
 
 ## 이번 단위의 검증 경로
-- `rg -n "HighWatermark|high-watermark|PendingSendQueueHighWatermark|tcp-pending-send-queue-high-watermark|udp-pending-send-queue-high-watermark" src tests CURRENT_PLAN.md TODOS.md DECISIONS.md CHANGELOG_AGENT.md`
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-restore --filter "FullyQualifiedName~EndpointSnapshot_Contract"`
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-restore`
+- `dotnet build HighPerformanceSocket.slnx --no-restore`
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`
 - `git diff --check`
-- 이번 단위는 설계 문서와 상태 문서 변경만 포함하므로 `dotnet build`/`dotnet test`는 실행하지 않는다.
-  다음 코드 구현 단위에서 Red→Green→Refactor 검증을 다시 수행한다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화

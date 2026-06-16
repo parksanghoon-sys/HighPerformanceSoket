@@ -274,6 +274,84 @@ namespace Hps.Transport.Tests
             AssertDoesNotExposeRawMemoryParameters(diagnosticsType);
         }
 
+        // Endpoint snapshot 최소 계약 테스트: Interface Server 는 TCP connection 과 UDP remote 를 같은 logical
+        // endpoint 로 관찰해야 한다. 이번 단위는 Broker subscription 을 바꾸기 전에 public identity/snapshot 타입만
+        // 고정해, 후속 구현이 어떤 필드를 채워야 하는지 먼저 명확히 한다.
+        [Fact]
+        public void EndpointSnapshot_Contract_ExposesStableIdentityAndSendDiagnostics()
+        {
+            Type? endpointIdType = Type.GetType("Hps.Transport.EndpointId, Hps.Transport");
+            Type? transportKindType = Type.GetType("Hps.Transport.EndpointTransportKind, Hps.Transport");
+            Type? endpointStateType = Type.GetType("Hps.Transport.EndpointState, Hps.Transport");
+            Type? endpointSnapshotType = Type.GetType("Hps.Transport.EndpointSnapshot, Hps.Transport");
+
+            Assert.NotNull(endpointIdType);
+            Assert.NotNull(transportKindType);
+            Assert.NotNull(endpointStateType);
+            Assert.NotNull(endpointSnapshotType);
+
+            Type equatableEndpointIdType = typeof(IEquatable<>).MakeGenericType(endpointIdType!);
+            ConstructorInfo? endpointIdConstructor = endpointIdType!.GetConstructor(new Type[] { typeof(long) });
+            PropertyInfo? endpointIdValue = endpointIdType.GetProperty("Value");
+            ConstructorInfo? snapshotConstructor = endpointSnapshotType!.GetConstructor(new Type[]
+            {
+                endpointIdType,
+                transportKindType!,
+                endpointStateType!,
+                typeof(int),
+                typeof(int),
+                typeof(long)
+            });
+            PropertyInfo? id = endpointSnapshotType.GetProperty("Id");
+            PropertyInfo? transportKind = endpointSnapshotType.GetProperty("TransportKind");
+            PropertyInfo? state = endpointSnapshotType.GetProperty("State");
+            PropertyInfo? pendingSendCount = endpointSnapshotType.GetProperty("PendingSendCount");
+            PropertyInfo? pendingSendQueueHighWatermark = endpointSnapshotType.GetProperty("PendingSendQueueHighWatermark");
+            PropertyInfo? droppedPendingSendCount = endpointSnapshotType.GetProperty("DroppedPendingSendCount");
+
+            Assert.Contains(equatableEndpointIdType, endpointIdType.GetInterfaces());
+            Assert.NotNull(endpointIdConstructor);
+            Assert.NotNull(endpointIdValue);
+            Assert.Equal(typeof(long), endpointIdValue!.PropertyType);
+            Assert.True(transportKindType!.IsEnum);
+            Assert.True(endpointStateType!.IsEnum);
+            Assert.NotNull(Enum.Parse(transportKindType, "Tcp"));
+            Assert.NotNull(Enum.Parse(transportKindType, "Udp"));
+            Assert.NotNull(Enum.Parse(endpointStateType, "Open"));
+            Assert.NotNull(Enum.Parse(endpointStateType, "Closing"));
+            Assert.NotNull(Enum.Parse(endpointStateType, "Closed"));
+            Assert.NotNull(Enum.Parse(endpointStateType, "Faulted"));
+            Assert.NotNull(snapshotConstructor);
+            Assert.NotNull(id);
+            Assert.Equal(endpointIdType, id!.PropertyType);
+            Assert.NotNull(transportKind);
+            Assert.Equal(transportKindType, transportKind!.PropertyType);
+            Assert.NotNull(state);
+            Assert.Equal(endpointStateType, state!.PropertyType);
+            Assert.NotNull(pendingSendCount);
+            Assert.Equal(typeof(int), pendingSendCount!.PropertyType);
+            Assert.NotNull(pendingSendQueueHighWatermark);
+            Assert.Equal(typeof(int), pendingSendQueueHighWatermark!.PropertyType);
+            Assert.NotNull(droppedPendingSendCount);
+            Assert.Equal(typeof(long), droppedPendingSendCount!.PropertyType);
+
+            object endpointId = endpointIdConstructor!.Invoke(new object[] { 42L });
+            object tcpKind = Enum.Parse(transportKindType, "Tcp");
+            object openState = Enum.Parse(endpointStateType, "Open");
+            object snapshot = snapshotConstructor!.Invoke(new object[] { endpointId, tcpKind, openState, 3, 7, 2L });
+
+            Assert.Equal(42L, endpointIdValue.GetValue(endpointId));
+            Assert.Equal(endpointId, id.GetValue(snapshot));
+            Assert.Equal(tcpKind, transportKind.GetValue(snapshot));
+            Assert.Equal(openState, state.GetValue(snapshot));
+            Assert.Equal(3, pendingSendCount.GetValue(snapshot));
+            Assert.Equal(7, pendingSendQueueHighWatermark.GetValue(snapshot));
+            Assert.Equal(2L, droppedPendingSendCount.GetValue(snapshot));
+            AssertDoesNotExposeRawMemoryParameters(endpointIdType);
+            AssertDoesNotExposeRawMemoryParameters(endpointSnapshotType);
+            AssertDoesNotExposeRawMemoryProperties(endpointSnapshotType);
+        }
+
         private static void AssertDoesNotExposeRawMemoryParameters(Type contractType)
         {
             Assert.DoesNotContain(contractType.GetMethods(), delegate(MethodInfo method)
