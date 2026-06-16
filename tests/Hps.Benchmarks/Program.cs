@@ -11,11 +11,11 @@ namespace Hps.Benchmarks
         private const int UsageErrorExitCode = 2;
         private const int ReportWriteFailedExitCode = 2;
 
-        private const string MessageReportOnlyWithRuns = "--report \uC635\uC158\uC740 --smoke, --load, --load-open-loop \uB4A4\uC5D0\uC11C\uB9CC \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
-        private const string MessageUnknownRunnerArgs = "\uC54C \uC218 \uC5C6\uB294 benchmark runner \uC778\uC790\uC785\uB2C8\uB2E4.";
-        private const string MessageReportPathRequired = "--report \uC635\uC158\uC5D0\uB294 \uC800\uC7A5\uD560 \uD30C\uC77C \uACBD\uB85C\uAC00 \uD544\uC694\uD569\uB2C8\uB2E4.";
-        private const string MessageReportExecutionOnly = "--report \uC635\uC158\uC740 benchmark \uC2E4\uD589 \uBA85\uB839\uC5D0\uC11C\uB9CC \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
-        private const string MessageUsage = "\uC0AC\uC6A9\uBC95";
+        private const string MessageReportOnlyWithRuns = "--report 옵션은 --smoke, --load, --load-open-loop 뒤에서만 사용할 수 있습니다.";
+        private const string MessageUnknownRunnerArgs = "알 수 없는 benchmark runner 인자입니다.";
+        private const string MessageReportPathRequired = "--report 옵션에는 저장할 파일 경로가 필요합니다.";
+        private const string MessageReportExecutionOnly = "--report 옵션은 benchmark 실행 명령에서만 사용할 수 있습니다.";
+        private const string MessageUsage = "사용법";
 
         public static int Main(string[] args)
         {
