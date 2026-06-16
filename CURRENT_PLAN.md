@@ -228,6 +228,8 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - high-watermark 구현 리뷰의 비차단 후속 2건을 상태 문서에 반영했다.
   마지막 drop 발생 범위는 EndpointId runtime wiring 뒤 판단할 `P2_LATER` backlog 로 남겼고,
   report high-watermark field 는 additive field 이므로 `schema-version: 1`을 유지한다고 D055로 기록했다.
+- `.claude/review/2026-06-16-send-queue-high-watermark-impl.md`의 deeper-pass 메타데이터를 현재 HEAD 기준으로 최신화했다.
+  schema-version 과 EndpointId runtime wiring follow-up 은 이미 완료됐고, 마지막 drop scope 판단만 남은 상태로 정리했다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
@@ -240,11 +242,8 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 Phase 4 latency SLO gate 는 endpoint/send-side 관측값을 확보한 뒤 판단한다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-restore --filter "FullyQualifiedName~EndpointDiagnostics_Contract|FullyQualifiedName~CreateSnapshot_WhenTcpConnectionQueueChanges|FullyQualifiedName~GetEndpointSnapshots_WhenTcpAndUdpEndpointsAreOpen"` → 기존 구현에서 assertion 실패 3건.
-- Green: 같은 focused 테스트 통과 3건.
-- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-restore`
-- `dotnet build HighPerformanceSocket.slnx --no-restore`
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-build --no-restore --filter "FullyQualifiedName~TransportDiagnostics_Contract|FullyQualifiedName~TrySend_WhenPendingQueueGrows|FullyQualifiedName~UdpSendTo_WhenPendingQueueGrows|FullyQualifiedName~EndpointDiagnostics_Contract|FullyQualifiedName~CreateSnapshot_WhenTcpConnectionQueueChanges|FullyQualifiedName~GetEndpointSnapshots"`
+- `rg -n "대상 커밋|D055|D056|마지막 drop|schema-version|EndpointId runtime|last-drop|endpoint snapshot" .claude/review/2026-06-16-send-queue-high-watermark-impl.md TODOS.md CURRENT_PLAN.md CHANGELOG_AGENT.md DECISIONS.md`
 - `git diff --check`
 
 ## 이번 작업에서 건드리지 않은 범위

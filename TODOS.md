@@ -51,16 +51,20 @@
 - [ ] `P2_LATER` 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정한다.
   - 무엇이 남았는지: 현재 public diagnostics 와 benchmark report 는 TCP/UDP 별 누적 drop count 와 pending send queue high-watermark 를 제공하지만,
     마지막 drop 이 어떤 transport kind 또는 어떤 logical endpoint 에서 발생했는지는 별도 필드로 남기지 않는다.
-  - 왜 defer 되었는지: drop count 는 이미 TCP/UDP 로 분리되어 있어 최소 운영 진단은 가능하다. endpoint 단위 scope 는 EndpointId runtime 발급,
-    snapshot collection API, endpoint lifecycle 정리가 붙은 뒤에 설계해야 값의 의미가 안정된다.
+  - 왜 defer 되었는지: drop count 는 이미 TCP/UDP 로 분리되어 있어 최소 운영 진단은 가능하다. EndpointId runtime 발급과
+    snapshot collection API 는 완료됐지만, last-drop 은 "마지막 1건"인지, transport kind 별 마지막 drop 인지,
+    endpoint snapshot 의 per-endpoint 누적/마지막 값인지 의미를 먼저 정해야 한다.
   - objective: 느린 소비자나 막힌 UDP remote 로 메시지가 버려졌을 때 운영자가 마지막 drop 의 대략적인 범위를 빠르게 좁힐 수 있게 할지 결정한다.
   - relevant context: `.claude/review/2026-06-16-send-queue-high-watermark-impl.md`, DECISIONS D053/D054/D055,
     `TransportDiagnosticsSnapshot`, `EndpointSnapshot`, `TransportBase`, `TransportConnection`, `SaeaUdpEndpoint`.
   - 관련 파일/범위: `src/Hps.Transport/Abstractions/`, `src/Hps.Transport/Runtime/`, `src/Hps.Transport/Saea/`,
     `tests/Hps.Transport.Tests/`, `tests/Hps.Benchmarks/`.
-  - 현재 상태: transport kind 별 HWM/drop count 는 구현돼 있고 JSON report 에도 기록된다. endpoint identity 기반 queue depth snapshot 은 아직 미구현이다.
-  - known blockers/open questions: 마지막 1건만 저장할지, transport kind 별 마지막 drop 을 저장할지, endpoint snapshot 에 per-endpoint drop/high-watermark 를 포함할지 결정해야 한다.
-  - next step: EndpointId lifecycle wiring 뒤 실제 snapshot API 모양을 보고 last-drop scope 가 snapshot 필드인지, transport aggregate 필드인지 선택한다.
+  - 현재 상태: transport kind 별 HWM/drop count 는 구현돼 있고 JSON report 에도 기록된다. `ITransportEndpointDiagnostics.GetEndpointSnapshots()`로
+    endpoint 별 pending count/HWM/drop count snapshot 도 읽을 수 있다. 별도 last-drop field 는 없다.
+  - known blockers/open questions: 마지막 1건만 저장할지, transport kind 별 마지막 drop 을 저장할지, endpoint snapshot 에 last-drop metadata 를 추가할지,
+    아니면 현재 per-endpoint 누적 drop count 로 충분하다고 볼지 결정해야 한다.
+  - next step: 운영자가 실제로 좁히려는 질문이 "어느 transport kind 인가", "어느 endpoint 인가", "언제 마지막으로 버렸나" 중 무엇인지 정하고,
+    그에 맞춰 additive diagnostics field 또는 backlog 유지 중 하나를 선택한다.
 
 - [ ] `P2_LATER` Phase 4 benchmark latency SLO gate 여부를 결정한다.
   - 무엇이 남았는지: `--smoke`, `--load`, `--load-open-loop` 결과를 JSON report 로 저장하는 경로는 D052와 이번 완료 항목으로 닫혔다.

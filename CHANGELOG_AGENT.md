@@ -1,5 +1,25 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — high-watermark deeper-pass 리뷰 문서 최신화)
+
+### 작업 단위
+- `.claude/review/2026-06-16-send-queue-high-watermark-impl.md`의 deeper-pass 내용을 현재 HEAD 기준으로 정리했다.
+- 범위는 review artifact 와 root state docs 의 stale 문구 정리에 한정했다.
+- 코드, public API, benchmark runner, 테스트 코드는 변경하지 않았다.
+
+### 반영 내용
+- 리뷰 파일의 대상 커밋을 high-watermark 구현(`22591b5`, `db8984f`)과 후속 docs/runtime wiring(`7eabb3e`, `f77344b`)까지 확장했다.
+- schema-version follow-up 은 D055/CHANGELOG에 이미 반영된 완료 항목으로 표시했다.
+- EndpointId runtime wiring 은 D056 및 `f77344b`에서 완료된 항목으로 표시하고, 남은 후속은 마지막 drop scope 판단 1건으로 축소했다.
+- `TODOS.md`의 last-drop backlog 에서 "endpoint identity 기반 queue depth snapshot 미구현"이라는 stale 문구를 제거하고,
+  현재 endpoint snapshot API 가 존재하는 상태에서 남은 결정 질문을 다시 적었다.
+
+### 검증
+- 관련 Transport focused 테스트 6건을 재실행해 통과 6, 실패 0을 확인했다.
+- review/TODO/decision 연결은 `rg`로 확인했다.
+- conflict marker 검색에서 매칭이 없음을 확인했다.
+- 문서 전용 변경이므로 solution build/test 전체 재실행은 생략했고, `git diff --check` whitespace 오류 없음만 확인했다.
+
 ## 2026-06-16 (Codex — EndpointId runtime wiring 과 endpoint snapshot collection)
 
 ### 작업 단위
