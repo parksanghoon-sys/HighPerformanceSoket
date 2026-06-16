@@ -50,6 +50,8 @@ namespace Hps.Benchmarks
                     writer.WriteNumber("sent", result.Sent);
                     writer.WriteNumber("received", result.Received);
                     writer.WriteNumber("dropped", result.Dropped);
+                    writer.WriteNumber("tcp-pending-send-queue-high-watermark", result.TcpPendingSendQueueHighWatermark);
+                    writer.WriteNumber("udp-pending-send-queue-high-watermark", result.UdpPendingSendQueueHighWatermark);
                     writer.WriteNumber("payload-errors", result.PayloadErrors);
                     writer.WriteNumber("pool-rented", result.PoolRented);
                     writer.WriteNumber("actual-rate-hz", Round(result.ActualRateHz, 1));

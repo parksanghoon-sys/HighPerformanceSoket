@@ -23,6 +23,8 @@ namespace Hps.Benchmarks
             int sent,
             int received,
             long dropped,
+            int tcpPendingSendQueueHighWatermark,
+            int udpPendingSendQueueHighWatermark,
             int payloadErrors,
             int poolRented,
             double p50LatencyMicroseconds,
@@ -40,6 +42,8 @@ namespace Hps.Benchmarks
             Sent = sent;
             Received = received;
             Dropped = dropped;
+            TcpPendingSendQueueHighWatermark = tcpPendingSendQueueHighWatermark;
+            UdpPendingSendQueueHighWatermark = udpPendingSendQueueHighWatermark;
             PayloadErrors = payloadErrors;
             PoolRented = poolRented;
             P50LatencyMicroseconds = p50LatencyMicroseconds;
@@ -66,6 +70,10 @@ namespace Hps.Benchmarks
         public int Received { get; }
 
         public long Dropped { get; }
+
+        public int TcpPendingSendQueueHighWatermark { get; }
+
+        public int UdpPendingSendQueueHighWatermark { get; }
 
         public int PayloadErrors { get; }
 
@@ -122,6 +130,8 @@ namespace Hps.Benchmarks
             writer.WriteLine("sent: {0}", Sent);
             writer.WriteLine("received: {0}", Received);
             writer.WriteLine("dropped: {0}", Dropped);
+            writer.WriteLine("tcp-pending-send-queue-high-watermark: {0}", TcpPendingSendQueueHighWatermark);
+            writer.WriteLine("udp-pending-send-queue-high-watermark: {0}", UdpPendingSendQueueHighWatermark);
             writer.WriteLine("payload-errors: {0}", PayloadErrors);
             writer.WriteLine("pool-rented: {0}", PoolRented);
             writer.WriteLine("actual-rate-hz: {0}", ActualRateHz.ToString("F1", CultureInfo.InvariantCulture));
