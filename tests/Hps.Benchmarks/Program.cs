@@ -36,37 +36,28 @@ namespace Hps.Benchmarks
                 return UsageErrorExitCode;
             }
 
-            if (command == BenchmarkCommand.Target)
+            switch (command)
             {
-                BenchmarkTargets.Print(Console.Out);
-                return SuccessExitCode;
-            }
+                case BenchmarkCommand.Target:
+                    BenchmarkTargets.Print(Console.Out);
+                    return SuccessExitCode;
 
-            if (command == BenchmarkCommand.Smoke)
-            {
-                TcpLoopbackRunResult result = TcpLoopbackScenarioRunner.RunSmokeAsync().GetAwaiter().GetResult();
-                return CompleteRun(result, reportPath);
-            }
+                case BenchmarkCommand.Smoke:
+                    return CompleteRun(TcpLoopbackScenarioRunner.RunSmokeAsync().GetAwaiter().GetResult(), reportPath);
 
-            if (command == BenchmarkCommand.Load)
-            {
-                TcpLoopbackRunResult result = TcpLoopbackScenarioRunner.RunLoadAsync().GetAwaiter().GetResult();
-                return CompleteRun(result, reportPath);
-            }
+                case BenchmarkCommand.Load:
+                    return CompleteRun(TcpLoopbackScenarioRunner.RunLoadAsync().GetAwaiter().GetResult(), reportPath);
 
-            if (command == BenchmarkCommand.LoadOpenLoop)
-            {
-                TcpLoopbackRunResult result = TcpLoopbackScenarioRunner.RunOpenLoopAsync().GetAwaiter().GetResult();
-                return CompleteRun(result, reportPath);
-            }
+                case BenchmarkCommand.LoadOpenLoop:
+                    return CompleteRun(TcpLoopbackScenarioRunner.RunOpenLoopAsync().GetAwaiter().GetResult(), reportPath);
 
-            if (command == BenchmarkCommand.Help)
-            {
-                PrintUsage(Console.Out);
-                return SuccessExitCode;
-            }
+                case BenchmarkCommand.Help:
+                    PrintUsage(Console.Out);
+                    return SuccessExitCode;
 
-            return UsageErrorExitCode;
+                default:
+                    return UsageErrorExitCode;
+            }
         }
 
         private static bool TryParseKnownCommand(
