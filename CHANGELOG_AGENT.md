@@ -1,5 +1,33 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — Broker 구독자 endpoint-target 값 전환)
+
+### 작업 단위
+- Broker routing table 의 subscription value 를 TCP connection 직접 참조에서 `BrokerSubscriber` endpoint target 값으로 한 단계 분리했다.
+- 범위는 `Hps.Broker`의 `BrokerSubscriber`, `SubscriptionTable`, `BrokerPublisher`, Broker routing tests, root state docs 로 제한했다.
+- TCP command handler, Server wiring, UDP broker command/wire format 은 바꾸지 않았다.
+
+### Red
+- `SubscriptionTable_Contract_ExposesBrokerSubscriberSnapshot` 와 `CopySubscribers_WhenBrokerSubscriberDestinationIsUsed_CopiesTcpEndpointTargets`를 먼저 추가했다.
+- 기존 구현에서는 `BrokerSubscriber` 타입이 없어 `Assert.NotNull` 실패 2건으로 Red를 확인했다.
+
+### Green
+- `BrokerSubscriber` 값을 추가해 TCP `IConnection` send target 과 `EndpointTransportKind.Tcp` 를 감쌌다.
+- `SubscriptionTable` 내부 set key 를 `BrokerSubscriber` 로 바꾸고 기존 `IConnection` overload 는 compatibility API 로 유지했다.
+- `BrokerPublisher`는 `BrokerSubscriber[]` snapshot 을 사용해 fan-out 하며, TCP target 은 기존 `ITransport.TrySend(connection, sendBuffer)`로 수렴한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D057을 추가했다.
+- `TODOS.md`에서 Broker subscription value P1 항목을 Completed 로 이동하고, UDP broker v1 wire/control 결정을 다음 후보로 남겼다.
+- `CURRENT_PLAN.md`의 다음 실행 지점을 사용자 리뷰 대기와 UDP broker v1 범위 결정 후보로 갱신했다.
+
+### 검증
+- Red focused: 실패 2.
+- Green focused: 통과 2.
+- Broker 전체: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --no-restore` 통과 20.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 114, 실패 0, 건너뜀 0.
+
 ## 2026-06-16 (Codex — high-watermark deeper-pass 리뷰 문서 최신화)
 
 ### 작업 단위

@@ -6,7 +6,11 @@ using Hps.Transport;
 namespace Hps.Broker
 {
     /// <summary>
-    /// Broker 의 topic 별 TCP 구독 connection 집합을 관리하는 라우팅 테이블이다.
+    /// Broker 의 topic 별 구독자 집합을 관리하는 라우팅 테이블이다.
+    ///
+    /// 내부 값은 TCP connection 자체가 아니라 Broker 발행 대상인 <see cref="BrokerSubscriber"/> 로 저장한다.
+    /// 현재 TCP command path 는 compatibility overload 로 들어오지만, UDP broker 를 붙일 때 같은 테이블에
+    /// UDP endpoint target 을 담을 수 있도록 routing value 경계를 먼저 분리한다.
     /// </summary>
     public sealed class SubscriptionTable
     {
@@ -21,52 +25,76 @@ namespace Hps.Broker
         }
 
         /// <summary>
-        /// 지정 topic 에 connection 을 구독자로 추가한다.
+        /// 지정 topic 에 TCP connection 을 구독자로 추가한다.
+        ///
+        /// TCP command handler 의 기존 진입점을 보존하기 위한 overload 이며, 내부 저장은 endpoint target 값으로 변환한다.
         /// </summary>
         public bool Subscribe(string topic, IConnection connection)
         {
             ValidateTopic(topic);
             ValidateConnection(connection);
 
-            TopicSubscriptions subscriptions = _topics.GetOrAdd(topic, CreateTopicSubscriptions);
-            return subscriptions.Add(connection);
+            return Subscribe(topic, BrokerSubscriber.ForTcp(connection));
         }
 
         /// <summary>
-        /// 지정 topic 에서 connection 구독을 제거한다.
+        /// 지정 topic 에 Broker 발행 대상 endpoint 를 구독자로 추가한다.
+        /// </summary>
+        public bool Subscribe(string topic, BrokerSubscriber subscriber)
+        {
+            ValidateTopic(topic);
+            ValidateSubscriber(subscriber);
+
+            TopicSubscriptions subscriptions = _topics.GetOrAdd(topic, CreateTopicSubscriptions);
+            return subscriptions.Add(subscriber);
+        }
+
+        /// <summary>
+        /// 지정 topic 에서 TCP connection 구독을 제거한다.
         /// </summary>
         public bool Unsubscribe(string topic, IConnection connection)
         {
             ValidateTopic(topic);
             ValidateConnection(connection);
 
+            return Unsubscribe(topic, BrokerSubscriber.ForTcp(connection));
+        }
+
+        /// <summary>
+        /// 지정 topic 에서 Broker 발행 대상 endpoint 구독을 제거한다.
+        /// </summary>
+        public bool Unsubscribe(string topic, BrokerSubscriber subscriber)
+        {
+            ValidateTopic(topic);
+            ValidateSubscriber(subscriber);
+
             TopicSubscriptions? subscriptions;
             if (!_topics.TryGetValue(topic, out subscriptions))
                 return false;
 
             // D008: 구독자 set 이 비어도 topic entry 를 즉시 제거하지 않는다.
-            // "새 구독 추가"와 "마지막 구독 해지 후 빈 정리"가 겹치면 새 구독이 제거된 set 에 들어가 유실될 수 있다.
-            return subscriptions.Remove(connection);
+            // 마지막 제거와 새 구독 추가가 겹칠 때 새 구독자가 사라지는 eager-cleanup 경합을 피하기 위한 정책이다.
+            return subscriptions.Remove(subscriber);
         }
 
         /// <summary>
-        /// 지정 connection 을 모든 topic 구독 set 에서 제거하고 실제 제거된 구독 수를 반환한다.
+        /// 지정 connection 을 모든 topic 구독 set 에서 제거하고 실제 제거된 topic 수를 반환한다.
         ///
-        /// 이 API 는 Transport/Protocol 계층이 연결 종료를 통지했을 때 topic 이름을 알 수 없는 상태에서도
-        /// Broker 라우팅 테이블에 남은 dead connection 참조를 정리하기 위한 경계다. D008 NoCleanup 정책에 따라
-        /// topic entry 자체는 제거하지 않고, 각 topic 의 connection set 에서만 대상 connection 을 제거한다.
+        /// Transport/Protocol 계층이 connection 종료를 통지했을 때 topic 이름을 모르는 상태에서도 Broker routing table 에
+        /// dead TCP connection 참조가 남지 않게 하는 정리 경계다. D008 NoCleanup 정책에 따라 topic entry 자체는 제거하지 않는다.
         /// </summary>
         public int UnsubscribeAll(IConnection connection)
         {
             ValidateConnection(connection);
 
+            BrokerSubscriber subscriber = BrokerSubscriber.ForTcp(connection);
             int removed = 0;
 
-            // ConcurrentDictionary 열거는 mutation 과 동시에 안전하다. 연결 종료 정리는 hot publish 경로가 아니므로
-            // topic 전체를 한 번 훑는 비용을 받아들이고, 대신 topic entry 제거 경합을 만들지 않아 D008 불변식을 유지한다.
+            // ConcurrentDictionary 열거는 mutation 과 동시에 안전하다. connection 종료 정리는 hot publish 경로가 아니므로
+            // 전체 topic 을 한 번 훑는 비용을 받아들이고, topic entry 제거 경합을 만들지 않는다.
             foreach (KeyValuePair<string, TopicSubscriptions> pair in _topics)
             {
-                if (pair.Value.Remove(connection))
+                if (pair.Value.Remove(subscriber))
                     removed++;
             }
 
@@ -74,15 +102,26 @@ namespace Hps.Broker
         }
 
         /// <summary>
-        /// 지정 connection 이 topic 에 현재 구독되어 있는지 확인한다.
+        /// 지정 TCP connection 이 topic 에 현재 구독되어 있는지 확인한다.
         /// </summary>
         public bool IsSubscribed(string topic, IConnection connection)
         {
             ValidateTopic(topic);
             ValidateConnection(connection);
 
+            return IsSubscribed(topic, BrokerSubscriber.ForTcp(connection));
+        }
+
+        /// <summary>
+        /// 지정 endpoint target 이 topic 에 현재 구독되어 있는지 확인한다.
+        /// </summary>
+        public bool IsSubscribed(string topic, BrokerSubscriber subscriber)
+        {
+            ValidateTopic(topic);
+            ValidateSubscriber(subscriber);
+
             TopicSubscriptions? subscriptions;
-            return _topics.TryGetValue(topic, out subscriptions) && subscriptions.Contains(connection);
+            return _topics.TryGetValue(topic, out subscriptions) && subscriptions.Contains(subscriber);
         }
 
         /// <summary>
@@ -100,9 +139,31 @@ namespace Hps.Broker
         }
 
         /// <summary>
-        /// 지정 topic 의 현재 구독자를 caller 제공 배열로 복사한다.
+        /// 지정 topic 의 현재 TCP 구독자 connection 을 caller 제공 배열로 복사한다.
+        ///
+        /// 기존 TCP-only 테스트와 점검 경로를 위한 compatibility API 다. 신규 fan-out 경로는
+        /// <see cref="CopySubscribers(string, BrokerSubscriber[])"/> 를 사용한다.
         /// </summary>
         public int CopySubscribers(string topic, IConnection[] destination)
+        {
+            ValidateTopic(topic);
+            if (destination == null)
+                throw new ArgumentNullException(nameof(destination));
+
+            TopicSubscriptions? subscriptions;
+            if (!_topics.TryGetValue(topic, out subscriptions))
+                return 0;
+
+            return subscriptions.CopyTcpConnectionsTo(destination);
+        }
+
+        /// <summary>
+        /// 지정 topic 의 현재 구독 endpoint target 들을 caller 제공 배열로 복사한다.
+        ///
+        /// 반환값은 destination 에 실제로 담긴 개수가 아니라 현재 관측된 전체 구독자 수다. caller 는 반환값이
+        /// destination 길이보다 크면 더 큰 배열로 다시 snapshot 을 시도해야 fan-out 대상을 빠뜨리지 않는다.
+        /// </summary>
+        public int CopySubscribers(string topic, BrokerSubscriber[] destination)
         {
             ValidateTopic(topic);
             if (destination == null)
@@ -134,41 +195,47 @@ namespace Hps.Broker
                 throw new ArgumentNullException(nameof(connection));
         }
 
+        private static void ValidateSubscriber(BrokerSubscriber subscriber)
+        {
+            if (!subscriber.IsValid)
+                throw new ArgumentException("Broker 구독자는 유효한 TCP/UDP endpoint target 이어야 한다.", nameof(subscriber));
+        }
+
         private sealed class TopicSubscriptions
         {
-            private readonly ConcurrentDictionary<IConnection, byte> _connections;
+            private readonly ConcurrentDictionary<BrokerSubscriber, byte> _subscribers;
 
             internal TopicSubscriptions()
             {
-                _connections = new ConcurrentDictionary<IConnection, byte>(ConnectionReferenceComparer.Instance);
+                _subscribers = new ConcurrentDictionary<BrokerSubscriber, byte>();
             }
 
-            internal int Count => _connections.Count;
+            internal int Count => _subscribers.Count;
 
-            internal bool Add(IConnection connection)
+            internal bool Add(BrokerSubscriber subscriber)
             {
-                return _connections.TryAdd(connection, 0);
+                return _subscribers.TryAdd(subscriber, 0);
             }
 
-            internal bool Remove(IConnection connection)
+            internal bool Remove(BrokerSubscriber subscriber)
             {
                 byte ignored;
-                return _connections.TryRemove(connection, out ignored);
+                return _subscribers.TryRemove(subscriber, out ignored);
             }
 
-            internal bool Contains(IConnection connection)
+            internal bool Contains(BrokerSubscriber subscriber)
             {
-                return _connections.ContainsKey(connection);
+                return _subscribers.ContainsKey(subscriber);
             }
 
-            internal int CopyTo(IConnection[] destination)
+            internal int CopyTo(BrokerSubscriber[] destination)
             {
                 int total = 0;
                 int copied = 0;
 
-                // ConcurrentDictionary 열거자는 mutation 과 동시에 안전한 snapshot 성격의 열거를 제공한다.
-                // fan-out caller 는 반환된 total 이 destination 길이보다 크면 더 큰 버퍼로 재시도할 수 있다.
-                foreach (KeyValuePair<IConnection, byte> pair in _connections)
+                // ConcurrentDictionary 열거는 mutation 과 동시에 안전한 snapshot 성격의 열거를 제공한다.
+                // fan-out caller 는 반환된 total 이 destination 길이보다 크면 더 큰 버퍼로 다시 시도해야 한다.
+                foreach (KeyValuePair<BrokerSubscriber, byte> pair in _subscribers)
                 {
                     if (copied < destination.Length)
                     {
@@ -181,27 +248,29 @@ namespace Hps.Broker
 
                 return total;
             }
-        }
 
-        private sealed class ConnectionReferenceComparer : IEqualityComparer<IConnection>
-        {
-            internal static readonly ConnectionReferenceComparer Instance = new ConnectionReferenceComparer();
-
-            private ConnectionReferenceComparer()
+            internal int CopyTcpConnectionsTo(IConnection[] destination)
             {
-            }
+                int total = 0;
+                int copied = 0;
 
-            public bool Equals(IConnection? x, IConnection? y)
-            {
-                return object.ReferenceEquals(x, y);
-            }
+                // 내부 모델은 endpoint target 이지만 기존 TCP command/test 경계는 connection 배열을 확인한다.
+                // UDP target 이 추가되면 이 compatibility API 는 TCP 구독자만 복사하며 신규 fan-out 은 target snapshot 을 사용한다.
+                foreach (KeyValuePair<BrokerSubscriber, byte> pair in _subscribers)
+                {
+                    if (pair.Key.TransportKind == EndpointTransportKind.Tcp)
+                    {
+                        if (copied < destination.Length)
+                        {
+                            destination[copied] = pair.Key.TcpConnection;
+                            copied++;
+                        }
 
-            public int GetHashCode(IConnection obj)
-            {
-                if (obj == null)
-                    throw new ArgumentNullException(nameof(obj));
+                        total++;
+                    }
+                }
 
-                return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
+                return total;
             }
         }
     }

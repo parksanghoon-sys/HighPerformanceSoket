@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D057 — Broker routing value 는 `BrokerSubscriber` endpoint target 으로 저장한다
+
+- 날짜: 2026-06-16
+- 상태: Accepted
+- 결정: `SubscriptionTable` 내부 구독자 값은 raw `IConnection` 이 아니라 `BrokerSubscriber` 로 저장한다.
+  `BrokerSubscriber` 는 현재 TCP `IConnection` 을 send target 으로 감싸고 `EndpointTransportKind` 를 노출한다.
+  기존 TCP command handler 와 테스트 경계를 깨지 않기 위해 `Subscribe(topic, IConnection)`,
+  `Unsubscribe(topic, IConnection)`, `IsSubscribed(topic, IConnection)`, `CopySubscribers(topic, IConnection[])`
+  overload 는 compatibility API 로 유지한다. 신규 publish fan-out 경로는 `BrokerSubscriber[]` snapshot 을 사용한다.
+- 근거: Interface Server 목표에서는 TCP connection 과 UDP endpoint 를 같은 "발행 대상" 개념으로 다뤄야 한다.
+  Broker routing table 이 계속 raw TCP connection 배열만 노출하면 UDP broker 를 붙일 때 `SubscriptionTable` 과
+  `BrokerPublisher` 를 다시 동시에 갈아엎어야 한다. 먼저 TCP 동작을 보존한 endpoint-target 값 경계를 만들면
+  후속 UDP wire/control 결정을 별도 단위로 분리할 수 있다.
+- 영향: v1 TCP fan-out 동작과 소유권 규칙은 그대로 유지된다. stable external endpoint id, reconnect binding,
+  UDP command wire format, UDP send target 값은 이 결정에 포함하지 않고 후속 UDP broker 단위에서 정한다.
+
 ## D056 — Endpoint snapshot collection 은 선택적 Transport diagnostics capability 로 노출한다
 
 - 날짜: 2026-06-16

@@ -55,7 +55,7 @@ namespace Hps.Broker
 
             ValidatePayloadRange(payload, offset, length);
 
-            IConnection[] subscribers = RentSubscriberSnapshotBuffer(topic);
+            BrokerSubscriber[] subscribers = RentSubscriberSnapshotBuffer(topic);
             try
             {
                 int subscriberCount = CopySubscribersIntoSnapshot(topic, ref subscribers);
@@ -71,24 +71,24 @@ namespace Hps.Broker
             }
             finally
             {
-                ArrayPool<IConnection>.Shared.Return(subscribers, clearArray: true);
+                ArrayPool<BrokerSubscriber>.Shared.Return(subscribers, clearArray: true);
             }
         }
 
         // 현재 구독자 수를 기준으로 스냅샷 배열을 빌린다. Count 이후 구독자가 늘 수 있으므로 이 크기는
         // 최종 확정값이 아니라 첫 시도용 힌트이며, 실제 부족 여부는 CopySubscribers 반환값으로 다시 판단한다.
-        private IConnection[] RentSubscriberSnapshotBuffer(string topic)
+        private BrokerSubscriber[] RentSubscriberSnapshotBuffer(string topic)
         {
             int subscriberCount = _subscriptions.CountSubscribers(topic);
             if (subscriberCount <= 0)
                 subscriberCount = 1;
 
-            return ArrayPool<IConnection>.Shared.Rent(subscriberCount);
+            return ArrayPool<BrokerSubscriber>.Shared.Rent(subscriberCount);
         }
 
         // SubscriptionTable.CopySubscribers 는 destination 에 담긴 수가 아니라 전체 구독자 수를 반환한다.
         // 반환값이 배열 길이보다 크면 mutation 중 구독자가 늘었거나 최초 힌트가 작았다는 뜻이므로 더 큰 배열로 재시도한다.
-        private int CopySubscribersIntoSnapshot(string topic, ref IConnection[] subscribers)
+        private int CopySubscribersIntoSnapshot(string topic, ref BrokerSubscriber[] subscribers)
         {
             while (true)
             {
@@ -96,8 +96,8 @@ namespace Hps.Broker
                 if (subscriberCount <= subscribers.Length)
                     return subscriberCount;
 
-                ArrayPool<IConnection>.Shared.Return(subscribers, clearArray: true);
-                subscribers = ArrayPool<IConnection>.Shared.Rent(subscriberCount);
+                ArrayPool<BrokerSubscriber>.Shared.Return(subscribers, clearArray: true);
+                subscribers = ArrayPool<BrokerSubscriber>.Shared.Rent(subscriberCount);
             }
         }
 
@@ -112,14 +112,14 @@ namespace Hps.Broker
 
         // 구독자별 ref 는 Transport 가 TrySend true 를 반환했을 때만 Transport 소유가 된다.
         // false 또는 생성/전송 중 예외 경로에서는 Broker 가 방금 추가한 ref 를 되돌려 publish guard ref 만 남긴다.
-        private bool TrySendToSubscriber(IConnection subscriber, RefCountedBuffer payload, int offset, int length)
+        private bool TrySendToSubscriber(BrokerSubscriber subscriber, RefCountedBuffer payload, int offset, int length)
         {
             payload.AddRef();
             bool accepted = false;
             try
             {
                 TransportSendBuffer sendBuffer = new TransportSendBuffer(payload, offset, length);
-                accepted = _transport.TrySend(subscriber, sendBuffer);
+                accepted = subscriber.TrySend(_transport, sendBuffer);
                 return accepted;
             }
             finally

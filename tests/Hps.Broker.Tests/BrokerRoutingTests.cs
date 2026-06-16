@@ -70,6 +70,53 @@ namespace Hps.Broker.Tests
             Assert.Equal(typeof(int), unsubscribeAll!.ReturnType);
         }
 
+        // endpoint 중심 fan-out 전환 계약 테스트: Broker routing table 이 raw TCP connection 배열만 노출하면
+        // 이후 UDP endpoint 를 같은 publish 경로에 넣을 때 routing 값과 send target 모델을 다시 갈아엎어야 한다.
+        // 먼저 TCP 동작을 유지한 채 구독자 snapshot 을 BrokerSubscriber 값으로 복사하는 public 경계를 고정한다.
+        [Fact]
+        public void SubscriptionTable_Contract_ExposesBrokerSubscriberSnapshot()
+        {
+            Type? tableType = Type.GetType("Hps.Broker.SubscriptionTable, Hps.Broker");
+            Type? subscriberType = Type.GetType("Hps.Broker.BrokerSubscriber, Hps.Broker");
+            Assert.NotNull(tableType);
+            Assert.NotNull(subscriberType);
+
+            MethodInfo? copySubscribers = tableType!.GetMethod(
+                "CopySubscribers",
+                new Type[] { typeof(string), subscriberType!.MakeArrayType() });
+
+            Assert.NotNull(copySubscribers);
+            Assert.Equal(typeof(int), copySubscribers!.ReturnType);
+        }
+
+        // TCP 구독을 기존 Subscribe(topic, IConnection) API 로 추가해도 내부 snapshot 은 endpoint target 값이어야 한다.
+        // 이 테스트는 TCP command handler 를 흔들지 않고 table 내부 값을 다음 UDP broker 결선에 재사용 가능한 형태로 바꾸는지 검증한다.
+        [Fact]
+        public void CopySubscribers_WhenBrokerSubscriberDestinationIsUsed_CopiesTcpEndpointTargets()
+        {
+            Type? subscriberType = Type.GetType("Hps.Broker.BrokerSubscriber, Hps.Broker");
+            Assert.NotNull(subscriberType);
+
+            SubscriptionTable table = new SubscriptionTable();
+            FakeConnection connection = new FakeConnection();
+            table.Subscribe("topic", connection);
+
+            Array destination = Array.CreateInstance(subscriberType!, 1);
+            MethodInfo? copySubscribers = typeof(SubscriptionTable).GetMethod(
+                "CopySubscribers",
+                new Type[] { typeof(string), destination.GetType() });
+            Assert.NotNull(copySubscribers);
+
+            int total = (int)copySubscribers!.Invoke(table, new object[] { "topic", destination })!;
+            object? subscriber = destination.GetValue(0);
+            PropertyInfo? transportKind = subscriberType!.GetProperty("TransportKind");
+            Assert.NotNull(transportKind);
+
+            Assert.Equal(1, total);
+            Assert.NotNull(subscriber);
+            Assert.Equal(EndpointTransportKind.Tcp, transportKind!.GetValue(subscriber));
+        }
+
         // 연결 종료 정리 동작 테스트: 하나의 connection 이 여러 topic 에 구독된 뒤 닫히면
         // 모든 topic 에서 해당 connection 참조만 제거되어야 dead connection 누적과 CountSubscribers 팽창을 막을 수 있다.
         [Fact]

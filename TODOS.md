@@ -32,22 +32,6 @@
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` Broker subscription value 를 TCP/UDP endpoint 중심 모델로 전환할지 설계/구현한다.
-  - 무엇이 남았는지: Transport 는 active TCP/UDP endpoint snapshot 을 값으로 노출하지만, Broker routing 은 아직 `IConnection` 중심이다.
-    UDP endpoint 가 Broker fan-out 대상으로 들어오려면 subscription value 가 connection 객체 참조만으로는 부족하다.
-  - 왜 defer 되었는지: 이번 단위는 Transport diagnostics wiring 만 닫았다. Broker subscription value 를 바꾸면 `SubscriptionTable`,
-    `BrokerPublisher`, `BrokerTcpFrameHandler`, Server 통합 테스트, 향후 UDP wire/control 정책까지 영향이 이어진다.
-  - objective: TCP connection 과 UDP endpoint 를 같은 "발행 대상" 개념으로 다루며, publish fan-out 이 endpoint identity 와 transport kind 를 기준으로
-    진단/확장될 수 있게 한다.
-  - relevant context: `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`, DECISIONS D053~D056,
-    `SubscriptionTable`, `BrokerPublisher`, `BrokerTcpFrameHandler`, `ITransportEndpointDiagnostics`, `EndpointSnapshot`.
-  - 관련 파일/범위: `src/Hps.Broker/`, `src/Hps.Protocol/`, `src/Hps.Server/`, `src/Hps.Transport/Abstractions/`, 관련 Broker/Server/Transport tests.
-  - 현재 상태: TCP broker 는 `IConnection` subscription 으로 동작하고, Transport endpoint snapshot 은 진단용으로만 존재한다.
-    UDP datagram transport 는 검증됐지만 UDP broker command/subscription 결선은 없다.
-  - known blockers/open questions: subscription value 가 runtime endpoint id 만 저장할지, 실제 send target handle 을 함께 감쌀지,
-    stable 외부 endpoint id/reconnect binding 을 v1에 요구할지, UDP command wire format 을 TCP text command 와 맞출지 결정해야 한다.
-  - next step: 먼저 TCP 동작을 깨지 않는 최소 endpoint-target value 모델을 Red 테스트로 고정하고, UDP 결선은 같은 단위에 넣을지 별도 설계로 뺄지 판단한다.
-
 - [ ] `P2_LATER` 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정한다.
   - 무엇이 남았는지: 현재 public diagnostics 와 benchmark report 는 TCP/UDP 별 누적 drop count 와 pending send queue high-watermark 를 제공하지만,
     마지막 drop 이 어떤 transport kind 또는 어떤 logical endpoint 에서 발생했는지는 별도 필드로 남기지 않는다.
@@ -126,6 +110,15 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] Broker subscription value 를 TCP endpoint-target 값으로 1차 전환했다.
+  - 범위: `src/Hps.Broker/BrokerSubscriber.cs`, `src/Hps.Broker/SubscriptionTable.cs`,
+    `src/Hps.Broker/BrokerPublisher.cs`, `tests/Hps.Broker.Tests/BrokerRoutingTests.cs`, root state docs.
+  - Red: `BrokerSubscriber` snapshot 계약 테스트 2건을 먼저 추가했고 기존 구현에서 type 부재 `Assert.NotNull` 실패로 확인했다.
+  - 구현: `SubscriptionTable` 내부 구독자 key 를 `BrokerSubscriber` 로 바꾸고, 기존 TCP `IConnection` overload 는 compatibility API 로 유지했다.
+    `BrokerPublisher`는 `BrokerSubscriber[]` snapshot 으로 fan-out 한다.
+  - 후속: UDP broker v1 wire/control, UDP send target 값, stable endpoint id/reconnect binding 은 아직 결정하지 않았다.
+  - 검증: focused Red 실패 2, focused Green 통과 2, Broker tests 통과 20, solution build 경고 0/오류 0, solution test 통과 114.
 
 - [x] EndpointId 를 실제 TCP/UDP endpoint lifecycle 에 연결하고 snapshot collection API 를 추가했다.
   - 범위: `src/Hps.Transport/Abstractions/ITransportEndpointDiagnostics.cs`,
