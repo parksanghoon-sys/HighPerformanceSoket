@@ -1,5 +1,30 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — Interface Server endpoint model 설계)
+
+### 작업 단위
+- 외부 정보를 받아 구독된 TCP/UDP endpoint 로 발행하는 Interface Server 목표에 맞춰 설계를 재정렬했다.
+- 범위는 새 설계 문서와 상태 문서 갱신으로 제한했다.
+- 코드 구현, public API 변경, benchmark schema 변경은 포함하지 않았다.
+
+### 설계 변경
+- `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`를 추가했다.
+- 현재 TCP broker 구현과 Interface Server 목표 사이의 차이를 정리했다.
+- endpoint identity, transport kind, endpoint state, send diagnostics, endpoint dispatcher 개념을 후속 설계 기준으로 잡았다.
+- latency SLO gate 보다 TCP/UDP send queue high-watermark diagnostics 를 먼저 구현하는 순서를 권장했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D053으로 Interface Server endpoint-aware publish model 과 send-side 관측성 우선 결정을 기록했다.
+- `CURRENT_PLAN.md`의 최종 목표와 다음 단일 작업 후보를 endpoint/send-side 관측성 기준으로 갱신했다.
+- `TODOS.md`에서 send queue high-watermark diagnostics 와 EndpointId/snapshot 최소 계약을 P1 후속으로 올리고,
+  latency SLO gate 는 endpoint 관측값 확보 뒤 판단할 P2 후속으로 낮췄다.
+
+### 검증
+- 문서 전용 변경이므로 `dotnet build`/`dotnet test`는 실행하지 않는다.
+- `rg -n "Interface Server|endpoint|high-watermark|D053" docs CURRENT_PLAN.md TODOS.md DECISIONS.md CHANGELOG_AGENT.md`로
+  문서 연결을 확인한다.
+- `git diff --check`로 whitespace 오류를 확인한다.
+
 ## 2026-06-16 (Codex — Phase 4 benchmark JSON report)
 
 ### 작업 단위

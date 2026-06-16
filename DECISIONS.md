@@ -1,5 +1,19 @@
 # DECISIONS.md
 
+## D053 — Interface Server 목표는 endpoint-aware publish model 과 send-side 관측성을 우선한다
+
+- 날짜: 2026-06-16
+- 상태: Accepted
+- 결정: 프로젝트의 상위 목표를 단순 TCP pub/sub broker 가 아니라 외부 source data 를 받아 구독된 TCP/UDP endpoint 로 발행하는
+  Interface Server 로 재정렬한다. Phase 4의 다음 구현 우선순위는 latency SLO gate 가 아니라 endpoint/send-side 관측성이다.
+  다음 코드 단위는 TCP/UDP pending send queue high-watermark 를 public diagnostics 와 benchmark report 에 연결하는 방향을 우선 검토한다.
+- 근거: 현재 benchmark 는 subscriber 수신 latency 와 drop count 를 기록하지만, 느린 endpoint 때문에 send queue 가 어디까지 밀렸는지
+  직접 설명하지 못한다. Interface Server/DDS 유사 목표에서는 endpoint 별 transport kind, send backlog, drop 여부를 먼저 관측해야
+  latency SLO 실패 원인을 분해할 수 있다. endpoint identity 와 UDP broker 결선은 필요하지만 영향 범위가 넓으므로 high-watermark 관측성 뒤에 진행한다.
+- 영향: `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`를 후속 설계 기준으로 둔다.
+  `TODOS.md`의 latency SLO gate 는 P2로 낮추고, send queue high-watermark diagnostics 와 endpoint snapshot 최소 계약을 P1 후속으로 올린다.
+  DDS wire protocol, discovery, reliable UDP, durable history 는 v1 범위 밖으로 유지한다.
+
 ## D052 — Phase 4 benchmark report 는 공통 JSON schema 로 저장한다
 
 - 날짜: 2026-06-16

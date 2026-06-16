@@ -31,11 +31,41 @@
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` Phase 4 benchmark latency SLO gate 여부를 결정한다.
+- [ ] `P1_SOON` TCP/UDP send queue high-watermark diagnostics 를 public snapshot 과 benchmark report 에 연결한다.
+  - 무엇이 남았는지: 현재 `--load-open-loop`는 dropped count, received count, payload-errors, p50/p99 latency trend 를 보여주지만,
+    실제 TCP/UDP pending send queue 가 어디까지 찼는지는 public diagnostics 로 볼 수 없다.
+  - 왜 defer 되었는지: Interface Server 목표상 send 쪽 병목 설명이 필요하다는 설계 판단은 끝났지만, 이번 단위는 문서화로 제한한다.
+    diagnostics surface 와 benchmark schema 변경은 Red→Green 테스트가 필요한 별도 구현 단위다.
+  - objective: `ITransportDiagnostics`/`TransportDiagnosticsSnapshot`에 TCP/UDP pending queue high-watermark 를 추가하고,
+    benchmark JSON report 가 해당 값을 항상 기록하게 한다.
+  - relevant context: `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`, DECISIONS D041/D042/D051/D052/D053,
+    `TransportConnection`, `SaeaUdpEndpoint`, `TransportBase`, `TransportDiagnosticsSnapshot`,
+    `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`.
+  - 관련 파일/범위: `src/Hps.Transport/Abstractions/TransportDiagnosticsSnapshot.cs`, `src/Hps.Transport/Runtime/TransportBase.cs`,
+    `src/Hps.Transport/Runtime/TransportConnection.cs`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,
+    `tests/Hps.Transport.Tests/`, `tests/Hps.Benchmarks/`.
+  - 현재 상태: drop-oldest evict 수는 누적 snapshot 으로 볼 수 있지만, drop 이 발생하기 전의 send queue backlog 는 볼 수 없다.
+  - known blockers/open questions: current depth 는 connection/endpoint lifetime 이후 의미가 약하므로 v1 snapshot 은 high-watermark 가 더 적합하다.
+  - next step: high-watermark 필드 부재를 Red 테스트로 먼저 고정한 뒤 TCP/UDP enqueue 경로에서 최대 pending depth 를 갱신한다.
+
+- [ ] `P1_SOON` EndpointId 와 endpoint snapshot 최소 계약을 설계/구현한다.
+  - 무엇이 남았는지: 현재 broker subscription 은 `IConnection` 중심이며, Interface Server 가 요구하는 안정적인 endpoint identity,
+    transport kind, endpoint state, endpoint-level diagnostics 모델이 없다.
+  - 왜 defer 되었는지: subscription value 를 바꾸면 Broker/Server/Protocol 테스트 범위가 넓어진다. send queue high-watermark 처럼
+    더 작은 관측성 단위를 먼저 구현한 뒤 진행하는 편이 리뷰 가능하다.
+  - objective: TCP connection 과 UDP remote endpoint 를 같은 logical endpoint 모델로 관찰하고, 이후 TCP/UDP fan-out 정책을 같은 개념으로 다룰 수 있게 한다.
+  - relevant context: `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`, `SubscriptionTable`,
+    `BrokerPublisher`, `BrokerTcpFrameHandler`, `IConnection`, `IUdpEndpoint`.
+  - 관련 파일/범위: `src/Hps.Broker/`, `src/Hps.Server/`, `src/Hps.Transport/Abstractions/`, 관련 테스트 프로젝트.
+  - 현재 상태: TCP broker 는 동작하지만 endpoint identity 가 없어 reconnect, UDP endpoint, endpoint별 상태 관측을 자연스럽게 표현하지 못한다.
+  - known blockers/open questions: endpoint identity 를 broker 내부 transient id 로 시작할지, 외부 subscriber 가 제공하는 stable id 를 요구할지 결정해야 한다.
+  - next step: high-watermark 구현 후 endpoint snapshot 이 실제로 담아야 할 최소 필드를 Red 테스트로 고정한다.
+
+- [ ] `P2_LATER` Phase 4 benchmark latency SLO gate 여부를 결정한다.
   - 무엇이 남았는지: `--smoke`, `--load`, `--load-open-loop` 결과를 JSON report 로 저장하는 경로는 D052와 이번 완료 항목으로 닫혔다.
     아직 p50/p99 또는 p99 증가율을 명시적인 실패 조건으로 승격할지 결정하지 않았다.
-  - 왜 defer 되었는지: latency threshold 는 개발 PC, CI, 백그라운드 부하, OS scheduling 상태에 민감하다. 현재 report 는 관측값을 안정적으로
-    남기지만, 어떤 값 이상을 실패로 볼지는 별도 리뷰 가능한 기준 설정이 필요하다.
+  - 왜 defer 되었는지: latency threshold 는 개발 PC, CI, 백그라운드 부하, OS scheduling 상태에 민감하다. 또한 Interface Server 목표에서는
+    먼저 endpoint/send-side backlog 를 설명할 수 있어야 latency SLO 실패 원인을 분해할 수 있다.
   - objective: `tcp-loopback-saea-baseline` closed-loop/open-loop 결과에서 p50/p99, first-half/second-half p99,
     p99-latency-growth-ratio 를 어떤 기준으로 합격/실패 판정할지 정한다.
   - relevant context: DECISIONS D050/D051/D052, `.claude/review/overall-state-2026-06-15.md` P1,
@@ -45,7 +75,8 @@
   - 현재 상태: runner pass/fail 은 sent==planned==received, dropped==0, payload-errors==0, pool-rented==0 만 본다.
     latency 값은 stdout 과 JSON report 에 기록되지만 실패 조건은 아니다.
   - known blockers/open questions: 개발/CI 환경별 변동을 감안한 threshold 를 고정할지, baseline 대비 상대 변화율만 볼지 결정해야 한다.
-  - next step: 최근 `--load`/`--load-open-loop --report` 결과를 기준으로 절대 threshold, p99 증가율 threshold, 또는 관측-only 유지 중 하나를 선택한다.
+  - next step: send queue high-watermark diagnostics 를 확보한 뒤 최근 `--load`/`--load-open-loop --report` 결과와 함께
+    절대 threshold, p99 증가율 threshold, 또는 관측-only 유지 중 하나를 선택한다.
 
 - [ ] `P2_LATER` 백프레셔 기본 정책을 PLAN/AGENTS 설계 의도와 재정렬한다.
   - 무엇이 남았는지: PLAN Phase 3은 기본 정책을 "느린 소비자 끊기", 옵션을 "drop-oldest"로 설명하지만,
@@ -60,21 +91,6 @@
   - 현재 상태: drop counter 와 diagnostics snapshot 은 존재하지만 policy 선택 API 와 disconnect 기본 정책은 없다.
   - known blockers/open questions: v1 기본 정책을 안정성 중심 disconnect 로 둘지, 최신성 중심 drop-oldest 로 둘지 사용자 결정이 필요하다.
   - next step: Phase 4 open-loop 결과를 검토한 뒤 drop-oldest 만으로 충분한지, disconnect 정책과 설정 surface 가 필요한지 설계 결정을 요청한다.
-
-- [ ] `P2_LATER` TCP send queue depth diagnostics 를 public snapshot 으로 확장할지 검토한다.
-  - 무엇이 남았는지: `--load-open-loop`는 dropped count, received count, payload-errors, p50/p99 latency trend 를 보여주지만,
-    실제 TCP pending send queue depth 나 최대 backlog 는 public diagnostics 로 볼 수 없다.
-  - 왜 defer 되었는지: 이번 단위는 open-loop runner 자체로 제한했다. queue depth 는 Transport public diagnostics surface 를 넓히므로
-    benchmark runner 구현과 같은 커밋에 섞지 않는다.
-  - objective: backlog 를 직접 관측해야 할 필요가 있으면 `ITransportDiagnostics`/`TransportDiagnosticsSnapshot`에 TCP pending queue
-    high-watermark 또는 current/max depth 를 추가해 open-loop benchmark 가 dropped 이전의 적체 정도를 기록할 수 있게 한다.
-  - relevant context: DECISIONS D041/D042/D051, `TransportConnection`, `TransportBase`, `TransportDiagnosticsSnapshot`,
-    `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`.
-  - 관련 파일/범위: `src/Hps.Transport/Abstractions/TransportDiagnosticsSnapshot.cs`, `src/Hps.Transport/Runtime/TransportBase.cs`,
-    `src/Hps.Transport/Runtime/TransportConnection.cs`, `tests/Hps.Transport.Tests/`, `tests/Hps.Benchmarks/`.
-  - 현재 상태: drop-oldest evict 수는 누적 snapshot 으로 볼 수 있지만, drop 이 발생하기 전의 queue depth 는 볼 수 없다.
-  - known blockers/open questions: current depth 는 connection lifetime 이후 의미가 약하므로 high-watermark 가 더 적합할 수 있다.
-  - next step: open-loop benchmark 리뷰 뒤 dropped 0이더라도 backlog 직접 관측이 필요한지 판단한다.
 
 - [ ] `P2_LATER` UDP pub/sub 를 v1 범위에 포함할지 결정한다.
   - 무엇이 남았는지: UDP transport bind/send/recv/echo 기준선은 있으나, UDP command decode, Broker fan-out 연결,
@@ -105,6 +121,13 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] Interface Server endpoint model 설계를 문서화했다.
+  - 범위: `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`, `CURRENT_PLAN.md`,
+    `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
+  - 결과: 최종 목표를 외부 ingress 를 topic/data type 으로 받아 TCP/UDP endpoint 로 발행하는 Interface Server 로 재정렬했다.
+  - 결정: latency SLO gate 보다 send-side endpoint 관측성을 먼저 보강하고, 다음 구현 후보를 TCP/UDP send queue high-watermark diagnostics 로 잡았다.
+  - 검증: 문서 전용 변경이므로 build/test 는 실행하지 않고 state 문서 연결 확인과 `git diff --check`로 검증한다.
 
 - [x] Phase 4 benchmark JSON report persistence 를 추가했다.
   - 범위: `tests/Hps.Benchmarks`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.

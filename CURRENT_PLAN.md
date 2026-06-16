@@ -1,16 +1,18 @@
 # CURRENT_PLAN.md — 현재 실행 지점
 
 ## 최종 목표
-고성능 소켓 기반 pub/sub 메시지 브로커를 구현한다. 우선 사용 목표는 **4096 bytes 메시지를 100 Hz로 지연 누적 없이 처리**하는 것이다.
+고성능 소켓 기반 Interface Server 를 구현한다. 외부 source 에서 들어온 정보를 topic/data type 기준으로 받아,
+구독된 TCP/UDP endpoint 로 추가 payload 복사 없이 발행하는 것이 핵심 목표다.
 
 현재 해석:
-- 단일 메시지 크기: 4096 bytes.
-- 단일 스트림 기준 빈도: 100 Hz, 즉 약 409.6 KB/s payload.
-- “딜레이 없이”는 현재 정량 latency SLO가 아니므로, 우선은 지속 부하에서 큐 적체가 누적되지 않고 p99 지연이 안정적으로 유지되는 상태로 해석한다.
-- Phase 4 벤치마크 단계에서 p50/p99 지연, 처리량, 큐 길이, 누수 여부를 측정 가능한 기준으로 확정한다.
+- 기본 부하 목표는 단일 stream 기준 **4096 bytes 메시지 100 Hz**이며, 즉 약 409.6 KB/s payload 다.
+- "딜레이 없이"는 아직 고정 latency SLO가 아니라, 지속 부하에서 송신 큐 적체와 p99 지연 증가가 누적되지 않는 상태로 해석한다.
+- Interface Server 목표에서는 receive latency 만으로는 부족하다. 어떤 endpoint 의 send queue 가 밀리는지, drop 이 발생했는지,
+  TCP/UDP transport 별 상태가 어떤지 관측 가능해야 한다.
+- Phase 4의 다음 판단은 latency SLO gate 보다 endpoint/send-side diagnostics 를 먼저 보강하는 방향으로 재정렬한다.
 
 ## 현재 Phase
-Phase 4 — 벤치마크 하니스와 SAEA 기준선 수치 기록.
+Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Server endpoint/send-side 관측성 설계.
 
 ## 확인된 현재 상태
 - Phase 0 스캐폴딩은 존재한다.
@@ -220,30 +222,15 @@ Phase 4 — 벤치마크 하니스와 SAEA 기준선 수치 기록.
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가해 가장 작은 다음 단위를 선택한다.
-현재 실행 가능한 큰 후보는 Phase 4 latency SLO gate 여부, queue depth diagnostics 확장 여부,
-백프레셔 기본 정책 정합성 결정, UDP broker v1 범위 결정이다. benchmark report persistence 는 D052와 이번 단위에서 완료했다.
+현재 권장 후보는 TCP/UDP send queue high-watermark diagnostics 를 public snapshot 과 benchmark report 에 연결하는 것이다.
+그 다음 후보는 EndpointId/endpoint snapshot 최소 계약, UDP broker v1 wire/control 정책 결정이다.
+Phase 4 latency SLO gate 는 endpoint/send-side 관측값을 확보한 뒤 판단한다.
 
 ## 이번 단위의 검증 경로
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --smoke --report $env:TEMP\hps-benchmark-red-report.json` — Red:
-  기존 구현은 `Program.Main`의 runner 분기가 모두 `args.Length == 1`에 묶여 있어 `--smoke --report <path>`가 smoke runner 로
-  라우팅되지 않았다. BenchmarkDotNet fallback 이 `smoke`/`report` unknown option 을 출력했고 report 파일도 생성되지 않았다.
-- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore`
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --smoke --report $env:TEMP\hps-benchmark-smoke-report.json`
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load --report $env:TEMP\hps-benchmark-load-report.json`
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load-open-loop --report $env:TEMP\hps-benchmark-open-loop-report.json`
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --target`
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --report $env:TEMP\hps-benchmark-invalid-report.json`
-- `dotnet build HighPerformanceSocket.slnx --no-restore`
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`
+- `rg -n "Interface Server|endpoint|high-watermark|D053" docs CURRENT_PLAN.md TODOS.md DECISIONS.md CHANGELOG_AGENT.md`
 - `git diff --check`
-- 결과: 구현 뒤 `--smoke --report`는 `smoke-result: pass`와 JSON report 를 생성했고, report 는
-  `schema-version`, `result-name`, `passed`, count/drop/payload-error/pool/latency key 를 포함했다.
-  `--load --report`는 `load-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0으로 통과했다.
-  `--load-open-loop --report`는 `open-loop-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0,
-  p99 growth ratio 1.01로 통과했다. `--target`은 기존 목표 출력을 유지했고, `--report` 단독 사용은 usage error 로 non-zero 종료했다.
-  solution build 는 경고 0, 오류 0으로 통과했다. 솔루션 전체 테스트는 `Hps.Buffers.Tests` 통과 18,
-  `Hps.Transport.Tests` 통과 37, `Hps.Protocol.Tests` 통과 28, `Hps.Broker.Tests` 통과 18, `Hps.Server.Tests` 통과 5,
-  실패 0, 건너뜀 0으로 통과했다. `git diff --check`는 whitespace 오류 없이 통과했고 Git의 LF→CRLF 안내 경고만 출력됐다.
+- 이번 단위는 설계 문서와 상태 문서 변경만 포함하므로 `dotnet build`/`dotnet test`는 실행하지 않는다.
+  다음 코드 구현 단위에서 Red→Green→Refactor 검증을 다시 수행한다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
@@ -256,7 +243,7 @@ Phase 4 — 벤치마크 하니스와 SAEA 기준선 수치 기록.
 - 샘플 기반 수동 fan-out 확인
 - p50/p99 latency 합격선 확정 및 실패 gate
 - Markdown report, report history, CI gate
-- queue depth public diagnostics 와 send backlog 직접 관측
+- queue depth public diagnostics 와 send backlog 직접 관측 구현
 - 백프레셔 기본 정책 정합성 결정
 - UDP broker v1 범위 결정
 - protocol error 응답
