@@ -1,5 +1,20 @@
 # DECISIONS.md
 
+## D058 — `EndpointId`는 transient diagnostics id 이며 stable routing id 가 아니다
+
+- 날짜: 2026-06-16
+- 상태: Accepted
+- 결정: `EndpointId`는 Transport 가 실행 중에 살아 있는 TCP connection 또는 UDP endpoint 를 구분하기 위해 발급하는
+  transient diagnostics id 로 유지한다. Broker reconnect 재바인딩이나 stable subscription key 로 사용하지 않는다.
+  stable routing identity 가 필요하면 protocol handshake, server configuration, host API 같은 별도 control-plane 에서
+  명시적으로 받은 broker-level identity 를 도입해야 한다.
+- 근거: 현재 `EndpointId`는 `TransportBase.CreateEndpointId()`에서 transport 수명 안의 증가값으로 발급된다.
+  이 값은 socket handle 과 분리된 관측값이라는 장점이 있지만, reconnect 이후 같은 외부 endpoint 인지 판단할 외부 의미를 담지 않는다.
+  이를 곧바로 `SubscriptionTable` key 로 쓰면 이름만 endpoint 중심이고 reconnect semantics 는 해결되지 않는다.
+- 영향: `BrokerSubscriber`의 현재 TCP reference identity 는 runtime send target 의미로 유지한다. 다음 UDP broker 또는 stable endpoint routing
+  단위에서는 `EndpointId`를 stable key 로 승격하지 않고, 먼저 explicit subscriber identity source 를 결정해야 한다.
+  세부 정책은 `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`를 따른다.
+
 ## D057 — Broker routing value 는 `BrokerSubscriber` endpoint target 으로 저장한다
 
 - 날짜: 2026-06-16

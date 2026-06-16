@@ -1,5 +1,28 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — Endpoint identity 정책 결정)
+
+### 작업 단위
+- `.claude/review/2026-06-16-endpoint-model-cross-verification.md`의 F1을 코드 구현 전에 설계 결정으로 먼저 닫았다.
+- 범위는 endpoint identity 정책 문서, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`로 제한했다.
+- production code, public API, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- `EndpointId`는 Transport 실행 중 endpoint snapshot 을 구분하는 transient diagnostics id 로 유지한다.
+- `EndpointId`를 reconnect stable routing key 또는 `SubscriptionTable` stable key 로 승격하지 않는다.
+- stable subscriber identity 가 필요하면 protocol handshake, server configuration, host API 같은 별도 control-plane identity 를 먼저 설계한다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`를 추가했다.
+- `DECISIONS.md`에 D058을 추가했다.
+- `TODOS.md`에 stable subscriber identity source 와 reconnect binding 정책 결정 항목을 `P1_SOON`으로 추가했다.
+- `CURRENT_PLAN.md`의 다음 후보를 D058 기준의 TCP/UDP stable subscriber identity source 와 UDP broker v1 wire/control 범위 결정으로 갱신했다.
+
+### 검증
+- 문서 연결은 `rg`로 확인한다.
+- 문서 전용 변경이므로 solution build/test 는 실행하지 않는다.
+- whitespace 는 `git diff --check`로 확인한다.
+
 ## 2026-06-16 (Codex — Broker 구독자 endpoint-target 값 전환)
 
 ### 작업 단위

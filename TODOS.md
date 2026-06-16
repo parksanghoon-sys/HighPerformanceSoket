@@ -28,9 +28,30 @@
   - `overall-state-2026-06-15.md`의 closed-loop 한계 지적을 상태 문서와 후속 backlog 에 반영했다.
   - Phase 4 open-loop TCP load/backpressure benchmark 를 추가했다.
   - EndpointId 를 실제 TCP/UDP endpoint lifecycle 에 연결하고 active endpoint snapshot collection API 를 추가했다.
+  - D058로 `EndpointId`가 stable routing key 가 아니라 runtime diagnostics id 임을 결정했다.
   - 다음 후보: 사용자 검토 후 Deferred Backlog 를 다시 평가한다.
 
 ## Deferred Backlog
+
+- [ ] `P1_SOON` TCP/UDP stable subscriber identity source 와 reconnect binding 정책을 결정한다.
+  - 무엇이 남았는지: D058에 따라 `EndpointId`는 stable routing key 가 아니다. Broker 가 reconnect 뒤 같은 logical subscriber 를
+    유지해야 한다면 별도 identity source 와 rebinding 정책이 필요하다.
+  - 왜 defer 되었는지: 이번 단위는 `.claude/review/2026-06-16-endpoint-model-cross-verification.md`의 F1을 반영해
+    `EndpointId`의 의미를 닫는 문서 결정까지만 수행했다. 실제 protocol/control-plane 변경은 Broker, Protocol, Server, UDP 결선에
+    함께 영향을 주므로 별도 구현 단위로 분리한다.
+  - objective: v1에서 explicit endpoint identity 를 요구할지, 아니면 runtime connection/UDP endpoint subscription 만 보장할지 결정한다.
+    explicit identity 를 요구한다면 TCP/UDP 가 공유할 broker-level subscriber key 와 duplicate/reconnect 처리 방식을 정한다.
+  - relevant context: DECISIONS D058, `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`,
+    `.claude/review/2026-06-16-endpoint-model-cross-verification.md`, `BrokerSubscriber`, `SubscriptionTable`,
+    `BrokerTcpFrameHandler`, `EndpointSnapshot`, `ITransportEndpointDiagnostics`.
+  - 관련 파일/범위: `src/Hps.Protocol/`, `src/Hps.Broker/`, `src/Hps.Server/`, `src/Hps.Transport/Abstractions/`,
+    `tests/Hps.Broker.Tests/`, `tests/Hps.Server.Tests/`, 신규 UDP broker tests.
+  - 현재 상태: `BrokerSubscriber`는 TCP `IConnection` reference identity 를 runtime send target 으로 감싼다.
+    `EndpointId`는 endpoint snapshot 에서만 쓰이며 reconnect stable identity 를 보장하지 않는다.
+  - known blockers/open questions: stable identity 를 wire protocol handshake 로 받을지, server configuration 으로 둘지,
+    host API 로 주입할지 결정해야 한다. 동일 stable identity 로 새 endpoint 가 들어왔을 때 기존 subscription 을 이전할지,
+    기존 endpoint 를 닫을지, 중복으로 거부할지도 결정해야 한다.
+  - next step: TCP text command 확장(`REGISTER` 또는 `SUBSCRIBE ... AS ...`)과 UDP command wire format 을 같은 설계 단위에서 비교한다.
 
 - [ ] `P2_LATER` 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정한다.
   - 무엇이 남았는지: 현재 public diagnostics 와 benchmark report 는 TCP/UDP 별 누적 drop count 와 pending send queue high-watermark 를 제공하지만,
@@ -93,7 +114,8 @@
     신규 UDP broker tests.
   - 현재 상태: UDP datagram ownership 과 endpoint send queue 는 검증됐지만 Broker command path 는 TCP 전용이다.
   - known blockers/open questions: UDP command wire format 을 TCP text command 와 동일하게 둘지, datagram payload 자체를 publish message 로 볼지 결정해야 한다.
-  - next step: 사용자에게 v1 UDP 포함 여부를 확인한 뒤 포함이면 별도 설계/테스트 단위로 승격한다.
+    D058에 따라 UDP broker 가 reconnect 또는 stable endpoint semantics 를 요구하면 `EndpointId`가 아니라 별도 stable subscriber identity 가 필요하다.
+  - next step: 사용자에게 v1 UDP 포함 여부를 확인한 뒤 포함이면 D058의 stable identity 정책과 함께 별도 설계/테스트 단위로 승격한다.
 
 - [ ] `P2_LATER` drop log/sampling 과 Server convenience diagnostics API 필요성을 검토한다.
   - 무엇이 남았는지: `ITransportDiagnostics.GetDiagnosticsSnapshot()`으로 Transport-level public 누적 metric 은 제공하지만,
@@ -110,6 +132,16 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] Endpoint identity 정책을 문서화해 `EndpointId`의 의미를 runtime diagnostics id 로 고정했다.
+  - 범위: `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`, `DECISIONS.md`, `CURRENT_PLAN.md`,
+    `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 근거: `.claude/review/2026-06-16-endpoint-model-cross-verification.md`의 F1은 `EndpointId`가 아직 routing key 가 아니며
+    reconnect stable identity 를 보장하지 않는다고 지적했다.
+  - 결정: `EndpointId`는 Transport 수명 안에서 살아 있는 endpoint 를 관측하는 transient diagnostics id 로 유지한다.
+    Broker stable routing/reconnect binding 은 explicit control-plane/configuration/host identity 가 생기기 전까지 제공하지 않는다.
+  - 후속: stable subscriber identity source, duplicate/reconnect 처리, TCP/UDP command wire format 은 새 `P1_SOON` 항목으로 분리했다.
+  - 검증: 문서 연결은 `rg`로 확인하고, whitespace 는 `git diff --check`로 검증한다.
 
 - [x] Broker subscription value 를 TCP endpoint-target 값으로 1차 전환했다.
   - 범위: `src/Hps.Broker/BrokerSubscriber.cs`, `src/Hps.Broker/SubscriptionTable.cs`,
