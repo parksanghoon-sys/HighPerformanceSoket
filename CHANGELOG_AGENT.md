@@ -1,5 +1,31 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-16 (Codex — UDP broker v1 wire/control 설계)
+
+### 작업 단위
+- D059 이후 남은 UDP broker v1 runtime target wire/control 질문을 설계 문서와 결정 로그로 닫았다.
+- 범위는 신규 설계 문서와 root state docs 에 한정했다.
+- production code, public API, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- UDP v1은 별도 TCP control plane 으로 remote 를 등록하지 않고 datagram self-command 를 사용한다.
+- UDP subscriber runtime target 은 `(IUdpEndpoint localEndpoint, EndPoint remoteEndPoint)` 조합이다.
+- v1 command set 은 `SUBSCRIBE <topic>`, `UNSUBSCRIBE <topic>`, `PUBLISH <topic> <payload>`로 둔다.
+- malformed UDP command 는 shared endpoint 를 닫지 않고 해당 datagram 만 폐기한다.
+- stale remote cleanup 은 explicit `UNSUBSCRIBE`와 UDP endpoint close cleanup 으로 제한하고, idle expiry 는 후속으로 둔다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-16-udp-broker-runtime-target-wire-control-design.md`를 추가했다.
+- `DECISIONS.md`에 D060을 추가했다.
+- `TODOS.md`에서 UDP broker v1 wire/control 설계를 Completed 로 옮기고,
+  `BrokerSubscriber` UDP runtime target 값 구현을 새 `P1_SOON` 항목으로 올렸다.
+- `CURRENT_PLAN.md`의 다음 후보를 `BrokerSubscriber` UDP runtime target 값 구현으로 갱신했다.
+
+### 검증
+- 문서 연결은 `rg`로 확인한다.
+- 문서 전용 변경이므로 solution build/test 는 실행하지 않는다.
+- whitespace 는 `git diff --check`로 확인한다.
+
 ## 2026-06-16 (Codex — v1 runtime subscription 정책 확정)
 
 ### 작업 단위

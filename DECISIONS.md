@@ -1,5 +1,24 @@
 # DECISIONS.md
 
+## D060 — UDP broker v1은 datagram self-command 와 runtime remote target 으로 설계한다
+
+- 날짜: 2026-06-16
+- 상태: Accepted
+- 결정: UDP broker v1은 별도 TCP control plane 으로 UDP remote 를 등록하지 않고, bound UDP socket 으로 들어오는
+  datagram payload 자체를 broker command 로 해석한다. runtime subscriber identity 는 `(IUdpEndpoint localEndpoint, EndPoint remoteEndPoint)`
+  조합이며, stable id, `EndpointId`, `REGISTER`, `SUBSCRIBE ... AS ...`, reconnect subscription transfer 는 사용하지 않는다.
+  v1 command set 은 `SUBSCRIBE <topic>`, `UNSUBSCRIBE <topic>`, `PUBLISH <topic> <payload>`로 시작한다.
+  malformed UDP command 는 해당 datagram 만 폐기하고 shared UDP endpoint 를 닫지 않는다.
+- 근거: TCP control plane 으로 UDP remote 를 등록하면 TCP connection 과 UDP remote address 를 묶는 cross-transport registry,
+  주소 검증, NAT/port 변경, stale remote 정책을 함께 설계해야 한다. 이는 D059에서 v1 밖으로 뺀 stable subscriber identity 문제를
+  다시 끌어온다. UDP datagram self-command 는 `ITransportDatagramHandler`가 이미 제공하는 local endpoint 와 remote `EndPoint`
+  정보를 그대로 runtime send target 으로 사용할 수 있어 가장 작은 구현 경계다. UDP에는 per-remote close notification 이 없으므로
+  explicit cleanup 을 위해 `UNSUBSCRIBE`를 command set 에 포함한다.
+- 영향: 다음 구현은 datagram parser 부터 크게 넓히지 않고, 먼저 `BrokerSubscriber`가 UDP runtime target 을 표현하고
+  `BrokerPublisher`가 TCP/UDP target 으로 분기해 fan-out 할 수 있는지 작은 TDD 단위로 검증한다.
+  idle expiry, stale remote sweep, stable subscriber identity 는 후속 backlog 로 유지한다.
+  세부 설계는 `docs/superpowers/specs/2026-06-16-udp-broker-runtime-target-wire-control-design.md`를 따른다.
+
 ## D059 — v1 subscription 은 runtime endpoint 수명에 묶고 reconnect rebinding 은 제공하지 않는다
 
 - 날짜: 2026-06-16

@@ -30,25 +30,27 @@
   - EndpointId 를 실제 TCP/UDP endpoint lifecycle 에 연결하고 active endpoint snapshot collection API 를 추가했다.
   - D058로 `EndpointId`가 stable routing key 가 아니라 runtime diagnostics id 임을 결정했다.
   - D059로 v1 subscription 은 runtime endpoint 수명에 묶고 reconnect rebinding 은 제공하지 않기로 결정했다.
+  - D060으로 UDP broker v1 wire/control 을 datagram self-command 와 runtime remote target 정책으로 확정했다.
   - 다음 후보: 사용자 검토 후 Deferred Backlog 를 다시 평가한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` UDP broker v1 runtime target wire/control 을 설계한다.
-  - 무엇이 남았는지: D059에 따라 v1은 stable subscriber identity 없이 runtime endpoint 수명 기반 subscription 으로 간다.
-    이제 UDP broker 가 어떤 datagram 또는 control 경로로 runtime UDP send target 을 등록/해지하고 publish fan-out 에 연결할지 정해야 한다.
-  - 왜 defer 되었는지: 이번 단위는 stable identity/reconnect 정책 결정까지만 수행했다. UDP wire/control 을 함께 정하면
-    `ITransportDatagramHandler`, `BrokerSubscriber`, `SubscriptionTable`, `BrokerPublisher`, Server tests 까지 영향이 넓어진다.
-  - objective: UDP `1 datagram = 1 message` 원칙 안에서 subscribe/publish/register/unsubscribe 중 v1에 필요한 최소 command set 과
-    runtime target identity(`IUdpEndpoint` + remote `EndPoint`)를 확정한다.
-  - relevant context: DECISIONS D024, D046, D058, D059, `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`,
-    `ITransportDatagramHandler`, `IUdpEndpoint`, `SaeaTransport` UDP tests, `BrokerSubscriber`, `SubscriptionTable`, `BrokerPublisher`.
-  - 관련 파일/범위: `src/Hps.Transport/Abstractions/`, `src/Hps.Protocol/`, `src/Hps.Broker/`, `src/Hps.Server/`,
-    `tests/Hps.Transport.Tests/`, `tests/Hps.Broker.Tests/`, `tests/Hps.Server.Tests/`.
-  - 현재 상태: UDP transport bind/send/receive/echo 와 endpoint send queue 는 검증됐다. Broker subscription/fan-out 은 TCP connection target 만 사용한다.
-  - known blockers/open questions: UDP datagram 자체에 `SUBSCRIBE`/`PUBLISH` command 를 실을지, TCP control plane 으로 UDP remote 를 등록할지,
-    UDP stale target 정리를 explicit unsubscribe 로만 둘지, idle expiry 를 둘지 결정해야 한다.
-  - next step: 가장 작은 설계 후보는 UDP datagram command 를 TCP text command 와 맞추되, stable identity 없이 remote endpoint 를 runtime target 으로 쓰는 것이다.
+- [ ] `P1_SOON` `BrokerSubscriber`에 UDP runtime target 값을 추가한다.
+  - 무엇이 남았는지: D060은 UDP subscriber target 을 `(IUdpEndpoint localEndpoint, EndPoint remoteEndPoint)` 조합으로 확정했다.
+    이제 Broker routing value 가 TCP `IConnection`과 UDP remote target 을 모두 표현하고, publisher 가 target kind 에 맞춰 send 경로를 선택해야 한다.
+  - 왜 defer 되었는지: D060 단위는 wire/control 설계와 상태 문서 갱신까지만 수행했다. UDP target 값 구현은 production code 와
+    Broker tests 를 바꾸는 첫 TDD 단위이므로 별도 리뷰 가능한 커밋으로 분리한다.
+  - objective: `BrokerSubscriber.ForUdp(IUdpEndpoint, EndPoint)`와 UDP target equality/hash, `BrokerPublisher`의 TCP/UDP mixed fan-out 분기를 구현한다.
+    이 단계에서는 UDP datagram command parser 와 server UDP bind wiring 을 만들지 않는다.
+  - relevant context: DECISIONS D057, D059, D060,
+    `docs/superpowers/specs/2026-06-16-udp-broker-runtime-target-wire-control-design.md`,
+    `BrokerSubscriber`, `SubscriptionTable`, `BrokerPublisher`, `ITransport.TrySendTo`, `IUdpEndpoint`.
+  - 관련 파일/범위: `src/Hps.Broker/BrokerSubscriber.cs`, `src/Hps.Broker/BrokerPublisher.cs`,
+    `src/Hps.Broker/SubscriptionTable.cs`, `tests/Hps.Broker.Tests/`, `tests/Hps.Broker.Tests/TestDoubles/FakeTransport.cs`.
+  - 현재 상태: `BrokerSubscriber`는 TCP `IConnection`만 감싼다. UDP transport send 경계와 fake transport `TrySendTo`는 이미 존재한다.
+  - known blockers/open questions: UDP target 의 remote `EndPoint` equality 는 BCL `EndPoint.Equals`에 의존해도 되는지 테스트로 고정해야 한다.
+    malformed UDP command, `UNSUBSCRIBE`, endpoint close cleanup 은 이 단위 밖이다.
+  - next step: Red 테스트로 UDP target 생성, TCP/UDP mixed snapshot, UDP publish fan-out 시 `ITransport.TrySendTo` 호출과 refcount 반환을 먼저 고정한다.
 
 - [ ] `P2_LATER` 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정한다.
   - 무엇이 남았는지: 현재 public diagnostics 와 benchmark report 는 TCP/UDP 별 누적 drop count 와 pending send queue high-watermark 를 제공하지만,
@@ -114,6 +116,17 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] UDP broker v1 runtime target wire/control 정책을 확정했다.
+  - 범위: `docs/superpowers/specs/2026-06-16-udp-broker-runtime-target-wire-control-design.md`, `DECISIONS.md`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결정: UDP v1은 별도 TCP control plane 등록이 아니라 datagram self-command 를 사용한다.
+    runtime target 은 `(IUdpEndpoint localEndpoint, EndPoint remoteEndPoint)`이며, stable id, `EndpointId`, `REGISTER`,
+    reconnect subscription transfer 는 쓰지 않는다.
+  - command set: `SUBSCRIBE <topic>`, `UNSUBSCRIBE <topic>`, `PUBLISH <topic> <payload>`.
+  - cleanup: explicit `UNSUBSCRIBE`와 UDP endpoint close cleanup 만 v1에 포함하고, idle expiry 는 후속으로 둔다.
+  - 후속: 첫 구현 단위는 `BrokerSubscriber` UDP runtime target 값과 TCP/UDP mixed fan-out 분기로 쪼갰다.
+  - 검증: 문서 연결은 `rg`로 확인하고, whitespace 는 `git diff --check`로 검증한다.
 
 - [x] UDP pub/sub v1 범위 판단을 runtime target wire/control 설계 단위로 승격했다.
   - 기존 `P2_LATER` 항목은 UDP broker 를 v1에 포함할지 묻는 범위 판단이었다.

@@ -239,18 +239,23 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - v1 subscription 정책을 runtime endpoint 수명 기반으로 확정했다(D059). TCP reconnect 는 기존 subscription 을 이어받지 않고
   새 connection 에서 다시 `SUBSCRIBE`해야 한다. UDP broker 를 v1에 포함하더라도 stable subscriber identity 없이
   bind 된 UDP endpoint 와 remote `EndPoint` 조합을 runtime send target 으로 다룬다.
+- UDP broker v1 runtime target wire/control 정책을 확정했다(D060).
+  UDP는 별도 TCP control plane 으로 remote 를 등록하지 않고 datagram self-command 를 사용한다.
+  v1 command set 은 `SUBSCRIBE`, `UNSUBSCRIBE`, `PUBLISH`이며, UDP subscriber runtime target 은
+  `(IUdpEndpoint localEndpoint, EndPoint remoteEndPoint)` 조합이다. malformed UDP command 는 shared endpoint 를 닫지 않고
+  해당 datagram 만 폐기한다.
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가한다.
-현재 권장 후보는 UDP broker v1 runtime target wire/control 설계다. D059에 따라 stable subscriber identity,
-`REGISTER`, reconnect subscription transfer 는 넣지 않는다. 먼저 UDP datagram command 를 TCP text command 와 맞출지,
-또는 TCP control plane 으로 UDP remote 를 등록할지 비교하고, 가장 작은 TDD 구현 단위로 쪼갠다.
+현재 권장 후보는 `BrokerSubscriber` UDP runtime target 값 구현이다. D060에 따라 첫 코드 단위는
+`BrokerSubscriber.ForUdp(IUdpEndpoint, EndPoint)`와 TCP/UDP mixed fan-out 분기까지만 다루고,
+UDP datagram command parser, server UDP bind wiring, idle expiry 는 뒤 단위로 분리한다.
 
 ## 이번 단위의 검증 경로
-- `rg -n "D059|runtime endpoint|runtime target|reconnect|UDP broker v1 runtime target|EndpointId.*diagnostics" CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md DECISIONS.md docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`
+- `rg -n "D060|UDP broker v1|datagram self-command|UNSUBSCRIBE|BrokerSubscriber.*UDP|runtime remote target" CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md DECISIONS.md docs/superpowers/specs/2026-06-16-udp-broker-runtime-target-wire-control-design.md`
 - `git diff --check`
 
 ## 이번 작업에서 건드리지 않은 범위
@@ -266,7 +271,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - Markdown report, report history, CI gate
 - 백프레셔 기본 정책 정합성 결정
 - stable subscriber identity 구현
-- UDP broker v1 runtime target wire/control 구현
+- UDP datagram command parser 구현
+- UDP broker server bind/handler wiring 구현
+- UDP stale remote idle expiry 구현
 - protocol error 응답
 
 위 범위는 사용자 리뷰 후 다음 단일 작업 단위에서 필요 범위만 다시 확인하고 진행한다.
