@@ -1,5 +1,23 @@
 # DECISIONS.md
 
+## D064 — v1 transport send backpressure 기본 정책은 bounded drop-oldest 로 둔다
+
+- 날짜: 2026-06-17
+- 상태: Accepted
+- 결정: v1 TCP/UDP transport send queue 의 기본 백프레셔 정책은 현재 구현과 같은 bounded drop-oldest 로 둔다.
+  TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`는 capacity 16 pending queue 를 유지하고,
+  queue 가 가득 찬 상태에서 새 send 를 수락하면 가장 오래된 pending 항목을 evict 한 뒤
+  해당 `RefCountedBuffer` transport 소유 ref 를 정확히 1회 Release 한다.
+  느린 소비자를 즉시 disconnect/reject 하는 정책, topic/endpoint 별 QoS, reliable/durable delivery 는 v1 기본값에 넣지 않는다.
+- 근거: D039/D040 구현은 TCP/UDP send 경계를 같은 drop-oldest semantics 로 맞췄고,
+  D041/D042/D055/D062로 drop count, high-watermark, endpoint snapshot 관측성도 확보했다.
+  현재 Interface Server v1 목표는 메모리 상한과 최신 publish 유지가 우선이며,
+  disconnect/reject 를 기본값으로 바꾸려면 재연결, 구독 복구, endpoint 별 정책 설정, 운영자 알림 semantics 를 함께 설계해야 한다.
+  이는 현재 구현보다 넓은 QoS/control-plane 결정이므로 별도 후속으로 분리한다.
+- 영향: PLAN Phase 3의 "느린 소비자 끊기 기본, drop-oldest 옵션" 설명은 v1 기준으로 더 이상 맞지 않는다.
+  v1 문서는 bounded drop-oldest 를 기본 정책으로 설명하고, 연결 종료 기반 backpressure 나 per-topic/per-endpoint QoS 는
+  향후 요구가 생기면 별도 설계와 테스트로 추가한다. 현재 code/test 변경은 없다.
+
 ## D063 — Phase 4 benchmark latency 는 hard gate 가 아니라 관측/추세 신호로 유지한다
 
 - 날짜: 2026-06-17

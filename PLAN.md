@@ -71,9 +71,10 @@ Claude 검토(`.claude/review/`)의 must-fix 해소.
    `RefCountedBuffer` 1개 → **연결별 송신 MPSC 큐 → 단일 펌프 → SPSC 송신 BipBuffer**(D007)에 (참조+off+len)
    enqueue (**구독자당 복사 0회** 팬아웃). 수명: publish 가드 ref → 구독자별 AddRef+enqueue(실패 시 즉시 Release)
    → publish 마지막 Release → 송신 펌프 완료 후 Release → 0 도달 풀 반환.
-3. 백프레셔: 구독자 송신 큐 가득 시 정책 — 기본 "느린 소비자 끊기", 옵션 "drop-oldest".
+3. 백프레셔: v1 transport 송신 큐 기본 정책은 현재 구현과 D053/D064에 맞춰 **bounded drop-oldest** 로 둔다.
    **drop-oldest(D012)**: evict한 `RefCountedBuffer`를 정확히 1회 Release. evict/dequeue/close를 단일 락으로
-   직렬화(이중 release/누수 차단). enqueue 실패 시도 누수 0.
+   직렬화(이중 release/누수 차단). 메시지 손실은 diagnostics 로 관측 가능해야 한다.
+   느린 소비자 disconnect/reject, topic/endpoint 별 QoS, reliable/durable delivery 는 후속 설계 단위에서 결정한다.
 4. `Hps.Server` 호스트 + 샘플 publisher/subscriber 콘솔.
 
 **테스트** (`tests/Hps.Broker.Tests/`): 1 publisher → M subscribers 팬아웃 정확성/순서, 토픽 격리,

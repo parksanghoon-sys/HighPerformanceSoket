@@ -1,5 +1,29 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-17 (Codex - backpressure default policy decision)
+
+### 작업 단위
+- 백프레셔 기본 정책을 현재 구현과 문서 기준에 맞춰 재정렬했다.
+- 범위는 `PLAN.md`, root state docs, `DECISIONS.md`로 제한했다.
+- production code, benchmark runner, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- D064로 v1 TCP/UDP transport send queue 기본 정책을 bounded drop-oldest 로 확정했다.
+- TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`는 capacity 16 pending queue 가 가득 찼을 때
+  가장 오래된 pending 항목을 evict 하고 evict 된 transport 소유 ref 를 정확히 1회 Release 한다.
+- 느린 소비자 disconnect/reject, topic/endpoint 별 QoS, reliable/durable delivery 는 v1 기본 정책에 넣지 않고 후속으로 분리했다.
+
+### 상태 갱신
+- `PLAN.md` Phase 3 백프레셔 항목에 D064 참조를 추가했다.
+- `TODOS.md`의 백프레셔 기본 정책 재정렬 항목을 Completed 로 이동했다.
+- configurable backpressure/QoS policy surface 는 별도 `P2_LATER` 항목으로 남겼다.
+- `CURRENT_PLAN.md`의 다음 후보를 drop log/sampling 과 Server convenience diagnostics API 필요성 검토로 갱신했다.
+
+### 검증
+- 상태 문서 연결 확인 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 문서 전용 결정 단위라 `dotnet build`/`dotnet test`는 실행하지 않는다.
+
 ## 2026-06-17 (Codex - benchmark latency gate decision)
 
 ### 작업 단위

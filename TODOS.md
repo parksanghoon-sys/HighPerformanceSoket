@@ -37,23 +37,10 @@
   - `BrokerServer + SaeaTransport` 실제 UDP broker socket loopback 통합 테스트를 추가했다.
   - 마지막 drop 발생 범위 관측성 판단을 D062로 닫았다.
   - Phase 4 benchmark latency SLO gate 판단을 D063으로 닫았다.
-  - 다음 후보: 사용자 리뷰 후 백프레셔 기본 정책 재정렬 항목을 Current TODOs 로 승격할지 재평가한다.
+  - 백프레셔 기본 정책 정합성 판단을 D064로 닫았다.
+  - 다음 후보: 사용자 리뷰 후 drop log/sampling 과 Server convenience diagnostics API 필요성 검토를 Current TODOs 로 승격할지 재평가한다.
 
 ## Deferred Backlog
-
-- [ ] `P2_LATER` 백프레셔 기본 정책을 PLAN/AGENTS 설계 의도와 재정렬한다.
-  - 무엇이 남았는지: PLAN Phase 3은 기본 정책을 "느린 소비자 끊기", 옵션을 "drop-oldest"로 설명하지만,
-    현재 구현은 TCP/UDP pending send queue 모두 capacity 16 drop-oldest 만 제공한다.
-  - 왜 defer 되었는지: 현재 코드 경로는 리뷰에서 버그 없음으로 검증됐고, 4096B×100Hz 정상 소비자 기준에서는 trigger 가능성이 낮다.
-    정책 변경은 메시지 손실/연결 종료 semantics 를 바꾸므로 benchmark scaffold 와 한 커밋에 섞지 않는다.
-  - objective: 설계 기본값을 코드에 맞춰 drop-oldest 로 갱신할지, 아니면 코드에 disconnect 정책과 설정 surface 를 추가할지 결정한다.
-  - relevant context: `.claude/review/overall-state-2026-06-15.md` P2, PLAN Phase 3 backpressure,
-    DECISIONS D039/D040/D042, `TransportConnection`, `SaeaUdpEndpoint`.
-  - 관련 파일/범위: `PLAN.md`, `AGENTS.md`, `DECISIONS.md`, `src/Hps.Transport/Runtime/TransportConnection.cs`,
-    `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`, transport tests.
-  - 현재 상태: drop counter 와 diagnostics snapshot 은 존재하지만 policy 선택 API 와 disconnect 기본 정책은 없다.
-  - known blockers/open questions: v1 기본 정책을 안정성 중심 disconnect 로 둘지, 최신성 중심 drop-oldest 로 둘지 사용자 결정이 필요하다.
-  - next step: Phase 4 open-loop 결과를 검토한 뒤 drop-oldest 만으로 충분한지, disconnect 정책과 설정 surface 가 필요한지 설계 결정을 요청한다.
 
 - [ ] `P2_LATER` 반복 가능한 latency baseline 을 만든 뒤 hard SLO threshold 를 재검토한다.
   - 무엇이 남았는지: D063에 따라 p50/p99, p99 growth ratio, actual-rate, TCP/UDP high-watermark 는 report 관측값으로 유지하고,
@@ -71,6 +58,22 @@
     hard failure 경계를 어떻게 나눌지 정해야 한다.
   - next step: 같은 환경에서 여러 번 report 를 수집하고 변동 폭을 본 뒤, threshold 를 코드 gate 로 넣을지 문서/CI warning 으로 둘지 결정한다.
 
+- [ ] `P2_LATER` configurable backpressure/QoS policy surface 필요성을 검토한다.
+  - 무엇이 남았는지: D064로 v1 기본 정책은 bounded drop-oldest 로 확정했지만,
+    느린 소비자 disconnect/reject, per-topic/per-endpoint QoS, reliable/durable delivery 는 아직 제공하지 않는다.
+  - 왜 defer 되었는지: 이 정책들은 메시지 손실/연결 종료 semantics, reconnect/subscription 복구, 운영자 알림,
+    host configuration surface 를 함께 바꾼다. 현재 단위의 문서 결정과 섞으면 범위가 과도하게 넓어진다.
+  - objective: Interface Server 사용자가 endpoint 별로 최신성 우선(drop-oldest)과 신뢰성/연결 종료 우선(disconnect/reject)을
+    선택해야 하는 요구가 실제로 있는지 판단하고, 필요하면 설정/API/테스트 경계를 설계한다.
+  - relevant context: DECISIONS D039/D040/D041/D042/D064, `TransportConnection`, `SaeaUdpEndpoint`,
+    `TransportDiagnosticsSnapshot`, `EndpointSnapshot`.
+  - 관련 파일/범위: `src/Hps.Transport/`, `src/Hps.Server/`, `src/Hps.Broker/`, transport/server tests, configuration 문서.
+  - 현재 상태: queue capacity 16 drop-oldest, 누적 drop counter, transport/endpoint snapshot 은 구현돼 있다.
+    policy 선택 API, disconnect-on-backpressure 구현, reliable/durable delivery 는 없다.
+  - known blockers/open questions: 정책 선택 단위를 transport 전체, topic, subscriber, endpoint 중 어디에 둘지와
+    drop-oldest 에서 disconnect 로 전환할 때 구독 정리/재구독 semantics 를 어떻게 둘지 정해야 한다.
+  - next step: 실제 운영 요구가 최신성 우선인지 신뢰성 우선인지 확인한 뒤, 필요하면 별도 설계 문서로 승격한다.
+
 - [ ] `P2_LATER` drop log/sampling 과 Server convenience diagnostics API 필요성을 검토한다.
   - 무엇이 남았는지: `ITransportDiagnostics.GetDiagnosticsSnapshot()`으로 Transport-level public 누적 metric 은 제공하지만,
     drop 발생 시 log 를 남기거나 `BrokerServer`가 Transport diagnostics 를 직접 감싸는 convenience API 는 없다.
@@ -86,6 +89,16 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] 백프레셔 기본 정책 정합성 판단을 D064로 닫았다.
+  - 범위: `PLAN.md`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결정: v1 TCP/UDP transport send queue 기본 정책은 bounded drop-oldest 로 유지한다.
+    TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`는 capacity 16 queue 가 가득 찬 상태에서 새 send 를 수락하면
+    가장 오래된 pending 항목을 evict 하고 evict 된 `RefCountedBuffer` transport 소유 ref 를 정확히 1회 Release 한다.
+  - 이유: 현재 구현과 D039/D040/D041/D042 관측성 경계가 이미 이 정책으로 검증돼 있다.
+    disconnect/reject 기본 정책은 reconnect, 구독 복구, endpoint 별 QoS, host 설정 표면을 함께 요구하므로 v1 기본값으로 넣지 않는다.
+  - 후속: configurable backpressure/QoS policy surface 는 별도 `P2_LATER` 항목으로 남겼다.
+  - 검증: 상태 문서 연결 확인 통과, `git diff --check` 통과(CRLF 변환 경고만 존재).
 
 - [x] Phase 4 benchmark latency SLO gate 판단을 D063으로 닫았다.
   - 범위: `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.

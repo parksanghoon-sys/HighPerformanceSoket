@@ -239,6 +239,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   hard pass/fail 은 planned/sent/received 일치, dropped 0, payload-errors 0, pool-rented 0으로 제한한다.
   2026-06-17 기준 closed-loop `--load`와 open-loop `--load-open-loop`는 모두 pass 했지만,
   단일 로컬 실행값만으로 절대 latency threshold 를 고정하지 않는다.
+- 백프레셔 기본 정책 정합성 판단을 D064로 닫았다.
+  v1 TCP/UDP transport send queue 기본 정책은 bounded drop-oldest 로 유지하고,
+  느린 소비자 disconnect/reject, topic/endpoint 별 QoS, reliable/durable delivery 는 별도 후속으로 분리한다.
 - Broker subscription value 1차 전환이 완료됐다. `BrokerSubscriber` 가 TCP `IConnection` send target 을 감싸고,
   `SubscriptionTable` 과 `BrokerPublisher` 의 신규 fan-out snapshot 은 `BrokerSubscriber[]` 를 사용한다.
   기존 TCP command/server 경로는 `IConnection` compatibility overload 로 유지된다. UDP target 값과 wire/control 은 아직 미구현이다.
@@ -272,16 +275,12 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가한다.
-이번 단위에서 Phase 4 benchmark latency SLO gate 를 D063으로 문서 결정했고 production code/test 는 변경하지 않는다.
+이번 단위에서 백프레셔 기본 정책을 D064로 문서 결정했고 production code/test 는 변경하지 않는다.
 현재 `P1_SOON` 실행 항목은 없으므로, 리뷰 후 계속 진행 지시가 있으면 `TODOS.md`의 `P2_LATER` 항목 중
-가장 가까운 후보를 `Current TODOs`로 승격한다. 현재 권장 후보는 백프레셔 기본 정책을 PLAN/AGENTS 설계 의도와 재정렬하는 것이다.
+가장 가까운 후보를 `Current TODOs`로 승격한다. 현재 권장 후보는 drop log/sampling 과 Server convenience diagnostics API 필요성 검토다.
 
 ## 이번 단위의 검증 경로
-- closed-loop: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load --report <temp>` 통과.
-  결과는 sent/received 3000, dropped 0, pool-rented 0, TCP HWM 1, p99 720.9us, p99 growth ratio 0.50이다.
-- open-loop: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load-open-loop --report <temp>` 통과.
-  결과는 sent/received 3000, dropped 0, pool-rented 0, TCP HWM 3, p99 527.7us, p99 growth ratio 0.75이다.
-- 상태 문서 연결 확인 통과.
+- 상태 문서 연결 확인: `rg -n "D064|bounded drop-oldest|백프레셔 기본 정책|drop log/sampling" DECISIONS.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md PLAN.md` 통과.
 - `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 문서 전용 결정 단위라 production code, benchmark runner, 테스트 코드는 변경하지 않는다.
   따라서 `dotnet build`/`dotnet test`는 이번 단위 검증에서 제외한다.
