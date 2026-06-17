@@ -1,5 +1,28 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-17 (Codex - UDP broker socket loopback integration test)
+
+### 작업 단위
+- `BrokerServer + SaeaTransport` 실제 UDP broker socket loopback 통합 테스트를 추가했다.
+- 범위는 Server tests 와 root state docs 로 제한했다.
+- production code 는 변경하지 않았다. 기존 UDP handler, broker routing, SAEA UDP receive/send pump 결선이 이미 end-to-end 테스트를 만족했다.
+
+### Red/Green
+- 새 focused 테스트 `UdpCommandLoopback_WhenSubscriberAndPublisherUseDatagramCommands_FansOutPayload`는 추가 직후 통과했다.
+- 즉 이번 단위는 누락된 production behavior 를 드러내는 Red 가 아니라, 이미 구현된 UDP broker 경로의 회귀 테스트 공백을 메운 Green-only 검증이다.
+
+### 상태 갱신
+- `TODOS.md`에서 UDP broker socket loopback 통합 테스트 항목을 Completed 로 이동했다.
+- `CURRENT_PLAN.md`의 다음 진입점을 사용자 리뷰 대기로 갱신하고, 다음 후보를 Deferred Backlog 재평가로 남겼다.
+- 새 설계 결정은 없어 `DECISIONS.md`는 변경하지 않았다.
+
+### 검증
+- UDP loopback focused 테스트 통과 1.
+- Server 전체 테스트 통과 10.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 134, 실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-17 (Codex - BrokerServer UDP bind wiring)
 
 ### 작업 단위

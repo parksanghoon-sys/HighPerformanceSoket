@@ -242,6 +242,48 @@ namespace Hps.Server.Tests
             }
         }
 
+        // 실제 UDP command loopback 테스트는 host wiring, SAEA UDP receive/send pump, Broker datagram handler 를 함께 묶는다.
+        // UDP protocol 에는 subscribe ack 가 아직 없으므로 publish 전 white-box 구독 카운트로 race 를 제거하고,
+        // fan-out 결과는 command prefix 가 아닌 원본 payload 만 datagram 으로 돌아오는지 실제 socket 으로 검증한다.
+        [Fact]
+        public async Task UdpCommandLoopback_WhenSubscriberAndPublisherUseDatagramCommands_FansOutPayload()
+        {
+            const string Topic = "alpha";
+            PinnedBlockMemoryPool serverPool = new PinnedBlockMemoryPool(128);
+            byte[] expectedPayload = new byte[] { 201, 202, 203, 204, 205 };
+
+            using (SaeaTransport transport = new SaeaTransport())
+            using (BrokerServer server = new BrokerServer(transport, serverPool, 128))
+            {
+                Socket? subscriber = null;
+                Socket? publisher = null;
+
+                try
+                {
+                    await server.StartUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint serverEndPoint = Assert.IsType<IPEndPoint>(server.UdpLocalEndPoint);
+
+                    subscriber = CreateBoundUdpSocket();
+                    publisher = CreateBoundUdpSocket();
+
+                    await SendUdpDatagramAsync(subscriber, serverEndPoint, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
+                    await WaitForSubscriberCountAsync(server, Topic, 1);
+
+                    await SendUdpDatagramAsync(publisher, serverEndPoint, CreatePublishCommand(Topic, expectedPayload));
+
+                    ReceivedUdpDatagram received = await ReceiveUdpDatagramAsync(subscriber, 256);
+                    Assert.Equal(expectedPayload, received.Payload);
+                    Assert.Equal(serverEndPoint, received.RemoteEndPoint);
+                }
+                finally
+                {
+                    subscriber?.Dispose();
+                    publisher?.Dispose();
+                    await server.StopAsync();
+                }
+            }
+        }
+
         private static bool HasExpectedConstructor(ConstructorInfo constructor)
         {
             ParameterInfo[] parameters = constructor.GetParameters();
@@ -291,6 +333,21 @@ namespace Hps.Server.Tests
             }
         }
 
+        private static Socket CreateBoundUdpSocket()
+        {
+            Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            try
+            {
+                socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                return socket;
+            }
+            catch
+            {
+                socket.Dispose();
+                throw;
+            }
+        }
+
         private static byte[] CreatePublishCommand(string topic, byte[] payload)
         {
             byte[] prefix = Encoding.ASCII.GetBytes("PUBLISH " + topic + " ");
@@ -322,6 +379,12 @@ namespace Hps.Server.Tests
             }
         }
 
+        private static async Task SendUdpDatagramAsync(Socket socket, EndPoint remoteEndPoint, byte[] payload)
+        {
+            int sent = await socket.SendToAsync(new ArraySegment<byte>(payload), SocketFlags.None, remoteEndPoint);
+            Assert.Equal(payload.Length, sent);
+        }
+
         private static async Task<byte[]> ReceiveExactAsync(Socket socket, int length)
         {
             Task<byte[]> receiveTask = ReceiveExactCoreAsync(socket, length);
@@ -347,6 +410,30 @@ namespace Hps.Server.Tests
             }
 
             return buffer;
+        }
+
+        private static async Task<ReceivedUdpDatagram> ReceiveUdpDatagramAsync(Socket socket, int maxLength)
+        {
+            Task<ReceivedUdpDatagram> receiveTask = ReceiveUdpDatagramCoreAsync(socket, maxLength);
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(receiveTask, timeoutTask);
+
+            Assert.Same(receiveTask, completedTask);
+            return await receiveTask;
+        }
+
+        private static async Task<ReceivedUdpDatagram> ReceiveUdpDatagramCoreAsync(Socket socket, int maxLength)
+        {
+            byte[] receiveBuffer = new byte[maxLength];
+            EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+            SocketReceiveFromResult result = await socket.ReceiveFromAsync(
+                new ArraySegment<byte>(receiveBuffer),
+                SocketFlags.None,
+                remoteEndPoint);
+            byte[] payload = new byte[result.ReceivedBytes];
+
+            Buffer.BlockCopy(receiveBuffer, 0, payload, 0, payload.Length);
+            return new ReceivedUdpDatagram(result.RemoteEndPoint, payload);
         }
 
         private static async Task WaitForSubscriberCountAsync(BrokerServer server, string topic, int expected)
@@ -389,6 +476,19 @@ namespace Hps.Server.Tests
             }
 
             Assert.Equal(expected, pool.RentedCount);
+        }
+
+        private sealed class ReceivedUdpDatagram
+        {
+            internal ReceivedUdpDatagram(EndPoint remoteEndPoint, byte[] payload)
+            {
+                RemoteEndPoint = remoteEndPoint;
+                Payload = payload;
+            }
+
+            internal EndPoint RemoteEndPoint { get; }
+
+            internal byte[] Payload { get; }
         }
 
         private sealed class FakeTransport : ITransport

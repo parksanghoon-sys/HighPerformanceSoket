@@ -34,26 +34,10 @@
   - `BrokerSubscriber`에 UDP runtime target 값을 추가하고 `BrokerPublisher`의 TCP/UDP mixed fan-out 분기를 구현했다.
   - `BrokerUdpDatagramHandler`로 UDP datagram self-command 를 Broker routing/fan-out 에 연결했다.
   - `BrokerServer`가 UDP datagram handler 등록과 UDP endpoint bind/stop 수명을 관리하도록 연결했다.
-  - 다음 후보: `BrokerServer + SaeaTransport` 실제 UDP broker socket loopback 통합 테스트를 별도 TDD 단위로 구현한다.
+  - `BrokerServer + SaeaTransport` 실제 UDP broker socket loopback 통합 테스트를 추가했다.
+  - 다음 후보: 사용자 리뷰 후 Deferred Backlog 를 재평가해 가장 가까운 P2 항목을 Current TODOs 로 승격한다.
 
 ## Deferred Backlog
-
-- [ ] `P1_SOON` `BrokerServer + SaeaTransport` UDP broker socket loopback 통합 테스트를 구현한다.
-  - 무엇이 남았는지: `BrokerServer.StartUdpAsync`는 `BrokerUdpDatagramHandler`를 등록하고 UDP endpoint 를 bind 하지만,
-    실제 `SaeaTransport` UDP socket 경로에서 `SUBSCRIBE`/`PUBLISH` datagram 이 Broker routing/fan-out 으로 끝까지 흐르는지는 아직 검증하지 않았다.
-  - 왜 defer 되었는지: 이번 단위는 host wiring 과 endpoint 수명 계약만 닫았다. 실제 socket loopback 은 transport receive/send pump,
-    broker UDP command handler, runtime subscriber target 을 함께 묶는 end-to-end 테스트라 별도 커밋으로 분리한다.
-  - objective: UDP subscriber socket 이 `SUBSCRIBE <topic>` datagram 을 server UDP endpoint 로 보내고, UDP publisher socket 이
-    `PUBLISH <topic> <payload>` datagram 을 보내면 subscriber socket 이 raw payload 를 받는 실제 loopback 경계를 검증한다.
-  - relevant context: DECISIONS D060/D061, `src/Hps.Server/BrokerServer.cs`, `src/Hps.Transport/Saea/SaeaTransport.cs`,
-    `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `tests/Hps.Server.Tests/BrokerServerTests.cs`,
-    기존 TCP loopback 테스트 helper 와 UDP transport loopback 테스트.
-  - 관련 파일/범위: `tests/Hps.Server.Tests/`, 필요 시 server test helper. production code 는 테스트가 드러내는 실제 결선 누락이 있을 때만 최소 수정한다.
-  - 현재 상태: UDP transport loopback, UDP broker datagram handler, BrokerServer UDP bind wiring 은 각각 검증됐다.
-    세 경로를 실제 socket end-to-end 로 묶는 테스트만 없다.
-  - known blockers/open questions: UDP에는 per-remote close notification 이 없으므로 stale remote idle expiry 는 이 단위에 포함하지 않는다.
-    subscriber socket 이 payload 를 수신하기 전에 `SUBSCRIBE` 처리 완료를 확인할 public ack 가 없으므로 테스트는 재시도 publish 또는 짧은 대기 경계를 써야 할 수 있다.
-  - next step: Red 테스트로 실제 UDP subscriber/publisher socket 을 만들고 `server.StartUdpAsync(new IPEndPoint(IPAddress.Loopback, 0))` 경유 fan-out 이 아직 보장되지 않는지 확인한다.
 
 - [ ] `P2_LATER` 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정한다.
   - 무엇이 남았는지: 현재 public diagnostics 와 benchmark report 는 TCP/UDP 별 누적 drop count 와 pending send queue high-watermark 를 제공하지만,
@@ -119,6 +103,16 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] `BrokerServer + SaeaTransport` UDP broker socket loopback 통합 테스트를 추가했다.
+  - 범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, root state docs.
+  - 테스트: 실제 UDP subscriber socket 이 `SUBSCRIBE alpha` datagram 을 server UDP endpoint 로 보내고,
+    실제 UDP publisher socket 이 `PUBLISH alpha <payload>` datagram 을 보내면 subscriber socket 이 raw payload 만 받는 end-to-end 경계를 검증한다.
+  - 경계: UDP protocol 에 public subscribe ack 가 아직 없으므로 publish 전 `SubscriptionTable.CountSubscribers` white-box 대기로 등록 race 를 제거했다.
+  - 결과: 테스트 추가 직후 기존 `BrokerServer`/`SaeaTransport`/`BrokerUdpDatagramHandler` 구현에서 바로 통과했다.
+    생산 코드 결선 누락은 드러나지 않았으므로 production code 변경은 없다.
+  - 검증: focused UDP loopback 테스트 통과 1, Server tests 통과 10, solution build 경고 0/오류 0,
+    solution tests 통과 134/실패 0, `git diff --check` 통과(CRLF 변환 경고만 존재).
 
 - [x] BrokerServer UDP bind wiring 을 구현했다.
   - 범위: `src/Hps.Server/BrokerServer.cs`, `tests/Hps.Server.Tests/BrokerServerTests.cs`, root state docs.
