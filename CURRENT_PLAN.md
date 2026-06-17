@@ -15,6 +15,9 @@
 - 2026-06-17 교차 검토의 G1 지적을 확인했다. 현재 TCP broker->subscriber outbound 는 raw payload byte stream 이라
   가변 길이 연속 메시지에서 경계를 복원할 수 없다. D065로 TCP outbound 도 `4-byte big-endian length prefix + payload`
   frame 으로 보내되, 구독자당 payload 복사는 만들지 않는다고 결정했다.
+- D065 구현이 반영됐다. TCP subscriber fan-out 은 `TransportSendBuffer.WithLengthPrefix()`로 같은 payload slice 앞에
+  4바이트 big-endian length header 를 붙이는 logical send item 으로 전송한다. SAEA send loop 는 연결당 pinned 4바이트
+  header buffer 를 재사용하고, payload `RefCountedBuffer` release 경계는 기존 in-flight handle 이 그대로 책임진다.
 
 ## 현재 Phase
 Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Server endpoint/send-side 관측성 설계.
@@ -277,16 +280,21 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 D065의 TCP outbound length-prefixed fan-out 구현을 별도 TDD 단위로 진행한다.
-이번 단위는 TCP outbound framing 정책 결정과 상태 문서 갱신만 수행했고 production code/test 는 변경하지 않는다.
-다음 구현은 먼저 Red 통합 테스트로 서로 다른 길이의 연속 fan-out 메시지를 subscriber 가 length-prefixed frame 으로 읽어야 함을 고정한다.
-그 뒤 header 4바이트와 기존 shared `RefCountedBuffer` payload slice 를 하나의 logical send item 으로 보내는 최소 구현을 붙인다.
+이번 단위에서 D065 TCP outbound length-prefixed fan-out 구현, 샘플 subscriber 수신 경로, benchmark receive path 갱신을 완료했다.
+다음 구현은 사용자 리뷰 뒤 `TODOS.md`의 Deferred Backlog 를 다시 평가해 하나의 작은 단위로 승격한다.
+현재 가까운 후보는 drop log/sampling 과 Server convenience diagnostics API 필요성 검토 또는 반복 가능한 latency baseline 수집이다.
 
 ## 이번 단위의 검증 경로
-- 상태 문서 연결 확인: `rg -n "D065|TCP outbound|length-prefixed|framed/composite|outbound framing" DECISIONS.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md docs/superpowers/specs/2026-06-18-tcp-outbound-framing-policy-design.md` 통과.
+- Red 확인: `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~TcpCommandLoopback_WhenPublisherSendsVariableLengthMessages_SubscriberReceivesLengthPrefixedFrames"` 가
+  raw outbound 구현에서 `Expected: [0, 0, 0, 3, 170, ...] / Actual: [170, 187, 204]`로 실패했다.
+- Green 확인: 같은 focused 테스트 통과.
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --no-restore` 통과(11개).
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과(경고 0, 오류 0).
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과(135개, 실패 0).
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --smoke` 통과
+  (sent 8, received 8, dropped 0, pool-rented 0).
+- 상태 문서 연결 확인 통과.
 - `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
-- 문서 전용 결정 단위라 production code, benchmark runner, 테스트 코드는 변경하지 않는다.
-  따라서 `dotnet build`/`dotnet test`는 이번 단위 검증에서 제외한다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
@@ -294,9 +302,6 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - drop log/sampling 및 Server convenience diagnostics API
 - handler/Broker 가 UDP datagram ref 를 비동기 작업으로 보관하는 경우의 상위 fan-out backpressure 정책
 - configurable pending send capacity
-- TCP outbound length-prefixed fan-out 실제 구현
-- logical framed/composite send request 의 concrete API 설계와 코드 반영
-- 샘플 subscriber 와 benchmark receive path 의 length-prefixed outbound 수신 갱신
 - `TransportFactory.CreateDefault()`를 직접 사용하는 server factory/convenience API
 - 샘플 기반 수동 fan-out 확인
 - p50/p99 latency 합격선 확정 및 실패 gate

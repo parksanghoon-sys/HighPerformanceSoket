@@ -178,7 +178,7 @@ namespace Hps.Server.Tests
 
                     await SendFrameAsync(publisher, CreatePublishCommand(Topic, expectedPayload));
 
-                    byte[] receivedPayload = await ReceiveExactAsync(subscriber, expectedPayload.Length);
+                    byte[] receivedPayload = await ReceiveFrameAsync(subscriber);
                     Assert.Equal(expectedPayload, receivedPayload);
 
                     await WaitForRentedCountAsync(pool, 0);
@@ -224,8 +224,8 @@ namespace Hps.Server.Tests
 
                     await SendFrameAsync(publisher, CreatePublishCommand(Topic, expectedPayload));
 
-                    Task<byte[]> firstReceiveTask = ReceiveExactAsync(subscriberOne, expectedPayload.Length);
-                    Task<byte[]> secondReceiveTask = ReceiveExactAsync(subscriberTwo, expectedPayload.Length);
+                    Task<byte[]> firstReceiveTask = ReceiveFrameAsync(subscriberOne);
+                    Task<byte[]> secondReceiveTask = ReceiveFrameAsync(subscriberTwo);
 
                     Assert.Equal(expectedPayload, await firstReceiveTask);
                     Assert.Equal(expectedPayload, await secondReceiveTask);
@@ -236,6 +236,50 @@ namespace Hps.Server.Tests
                 {
                     subscriberOne?.Dispose();
                     subscriberTwo?.Dispose();
+                    publisher?.Dispose();
+                    await server.StopAsync();
+                }
+            }
+        }
+
+        // TCP stream 은 message boundary 를 보존하지 않으므로 broker->subscriber outbound 도 길이 prefix 로 메시지 경계를 실어야 한다.
+        // 첫 payload 의 앞 4바이트를 작은 길이처럼 구성해, raw payload outbound 구현에서는 frame reader 가 payload 일부만 읽고 실패하도록 고정한다.
+        [Fact]
+        public async Task TcpCommandLoopback_WhenPublisherSendsVariableLengthMessages_SubscriberReceivesLengthPrefixedFrames()
+        {
+            const string Topic = "alpha";
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            byte[] firstPayload = new byte[] { 0, 0, 0, 3, 170, 187, 204 };
+            byte[] secondPayload = new byte[] { 9, 8, 7, 6, 5, 4, 3, 2 };
+
+            using (SaeaTransport transport = new SaeaTransport())
+            using (BrokerServer server = new BrokerServer(transport, pool, 128))
+            {
+                Socket? subscriber = null;
+                Socket? publisher = null;
+
+                try
+                {
+                    await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(server.LocalEndPoint);
+
+                    subscriber = CreateConnectedTcpClient(boundEndPoint);
+                    publisher = CreateConnectedTcpClient(boundEndPoint);
+
+                    await SendFrameAsync(subscriber, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
+                    await WaitForSubscriberCountAsync(server, Topic, 1);
+
+                    await SendFrameAsync(publisher, CreatePublishCommand(Topic, firstPayload));
+                    await SendFrameAsync(publisher, CreatePublishCommand(Topic, secondPayload));
+
+                    Assert.Equal(firstPayload, await ReceiveFrameAsync(subscriber));
+                    Assert.Equal(secondPayload, await ReceiveFrameAsync(subscriber));
+
+                    await WaitForRentedCountAsync(pool, 0);
+                }
+                finally
+                {
+                    subscriber?.Dispose();
                     publisher?.Dispose();
                     await server.StopAsync();
                 }
@@ -357,6 +401,19 @@ namespace Hps.Server.Tests
             Buffer.BlockCopy(payload, 0, command, prefix.Length, payload.Length);
 
             return command;
+        }
+
+        private static async Task<byte[]> ReceiveFrameAsync(Socket socket)
+        {
+            byte[] header = await ReceiveExactAsync(socket, 4);
+            int payloadLength =
+                (header[0] << 24)
+                | (header[1] << 16)
+                | (header[2] << 8)
+                | header[3];
+
+            Assert.InRange(payloadLength, 0, 1024);
+            return await ReceiveExactAsync(socket, payloadLength);
         }
 
         private static async Task SendFrameAsync(Socket socket, byte[] payload)

@@ -39,36 +39,10 @@
   - Phase 4 benchmark latency SLO gate 판단을 D063으로 닫았다.
   - 백프레셔 기본 정책 정합성 판단을 D064로 닫았다.
   - TCP outbound message boundary 정책을 D065로 닫았다. TCP subscriber outbound 는 length-prefixed frame 으로 보낸다.
-  - 다음 후보: 사용자 리뷰 후 TCP outbound length-prefixed fan-out 구현을 Current TODOs 로 승격할지 재평가한다.
+  - D065 구현으로 TCP outbound length-prefixed fan-out, 샘플 subscriber 수신, benchmark receive path 를 갱신했다.
+  - 다음 후보: 사용자 리뷰 후 drop log/sampling, Server convenience diagnostics API, latency baseline 중 하나를 Current TODOs 로 승격할지 재평가한다.
 
 ## Deferred Backlog
-
-- [ ] `P1_SOON` TCP outbound length-prefixed fan-out 을 구현한다.
-  - 무엇이 남았는지: broker->TCP subscriber outbound 는 현재 raw payload byte stream 만 보내므로,
-    subscriber 가 out-of-band payload length 를 모르면 가변 길이 메시지와 연속 메시지를 구분할 수 없다.
-  - 왜 defer 되었는지: 이번 단위는 `.claude/review/2026-06-17-impl-vs-design-cross-verification.md`의 G1을
-    정책/설계 결정으로 먼저 닫는 문서 단위다. 실제 구현은 transport send item, drop-oldest, close drain,
-    in-flight release 경계를 건드리므로 별도 TDD 단위로 작게 진행해야 한다.
-  - objective: TCP subscriber 가 `4-byte big-endian length prefix + payload` outbound frame 을 읽어
-    서로 다른 길이의 연속 fan-out 메시지를 안정적으로 구분한다. payload 는 기존 `RefCountedBuffer + offset + length`
-    slice 를 공유하며 구독자당 payload 복사는 0회를 유지한다.
-  - relevant context: DECISIONS D010/D015/D057/D064/D065,
-    `docs/superpowers/specs/2026-06-18-tcp-outbound-framing-policy-design.md`,
-    `.claude/review/2026-06-17-impl-vs-design-cross-verification.md`.
-  - 관련 파일/범위: `src/Hps.Broker/BrokerPublisher.cs`,
-    `src/Hps.Transport/Abstractions/TransportSendBuffer.cs`,
-    `src/Hps.Transport/Runtime/TransportConnection.cs`,
-    `src/Hps.Transport/Saea/SaeaTransport.cs`,
-    `tests/Hps.Server.Tests/BrokerServerTests.cs`,
-    `samples/Hps.Sample.Subscriber`,
-    `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`.
-  - 현재 상태: inbound TCP command 는 length-prefixed frame 이지만 outbound fan-out 은 raw payload slice 만 보낸다.
-    기존 loopback/benchmark 는 4096B 고정 길이를 수신자가 미리 알고 읽기 때문에 message boundary 문제가 숨겨져 있다.
-  - known blockers/open questions: concrete 타입을 기존 `TransportSendBuffer` 확장으로 둘지 새 logical send request 타입으로 둘지,
-    header 4바이트 metadata ownership 을 어디에 둘지, drop-oldest 가 header/payload 를 하나의 logical item 으로 보게 하는
-    queue 표현을 어떻게 잡을지 구현 전에 확정해야 한다.
-  - next step: Red 테스트로 서로 다른 길이의 연속 TCP fan-out 메시지를 subscriber 가 length-prefixed frame 으로 읽어야 함을 고정한다.
-    테스트에는 TCP stream 이 message boundary 를 보존하지 않는다는 검증 의도 주석을 한국어로 남긴다.
 
 - [ ] `P2_LATER` 반복 가능한 latency baseline 을 만든 뒤 hard SLO threshold 를 재검토한다.
   - 무엇이 남았는지: D063에 따라 p50/p99, p99 growth ratio, actual-rate, TCP/UDP high-watermark 는 report 관측값으로 유지하고,
@@ -117,6 +91,24 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] TCP outbound length-prefixed fan-out 을 구현했다.
+  - 범위: `src/Hps.Transport/Abstractions/TransportSendBuffer.cs`,
+    `src/Hps.Broker/BrokerSubscriber.cs`, `src/Hps.Transport/Saea/SaeaTransport.cs`,
+    `tests/Hps.Server.Tests/BrokerServerTests.cs`, `samples/Shared/SampleTcpFrames.cs`,
+    `samples/Hps.Sample.Subscriber/Program.cs`, `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`,
+    root state docs.
+  - Red: 서로 다른 길이의 연속 TCP fan-out 메시지를 subscriber 가 length-prefixed frame 으로 읽는 테스트를 추가했고,
+    raw outbound 구현에서 첫 payload 일부 `[170, 187, 204]`만 수신되어 실패함을 확인했다.
+  - 구현: TCP subscriber target 은 `TransportSendBuffer.WithLengthPrefix()`로 logical send item 을 만들고,
+    UDP target 은 기존 raw datagram send 를 유지한다. SAEA send loop 는 연결당 pinned 4바이트 header buffer 를 재사용해
+    length prefix 를 먼저 보낸 뒤 기존 shared payload slice 를 전송한다.
+  - 소유권: header 는 payload buffer 로 합치지 않고 metadata 로만 유지한다. drop-oldest, close drain, in-flight unwind 는
+    기존 payload `RefCountedBuffer` transport ref 1개를 그대로 Release 한다.
+  - 후속: RIO/io_uring backend 에서는 같은 logical send item 을 scatter/gather send 로 더 최적화할 수 있다.
+  - 검증: Red focused 실패 확인, Green focused 통과, Server tests 통과 11, solution build 경고 0/오류 0.
+    solution test 통과 135/실패 0, benchmark smoke 통과(sent 8, received 8, dropped 0, pool-rented 0).
+    상태 문서 연결 확인 통과, `git diff --check` 통과(CRLF 변환 경고만 존재).
 
 - [x] TCP outbound message boundary 정책을 D065로 닫았다.
   - 범위: `docs/superpowers/specs/2026-06-18-tcp-outbound-framing-policy-design.md`,

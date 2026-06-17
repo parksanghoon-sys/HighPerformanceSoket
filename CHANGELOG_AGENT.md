@@ -1,5 +1,41 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - TCP outbound length-prefixed fan-out)
+
+### 작업 단위
+- D065의 TCP broker->subscriber outbound framing 을 구현했다.
+- 범위는 TCP fan-out send item, SAEA TCP send loop, Server 통합 테스트, 샘플 subscriber, benchmark receive path, root state docs 로 제한했다.
+- UDP outbound 는 기존 `1 datagram = 1 message` 계약을 유지했다.
+
+### Red
+- `TcpCommandLoopback_WhenPublisherSendsVariableLengthMessages_SubscriberReceivesLengthPrefixedFrames`를 먼저 추가했다.
+- raw outbound 구현에서는 첫 payload `{0,0,0,3,170,187,204}`의 앞 4바이트를 frame length 로 오해해
+  actual payload 가 `[170,187,204]`로 읽히며 실패했다.
+
+### Green
+- `TransportSendBuffer.WithLengthPrefix()`와 `PrependLengthPrefix` metadata 를 추가했다.
+- TCP `BrokerSubscriber`는 subscriber fan-out 때 같은 payload slice 를 length-prefixed logical send item 으로 바꿔 보낸다.
+- SAEA TCP send loop 는 연결당 pinned 4바이트 header buffer 를 재사용해 length prefix 를 먼저 보내고,
+  기존 shared `RefCountedBuffer` payload slice 를 이어서 보낸다.
+- header+payload 를 구독자별 새 버퍼로 합치지 않으므로 fan-out payload 복사 0회와 기존 release 경계를 유지한다.
+- 샘플 subscriber 와 benchmark receive path 는 raw payload 수신 대신 outbound frame 수신으로 갱신했다.
+
+### 상태 갱신
+- `TODOS.md`의 TCP outbound length-prefixed fan-out 항목을 Completed 로 이동했다.
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기와 다음 backlog 재평가 상태로 갱신했다.
+- 새 설계 결정은 없으며 D065의 concrete 구현으로 처리했다.
+
+### 검증
+- Red focused 테스트 실패 확인.
+- Green focused 테스트 통과.
+- Server tests 통과 11.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 135개 통과/실패 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --smoke` 통과,
+  sent 8, received 8, dropped 0, pool-rented 0.
+- 상태 문서 연결 확인 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - TCP outbound framing policy decision)
 
 ### 작업 단위

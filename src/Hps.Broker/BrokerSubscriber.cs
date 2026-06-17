@@ -121,7 +121,11 @@ namespace Hps.Broker
                 throw new ArgumentNullException(nameof(transport));
 
             if (TransportKind == EndpointTransportKind.Tcp)
-                return transport.TrySend(TcpConnection, sendBuffer);
+            {
+                // TCP subscriber outbound 는 D065에 따라 message boundary 를 length prefix 로 싣는다.
+                // payload 자체는 기존 RefCountedBuffer slice 를 공유하고, header 는 Transport send item metadata 로만 붙인다.
+                return transport.TrySend(TcpConnection, sendBuffer.WithLengthPrefix());
+            }
 
             if (TransportKind == EndpointTransportKind.Udp)
                 return transport.TrySendTo(UdpEndpoint, UdpRemoteEndPoint, sendBuffer);

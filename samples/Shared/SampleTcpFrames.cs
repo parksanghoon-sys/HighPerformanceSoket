@@ -9,8 +9,9 @@ namespace Hps.Sample
     /// <summary>
     /// 샘플 publisher/subscriber 가 broker TCP wire format 을 직접 쓰기 위한 작은 helper 이다.
     ///
-    /// Broker protocol 은 `4바이트 big-endian 길이 + command payload` 이고, subscriber 로 나가는
-    /// fan-out payload 는 현재 raw payload 이므로 수신 쪽 framing helper 는 두지 않는다.
+    /// Broker TCP protocol 은 client->broker command 와 broker->subscriber fan-out 모두
+    /// `4바이트 big-endian 길이 + payload` frame 을 사용한다. TCP stream 은 message boundary 를
+    /// 보존하지 않으므로 샘플도 항상 frame 단위로 읽고 쓴다.
     /// </summary>
     internal static class SampleTcpFrames
     {
@@ -68,6 +69,53 @@ namespace Hps.Sample
 
                 offset += sent;
             }
+        }
+
+        internal static async Task<byte[]?> ReceiveFrameOrNullAsync(Socket socket, int maxPayloadBytes)
+        {
+            if (socket == null)
+                throw new ArgumentNullException(nameof(socket));
+            if (maxPayloadBytes < 0)
+                throw new ArgumentOutOfRangeException(nameof(maxPayloadBytes));
+
+            byte[] header = new byte[4];
+            bool hasHeader = await ReceiveExactOrClosedAsync(socket, header, 0, header.Length).ConfigureAwait(false);
+            if (!hasHeader)
+                return null;
+
+            int payloadLength = BinaryPrimitives.ReadInt32BigEndian(new ReadOnlySpan<byte>(header));
+            if (payloadLength < 0 || payloadLength > maxPayloadBytes)
+                throw new InvalidOperationException("수신 frame payload 길이가 허용 범위를 벗어났다.");
+
+            byte[] payload = new byte[payloadLength];
+            bool hasPayload = await ReceiveExactOrClosedAsync(socket, payload, 0, payload.Length).ConfigureAwait(false);
+            if (!hasPayload)
+                throw new InvalidOperationException("TCP frame payload 수신 중 socket 이 먼저 닫혔다.");
+
+            return payload;
+        }
+
+        private static async Task<bool> ReceiveExactOrClosedAsync(Socket socket, byte[] buffer, int offset, int length)
+        {
+            int cursor = offset;
+            int remaining = length;
+
+            while (remaining != 0)
+            {
+                int received = await socket.ReceiveAsync(new ArraySegment<byte>(buffer, cursor, remaining), SocketFlags.None).ConfigureAwait(false);
+                if (received == 0)
+                {
+                    if (cursor == offset)
+                        return false;
+
+                    throw new InvalidOperationException("TCP frame 수신 중 socket 이 먼저 닫혔다.");
+                }
+
+                cursor += received;
+                remaining -= received;
+            }
+
+            return true;
         }
     }
 }

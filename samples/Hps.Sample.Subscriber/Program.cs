@@ -9,7 +9,7 @@ namespace Hps.Sample.Subscriber
     {
         private const int SuccessExitCode = 0;
         private const int InvalidArgumentsExitCode = 2;
-        private const int ReceiveBufferSize = 8192;
+        private const int MaxPayloadBytes = 1024 * 1024;
 
         public static async Task<int> Main(string[] args)
         {
@@ -51,15 +51,13 @@ namespace Hps.Sample.Subscriber
 
         private static async Task PrintReceivedPayloadsAsync(Socket socket)
         {
-            byte[] buffer = new byte[ReceiveBufferSize];
-
             while (true)
             {
-                int received = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None).ConfigureAwait(false);
-                if (received == 0)
+                byte[]? payload = await SampleTcpFrames.ReceiveFrameOrNullAsync(socket, MaxPayloadBytes).ConfigureAwait(false);
+                if (payload == null)
                     return;
 
-                Console.WriteLine(Encoding.UTF8.GetString(buffer, 0, received));
+                Console.WriteLine(Encoding.UTF8.GetString(payload, 0, payload.Length));
             }
         }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -19,12 +20,14 @@ namespace Hps.Transport
     {
         private const int ListenBacklog = 512;
         private const int ReceiveBlockSize = 8192;
+        private const int TcpLengthPrefixSize = 4;
 
         private readonly object _gate;
         private readonly List<SaeaConnectionListener> _listeners;
         private readonly List<TransportConnection> _connections;
         private readonly List<SaeaUdpEndpoint> _udpEndpoints;
         private readonly PinnedBlockMemoryPool _receivePool;
+        private readonly PinnedBlockMemoryPool _sendHeaderPool;
         private bool _started;
         private bool _stopped;
 
@@ -35,6 +38,7 @@ namespace Hps.Transport
             _connections = new List<TransportConnection>();
             _udpEndpoints = new List<SaeaUdpEndpoint>();
             _receivePool = new PinnedBlockMemoryPool(ReceiveBlockSize);
+            _sendHeaderPool = new PinnedBlockMemoryPool(TcpLengthPrefixSize);
         }
 
         /// <inheritdoc />
@@ -359,40 +363,52 @@ namespace Hps.Transport
 
         private async Task SendLoopAsync(TransportConnection connection, Socket socket)
         {
-            while (true)
+            byte[] lengthPrefixBuffer = _sendHeaderPool.Rent();
+
+            try
             {
-                await connection.WaitForSendSignalAsync().ConfigureAwait(false);
-
-                while (connection.TryBeginInFlightSend(out TransportConnection.InFlightSend? inFlightSend))
+                while (true)
                 {
-                    TransportConnection.InFlightSend inFlight = inFlightSend!;
+                    await connection.WaitForSendSignalAsync().ConfigureAwait(false);
 
-                    using (inFlight)
+                    while (connection.TryBeginInFlightSend(out TransportConnection.InFlightSend? inFlightSend))
                     {
-                        try
+                        TransportConnection.InFlightSend inFlight = inFlightSend!;
+
+                        using (inFlight)
                         {
-                            await SendInFlightAsync(socket, inFlight.SendBuffer).ConfigureAwait(false);
-                            inFlight.Complete();
-                        }
-                        catch (ObjectDisposedException)
-                        {
-                            return;
-                        }
-                        catch (SocketException)
-                        {
-                            NotifyConnectionClosed(connection);
-                            return;
+                            try
+                            {
+                                await SendInFlightAsync(socket, inFlight.SendBuffer, lengthPrefixBuffer).ConfigureAwait(false);
+                                inFlight.Complete();
+                            }
+                            catch (ObjectDisposedException)
+                            {
+                                return;
+                            }
+                            catch (SocketException)
+                            {
+                                NotifyConnectionClosed(connection);
+                                return;
+                            }
                         }
                     }
-                }
 
-                if (connection.IsClosed)
-                    return;
+                    if (connection.IsClosed)
+                        return;
+                }
+            }
+            finally
+            {
+                _sendHeaderPool.Return(lengthPrefixBuffer);
             }
         }
 
-        private static async Task SendInFlightAsync(Socket socket, TransportSendBuffer sendBuffer)
+        private static async Task SendInFlightAsync(Socket socket, TransportSendBuffer sendBuffer, byte[] lengthPrefixBuffer)
         {
+            if (sendBuffer.PrependLengthPrefix)
+                await SendLengthPrefixAsync(socket, sendBuffer.Length, lengthPrefixBuffer).ConfigureAwait(false);
+
             int offset = sendBuffer.Offset;
             int remaining = sendBuffer.Length;
 
@@ -400,6 +416,24 @@ namespace Hps.Transport
             {
                 ArraySegment<byte> segment = GetSocketSendSegment(sendBuffer, offset, remaining);
                 int sent = await socket.SendAsync(segment, SocketFlags.None).ConfigureAwait(false);
+                if (sent == 0)
+                    throw new SocketException((int)SocketError.ConnectionReset);
+
+                offset += sent;
+                remaining -= sent;
+            }
+        }
+
+        private static async Task SendLengthPrefixAsync(Socket socket, int payloadLength, byte[] lengthPrefixBuffer)
+        {
+            BinaryPrimitives.WriteInt32BigEndian(new Span<byte>(lengthPrefixBuffer, 0, TcpLengthPrefixSize), payloadLength);
+
+            int offset = 0;
+            int remaining = TcpLengthPrefixSize;
+
+            while (remaining != 0)
+            {
+                int sent = await socket.SendAsync(new ArraySegment<byte>(lengthPrefixBuffer, offset, remaining), SocketFlags.None).ConfigureAwait(false);
                 if (sent == 0)
                     throw new SocketException((int)SocketError.ConnectionReset);
 

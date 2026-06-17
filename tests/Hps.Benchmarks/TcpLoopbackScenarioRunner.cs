@@ -129,7 +129,7 @@ namespace Hps.Benchmarks
                             await SendFrameAsync(publisher, CreatePublishCommand(BenchmarkTargets.DefaultTopic, payload)).ConfigureAwait(false);
                             sent++;
 
-                            byte[] receivedPayload = await ReceiveExactAsync(subscriber, payload.Length).ConfigureAwait(false);
+                            byte[] receivedPayload = await ReceiveFrameAsync(subscriber).ConfigureAwait(false);
                             if (!PayloadEquals(payload, receivedPayload))
                                 throw new InvalidOperationException("loopback payload 가 송신 원문과 다르다.");
 
@@ -264,7 +264,7 @@ namespace Hps.Benchmarks
                 byte[] receivedPayload;
                 try
                 {
-                    receivedPayload = await ReceiveExactAsync(subscriber, BenchmarkTargets.PayloadBytes).ConfigureAwait(false);
+                    receivedPayload = await ReceiveFrameAsync(subscriber).ConfigureAwait(false);
                 }
                 catch (TimeoutException)
                 {
@@ -382,6 +382,16 @@ namespace Hps.Benchmarks
                 throw new TimeoutException("loopback payload 수신 시간이 초과됐다.");
 
             return await receiveTask.ConfigureAwait(false);
+        }
+
+        private static async Task<byte[]> ReceiveFrameAsync(Socket socket)
+        {
+            byte[] header = await ReceiveExactAsync(socket, 4).ConfigureAwait(false);
+            int payloadLength = BinaryPrimitives.ReadInt32BigEndian(new ReadOnlySpan<byte>(header));
+            if (payloadLength < 0 || payloadLength > BenchmarkTargets.MaxFramePayloadBytes)
+                throw new InvalidOperationException("loopback outbound frame 길이가 benchmark 허용 범위를 벗어났다.");
+
+            return await ReceiveExactAsync(socket, payloadLength).ConfigureAwait(false);
         }
 
         private static async Task<byte[]> ReceiveExactCoreAsync(Socket socket, int length)

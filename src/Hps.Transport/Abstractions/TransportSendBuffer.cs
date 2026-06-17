@@ -18,6 +18,7 @@ namespace Hps.Transport
     public readonly struct TransportSendBuffer
     {
         private readonly RefCountedBuffer? _buffer;
+        private readonly bool _prependLengthPrefix;
 
         /// <summary>
         /// 송신할 payload 를 담은 참조계수 버퍼이다. default 값처럼 버퍼가 없는 요청은 계약 위반이다.
@@ -45,9 +46,22 @@ namespace Hps.Transport
         public int Length { get; }
 
         /// <summary>
+        /// TCP stream message frame 으로 보낼 때 payload 앞에 4바이트 big-endian length prefix 를 붙일지 여부다.
+        ///
+        /// 이 flag 는 payload 를 새 버퍼로 합치지 않고 header metadata 와 payload slice 를 하나의 logical send item 으로
+        /// 유지하기 위한 값이다. Transport 의 소유권은 여전히 <see cref="Buffer"/> ref 1개에만 걸려 있다.
+        /// </summary>
+        public bool PrependLengthPrefix => _prependLengthPrefix;
+
+        /// <summary>
         /// 참조계수 버퍼와 유효 payload 내부 전송 범위를 만든다.
         /// </summary>
         public TransportSendBuffer(RefCountedBuffer buffer, int offset, int length)
+            : this(buffer, offset, length, prependLengthPrefix: false)
+        {
+        }
+
+        private TransportSendBuffer(RefCountedBuffer buffer, int offset, int length, bool prependLengthPrefix)
         {
             if (buffer == null)
                 throw new ArgumentNullException(nameof(buffer));
@@ -65,6 +79,17 @@ namespace Hps.Transport
             _buffer = buffer;
             Offset = offset;
             Length = length;
+            _prependLengthPrefix = prependLengthPrefix;
+        }
+
+        /// <summary>
+        /// 같은 payload slice 를 TCP length-prefixed message frame 으로 보내는 logical send item 을 만든다.
+        ///
+        /// 새 payload 버퍼를 만들지 않고 값 타입 metadata 만 바꾸므로, 호출자는 기존 fan-out refcount 규칙을 그대로 유지한다.
+        /// </summary>
+        public TransportSendBuffer WithLengthPrefix()
+        {
+            return new TransportSendBuffer(Buffer, Offset, Length, prependLengthPrefix: true);
         }
     }
 }
