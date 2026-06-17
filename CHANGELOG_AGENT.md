@@ -1,5 +1,35 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-17 (Codex - benchmark latency gate decision)
+
+### 작업 단위
+- Phase 4 benchmark latency SLO gate 여부를 문서 결정으로 닫았다.
+- 범위는 root state docs 와 `DECISIONS.md`로 제한했다.
+- production code, benchmark runner, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- D063으로 p50/p99 latency, p99 growth ratio, actual-rate, TCP/UDP high-watermark 를 hard pass/fail 조건으로 승격하지 않기로 했다.
+- `TcpLoopbackRunResult.Passed`의 의미는 planned/sent/received 일치, dropped 0, payload-errors 0, pool-rented 0으로 유지한다.
+- latency 와 high-watermark 값은 stdout/JSON report 에 남기는 관측/추세 신호로 둔다.
+
+### 근거
+- 2026-06-17 로컬 실행에서 `--load`는 p99 720.9us, TCP HWM 1, dropped 0으로 pass 했다.
+- 같은 실행에서 `--load-open-loop`는 p99 527.7us, TCP HWM 3, dropped 0으로 pass 했다.
+- 다만 단일 개발 PC 실행값은 OS scheduling, 백그라운드 부하, JIT/워밍업 상태에 민감하므로
+  반복 가능한 baseline 없이 absolute threshold 를 hard gate 로 고정하지 않는다.
+
+### 상태 갱신
+- `TODOS.md`의 latency SLO gate 결정 항목을 Completed 로 이동했다.
+- 반복 가능한 latency baseline 수집과 threshold 재검토는 별도 `P2_LATER` 항목으로 축소했다.
+- `CURRENT_PLAN.md`의 다음 후보를 백프레셔 기본 정책 재정렬로 갱신했다.
+
+### 검증
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load --report <temp>` 통과.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load-open-loop --report <temp>` 통과.
+- 상태 문서 연결 확인 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 문서 전용 결정 단위라 `dotnet build`/`dotnet test`는 실행하지 않는다.
+
 ## 2026-06-17 (Codex - last-drop diagnostics scope decision)
 
 ### 작업 단위

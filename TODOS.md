@@ -36,26 +36,10 @@
   - `BrokerServer`가 UDP datagram handler 등록과 UDP endpoint bind/stop 수명을 관리하도록 연결했다.
   - `BrokerServer + SaeaTransport` 실제 UDP broker socket loopback 통합 테스트를 추가했다.
   - 마지막 drop 발생 범위 관측성 판단을 D062로 닫았다.
-  - 다음 후보: 사용자 리뷰 후 Phase 4 benchmark latency SLO gate 여부를 Current TODOs 로 승격할지 재평가한다.
+  - Phase 4 benchmark latency SLO gate 판단을 D063으로 닫았다.
+  - 다음 후보: 사용자 리뷰 후 백프레셔 기본 정책 재정렬 항목을 Current TODOs 로 승격할지 재평가한다.
 
 ## Deferred Backlog
-
-- [ ] `P2_LATER` Phase 4 benchmark latency SLO gate 여부를 결정한다.
-  - 무엇이 남았는지: `--smoke`, `--load`, `--load-open-loop` 결과를 JSON report 로 저장하는 경로는 D052와 이번 완료 항목으로 닫혔다.
-    아직 p50/p99 또는 p99 증가율을 명시적인 실패 조건으로 승격할지 결정하지 않았다.
-  - 왜 defer 되었는지: latency threshold 는 개발 PC, CI, 백그라운드 부하, OS scheduling 상태에 민감하다. 또한 Interface Server 목표에서는
-    먼저 endpoint/send-side backlog 를 설명할 수 있어야 latency SLO 실패 원인을 분해할 수 있다.
-  - objective: `tcp-loopback-saea-baseline` closed-loop/open-loop 결과에서 p50/p99, first-half/second-half p99,
-    p99-latency-growth-ratio 를 어떤 기준으로 합격/실패 판정할지 정한다.
-  - relevant context: DECISIONS D050/D051/D052, `.claude/review/overall-state-2026-06-15.md` P1,
-    `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`,
-    `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`.
-  - 관련 파일/범위: `tests/Hps.Benchmarks/`, 필요 시 CI script 또는 benchmark output 문서.
-  - 현재 상태: runner pass/fail 은 sent==planned==received, dropped==0, payload-errors==0, pool-rented==0 만 본다.
-    latency 값은 stdout 과 JSON report 에 기록되지만 실패 조건은 아니다.
-  - known blockers/open questions: 개발/CI 환경별 변동을 감안한 threshold 를 고정할지, baseline 대비 상대 변화율만 볼지 결정해야 한다.
-  - next step: 최근 `--load`/`--load-open-loop --report` 결과와 send queue high-watermark 값을 함께 보고
-    절대 threshold, p99 증가율 threshold, 또는 관측-only 유지 중 하나를 선택한다.
 
 - [ ] `P2_LATER` 백프레셔 기본 정책을 PLAN/AGENTS 설계 의도와 재정렬한다.
   - 무엇이 남았는지: PLAN Phase 3은 기본 정책을 "느린 소비자 끊기", 옵션을 "drop-oldest"로 설명하지만,
@@ -70,6 +54,22 @@
   - 현재 상태: drop counter 와 diagnostics snapshot 은 존재하지만 policy 선택 API 와 disconnect 기본 정책은 없다.
   - known blockers/open questions: v1 기본 정책을 안정성 중심 disconnect 로 둘지, 최신성 중심 drop-oldest 로 둘지 사용자 결정이 필요하다.
   - next step: Phase 4 open-loop 결과를 검토한 뒤 drop-oldest 만으로 충분한지, disconnect 정책과 설정 surface 가 필요한지 설계 결정을 요청한다.
+
+- [ ] `P2_LATER` 반복 가능한 latency baseline 을 만든 뒤 hard SLO threshold 를 재검토한다.
+  - 무엇이 남았는지: D063에 따라 p50/p99, p99 growth ratio, actual-rate, TCP/UDP high-watermark 는 report 관측값으로 유지하고,
+    아직 hard failure threshold 로 쓰지 않는다.
+  - 왜 defer 되었는지: 단일 개발 PC 실행값은 OS scheduling, 백그라운드 부하, JIT/워밍업 상태에 민감하다.
+    false negative 를 줄이려면 동일 장비/CI 조건에서 반복 실행한 baseline 과 regression 기준이 먼저 필요하다.
+  - objective: 4096B×100Hz 목표를 latency 측면에서도 자동 판정할 수 있을 만큼 재현 가능한 기준을 만든다.
+  - relevant context: DECISIONS D050/D051/D052/D063, `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`,
+    `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`, `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`.
+  - 관련 파일/범위: `tests/Hps.Benchmarks/`, benchmark output 저장 위치, 필요 시 CI script.
+  - 현재 상태: 2026-06-17 로컬 실행에서 `--load`는 sent/received 3000, dropped 0, TCP HWM 1, p99 720.9us,
+    p99 growth ratio 0.50으로 pass 했다. `--load-open-loop`는 sent/received 3000, dropped 0, TCP HWM 3,
+    p99 527.7us, p99 growth ratio 0.75로 pass 했다.
+  - known blockers/open questions: 절대 threshold, baseline 대비 상대 threshold, multi-run median/p95, soft warning 과
+    hard failure 경계를 어떻게 나눌지 정해야 한다.
+  - next step: 같은 환경에서 여러 번 report 를 수집하고 변동 폭을 본 뒤, threshold 를 코드 gate 로 넣을지 문서/CI warning 으로 둘지 결정한다.
 
 - [ ] `P2_LATER` drop log/sampling 과 Server convenience diagnostics API 필요성을 검토한다.
   - 무엇이 남았는지: `ITransportDiagnostics.GetDiagnosticsSnapshot()`으로 Transport-level public 누적 metric 은 제공하지만,
@@ -87,6 +87,16 @@
 
 ## Completed
 
+- [x] Phase 4 benchmark latency SLO gate 판단을 D063으로 닫았다.
+  - 범위: `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결정: p50/p99 latency, p99 growth ratio, actual-rate, TCP/UDP high-watermark 를 hard pass/fail 조건으로 승격하지 않는다.
+    현재 pass/fail 은 planned/sent/received 일치, dropped 0, payload-errors 0, pool-rented 0으로 유지한다.
+  - 이유: latency 값은 개발 PC, OS scheduling, 백그라운드 부하, JIT/워밍업 상태에 민감해 단일 로컬 실행값으로
+    절대 threshold 를 고정하면 false negative 위험이 크다.
+  - 검증: `--load --report`는 sent/received 3000, dropped 0, pool-rented 0, TCP HWM 1, p99 720.9us 로 pass 했다.
+    `--load-open-loop --report`는 sent/received 3000, dropped 0, pool-rented 0, TCP HWM 3, p99 527.7us 로 pass 했다.
+    상태 문서 연결 확인 통과, `git diff --check` 통과(CRLF 변환 경고만 존재).
+
 - [x] 마지막 drop 발생 범위 관측성 판단을 D062로 닫았다.
   - 범위: `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
   - 결정: v1 diagnostics 에 `last-drop` 전용 timestamp/id 필드를 추가하지 않는다.
@@ -97,7 +107,7 @@
     timestamp/ordering 의미를 새로 정해야 하며 hot path metadata 갱신 비용을 추가한다.
     현재 운영 질문은 마지막 1건의 시각보다 어느 kind/endpoint 에서 drop 이 누적되는지에 가깝다.
   - 후속: closed endpoint attribution, drop timestamp, log/sampling, Server convenience diagnostics API 는
-    필요성이 확인될 때 별도 후속으로 다룬다. 다음 후보는 Phase 4 benchmark latency SLO gate 여부 결정이다.
+    필요성이 확인될 때 별도 후속으로 다룬다. 당시 다음 후보였던 Phase 4 benchmark latency SLO gate 판단은 D063으로 닫혔다.
   - 검증: 문서 연결 확인 통과, `git diff --check` 통과(CRLF 변환 경고만 존재).
 
 - [x] `BrokerServer + SaeaTransport` UDP broker socket loopback 통합 테스트를 추가했다.

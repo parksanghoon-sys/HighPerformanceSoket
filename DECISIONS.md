@@ -1,5 +1,24 @@
 # DECISIONS.md
 
+## D063 — Phase 4 benchmark latency 는 hard gate 가 아니라 관측/추세 신호로 유지한다
+
+- 날짜: 2026-06-17
+- 상태: Accepted
+- 결정: v1 Phase 4 benchmark 의 hard pass/fail 조건에 p50/p99 latency, p99 latency growth ratio,
+  pending send queue high-watermark, actual-rate threshold 를 추가하지 않는다.
+  `TcpLoopbackRunResult.Passed`는 현재처럼 planned/sent/received 일치, dropped 0, payload-errors 0,
+  pool-rented 0만 판정한다. p50/p99, first-half/second-half p99, p99 growth ratio,
+  actual-rate, TCP/UDP high-watermark 는 stdout/JSON report 에 항상 기록하는 관측값으로 유지한다.
+- 근거: latency 값은 개발 PC, OS scheduling, 백그라운드 부하, JIT/워밍업 상태에 민감하다.
+  2026-06-17 단일 로컬 실행에서는 closed-loop `--load`가 p99 720.9us, TCP HWM 1,
+  open-loop `--load-open-loop`가 p99 527.7us, TCP HWM 3으로 모두 통과했지만,
+  이 한 번의 결과만으로 절대 threshold 를 고정하면 false negative 위험이 크다.
+  p99 growth ratio 도 시작 구간 warm-up 의 영향을 받으므로 반복 가능한 baseline 없이 hard gate 로 쓰기 어렵다.
+- 영향: benchmark report 의 `schema-version`은 그대로 1을 유지하고 새 key 를 추가하지 않는다.
+  Phase 4의 "딜레이 없이" 판단은 당분간 delivery/drop/leak 무결성 gate 와 latency/HWM 관측값을 함께 검토하는 방식으로 유지한다.
+  hard latency SLO 가 필요해지면 동일 장비/CI 조건에서 반복 실행 baseline, relative regression threshold,
+  soft warning 과 hard failure 의 경계를 먼저 정한다.
+
 ## D062 — 마지막 drop 메타데이터는 v1에 추가하지 않고 누적 kind/endpoint drop snapshot 으로 좁힌다
 
 - 날짜: 2026-06-17
