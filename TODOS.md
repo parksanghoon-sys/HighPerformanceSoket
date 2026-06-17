@@ -38,9 +38,37 @@
   - 마지막 drop 발생 범위 관측성 판단을 D062로 닫았다.
   - Phase 4 benchmark latency SLO gate 판단을 D063으로 닫았다.
   - 백프레셔 기본 정책 정합성 판단을 D064로 닫았다.
-  - 다음 후보: 사용자 리뷰 후 drop log/sampling 과 Server convenience diagnostics API 필요성 검토를 Current TODOs 로 승격할지 재평가한다.
+  - TCP outbound message boundary 정책을 D065로 닫았다. TCP subscriber outbound 는 length-prefixed frame 으로 보낸다.
+  - 다음 후보: 사용자 리뷰 후 TCP outbound length-prefixed fan-out 구현을 Current TODOs 로 승격할지 재평가한다.
 
 ## Deferred Backlog
+
+- [ ] `P1_SOON` TCP outbound length-prefixed fan-out 을 구현한다.
+  - 무엇이 남았는지: broker->TCP subscriber outbound 는 현재 raw payload byte stream 만 보내므로,
+    subscriber 가 out-of-band payload length 를 모르면 가변 길이 메시지와 연속 메시지를 구분할 수 없다.
+  - 왜 defer 되었는지: 이번 단위는 `.claude/review/2026-06-17-impl-vs-design-cross-verification.md`의 G1을
+    정책/설계 결정으로 먼저 닫는 문서 단위다. 실제 구현은 transport send item, drop-oldest, close drain,
+    in-flight release 경계를 건드리므로 별도 TDD 단위로 작게 진행해야 한다.
+  - objective: TCP subscriber 가 `4-byte big-endian length prefix + payload` outbound frame 을 읽어
+    서로 다른 길이의 연속 fan-out 메시지를 안정적으로 구분한다. payload 는 기존 `RefCountedBuffer + offset + length`
+    slice 를 공유하며 구독자당 payload 복사는 0회를 유지한다.
+  - relevant context: DECISIONS D010/D015/D057/D064/D065,
+    `docs/superpowers/specs/2026-06-18-tcp-outbound-framing-policy-design.md`,
+    `.claude/review/2026-06-17-impl-vs-design-cross-verification.md`.
+  - 관련 파일/범위: `src/Hps.Broker/BrokerPublisher.cs`,
+    `src/Hps.Transport/Abstractions/TransportSendBuffer.cs`,
+    `src/Hps.Transport/Runtime/TransportConnection.cs`,
+    `src/Hps.Transport/Saea/SaeaTransport.cs`,
+    `tests/Hps.Server.Tests/BrokerServerTests.cs`,
+    `samples/Hps.Sample.Subscriber`,
+    `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`.
+  - 현재 상태: inbound TCP command 는 length-prefixed frame 이지만 outbound fan-out 은 raw payload slice 만 보낸다.
+    기존 loopback/benchmark 는 4096B 고정 길이를 수신자가 미리 알고 읽기 때문에 message boundary 문제가 숨겨져 있다.
+  - known blockers/open questions: concrete 타입을 기존 `TransportSendBuffer` 확장으로 둘지 새 logical send request 타입으로 둘지,
+    header 4바이트 metadata ownership 을 어디에 둘지, drop-oldest 가 header/payload 를 하나의 logical item 으로 보게 하는
+    queue 표현을 어떻게 잡을지 구현 전에 확정해야 한다.
+  - next step: Red 테스트로 서로 다른 길이의 연속 TCP fan-out 메시지를 subscriber 가 length-prefixed frame 으로 읽어야 함을 고정한다.
+    테스트에는 TCP stream 이 message boundary 를 보존하지 않는다는 검증 의도 주석을 한국어로 남긴다.
 
 - [ ] `P2_LATER` 반복 가능한 latency baseline 을 만든 뒤 hard SLO threshold 를 재검토한다.
   - 무엇이 남았는지: D063에 따라 p50/p99, p99 growth ratio, actual-rate, TCP/UDP high-watermark 는 report 관측값으로 유지하고,
@@ -89,6 +117,17 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] TCP outbound message boundary 정책을 D065로 닫았다.
+  - 범위: `docs/superpowers/specs/2026-06-18-tcp-outbound-framing-policy-design.md`,
+    `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결정: broker->TCP subscriber outbound 는 inbound 와 같은 `4-byte big-endian length prefix + payload` frame 으로 보낸다.
+    UDP outbound 는 기존대로 `1 datagram = 1 message`를 유지한다.
+  - 이유: TCP stream 은 message boundary 를 보존하지 않으므로 raw payload outbound 는 가변 길이 연속 메시지에서 깨진다.
+    다만 header 를 붙이기 위해 header+payload 를 구독자별 새 버퍼로 합치는 방식은 fan-out payload 무복사 불변식을 깨므로,
+    다음 구현은 header metadata 와 shared payload slice 를 하나의 logical framed/composite send item 으로 다뤄야 한다.
+  - 후속: 실제 TCP outbound framed send 구현은 별도 `P1_SOON` TDD 항목으로 남겼다.
+  - 검증: 상태 문서 연결 확인과 `git diff --check`로 검증한다. 문서 전용 결정 단위라 production code/test 는 변경하지 않는다.
 
 - [x] 백프레셔 기본 정책 정합성 판단을 D064로 닫았다.
   - 범위: `PLAN.md`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.

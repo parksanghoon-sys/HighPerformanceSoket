@@ -1,5 +1,30 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - TCP outbound framing policy decision)
+
+### 작업 단위
+- `.claude/review/2026-06-17-impl-vs-design-cross-verification.md`의 G1 지적을 검토하고,
+  TCP broker->subscriber outbound message boundary 정책을 문서 결정으로 닫았다.
+- 범위는 신규 설계 문서와 root state docs 로 제한했다.
+- production code, benchmark runner, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- D065로 TCP subscriber outbound 를 `4-byte big-endian length prefix + payload` frame 으로 보내기로 했다.
+- UDP outbound 는 기존 원칙대로 `1 datagram = 1 message`를 유지한다.
+- header 를 붙이기 위해 header+payload 를 구독자별 새 버퍼로 합치는 방식은 fan-out payload 무복사 불변식을 깨므로 기각했다.
+- 다음 구현은 header metadata 와 shared `RefCountedBuffer` payload slice 를 하나의 logical framed/composite send item 으로 다루는 방향으로 진행한다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-18-tcp-outbound-framing-policy-design.md`를 추가했다.
+- `DECISIONS.md`에 D065를 추가했다.
+- `TODOS.md`에 TCP outbound length-prefixed fan-out 구현을 `P1_SOON`으로 추가했다.
+- `CURRENT_PLAN.md`의 다음 후보를 D065 구현 TDD 단위로 갱신했다.
+
+### 검증
+- 상태 문서 연결 확인 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 문서 전용 결정 단위라 `dotnet build`/`dotnet test`는 실행하지 않는다.
+
 ## 2026-06-17 (Codex - backpressure default policy decision)
 
 ### 작업 단위

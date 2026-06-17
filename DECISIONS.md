@@ -1,5 +1,26 @@
 # DECISIONS.md
 
+## D065 — TCP subscriber outbound 는 length-prefixed message frame 으로 보낸다
+
+- 날짜: 2026-06-18
+- 상태: Accepted
+- 결정: broker 가 TCP subscriber 에 fan-out 하는 outbound 메시지는 inbound TCP command 와 같은
+  `4-byte big-endian length prefix + payload` frame 으로 보낸다. 현재 raw payload outbound 는 SAEA 기준선과
+  고정 길이 benchmark 에서는 동작하지만, Interface Server 의 최종 TCP wire contract 로 유지하지 않는다.
+  UDP outbound 는 기존 원칙대로 `1 datagram = 1 message`를 유지하고 length prefix 를 붙이지 않는다.
+- 근거: TCP stream 은 message boundary 를 보존하지 않는다. 현재 `BrokerPublisher`는 publish payload slice 만
+  `TransportSendBuffer`로 전송하므로 subscriber 가 out-of-band payload length 를 모르면 가변 길이 메시지나
+  연속 메시지를 구분할 수 없다. 기존 loopback/benchmark 는 4096B 고정 길이를 미리 알고 읽기 때문에 이 결함을 숨겼다.
+  반대로 outbound frame header 를 붙이기 위해 header+payload 를 구독자별 새 버퍼로 합치면 D009/D057의 fan-out
+  payload 무복사 불변식을 깨므로, 구현은 logical framed/composite send item 으로 header metadata 와 shared payload slice 를
+  하나의 송신 항목으로 다뤄야 한다.
+- 영향: 다음 구현 단위는 TCP outbound framed send 를 TDD로 추가한다. Red 는 서로 다른 payload 길이의 연속 fan-out 메시지를
+  subscriber 가 length-prefixed frame 으로 읽는 통합 테스트여야 한다. Green 은 header 4바이트와 기존
+  `RefCountedBuffer + offset + length` payload slice 를 하나의 logical send item 으로 보내되, drop-oldest/close/in-flight release
+  경계가 payload ref 를 정확히 1회 반환하게 해야 한다. 샘플 subscriber 와 benchmark receive path 도 outbound length-prefixed frame
+  수신으로 갱신한다. 세부 설계는
+  `docs/superpowers/specs/2026-06-18-tcp-outbound-framing-policy-design.md`를 따른다.
+
 ## D064 — v1 transport send backpressure 기본 정책은 bounded drop-oldest 로 둔다
 
 - 날짜: 2026-06-17

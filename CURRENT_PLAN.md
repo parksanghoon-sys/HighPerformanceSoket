@@ -12,6 +12,9 @@
   EndpointId/snapshot 최소 계약은 실제 TCP/UDP endpoint lifecycle 에 연결됐고, active endpoint snapshot 은
   `ITransportEndpointDiagnostics` 선택적 capability 로 읽는다. Broker subscription value 전환은 후속으로 다룬다.
 - Phase 4의 다음 판단은 latency SLO gate 보다 endpoint/send-side diagnostics 를 먼저 보강하는 방향으로 재정렬한다.
+- 2026-06-17 교차 검토의 G1 지적을 확인했다. 현재 TCP broker->subscriber outbound 는 raw payload byte stream 이라
+  가변 길이 연속 메시지에서 경계를 복원할 수 없다. D065로 TCP outbound 도 `4-byte big-endian length prefix + payload`
+  frame 으로 보내되, 구독자당 payload 복사는 만들지 않는다고 결정했다.
 
 ## 현재 Phase
 Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Server endpoint/send-side 관측성 설계.
@@ -274,13 +277,13 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가한다.
-이번 단위에서 백프레셔 기본 정책을 D064로 문서 결정했고 production code/test 는 변경하지 않는다.
-현재 `P1_SOON` 실행 항목은 없으므로, 리뷰 후 계속 진행 지시가 있으면 `TODOS.md`의 `P2_LATER` 항목 중
-가장 가까운 후보를 `Current TODOs`로 승격한다. 현재 권장 후보는 drop log/sampling 과 Server convenience diagnostics API 필요성 검토다.
+리뷰 후 계속 진행 지시가 있으면 D065의 TCP outbound length-prefixed fan-out 구현을 별도 TDD 단위로 진행한다.
+이번 단위는 TCP outbound framing 정책 결정과 상태 문서 갱신만 수행했고 production code/test 는 변경하지 않는다.
+다음 구현은 먼저 Red 통합 테스트로 서로 다른 길이의 연속 fan-out 메시지를 subscriber 가 length-prefixed frame 으로 읽어야 함을 고정한다.
+그 뒤 header 4바이트와 기존 shared `RefCountedBuffer` payload slice 를 하나의 logical send item 으로 보내는 최소 구현을 붙인다.
 
 ## 이번 단위의 검증 경로
-- 상태 문서 연결 확인: `rg -n "D064|bounded drop-oldest|백프레셔 기본 정책|drop log/sampling" DECISIONS.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md PLAN.md` 통과.
+- 상태 문서 연결 확인: `rg -n "D065|TCP outbound|length-prefixed|framed/composite|outbound framing" DECISIONS.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md docs/superpowers/specs/2026-06-18-tcp-outbound-framing-policy-design.md` 통과.
 - `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 문서 전용 결정 단위라 production code, benchmark runner, 테스트 코드는 변경하지 않는다.
   따라서 `dotnet build`/`dotnet test`는 이번 단위 검증에서 제외한다.
@@ -291,12 +294,13 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - drop log/sampling 및 Server convenience diagnostics API
 - handler/Broker 가 UDP datagram ref 를 비동기 작업으로 보관하는 경우의 상위 fan-out backpressure 정책
 - configurable pending send capacity
-- 다중 메시지 fan-out 순서/부하 통합 테스트
+- TCP outbound length-prefixed fan-out 실제 구현
+- logical framed/composite send request 의 concrete API 설계와 코드 반영
+- 샘플 subscriber 와 benchmark receive path 의 length-prefixed outbound 수신 갱신
 - `TransportFactory.CreateDefault()`를 직접 사용하는 server factory/convenience API
 - 샘플 기반 수동 fan-out 확인
 - p50/p99 latency 합격선 확정 및 실패 gate
 - Markdown report, report history, CI gate
-- 백프레셔 기본 정책 정합성 결정
 - stable subscriber identity 구현
 - UDP stale remote idle expiry 구현
 - protocol error 응답
