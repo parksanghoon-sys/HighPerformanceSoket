@@ -35,27 +35,10 @@
   - `BrokerUdpDatagramHandler`로 UDP datagram self-command 를 Broker routing/fan-out 에 연결했다.
   - `BrokerServer`가 UDP datagram handler 등록과 UDP endpoint bind/stop 수명을 관리하도록 연결했다.
   - `BrokerServer + SaeaTransport` 실제 UDP broker socket loopback 통합 테스트를 추가했다.
-  - 다음 후보: 사용자 리뷰 후 Deferred Backlog 를 재평가해 가장 가까운 P2 항목을 Current TODOs 로 승격한다.
+  - 마지막 drop 발생 범위 관측성 판단을 D062로 닫았다.
+  - 다음 후보: 사용자 리뷰 후 Phase 4 benchmark latency SLO gate 여부를 Current TODOs 로 승격할지 재평가한다.
 
 ## Deferred Backlog
-
-- [ ] `P2_LATER` 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정한다.
-  - 무엇이 남았는지: 현재 public diagnostics 와 benchmark report 는 TCP/UDP 별 누적 drop count 와 pending send queue high-watermark 를 제공하지만,
-    마지막 drop 이 어떤 transport kind 또는 어떤 logical endpoint 에서 발생했는지는 별도 필드로 남기지 않는다.
-  - 왜 defer 되었는지: drop count 는 이미 TCP/UDP 로 분리되어 있어 최소 운영 진단은 가능하다. EndpointId runtime 발급과
-    snapshot collection API 는 완료됐지만, last-drop 은 "마지막 1건"인지, transport kind 별 마지막 drop 인지,
-    endpoint snapshot 의 per-endpoint 누적/마지막 값인지 의미를 먼저 정해야 한다.
-  - objective: 느린 소비자나 막힌 UDP remote 로 메시지가 버려졌을 때 운영자가 마지막 drop 의 대략적인 범위를 빠르게 좁힐 수 있게 할지 결정한다.
-  - relevant context: `.claude/review/2026-06-16-send-queue-high-watermark-impl.md`, DECISIONS D053/D054/D055,
-    `TransportDiagnosticsSnapshot`, `EndpointSnapshot`, `TransportBase`, `TransportConnection`, `SaeaUdpEndpoint`.
-  - 관련 파일/범위: `src/Hps.Transport/Abstractions/`, `src/Hps.Transport/Runtime/`, `src/Hps.Transport/Saea/`,
-    `tests/Hps.Transport.Tests/`, `tests/Hps.Benchmarks/`.
-  - 현재 상태: transport kind 별 HWM/drop count 는 구현돼 있고 JSON report 에도 기록된다. `ITransportEndpointDiagnostics.GetEndpointSnapshots()`로
-    endpoint 별 pending count/HWM/drop count snapshot 도 읽을 수 있다. 별도 last-drop field 는 없다.
-  - known blockers/open questions: 마지막 1건만 저장할지, transport kind 별 마지막 drop 을 저장할지, endpoint snapshot 에 last-drop metadata 를 추가할지,
-    아니면 현재 per-endpoint 누적 drop count 로 충분하다고 볼지 결정해야 한다.
-  - next step: 운영자가 실제로 좁히려는 질문이 "어느 transport kind 인가", "어느 endpoint 인가", "언제 마지막으로 버렸나" 중 무엇인지 정하고,
-    그에 맞춰 additive diagnostics field 또는 backlog 유지 중 하나를 선택한다.
 
 - [ ] `P2_LATER` Phase 4 benchmark latency SLO gate 여부를 결정한다.
   - 무엇이 남았는지: `--smoke`, `--load`, `--load-open-loop` 결과를 JSON report 로 저장하는 경로는 D052와 이번 완료 항목으로 닫혔다.
@@ -103,6 +86,19 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] 마지막 drop 발생 범위 관측성 판단을 D062로 닫았다.
+  - 범위: `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결정: v1 diagnostics 에 `last-drop` 전용 timestamp/id 필드를 추가하지 않는다.
+    transport kind 범위는 `TransportDiagnosticsSnapshot`의 TCP/UDP 누적 drop count 로 보고,
+    active endpoint 범위는 `ITransportEndpointDiagnostics.GetEndpointSnapshots()`의
+    `EndpointSnapshot.DroppedPendingSendCount`로 본다.
+  - 이유: 단일 마지막 drop 값은 여러 endpoint 의 동시 drop 에서 이전 사건을 덮어쓰고,
+    timestamp/ordering 의미를 새로 정해야 하며 hot path metadata 갱신 비용을 추가한다.
+    현재 운영 질문은 마지막 1건의 시각보다 어느 kind/endpoint 에서 drop 이 누적되는지에 가깝다.
+  - 후속: closed endpoint attribution, drop timestamp, log/sampling, Server convenience diagnostics API 는
+    필요성이 확인될 때 별도 후속으로 다룬다. 다음 후보는 Phase 4 benchmark latency SLO gate 여부 결정이다.
+  - 검증: 문서 연결 확인 통과, `git diff --check` 통과(CRLF 변환 경고만 존재).
 
 - [x] `BrokerServer + SaeaTransport` UDP broker socket loopback 통합 테스트를 추가했다.
   - 범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, root state docs.

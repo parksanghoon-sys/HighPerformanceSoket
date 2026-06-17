@@ -1,5 +1,22 @@
 # DECISIONS.md
 
+## D062 — 마지막 drop 메타데이터는 v1에 추가하지 않고 누적 kind/endpoint drop snapshot 으로 좁힌다
+
+- 날짜: 2026-06-17
+- 상태: Accepted
+- 결정: v1 diagnostics 에 `last-drop` 전용 필드, 마지막 drop timestamp, 또는 마지막 drop endpoint id 를 추가하지 않는다.
+  운영자가 drop 범위를 좁힐 때는 이미 존재하는 두 계층을 함께 본다.
+  `TransportDiagnosticsSnapshot`은 TCP/UDP transport kind 별 누적 drop count 와 high-watermark 를 제공하고,
+  `ITransportEndpointDiagnostics.GetEndpointSnapshots()`의 `EndpointSnapshot.DroppedPendingSendCount`는 active endpoint 별 누적 drop count 를 제공한다.
+  즉 "어느 transport kind 인가"는 aggregate snapshot 으로, "어느 active endpoint 인가"는 endpoint snapshot 으로 확인한다.
+- 근거: 단일 "마지막 drop" 값은 여러 endpoint 가 동시에 drop 되는 상황에서 이전 사건을 덮어쓰며,
+  timestamp 기준 clock/ordering 의미를 새로 정해야 하고 hot path 에 추가 metadata 갱신 비용을 만든다.
+  현재 운영 질문은 "최근 마지막 1건이 정확히 언제였나"보다 "어느 kind/endpoint 에서 drop 이 누적되는가"에 가깝다.
+  이 질문은 기존 누적 counter 와 endpoint snapshot 으로 더 안정적으로 답할 수 있다.
+- 영향: benchmark report 의 `schema-version`은 그대로 1을 유지하고 새 key 를 추가하지 않는다.
+  closed endpoint 의 per-endpoint drop attribution, drop timestamp, log/sampling, Server convenience diagnostics API 는 필요성이 확인될 때 별도 후속으로 다룬다.
+  `.claude/review/2026-06-16-send-queue-high-watermark-impl.md`의 last-drop scope 후속은 이 결정으로 닫는다.
+
 ## D061 — `BrokerServer`는 TCP/UDP ingress 를 독립 시작하고 Transport 수명은 공유한다
 
 - 날짜: 2026-06-17

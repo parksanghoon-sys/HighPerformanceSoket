@@ -1,5 +1,30 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-17 (Codex - last-drop diagnostics scope decision)
+
+### 작업 단위
+- 마지막 drop 발생 범위 관측성 후속을 문서 결정으로 닫았다.
+- 범위는 root state docs 와 `DECISIONS.md`로 제한했다.
+- production code, benchmark runner, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- D062로 v1 diagnostics 에 `last-drop` 전용 timestamp/id 필드를 추가하지 않기로 했다.
+- transport kind 범위는 `TransportDiagnosticsSnapshot`의 TCP/UDP 누적 drop count 로 보고,
+  active endpoint 범위는 `ITransportEndpointDiagnostics.GetEndpointSnapshots()`의
+  `EndpointSnapshot.DroppedPendingSendCount`로 본다.
+- 단일 마지막 drop 값은 여러 endpoint 동시 drop 에서 이전 사건을 덮어쓰고,
+  clock/ordering 의미와 hot path metadata 갱신 비용을 새로 만들기 때문에 v1 범위에서 제외했다.
+
+### 상태 갱신
+- `TODOS.md`의 마지막 drop scope 항목을 Deferred Backlog 에서 Completed 로 이동했다.
+- `CURRENT_PLAN.md`의 다음 후보를 Phase 4 benchmark latency SLO gate 여부 결정으로 갱신했다.
+- closed endpoint attribution, drop timestamp, log/sampling, Server convenience diagnostics API 는 필요성이 확인될 때 별도 후속으로 다룬다.
+
+### 검증
+- 문서 연결 확인 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 문서 전용 결정 단위라 `dotnet build`/`dotnet test`는 실행하지 않는다.
+
 ## 2026-06-17 (Codex - UDP broker socket loopback integration test)
 
 ### 작업 단위

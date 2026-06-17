@@ -226,10 +226,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   기본 `ITransport` hot path 계약은 넓히지 않고, SAEA transport 는 active TCP connection 과 UDP endpoint snapshot 을 반환한다.
   snapshot 은 connection/socket handle 을 담지 않으며, 닫힌 endpoint 는 transport tracking 목록에서 제거된다.
 - high-watermark 구현 리뷰의 비차단 후속 2건을 상태 문서에 반영했다.
-  마지막 drop 발생 범위는 EndpointId runtime wiring 뒤 판단할 `P2_LATER` backlog 로 남겼고,
+  마지막 drop 발생 범위는 D062로 닫았고,
   report high-watermark field 는 additive field 이므로 `schema-version: 1`을 유지한다고 D055로 기록했다.
 - `.claude/review/2026-06-16-send-queue-high-watermark-impl.md`의 deeper-pass 메타데이터를 현재 HEAD 기준으로 최신화했다.
-  schema-version 과 EndpointId runtime wiring follow-up 은 이미 완료됐고, 마지막 drop scope 판단만 남은 상태로 정리했다.
+  schema-version, EndpointId runtime wiring, 마지막 drop scope follow-up 은 모두 완료된 상태로 정리했다.
+- 마지막 drop 발생 범위 관측성 판단을 D062로 닫았다.
+  v1 diagnostics 는 `last-drop` 전용 timestamp/id 필드를 추가하지 않고,
+  `TransportDiagnosticsSnapshot`의 TCP/UDP kind 별 누적 drop 과
+  `ITransportEndpointDiagnostics.GetEndpointSnapshots()`의 active endpoint 별 누적 drop snapshot 을 함께 본다.
 - Broker subscription value 1차 전환이 완료됐다. `BrokerSubscriber` 가 TCP `IConnection` send target 을 감싸고,
   `SubscriptionTable` 과 `BrokerPublisher` 의 신규 fan-out snapshot 은 `BrokerSubscriber[]` 를 사용한다.
   기존 TCP command/server 경로는 `IConnection` compatibility overload 로 유지된다. UDP target 값과 wire/control 은 아직 미구현이다.
@@ -263,17 +267,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 사용자 리뷰 대기.
 
 리뷰 후 계속 진행 지시가 있으면 Deferred Backlog 를 다시 평가한다.
-이번 단위에서 `BrokerServer + SaeaTransport` 실제 UDP broker socket loopback 통합 테스트를 추가했고 기존 구현이 바로 통과했다.
+이번 단위에서 마지막 drop scope 를 D062로 문서 결정했고 production code/test 는 변경하지 않는다.
 현재 `P1_SOON` 실행 항목은 없으므로, 리뷰 후 계속 진행 지시가 있으면 `TODOS.md`의 `P2_LATER` 항목 중
-가장 가까운 후보를 `Current TODOs`로 승격한다. 현재 권장 후보는 마지막 drop 발생 범위 관측성 결정을 먼저 닫는 것이다.
+가장 가까운 후보를 `Current TODOs`로 승격한다. 현재 권장 후보는 Phase 4 benchmark latency SLO gate 여부를 결정하는 것이다.
 
 ## 이번 단위의 검증 경로
-- UDP loopback focused: `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~UdpCommandLoopback_WhenSubscriberAndPublisherUseDatagramCommands_FansOutPayload"` 통과 1.
-- 이번 테스트는 추가 직후 기존 구현에서 바로 통과했다. 생산 코드 결선 누락을 노출하지 않았으므로 production code 변경은 없다.
-- Server 전체: `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --no-restore` 통과 10.
-- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 134, 실패 0.
+- 상태 문서 연결 확인: `rg -n "D062|last-drop|마지막 drop|Phase 4 benchmark latency SLO" DECISIONS.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md` 통과.
 - `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 문서 전용 결정 단위라 production code, benchmark runner, 테스트 코드는 변경하지 않는다.
+  따라서 `dotnet build`/`dotnet test`는 이번 단위 검증에서 제외한다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
