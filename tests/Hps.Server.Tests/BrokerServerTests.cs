@@ -32,6 +32,18 @@ namespace Hps.Server.Tests
             Assert.True(typeof(IDisposable).IsAssignableFrom(serverType));
         }
 
+        // UDP host wiring 계약 테스트: BrokerUdpDatagramHandler 는 이미 Broker 계층에 존재하므로,
+        // 서버 계층은 Transport 에 datagram handler 를 등록하고 UDP endpoint 를 bind 하는 별도 진입점을 제공해야 한다.
+        [Fact]
+        public void BrokerServerContract_WhenInspected_ExposesMinimalUdpHostWiringApi()
+        {
+            Type? serverType = Type.GetType("Hps.Server.BrokerServer, Hps.Server", throwOnError: false);
+
+            Assert.NotNull(serverType);
+            Assert.NotNull(serverType!.GetProperty("UdpLocalEndPoint", BindingFlags.Instance | BindingFlags.Public));
+            Assert.Equal(typeof(ValueTask), GetPublicMethod(serverType, "StartUdpAsync").ReturnType);
+        }
+
         // 서버 wiring 테스트: Server 계층은 Protocol/Broker 를 우회한 별도 흐름을 만들지 않고,
         // Transport 에 TcpFrameReceiveHandler 를 등록한 뒤 listen 과 accept 대기를 시작해야 실제 TCP command 가 들어올 수 있다.
         [Fact]
@@ -50,6 +62,46 @@ namespace Hps.Server.Tests
                 Assert.NotNull(transport.Listener);
                 Assert.Same(transport.Listener!.LocalEndPoint, server.LocalEndPoint);
                 await transport.Listener.WaitForAcceptCallAsync();
+            }
+        }
+
+        // UDP wiring 테스트: Server 는 Transport 에 BrokerUdpDatagramHandler 를 등록하고 UDP endpoint 를 bind 해야
+        // 실제 UDP datagram self-command 가 Broker routing/fan-out 경로로 들어올 수 있다.
+        [Fact]
+        public async Task StartUdpAsync_WhenCalled_RegistersDatagramHandlerStartsTransportAndBindsEndpoint()
+        {
+            FakeTransport transport = new FakeTransport();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+            using (BrokerServer server = new BrokerServer(transport, pool, 64))
+            {
+                await server.StartUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+
+                Assert.Equal(1, transport.SetDatagramHandlerCallCount);
+                Assert.IsType<BrokerUdpDatagramHandler>(transport.DatagramHandler);
+                Assert.Equal(1, transport.StartCallCount);
+                Assert.Equal(1, transport.BindUdpCallCount);
+                Assert.NotNull(transport.UdpEndpoint);
+                Assert.Same(transport.UdpEndpoint!.LocalEndPoint, server.UdpLocalEndPoint);
+            }
+        }
+
+        // TCP와 UDP는 같은 Interface Server 인스턴스의 서로 다른 ingress 이다.
+        // 이미 TCP listener 가 떠 있어도 UDP bind 를 추가할 수 있어야 하며, Transport.StartAsync 는 backend 수명마다 한 번만 호출되어야 한다.
+        [Fact]
+        public async Task StartTcpAsyncThenStartUdpAsync_WhenCalled_StartsTransportOnceAndKeepsBothEndpoints()
+        {
+            FakeTransport transport = new FakeTransport();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+            using (BrokerServer server = new BrokerServer(transport, pool, 64))
+            {
+                await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                await transport.Listener!.WaitForAcceptCallAsync();
+
+                await server.StartUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+
+                Assert.Equal(1, transport.StartCallCount);
+                Assert.NotNull(server.LocalEndPoint);
+                Assert.NotNull(server.UdpLocalEndPoint);
             }
         }
 
@@ -73,6 +125,28 @@ namespace Hps.Server.Tests
                 Assert.Equal(1, transport.Listener.DisposeCallCount);
                 Assert.Equal(1, transport.StopCallCount);
                 Assert.Null(server.LocalEndPoint);
+            }
+        }
+
+        // UDP stop 수명 테스트: bind 된 UDP endpoint 도 StopAsync 에서 닫고 dispose 해야 한다.
+        // 그렇지 않으면 같은 port 재시작이 실패하거나 Transport 의 endpoint close notification cleanup 이 실행될 기회가 사라진다.
+        [Fact]
+        public async Task StopAsync_WhenUdpStarted_ClosesUdpEndpointAndStopsTransport()
+        {
+            FakeTransport transport = new FakeTransport();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+            using (BrokerServer server = new BrokerServer(transport, pool, 64))
+            {
+                await server.StartUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+
+                Assert.NotNull(transport.UdpEndpoint);
+
+                await server.StopAsync();
+
+                Assert.Equal(1, transport.UdpEndpoint!.CloseCallCount);
+                Assert.Equal(1, transport.UdpEndpoint.DisposeCallCount);
+                Assert.Equal(1, transport.StopCallCount);
+                Assert.Null(server.UdpLocalEndPoint);
             }
         }
 
@@ -325,11 +399,19 @@ namespace Hps.Server.Tests
 
             internal int ListenTcpCallCount { get; private set; }
 
+            internal int SetDatagramHandlerCallCount { get; private set; }
+
+            internal int BindUdpCallCount { get; private set; }
+
             internal int StopCallCount { get; private set; }
 
             internal ITransportReceiveHandler? ReceiveHandler { get; private set; }
 
+            internal ITransportDatagramHandler? DatagramHandler { get; private set; }
+
             internal FakeConnectionListener? Listener { get; private set; }
+
+            internal FakeUdpEndpoint? UdpEndpoint { get; private set; }
 
             public void SetReceiveHandler(ITransportReceiveHandler receiveHandler)
             {
@@ -339,6 +421,8 @@ namespace Hps.Server.Tests
 
             public void SetDatagramHandler(ITransportDatagramHandler datagramHandler)
             {
+                SetDatagramHandlerCallCount++;
+                DatagramHandler = datagramHandler;
             }
 
             public ValueTask<IConnectionListener> ListenTcpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
@@ -355,7 +439,9 @@ namespace Hps.Server.Tests
 
             public ValueTask<IUdpEndpoint> BindUdpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
             {
-                throw new NotSupportedException();
+                BindUdpCallCount++;
+                UdpEndpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 54322));
+                return new ValueTask<IUdpEndpoint>(UdpEndpoint);
             }
 
             public bool TrySend(IConnection connection, TransportSendBuffer sendBuffer)
@@ -382,6 +468,30 @@ namespace Hps.Server.Tests
 
             public void Dispose()
             {
+            }
+        }
+
+        private sealed class FakeUdpEndpoint : IUdpEndpoint
+        {
+            internal FakeUdpEndpoint(EndPoint localEndPoint)
+            {
+                LocalEndPoint = localEndPoint;
+            }
+
+            internal int CloseCallCount { get; private set; }
+
+            internal int DisposeCallCount { get; private set; }
+
+            public EndPoint LocalEndPoint { get; }
+
+            public void Close()
+            {
+                CloseCallCount++;
+            }
+
+            public void Dispose()
+            {
+                DisposeCallCount++;
             }
         }
 

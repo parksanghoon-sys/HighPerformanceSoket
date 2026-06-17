@@ -1,5 +1,39 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-17 (Codex - BrokerServer UDP bind wiring)
+
+### 작업 단위
+- `BrokerServer`가 기존 `BrokerUdpDatagramHandler`를 Transport UDP datagram 경계에 연결하도록 했다.
+- 범위는 `Hps.Server`, Server tests, root state docs 로 제한했다.
+- 실제 UDP socket loopback 통합 테스트와 stale remote idle expiry 는 다음 단위로 분리했다.
+
+### Red
+- `BrokerServerContract_WhenInspected_ExposesMinimalUdpHostWiringApi`가 `UdpLocalEndPoint` 부재로 실패했다.
+- `StartUdpAsync_WhenCalled_RegistersDatagramHandlerStartsTransportAndBindsEndpoint`,
+  `StartTcpAsyncThenStartUdpAsync_WhenCalled_StartsTransportOnceAndKeepsBothEndpoints`,
+  `StopAsync_WhenUdpStarted_ClosesUdpEndpointAndStopsTransport`가 기존 `StartUdpAsync` stub 에서 실패했다.
+
+### Green
+- `BrokerServer.StartUdpAsync`와 `UdpLocalEndPoint`를 추가했다.
+- `StartUdpAsync`가 `BrokerUdpDatagramHandler`를 Transport 에 등록하고 `BindUdpAsync` 결과 endpoint 를 보관하게 했다.
+- TCP listener 와 UDP endpoint 를 독립 시작할 수 있게 하되, 하나의 shared `ITransport.StartAsync`/`StopAsync` 수명 안에서 관리한다.
+- `StopAsync`가 TCP listener 와 UDP endpoint 를 모두 닫고 dispose 하게 했다.
+
+### 상태 갱신
+- `TODOS.md`에서 BrokerServer UDP bind wiring 항목을 Completed 로 이동했다.
+- 다음 후보를 `BrokerServer + SaeaTransport` UDP broker socket loopback 통합 테스트로 올렸다.
+- `DECISIONS.md`에 D061을 추가해 TCP/UDP ingress 독립 시작과 shared transport lifecycle 을 기록했다.
+
+### 검증
+- API Red focused 실패 1.
+- API Green focused 통과 1.
+- Behavior Red focused 실패 3.
+- Behavior focused Green 통과 3.
+- Server 전체 테스트 통과 9.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 133, 실패 0.
+- `git diff --check` 통과, whitespace 오류 없음.
+
 ## 2026-06-17 (Codex - UDP broker datagram handler)
 
 ### 작업 단위

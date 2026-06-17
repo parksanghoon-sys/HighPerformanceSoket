@@ -1,5 +1,18 @@
 # DECISIONS.md
 
+## D061 — `BrokerServer`는 TCP/UDP ingress 를 독립 시작하고 Transport 수명은 공유한다
+
+- 날짜: 2026-06-17
+- 상태: Accepted
+- 결정: `BrokerServer`는 `StartTcpAsync`와 `StartUdpAsync`를 별도 public 진입점으로 제공한다.
+  TCP listener 와 UDP endpoint 는 같은 server 인스턴스에서 함께 열 수 있지만, backend `ITransport.StartAsync`는 Transport 수명마다 한 번만 호출한다.
+  `StopAsync`/`Dispose`는 TCP listener 와 UDP endpoint 를 모두 닫고, 마지막에 `ITransport.StopAsync`를 한 번 호출한다.
+- 근거: Interface Server 목표에서는 TCP/UDP endpoint 를 같은 Broker routing/fan-out 경계에 붙여야 한다.
+  TCP와 UDP를 동시에 사용할 수 있어야 하지만, Transport backend worker, completion queue, tracking state 는 endpoint 별로 중복 시작하면 안 된다.
+  따라서 ingress 시작 API 는 분리하고, backend lifecycle 은 server 인스턴스 단위로 공유하는 모델이 가장 작은 일관된 host 계약이다.
+- 영향: `BrokerServer.StartUdpAsync`는 기존 `BrokerUdpDatagramHandler`를 등록하고 `ITransport.BindUdpAsync` 결과 endpoint 를 보관한다.
+  TCP 후 UDP start 시 `StartAsync`는 1회만 호출된다. 실제 UDP socket end-to-end fan-out 검증은 다음 단위의 loopback 테스트로 분리한다.
+
 ## D060 — UDP broker v1은 datagram self-command 와 runtime remote target 으로 설계한다
 
 - 날짜: 2026-06-16

@@ -33,27 +33,27 @@
   - D060으로 UDP broker v1 wire/control 을 datagram self-command 와 runtime remote target 정책으로 확정했다.
   - `BrokerSubscriber`에 UDP runtime target 값을 추가하고 `BrokerPublisher`의 TCP/UDP mixed fan-out 분기를 구현했다.
   - `BrokerUdpDatagramHandler`로 UDP datagram self-command 를 Broker routing/fan-out 에 연결했다.
-  - 다음 후보: BrokerServer UDP bind wiring 을 별도 TDD 단위로 구현한다.
+  - `BrokerServer`가 UDP datagram handler 등록과 UDP endpoint bind/stop 수명을 관리하도록 연결했다.
+  - 다음 후보: `BrokerServer + SaeaTransport` 실제 UDP broker socket loopback 통합 테스트를 별도 TDD 단위로 구현한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` BrokerServer UDP bind wiring 을 구현한다.
-  - 무엇이 남았는지: Broker 계층의 `BrokerUdpDatagramHandler`는 구현됐지만, `BrokerServer`가 아직
-    `ITransport.SetDatagramHandler`와 `ITransport.BindUdpAsync`를 호출하지 않는다. 따라서 실제 host 에서는 UDP datagram command 가
-    Broker routing/fan-out 으로 들어올 수 없다.
-  - 왜 defer 되었는지: 이번 단위는 Broker handler 와 routing cleanup 만 닫았다. Server 수명 API, UDP endpoint handle 보관,
-    `StopAsync`/`Dispose` 정리는 host lifecycle 을 바꾸므로 별도 커밋으로 분리한다.
-  - objective: `BrokerServer`가 UDP endpoint 를 bind 하고 `BrokerUdpDatagramHandler`를 Transport 에 등록하며,
-    중지 시 UDP endpoint 를 닫아 endpoint close cleanup 이 실행될 수 있는 host 경계를 만든다.
-  - relevant context: DECISIONS D060, `src/Hps.Server/BrokerServer.cs`, `tests/Hps.Server.Tests/BrokerServerTests.cs`,
-    `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `ITransport.SetDatagramHandler`, `ITransport.BindUdpAsync`, `IUdpEndpoint`.
-  - 관련 파일/범위: `src/Hps.Server/`, `tests/Hps.Server.Tests/`, 필요 시 server test double.
-    실제 SAEA UDP loopback 통합 테스트는 wiring 계약 뒤 별도 단위로 분리한다.
-  - 현재 상태: TCP host 는 `StartTcpAsync`/`StopAsync`로 listen/accept loop 를 관리한다.
-    UDP host API 형태(`StartUdpAsync` 별도 메서드인지, TCP/UDP 동시 start API 인지)는 아직 코드로 확정하지 않았다.
-  - known blockers/open questions: 기존 `_started` 플래그가 TCP listener 하나를 전제로 하므로 TCP와 UDP를 동시에 시작할 수 있게 할지,
-    이번 단위에서는 UDP-only bind 진입점만 추가할지 결정해야 한다. 선택은 Red 테스트에서 가장 작은 public host 계약으로 먼저 고정한다.
-  - next step: Red 테스트로 `BrokerServer`가 UDP bind 진입점을 노출하고 `SetDatagramHandler`/`BindUdpAsync`를 호출하는지 먼저 고정한다.
+- [ ] `P1_SOON` `BrokerServer + SaeaTransport` UDP broker socket loopback 통합 테스트를 구현한다.
+  - 무엇이 남았는지: `BrokerServer.StartUdpAsync`는 `BrokerUdpDatagramHandler`를 등록하고 UDP endpoint 를 bind 하지만,
+    실제 `SaeaTransport` UDP socket 경로에서 `SUBSCRIBE`/`PUBLISH` datagram 이 Broker routing/fan-out 으로 끝까지 흐르는지는 아직 검증하지 않았다.
+  - 왜 defer 되었는지: 이번 단위는 host wiring 과 endpoint 수명 계약만 닫았다. 실제 socket loopback 은 transport receive/send pump,
+    broker UDP command handler, runtime subscriber target 을 함께 묶는 end-to-end 테스트라 별도 커밋으로 분리한다.
+  - objective: UDP subscriber socket 이 `SUBSCRIBE <topic>` datagram 을 server UDP endpoint 로 보내고, UDP publisher socket 이
+    `PUBLISH <topic> <payload>` datagram 을 보내면 subscriber socket 이 raw payload 를 받는 실제 loopback 경계를 검증한다.
+  - relevant context: DECISIONS D060/D061, `src/Hps.Server/BrokerServer.cs`, `src/Hps.Transport/Saea/SaeaTransport.cs`,
+    `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `tests/Hps.Server.Tests/BrokerServerTests.cs`,
+    기존 TCP loopback 테스트 helper 와 UDP transport loopback 테스트.
+  - 관련 파일/범위: `tests/Hps.Server.Tests/`, 필요 시 server test helper. production code 는 테스트가 드러내는 실제 결선 누락이 있을 때만 최소 수정한다.
+  - 현재 상태: UDP transport loopback, UDP broker datagram handler, BrokerServer UDP bind wiring 은 각각 검증됐다.
+    세 경로를 실제 socket end-to-end 로 묶는 테스트만 없다.
+  - known blockers/open questions: UDP에는 per-remote close notification 이 없으므로 stale remote idle expiry 는 이 단위에 포함하지 않는다.
+    subscriber socket 이 payload 를 수신하기 전에 `SUBSCRIBE` 처리 완료를 확인할 public ack 가 없으므로 테스트는 재시도 publish 또는 짧은 대기 경계를 써야 할 수 있다.
+  - next step: Red 테스트로 실제 UDP subscriber/publisher socket 을 만들고 `server.StartUdpAsync(new IPEndPoint(IPAddress.Loopback, 0))` 경유 fan-out 이 아직 보장되지 않는지 확인한다.
 
 - [ ] `P2_LATER` 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정한다.
   - 무엇이 남았는지: 현재 public diagnostics 와 benchmark report 는 TCP/UDP 별 누적 drop count 와 pending send queue high-watermark 를 제공하지만,
@@ -119,6 +119,17 @@
   - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
 
 ## Completed
+
+- [x] BrokerServer UDP bind wiring 을 구현했다.
+  - 범위: `src/Hps.Server/BrokerServer.cs`, `tests/Hps.Server.Tests/BrokerServerTests.cs`, root state docs.
+  - Red: UDP host API 계약 테스트가 `UdpLocalEndPoint` 부재로 실패했다.
+  - Red: UDP behavior focused 테스트 3개가 `StartUdpAsync` stub 에서 handler 등록/bind/stop 수명을 수행하지 않아 실패했다.
+  - 구현: `BrokerServer.StartUdpAsync`를 추가해 `BrokerUdpDatagramHandler`를 Transport 에 등록하고 `BindUdpAsync` 결과 endpoint 를 보관한다.
+  - 수명: TCP listener 와 UDP endpoint 는 독립 시작 가능하지만 하나의 `ITransport.StartAsync`/`StopAsync` 수명 안에서 공유된다.
+    `StopAsync`는 TCP listener 와 UDP endpoint 를 함께 닫고 dispose 한다.
+  - 후속: 실제 `SaeaTransport` UDP socket loopback 에서 `SUBSCRIBE`/`PUBLISH` datagram fan-out 을 검증해야 한다.
+  - 검증: API Red 실패 1, API Green 통과 1, behavior Red 실패 3, focused Green 통과 3,
+    Server tests 통과 9, solution build 경고 0/오류 0, solution test 통과 133/실패 0.
 
 - [x] UDP broker datagram handler 를 구현했다.
   - 범위: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `src/Hps.Broker/SubscriptionTable.cs`,

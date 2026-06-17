@@ -24,11 +24,15 @@ namespace Hps.Server
         private readonly SubscriptionTable _subscriptions;
         private readonly BrokerPublisher _publisher;
         private readonly BrokerTcpFrameHandler _brokerFrameHandler;
+        private readonly BrokerUdpDatagramHandler _brokerDatagramHandler;
         private readonly TcpFrameReceiveHandler _receiveHandler;
         private IConnectionListener? _tcpListener;
+        private IUdpEndpoint? _udpEndpoint;
         private CancellationTokenSource? _acceptLoopCancellation;
         private Task? _acceptLoopTask;
-        private bool _started;
+        private bool _transportStarted;
+        private bool _tcpStarted;
+        private bool _udpStarted;
         private bool _disposed;
 
         /// <summary>
@@ -55,6 +59,7 @@ namespace Hps.Server
             _subscriptions = new SubscriptionTable();
             _publisher = new BrokerPublisher(_subscriptions, _transport);
             _brokerFrameHandler = new BrokerTcpFrameHandler(_subscriptions, _publisher);
+            _brokerDatagramHandler = new BrokerUdpDatagramHandler(_subscriptions, _publisher);
             _receiveHandler = new TcpFrameReceiveHandler(_pool, _maxPayloadLength, _brokerFrameHandler);
         }
 
@@ -64,6 +69,11 @@ namespace Hps.Server
         public EndPoint? LocalEndPoint { get; private set; }
 
         /// <summary>
+        /// 현재 UDP endpoint 가 실제로 bind 된 endpoint 이다. 아직 시작하지 않았으면 <c>null</c> 이다.
+        /// </summary>
+        public EndPoint? UdpLocalEndPoint { get; private set; }
+
+        /// <summary>
         /// TCP broker 수신 대기를 시작한다.
         /// </summary>
         public async ValueTask StartTcpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
@@ -71,13 +81,17 @@ namespace Hps.Server
             if (localEndPoint == null)
                 throw new ArgumentNullException(nameof(localEndPoint));
 
+            bool shouldStartTransport;
+
             lock (_gate)
             {
                 ThrowIfDisposed();
-                if (_started)
-                    throw new InvalidOperationException("BrokerServer 는 이미 시작됐다.");
+                if (_tcpStarted)
+                    throw new InvalidOperationException("BrokerServer TCP listener 는 이미 시작됐다.");
 
-                _started = true;
+                shouldStartTransport = !_transportStarted;
+                _transportStarted = true;
+                _tcpStarted = true;
             }
 
             IConnectionListener? listener = null;
@@ -87,7 +101,8 @@ namespace Hps.Server
             try
             {
                 _transport.SetReceiveHandler(_receiveHandler);
-                await _transport.StartAsync(cancellationToken).ConfigureAwait(false);
+                if (shouldStartTransport)
+                    await _transport.StartAsync(cancellationToken).ConfigureAwait(false);
 
                 listener = await _transport.ListenTcpAsync(localEndPoint, cancellationToken).ConfigureAwait(false);
                 acceptLoopCancellation = new CancellationTokenSource();
@@ -105,26 +120,98 @@ namespace Hps.Server
             {
                 CleanupFailedStart(listener, acceptLoopCancellation);
 
+                bool shouldStopTransport = false;
+
                 lock (_gate)
                 {
                     _tcpListener = null;
                     _acceptLoopCancellation = null;
                     _acceptLoopTask = null;
                     LocalEndPoint = null;
-                    _started = false;
+                    _tcpStarted = false;
+
+                    if (!_udpStarted)
+                    {
+                        shouldStopTransport = _transportStarted;
+                        _transportStarted = false;
+                    }
                 }
 
-                await _transport.StopAsync(cancellationToken).ConfigureAwait(false);
+                if (shouldStopTransport)
+                    await _transport.StopAsync(cancellationToken).ConfigureAwait(false);
                 throw;
             }
         }
 
         /// <summary>
-        /// TCP listener 와 Transport 를 중지한다.
+        /// UDP broker datagram 수신 대기를 시작한다.
+        /// </summary>
+        public async ValueTask StartUdpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
+        {
+            if (localEndPoint == null)
+                throw new ArgumentNullException(nameof(localEndPoint));
+
+            bool shouldStartTransport;
+
+            lock (_gate)
+            {
+                ThrowIfDisposed();
+                if (_udpStarted)
+                    throw new InvalidOperationException("BrokerServer UDP endpoint 는 이미 시작됐다.");
+
+                shouldStartTransport = !_transportStarted;
+                _transportStarted = true;
+                _udpStarted = true;
+            }
+
+            IUdpEndpoint? endpoint = null;
+
+            try
+            {
+                _transport.SetDatagramHandler(_brokerDatagramHandler);
+                if (shouldStartTransport)
+                    await _transport.StartAsync(cancellationToken).ConfigureAwait(false);
+
+                endpoint = await _transport.BindUdpAsync(localEndPoint, cancellationToken).ConfigureAwait(false);
+
+                lock (_gate)
+                {
+                    _udpEndpoint = endpoint;
+                    UdpLocalEndPoint = endpoint.LocalEndPoint;
+                }
+            }
+            catch
+            {
+                CleanupFailedUdpStart(endpoint);
+
+                bool shouldStopTransport = false;
+
+                lock (_gate)
+                {
+                    _udpEndpoint = null;
+                    UdpLocalEndPoint = null;
+                    _udpStarted = false;
+
+                    if (!_tcpStarted)
+                    {
+                        shouldStopTransport = _transportStarted;
+                        _transportStarted = false;
+                    }
+                }
+
+                if (shouldStopTransport)
+                    await _transport.StopAsync(cancellationToken).ConfigureAwait(false);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// TCP listener, UDP endpoint, Transport 를 중지한다.
         /// </summary>
         public async ValueTask StopAsync(CancellationToken cancellationToken = default)
         {
             IConnectionListener? listener;
+            IUdpEndpoint? udpEndpoint;
             CancellationTokenSource? acceptLoopCancellation;
             Task? acceptLoopTask;
             bool shouldStopTransport;
@@ -132,15 +219,20 @@ namespace Hps.Server
             lock (_gate)
             {
                 listener = _tcpListener;
+                udpEndpoint = _udpEndpoint;
                 acceptLoopCancellation = _acceptLoopCancellation;
                 acceptLoopTask = _acceptLoopTask;
-                shouldStopTransport = _started;
+                shouldStopTransport = _transportStarted;
 
                 _tcpListener = null;
+                _udpEndpoint = null;
                 _acceptLoopCancellation = null;
                 _acceptLoopTask = null;
                 LocalEndPoint = null;
-                _started = false;
+                UdpLocalEndPoint = null;
+                _transportStarted = false;
+                _tcpStarted = false;
+                _udpStarted = false;
             }
 
             if (!shouldStopTransport)
@@ -151,6 +243,8 @@ namespace Hps.Server
             acceptLoopCancellation?.Cancel();
             listener?.Close();
             listener?.Dispose();
+            udpEndpoint?.Close();
+            udpEndpoint?.Dispose();
 
             if (acceptLoopTask != null)
                 await WaitForAcceptLoopToStopAsync(acceptLoopTask).ConfigureAwait(false);
@@ -219,6 +313,13 @@ namespace Hps.Server
             listener?.Close();
             listener?.Dispose();
             acceptLoopCancellation?.Dispose();
+        }
+
+        private static void CleanupFailedUdpStart(IUdpEndpoint? endpoint)
+        {
+            // BindUdpAsync 이후 예외가 나면 endpoint 소유권은 Server 로 넘어온 상태일 수 있으므로 즉시 닫는다.
+            endpoint?.Close();
+            endpoint?.Dispose();
         }
 
         private void ThrowIfDisposed()
