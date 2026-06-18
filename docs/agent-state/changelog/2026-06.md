@@ -1,0 +1,3170 @@
+# CHANGELOG_AGENT.md
+
+## 2026-06-18 (Codex - baseline summary markdown artifacts)
+
+### 작업 단위
+- 이미 구현된 `--summarize-baseline <input-dir> --summary <output-json> --summary-md <output-md>` command 로
+  2026-06-18 baseline root, `session-02`, `session-03` directory 의 `summary.md` 보조 artifact 를 생성했다.
+- 코드 변경 없이 benchmark artifact 와 상태 문서만 갱신했다.
+
+### Red/Green
+- Red: root, `session-02`, `session-03`의 `summary.md`가 모두 없는 상태를 `Test-Path`로 확인했다.
+- Green: 세 directory 에 대해 `--summary-md` 포함 summary command 를 실행해 모두 exit-code 0,
+  `source-report-count=6`, `hard-passed=true`, `warning-count=0`을 확인했다.
+
+### 생성 artifact
+- `docs/benchmarks/baselines/2026-06-18/summary.md`
+- `docs/benchmarks/baselines/2026-06-18/session-02/summary.md`
+- `docs/benchmarks/baselines/2026-06-18/session-03/summary.md`
+
+### 상태 갱신
+- `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`의 Summary artifacts 표에 Markdown 경로를 추가했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`에 이번 생성 단위와 다음 리뷰 대기 상태를 반영했다.
+
+### 검증
+- 생성된 세 `summary.md`가 `# Baseline Summary`, load/open-loop row, `Warnings`, `- 없음`을 포함하는지 확인했다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 156개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - baseline summary markdown cli)
+
+### 작업 단위
+- `--summarize-baseline <input-dir> --summary <output-json>` command 에 선택 옵션
+  `--summary-md <output-md>`를 연결했다.
+- JSON summary 는 계속 필수 canonical artifact 로 유지하고, Markdown 은 같은 `BaselineSummary`에서 파생되는
+  사람 리뷰용 보조 artifact 로만 생성한다.
+
+### Red/Green
+- Red 1: `BenchmarkCommandParserTests`에 `--summary-md` parser 테스트를 먼저 추가했다.
+  기존 parser 는 6개 인자를 summary output usage error 로 처리해 신규 테스트 1개 실패/기존 9개 통과가 됐다.
+- Green 1: `BenchmarkCommandLine.SummaryMarkdownOutputPath`와 parser optional `--summary-md <path>` 처리를 추가했고
+  focused parser tests 10개가 통과했다.
+- Red 2: parser Green 뒤 CLI smoke 에서 `--summary-md`를 지정하면 exit-code 0과 JSON 생성은 확인됐지만
+  Markdown 파일은 생성되지 않았다.
+- Green 2: `Program`이 summary JSON 생성 뒤 선택적으로 `BaselineSummaryMarkdownWriter`를 호출하게 연결했다.
+  CLI smoke 에서 exit-code 0, JSON/Markdown 파일 생성, Markdown heading/load row/no-warning 문구를 확인했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`와 `TODOS.md`에 CLI Markdown 선택 출력 완료와 사용자 리뷰 대기 상태를 반영했다.
+
+### 검증
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 20개 통과/실패 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 156개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- sandbox NuGet global-packages 가 offline 경로를 보며 `Hps.Benchmarks` assets 가 한 번 깨졌고,
+  `NUGET_PACKAGES=$env:USERPROFILE\.nuget\packages`를 지정해 restore/build 환경을 복구했다.
+
+## 2026-06-18 (Codex - baseline summary markdown writer)
+
+### 작업 단위
+- `BaselineSummary`를 사람이 빠르게 리뷰할 Markdown 표로 쓰는 writer 를 추가했다.
+- 이번 단위는 writer 와 xUnit 테스트만 포함한다. `--summarize-baseline` CLI 에 `summary.md` 출력 옵션을 붙이는 작업은 다음 단위로 분리한다.
+
+### Red/Green
+- Red 1: `BaselineSummaryMarkdownWriterTests` bootstrap 이 writer 타입 부재로 1개 실패/0개 통과했다.
+- Green 1: 최소 writer 타입 추가 뒤 focused test 1개가 통과했다.
+- Red 2: Markdown 내용 테스트 2개가 `Write(TextWriter, BaselineSummary)` 메서드 부재로 실패했다.
+- Green 2: `BaselineSummaryMarkdownWriter.Write`가 hard gate, kind별 요약, warning table 을 출력하게 했다.
+- Refactor: 테스트를 reflection 호출에서 직접 writer API 호출로 정리했고 focused tests 2개가 통과했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`와 `TODOS.md`에 Markdown writer 완료와 다음 리뷰 대기 상태를 반영했다.
+
+### 검증
+- 최종 검증으로 `dotnet build HighPerformanceSocket.slnx --no-restore`,
+  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`, `git diff --check`를 실행한다.
+
+## 2026-06-18 (Codex - baseline summary artifacts)
+
+### 작업 단위
+- 이미 구현된 `--summarize-baseline <input-dir> --summary <output-json>` command 로
+  2026-06-18 baseline root, `session-02`, `session-03` directory 의 canonical `summary.json`을 생성했다.
+- 코드 변경 없이 benchmark artifact 와 상태 문서만 갱신했다.
+
+### Red/Green
+- Red: root, `session-02`, `session-03`의 `summary.json`이 모두 없는 상태를 `Test-Path`로 확인했다.
+- Green: 세 directory 에 대해 summary command 를 실행해 모두 exit-code 0,
+  `source-report-count=6`, `hard-passed=true`, `warning-count=0`을 확인했다.
+
+### 생성 artifact
+- `docs/benchmarks/baselines/2026-06-18/summary.json`
+- `docs/benchmarks/baselines/2026-06-18/session-02/summary.json`
+- `docs/benchmarks/baselines/2026-06-18/session-03/summary.json`
+
+### 상태 갱신
+- `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`에 summary artifact 표를 추가했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`에 이번 생성 단위와 다음 리뷰 대기 상태를 반영했다.
+
+### 검증
+- 생성된 세 `summary.json`을 `ConvertFrom-Json`으로 읽어 `summary-version == 1`,
+  `source-report-count == 6`, `hard-passed == true`, `warning-count == 0`,
+  load/open-loop run count 3을 확인했다.
+- 최종 검증으로 `dotnet build HighPerformanceSocket.slnx --no-restore`,
+  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`, `git diff --check`를 실행한다.
+
+## 2026-06-18 (Codex - baseline summary cli wiring)
+
+### 작업 단위
+- `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 4만 구현했다.
+- `Program`이 `--summarize-baseline <input-dir> --summary <output-json>`를 실행해 summary JSON을 생성하도록 연결했다.
+
+### Red/Green
+- Red: 기존 바이너리로 summary command 를 실행했을 때 exit-code 2가 반환되고 summary 파일이 생성되지 않음을 확인했다.
+- Green: `Program` switch 에 `BenchmarkCommand.SummarizeBaseline` case 를 추가하고,
+  `BaselineReportReader.ReadDirectory` → `BaselineSummaryGenerator.Generate` → `BaselineSummaryWriter.Write`를 조립했다.
+
+### CLI smoke
+- root `docs\benchmarks\baselines\2026-06-18`: exit-code 0, `source-report-count=6`, `hard-passed=true`,
+  load/open-loop 각 run-count 3.
+- `docs\benchmarks\baselines\2026-06-18\session-02`: exit-code 0, `source-report-count=6`, `hard-passed=true`,
+  load/open-loop 각 run-count 3.
+- `docs\benchmarks\baselines\2026-06-18\session-03`: exit-code 0, `source-report-count=6`, `hard-passed=true`,
+  load/open-loop 각 run-count 3.
+- smoke summary 파일은 `%TEMP%` 아래 고유 directory 에 생성해 작업 트리에 남기지 않았다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 baseline summary artifact Task 1~4 완료와 사용자 리뷰 대기 상태로 갱신했다.
+- `TODOS.md`의 P1 summary artifact backlog 를 완료 이력으로 이동했다.
+
+### 검증
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 152개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - baseline summary reader writer)
+
+### 작업 단위
+- `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 3만 구현했다.
+- Program execution wiring 없이 per-run JSON v1 directory reader 와 summary JSON writer 만 추가했다.
+
+### Red/Green
+- Red 1: `BaselineReportReaderWriterTests` bootstrap 을 추가했다.
+  `BaselineReportReader`/`BaselineSummaryWriter` 타입이 없어 `Assert.NotNull()` 실패 1개/통과 0개를 확인했다.
+- Green 1: 최소 reader/writer shell 을 추가해 bootstrap 테스트 1개 통과를 확인했다.
+- Red 2: bootstrap 을 실제 동작 테스트 2개로 교체했다.
+  per-run JSON v1 reader 와 summary JSON writer 테스트가 `NotImplementedException`으로 실패함을 확인했다.
+- Green 2: `BaselineReportReader`는 top-level `*.json` 중 `schema-version == 1`과 `result-name`이 있는 run report 만 읽고,
+  `BaselineSummaryWriter`는 `summary-version`, `warnings`, `by-kind`를 포함한 summary JSON v1을 쓰게 했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`의 다음 실행 지점을 Task 4 Program wiring/CLI smoke 로 갱신했다.
+- `TODOS.md`의 P1 backlog 에 Task 3 구현 상태와 Task 4 next step 을 반영하고, Completed 이력을 추가했다.
+
+### 검증
+- focused reader/writer tests: 2개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 16개 통과/실패 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 152개 통과/실패 0.
+- `git diff --check` 통과.
+
+## 2026-06-18 (Codex - baseline summary generator)
+
+### 작업 단위
+- `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 2만 구현했다.
+- per-run JSON reader/writer 나 Program execution wiring 없이 in-memory summary domain model 과 generator 계산만 추가했다.
+
+### Red/Green
+- Red 1: `BaselineSummaryGeneratorTests` bootstrap 을 추가했다.
+  `BaselineSummaryGenerator` 타입이 없어 `Assert.NotNull()` 실패 1개/통과 0개를 확인했다.
+- Green 1: `BaselineReport`, `BaselineKindSummary`, `BaselineWarning`, `BaselineSummary`,
+  `BaselineSummaryGenerator` shell 을 추가해 bootstrap 테스트 1개 통과를 확인했다.
+- Red 2: bootstrap 을 실제 동작 테스트 3개로 교체했다.
+  hard gate 집계, kind별 p50/p99 median 포함 집계, per-run warning/source-path 테스트가
+  `NotImplementedException`으로 실패함을 확인했다.
+- Green 2: `BaselineSummaryGenerator`가 hard failure count, `load`/`open-loop`별 min/max/median,
+  non-failing soft warning 을 계산하게 했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`의 다음 실행 지점을 Task 3 JSON reader/writer 로 갱신했다.
+- `TODOS.md`의 P1 backlog 에 Task 2 구현 상태와 Task 3 next step 을 반영하고, Completed 이력을 추가했다.
+
+### 검증
+- focused generator tests: 3개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 14개 통과/실패 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 150개 통과/실패 0.
+- `git diff --check` 통과.
+
+## 2026-06-18 (Codex - baseline summary policy review refinements)
+
+### 작업 단위
+- `.claude/review/2026-06-18-repeat-baseline-policy-review.md`의 권고를 구현 전에 검토했다.
+- 코드 변경 없이 D070 후속 spec/plan/decision/state 문서만 갱신했다.
+
+### 반영 내용
+- F1: 첫 soft warning threshold 가 session-01 max 기반의 초기 임시 envelope 이며 hard SLO가 아님을 명시했다.
+- F2: `by-kind` summary 에 p50/p99 median 을 추가해 min/max outlier 해석을 보강했다.
+- F3: warning 은 aggregate max 1건이 아니라 per-run metric 기준으로 만들고, 각 warning 에 `source-path`를 포함하도록 확정했다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`에 provisional threshold, per-run warning, median schema 를 반영했다.
+- `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 2/3 계획과 self-review 를 새 schema 에 맞췄다.
+- `DECISIONS.md` D070 영향에 review 반영 정책을 요약했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`의 다음 실행 지점을 Task 2 summary model/generator 로 유지하되,
+  per-run warning/source-path 와 p50/p99 median 을 필수 조건으로 명시했다.
+
+### 검증
+- 문서 전용 변경이므로 build/test 는 실행하지 않았다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - baseline summary parser)
+
+### 작업 단위
+- `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 1만 구현했다.
+- summary 계산이나 JSON reader/writer 없이 CLI parser 계약과 usage 표기만 추가했다.
+
+### Red/Green
+- Red: `BenchmarkCommandParserTests`에 summary command 테스트 3개를 먼저 추가했다.
+  - `--summarize-baseline <input-dir> --summary <output-json>` 정상 parsing
+  - `--summary` 누락 usage error
+  - `--report` 혼용 usage error
+- Red 실행 결과: 신규 테스트 3개 실패, 기존 parser 테스트 5개 통과.
+- Green: `BenchmarkCommand.SummarizeBaseline`, `BenchmarkCommandLine.SummaryInputDirectory`,
+  `BenchmarkCommandLine.SummaryOutputPath`, `BenchmarkCommandParser.ParseSummarizeBaseline`를 추가했다.
+  `Program`에는 usage 한 줄만 추가했고 execution switch case 는 Task 4로 남겼다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`의 다음 실행 지점을 Task 2 summary model/generator 로 갱신했다.
+- `TODOS.md`의 P1 backlog 와 Completed 이력에 Task 1 결과를 반영했다.
+
+### 검증
+- focused parser tests: 8개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 11개 통과/실패 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 147개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - baseline summary implementation plan)
+
+### 작업 단위
+- D070 후속으로 baseline summary artifact 구현 계획을 작성했다.
+- 코드 변경 없이 계획 문서와 root 상태 문서를 갱신했다.
+
+### 계획 내용
+- 계획 파일: `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`.
+- Task 1: `--summarize-baseline <input-dir> --summary <output-json>` parser 계약과 usage 갱신.
+- Task 2: `BaselineReport`/`BaselineSummary` 계열 모델과 D070 soft warning 계산.
+- Task 3: per-run JSON v1 directory reader 와 summary JSON writer.
+- Task 4: `Program` execution wiring 과 실제 baseline artifact directory 기반 CLI smoke.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`의 다음 실행 지점을 Task 1 parser 계약 단위로 갱신했다.
+- `TODOS.md`의 P1 backlog 에 새 plan 파일을 연결하고, next step 을 Task 1 실행으로 갱신했다.
+
+### 검증
+- 문서 전용 변경이므로 build/test 는 실행하지 않았다.
+- `git diff --check`는 통과했고 CRLF 변환 경고만 있으며 whitespace 오류는 없었다.
+
+## 2026-06-18 (Codex - repeat baseline policy decision)
+
+### 작업 단위
+- D069에서 요구한 3개 baseline session 확보 이후의 latency/CI 정책을 D070으로 정리했다.
+- 코드 변경 없이 반복 baseline 분포 설계 문서, 결정 로그, root 상태 문서를 갱신했다.
+
+### 확인한 데이터
+- 입력 범위: `docs/benchmarks/baselines/2026-06-18/` 아래 기존 로컬 baseline, `session-02`, `session-03`의 raw JSON 18개.
+- 전체 18개 run 은 sent/received 3000, dropped 0, payload-errors 0, pool-rented 0으로 hard gate 를 모두 통과했다.
+- closed-loop 9회는 p99 471.0~924.1us, TCP HWM 1이었다.
+- open-loop 9회는 p99 502.6~1005.5us, TCP HWM 2~3이었다.
+- 같은 장비 같은 날짜에서도 session-01 p99가 session-02/03보다 높아 p99 hard threshold 는 아직 false negative 위험이 크다.
+
+### 결정
+- D070으로 p50/p99 latency hard failure threshold 는 보류했다.
+- 다음 구현 후보는 기존 per-run JSON을 입력으로 읽는 baseline summary artifact 와 non-failing soft warning 산출이다.
+- 권장 CLI 는 `--summarize-baseline <input-dir> --summary <output-json>`이다.
+- Markdown report, CI workflow, warning-as-failure, hard latency gate 는 summary artifact 이후 별도 단위로 분리한다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`를 추가했다.
+- `DECISIONS.md`에 D070을 추가했다.
+- `CURRENT_PLAN.md`의 다음 실행 지점을 summary artifact 구현 계획 대기로 갱신했다.
+- `TODOS.md`의 P1 backlog 를 summary JSON/soft warning 구현 후보로 재기술했다.
+
+### 검증
+- raw JSON 18개를 파싱해 설계 문서의 baseline envelope 와 warning 후보 수치를 확인했다.
+- 문서 전용 변경이므로 build/test 는 실행하지 않았다.
+- `git diff --check`는 통과했고 CRLF 변환 경고만 있으며 whitespace 오류는 없었다.
+
+## 2026-06-18 (Codex - repeat baseline session 03)
+
+### 작업 단위
+- D069 후속으로 반복 baseline artifact `session-03`를 수집했다.
+- 코드 변경 없이 `--baseline-suite` 실행 결과 raw JSON 6개와 baseline 요약 문서, root 상태 문서를 갱신했다.
+
+### 실행 결과
+- 명령: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite docs\benchmarks\baselines\2026-06-18\session-03 --runs 3`
+- 결과: exit code 0, `baseline-suite-result: pass`.
+- closed-loop 3회: sent/received 3000, dropped 0, payload-errors 0, pool-rented 0, TCP HWM 1, p99 471.0~489.9us.
+- open-loop 3회: sent/received 3000, dropped 0, payload-errors 0, pool-rented 0, TCP HWM 2~3, p99 502.6~587.8us.
+
+### 상태 갱신
+- `docs/benchmarks/baselines/2026-06-18/session-03/*.json`를 추가했다.
+- `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`에 Session 03 표와 해석을 추가했다.
+- `TODOS.md`의 P1 backlog 는 같은 장비 기준 최소 3개 session 이 확보됐고,
+  다음 작업이 추가 수집이 아니라 session 간 분포 기반 soft warning/hard failure 정책 설계라고 갱신했다.
+
+### 검증
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- baseline suite 실행 통과, exit code 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - repeat baseline session 02)
+
+### 작업 단위
+- D069 후속으로 반복 baseline artifact `session-02`를 수집했다.
+- 코드 변경 없이 `--baseline-suite` 실행 결과 raw JSON 6개와 baseline 요약 문서, root 상태 문서를 갱신했다.
+
+### 실행 결과
+- 명령: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite docs\benchmarks\baselines\2026-06-18\session-02 --runs 3`
+- 결과: exit code 0, `baseline-suite-result: pass`.
+- closed-loop 3회: sent/received 3000, dropped 0, payload-errors 0, pool-rented 0, TCP HWM 1, p99 481.6~512.1us.
+- open-loop 3회: sent/received 3000, dropped 0, payload-errors 0, pool-rented 0, TCP HWM 2~3, p99 564.9~643.3us.
+
+### 상태 갱신
+- `docs/benchmarks/baselines/2026-06-18/session-02/*.json`를 추가했다.
+- `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`에 Session 02 표와 해석을 추가했다.
+- `TODOS.md`의 P1 backlog 는 기존 로컬 baseline 과 `session-02`까지 2개 session 이 확보됐고,
+  최소 3개 session 기준에는 `session-03`이 더 필요하다고 갱신했다.
+
+### 검증
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
+- baseline suite 실행 통과, exit code 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - lingering design docs reconciliation)
+
+### 작업 단위
+- 남아 있던 사용자 문서 변경이 현재 설계/구현 흐름과 맞는지 검토했다.
+- 코드 변경 없이 root 가이드, phase 계획, endpoint model spec, drop-stress spec 의 상태만 정리했다.
+
+### 정리 내용
+- `AGENTS.md`와 `PLAN.md`의 "메시지 브로커" 중심 표현을 Interface Server 중심 표현으로 유지했다.
+  현재 목표는 외부 source 정보를 topic/data type 기준으로 받아 TCP/UDP endpoint 로 발행하는 Interface Server 이며,
+  내부 구현 메커니즘으로 pub/sub broker 를 사용한다.
+- endpoint model spec 의 high-watermark 설명은 D062/D066 계열 관측성 결정과 맞으므로 보존했다.
+- `2026-06-18-drop-stress-and-observability-design.md`는 D066/D067/D068로 이미 반영된 제안이므로
+  `Proposed`가 아니라 `Resolved` 상태의 historical proposal 로 정리했다.
+
+### 검증
+- 문서 전용 변경이므로 build/test 는 실행하지 않는다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - baseline backlog state cleanup)
+
+### 작업 단위
+- 반복 baseline collection command 구현 완료 뒤 root 상태 문서를 정리했다.
+- `TODOS.md`의 P1 backlog 가 아직 command 가 없는 것처럼 설명하던 부분을 현재 상태에 맞게 고쳤다.
+- 완료된 command 와 아직 남은 summary/CI/hard threshold 정책 판단을 분리했다.
+
+### 정리 내용
+- `--baseline-suite <output-dir> [--runs <count>]` command 는 Task 1~4 완료 항목으로 유지한다.
+- Deferred Backlog 는 "command 구현"이 아니라 "artifact 축적 이후 latency/CI 정책 재판단"으로 재기술했다.
+- `CURRENT_PLAN.md`의 다음 실행 지점은 사용자 리뷰 대기 상태로 유지했다.
+
+### 검증
+- 문서 전용 변경이므로 build/test 는 실행하지 않는다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - baseline suite cli wiring)
+
+### 작업 단위
+- 반복 baseline collection 계획의 Task 4를 구현했다.
+- `Program`이 `BenchmarkCommand.BaselineSuite`를 `BaselineSuiteRunner`에 연결하게 했다.
+- 새 command 는 closed-loop `RunLoadAsync`와 open-loop `RunOpenLoopAsync`를 반복 실행하고,
+  `TcpLoopbackReportWriter.Write`로 per-run raw JSON report 를 남긴다.
+
+### Red/Green
+- Red: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite artifacts\baseline-red --runs 1`
+  실행 결과 exit code 2, `load-01.json` 미생성, `open-loop-01.json` 미생성을 확인했다.
+  parser 는 command 를 인식했지만 `Program` switch 에 execution wiring 이 없었다.
+- Green: `Program` switch 에 `BenchmarkCommand.BaselineSuite` case 를 추가하고,
+  `CompleteBaselineSuite` helper 에서 기존 load/open-loop runner 와 report writer 를 조립했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`와 `TODOS.md`를 반복 baseline collection Task 1~4 완료와 사용자 리뷰 대기 상태로 갱신했다.
+
+### 검증
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite <temp-output> --runs 1`
+  통과, exit code 0.
+- CLI smoke 결과 `<temp-output>\load-01.json`과 `<temp-output>\open-loop-01.json`이 생성됐고,
+  두 JSON 모두 `schema-version == 1`, `passed == true`였다.
+
+## 2026-06-18 (Codex - baseline suite runner)
+
+### 작업 단위
+- 반복 baseline collection 계획의 Task 3을 구현했다.
+- `BaselineSuiteRunner`가 fake runner 와 fake report writer 를 주입받아
+  closed-loop load 와 open-loop load report path 를 반복 생성하게 했다.
+- 실제 `Program` execution wiring 과 긴 benchmark 실행은 아직 추가하지 않았다.
+
+### Red/Green
+- Red 1: bootstrap 테스트를 추가하고 focused test 를 실행했다.
+  `BaselineSuiteRunner` 타입이 없어 `Assert.NotNull()` 실패 1개/통과 0개를 확인했다.
+- Green 1: `BaselineRunKind`와 최소 `BaselineSuiteRunner` 타입 seam 을 추가해 bootstrap 테스트를 통과시켰다.
+- Red 2: bootstrap 테스트를 실제 동작 테스트 3개로 교체했다.
+  `RunAsync`가 아직 구현되지 않아 `NotImplementedException` 실패 3개/통과 0개를 확인했다.
+- Green 2: load/open-loop 실행 순서, `load-01.json`/`open-loop-01.json` report path,
+  run count 자리수 padding, 실패 run 집계를 구현했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`와 `TODOS.md`를 Task 3 완료와 Task 4 실행 지점으로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BaselineSuiteRunnerTests`
+  Red 1 실패 확인, 실패 1/통과 0.
+- 같은 focused test Green 1 통과, 1개 통과.
+- 같은 focused test Red 2 실패 확인, 실패 3/통과 0.
+- 같은 focused test Green 2 통과, 3개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
+
+## 2026-06-18 (Codex - baseline suite parser command)
+
+### 작업 단위
+- 반복 baseline collection 계획의 Task 2를 구현했다.
+- `BenchmarkCommandParser`가 `--baseline-suite <output-dir> [--runs <count>]`를 해석하게 했다.
+- 실제 baseline suite runner 와 `Program` execution wiring 은 아직 추가하지 않았다.
+
+### Red/Green
+- Red: baseline suite parser 테스트 3개를 추가하고 focused test 를 실행했다.
+  `--baseline-suite`를 아직 인식하지 못해 실패 3개/통과 2개를 확인했다.
+- Green: parser 에 baseline suite 분기, 기본 run count 3, `--runs` parsing,
+  `--report` 혼용 usage error 를 추가했다.
+- Program usage 에 `Hps.Benchmarks --baseline-suite <output-dir> [--runs <count>]`를 표시했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`와 `TODOS.md`를 Task 2 완료와 Task 3 대기 상태로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BenchmarkCommandParserTests`
+  Red 실패 확인, 실패 3/통과 2.
+- 같은 focused test Green 통과, 5개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 141개 통과/실패 0.
+
+## 2026-06-18 (Codex - benchmark command parser seam)
+
+### 작업 단위
+- 반복 baseline collection 계획의 Task 1을 구현했다.
+- benchmark CLI parser 를 `Program` 내부 helper 에서 internal parser 타입으로 분리했다.
+- 새 `--baseline-suite` command 는 아직 추가하지 않았다.
+
+### Red/Green
+- Red: `tests/Hps.Benchmarks.Tests`를 추가하고 `BenchmarkCommandParser_TypeExists` bootstrap 테스트를 실행했다.
+  `Assert.NotNull()` 실패 1개로 parser seam 이 아직 없음을 확인했다.
+- Green: `BenchmarkCommand`, `BenchmarkCommandLine`, `BenchmarkCommandParser`를 추가하고,
+  `Program`은 새 parser 결과를 사용하도록 정리했다.
+- Refactor: bootstrap 테스트를 실제 계약 테스트 2개로 교체했다.
+  `--load --report <path>`는 `BenchmarkCommand.Load`와 report path 로 parse 되고,
+  `--report <path>` 단독은 usage error 로 parse 되는지 검증한다.
+
+### 상태 갱신
+- `HighPerformanceSocket.slnx`에 `tests/Hps.Benchmarks.Tests`를 추가했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`를 Task 1 완료와 Task 2 대기 상태로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj` Red 실패 확인, 실패 1/통과 0.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 2개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 138개 통과/실패 0.
+
+## 2026-06-18 (Codex - repeat baseline collection implementation plan)
+
+### 작업 단위
+- D069 후속 구현을 위한 반복 baseline collection 계획을 작성했다.
+- 범위는 implementation plan 문서와 root state docs 로 제한했다.
+- production code/test 는 변경하지 않았다.
+
+### 계획
+- 새 command 는 `--baseline-suite <output-dir> [--runs <count>]`로 잡았다.
+- 기본 run count 는 3이고, 각 run 은 `load-01.json`, `open-loop-01.json` 같은 raw JSON artifact 를 남긴다.
+- 구현은 네 단계로 나눈다.
+  1. benchmark CLI test project 추가와 기존 parser extraction
+  2. `--baseline-suite` parser 확장
+  3. fake runner 기반 `BaselineSuiteRunner`
+  4. `Program` wiring 과 실제 CLI 검증
+
+### 범위 제한
+- latency hard gate 는 만들지 않는다.
+- summary JSON, Markdown report, CI provider workflow 는 이번 계획에서 제외한다.
+- 다음 구현은 Task 1만 한 커밋으로 진행한다.
+
+### 상태 갱신
+- `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`를 추가했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`를 사용자 리뷰 대기와 Task 1 실행 지점으로 갱신했다.
+
+### 검증
+- plan self-review 를 수행했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - CI/repeat baseline policy decision)
+
+### 작업 단위
+- Phase 4 latency hard gate 이전에 어떤 baseline 을 더 쌓을지 정책을 정리했다.
+- 범위는 신규 설계 문서와 root state docs 로 제한했다.
+- production code/test 는 변경하지 않았다.
+
+### 결정
+- D069로 p50/p99, p99 growth ratio, actual-rate, TCP/UDP high-watermark 기반 hard failure threshold 는 아직 추가하지 않기로 했다.
+- 다음 작업은 threshold 추가가 아니라 `--load`와 `--load-open-loop` 반복 실행 결과를 raw JSON artifact 로 쌓는 방향으로 둔다.
+- hard pass/fail 은 기존처럼 planned/sent/received 일치, dropped 0, payload-errors 0, pool-rented 0으로 유지한다.
+
+### 근거
+- 2026-06-18 로컬 baseline 은 `--load` 3회와 `--load-open-loop` 3회가 모두 pass 했지만,
+  단일 개발 PC의 같은 날 실행값만으로 OS scheduling, 백그라운드 부하, JIT/워밍업 상태 변동을 설명하기 어렵다.
+- threshold 를 바로 넣으면 false negative 위험이 크므로, 같은 장비 또는 같은 CI runner 에서 baseline session 을 먼저 축적한다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`를 추가했다.
+- `DECISIONS.md`에 D069를 추가했다.
+- `TODOS.md`의 기존 CI/장기 baseline 후속을 D069 완료 항목과 반복 baseline collection 후보로 재정리했다.
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기와 다음 후보 재평가 상태로 갱신했다.
+
+### 검증
+- 문서 일관성을 확인했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - review snapshot status overlay)
+
+### 작업 단위
+- 과거 `.claude/review/*.md` snapshot 을 현재 HEAD 기준으로 재분류했다.
+- 아직 추적되지 않던 review 원문은 수정/삭제하지 않고 보존하며, 새 overlay 문서로 현재 해석을 남겼다.
+- production code/test 는 변경하지 않았다.
+
+### 정리 내용
+- 기존 작업 트리에 있던 untracked `.claude/review/*.md` snapshot 원문을 함께 보존 대상으로 삼았다.
+- `.claude/review/review-status-2026-06-18.md`를 추가했다.
+- 2026-06-11/2026-06-15 종합 검토의 H1/H2/H3, Phase 4 benchmark, backpressure 정책, UDP broker 범위 항목은
+  현재 구현과 D064/D065/D066/D067/D068 기준으로 해소 또는 후속으로 재분류했다.
+- 2026-06-17 G1(TCP outbound 무프레이밍)은 D065와 `f316d11` 구현으로 해소된 상태로 기록했다.
+- endpoint model F1/F3은 D058/D059/D062로 재분류했고, EndpointState 2값 산출은 forward-looking 계약으로 남겼다.
+- 현재 다음 구현을 막는 must-fix/blocker 는 없다고 정리했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 review overlay 추가와 현재 green 상태를 반영했다.
+- `TODOS.md`에 review snapshot 정리 완료 항목을 추가하고 다음 후보를 CI/반복 baseline 또는 Phase 5/6 backend selector 설계로 좁혔다.
+
+### 검증
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 136개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - server diagnostics surface decision)
+
+### 작업 단위
+- `BrokerServer` diagnostics convenience API 필요성을 현재 HEAD 기준으로 재검토했다.
+- 범위는 신규 설계 문서와 root state docs 로 제한했다.
+- production code/test 는 변경하지 않았다.
+
+### 결정
+- D068로 v1에서는 `BrokerServer`에 diagnostics pass-through API 를 추가하지 않기로 했다.
+- diagnostics 는 기존처럼 `ITransportDiagnostics.GetDiagnosticsSnapshot()`과
+  `ITransportEndpointDiagnostics.GetEndpointSnapshots()` 선택적 Transport capability 로 읽는다.
+- 실제 host/metrics/exporter 요구가 생기면 nullable pass-through 가 아니라 server-level diagnostics model 로 별도 설계한다.
+
+### 근거
+- 현재 `BrokerServer`는 단일 injected `ITransport`를 조립하는 얇은 host 이며, 다중 transport 합산이나 monitoring endpoint 를 제공하지 않는다.
+- 현재 diagnostics 소비자는 테스트와 benchmark 중심이고, 이 코드는 transport 인스턴스를 직접 보유한다.
+- 지금 Server API 를 넓히면 endpoint snapshot 포함 여부, capability 미지원 backend 표현, 다중 transport `EndpointId` namespace 같은 결정을 앞당긴다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-18-server-diagnostics-surface-design.md`를 추가했다.
+- `DECISIONS.md`에 D068을 추가했다.
+- `TODOS.md`에서 Server convenience diagnostics 재검토 항목을 Completed 로 이동하고,
+  실제 host/metrics surface 발생 시 server-level diagnostics model 을 설계하는 낮은 우선순위 후속으로 정리했다.
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기와 다음 후보 재평가 상태로 갱신했다.
+
+### 검증
+- source 검색으로 diagnostics 소비자가 테스트/benchmark 중심임을 확인했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - local TCP loopback latency baseline)
+
+### 작업 단위
+- D063 후속으로 2026-06-18 로컬 TCP loopback latency baseline 을 수집했다.
+- 범위는 기존 `tests/Hps.Benchmarks` runner 실행 결과와 baseline summary 문서, root state docs 로 제한했다.
+- production code/test 는 변경하지 않았다.
+
+### 실행
+- `dotnet build HighPerformanceSocket.slnx --no-restore`로 현재 코드 빌드를 확인했다.
+- `--load --report`를 3회 실행해 closed-loop report 를 저장했다.
+- `--load-open-loop --report`를 3회 실행해 open-loop report 를 저장했다.
+- report 는 `docs/benchmarks/baselines/2026-06-18/` 아래 JSON 파일로 남겼고,
+  요약은 `local-latency-baseline.md`에 기록했다.
+
+### 결과
+- closed-loop 3회는 모두 sent/received 3000, dropped 0, payload-errors 0, pool-rented 0으로 pass 했다.
+  TCP HWM 은 1, p99 범위는 879.7~924.1us 였다.
+- open-loop 3회는 모두 sent/received 3000, dropped 0, payload-errors 0, pool-rented 0으로 pass 했다.
+  TCP HWM 은 2, p99 범위는 915.9~1005.5us 였다.
+- 이번 결과는 개발 PC의 참고 baseline 이며, hard latency SLO 나 CI gate 로 승격하지 않는다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 baseline 결과와 다음 후보를 반영했다.
+- `TODOS.md`에서 로컬 baseline 수집은 Completed 로 이동하고,
+  남은 hard threshold 판단은 CI 또는 장기 반복 baseline 후속으로 좁혔다.
+
+### 검증
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load --report ...` 3회 통과.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load-open-loop --report ...` 3회 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - backpressure QoS policy surface decision)
+
+### 작업 단위
+- D064/D066 이후 configurable backpressure/QoS policy surface 를 v1에 추가할지 판단했다.
+- 범위는 신규 설계 문서와 root state docs 로 제한했다.
+- production code/test 는 변경하지 않았다.
+
+### 결정
+- D067로 v1 TCP/UDP send queue 는 capacity 16 bounded drop-oldest 를 public 설정 없이 유지한다고 결정했다.
+- `BackpressurePolicy` enum, pending capacity option, per-topic/per-endpoint QoS, disconnect/reject 기본 정책은 추가하지 않는다.
+- reliable/durable delivery, reconnect subscription transfer 는 실제 요구가 구체화될 때 별도 설계로 다룬다.
+
+### 근거
+- D066 stalled subscriber stress 로 drop-oldest fire 와 HWM 16 포화를 기존 diagnostics 로 관측할 수 있음이 확인됐다.
+- disconnect/reject/reliable 정책은 queue 옵션 하나가 아니라 subscription cleanup, reconnect, publisher 실패 응답,
+  ack/retry/history 를 함께 요구한다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-18-backpressure-qos-policy-surface-design.md`를 추가했다.
+- `DECISIONS.md`에 D067을 추가했다.
+- `TODOS.md`에서 configurable backpressure/QoS policy surface 검토 항목을 Completed 로 이동했다.
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기와 다음 후보 재평가 상태로 갱신했다.
+
+### 검증
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - stalled subscriber drop-oldest stress)
+
+### 작업 단위
+- `.claude/review/2026-06-18-outbound-framing-and-state.md`와
+  `docs/superpowers/specs/2026-06-18-drop-stress-and-observability-design.md`가 지적한 drop-oldest 미stress 경로를
+  Server 통합 테스트로 고정했다.
+- 범위는 stalled TCP subscriber stress 테스트와 root state docs 로 제한했다.
+- production code 는 변경하지 않았다.
+
+### Red/Green
+- `TcpCommandLoopback_WhenSubscriberDoesNotRead_DropsOldestAndReportsTransportDiagnostics`를 추가했다.
+- drop-oldest 구현과 diagnostics 는 이미 존재했으므로, 신규 stress 테스트는 기존 production code 에서 바로 통과했다.
+  이 단위는 실패하는 production 요구를 새로 구현한 것이 아니라, 기존 open-loop runner 로 fire 하지 못했던 D012 경로를
+  실제 socket end-to-end 테스트로 고정한 보강 단위다.
+
+### 테스트 내용
+- subscriber 는 `SUBSCRIBE` 후 socket 을 읽지 않아 server->subscriber TCP send buffer 를 정체시킨다.
+- publisher 는 큰 payload 를 반복 발행해 `TransportConnection` pending send queue 가 capacity 16까지 포화되게 한다.
+- 테스트는 `TcpDroppedPendingSendCount > 0`, `TcpPendingSendQueueHighWatermark == 16`,
+  UDP drop/HWM 0, 종료 후 `PinnedBlockMemoryPool.RentedCount == 0`을 확인한다.
+
+### 결정
+- D066으로 v1 drop 관측은 `ITransportDiagnostics.GetDiagnosticsSnapshot()` pull snapshot 으로 충분하다고 판단했다.
+- drop log/sampling 은 hot path 비용과 과부하 시 log noise 위험 때문에 보류한다.
+- `BrokerServer` convenience diagnostics API 는 실제 host 운영 표면이 구체화된 뒤 별도 단위로 재검토한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D066을 추가했다.
+- `TODOS.md`에 stalled subscriber stress 완료 항목을 추가하고, drop log/sampling 후속을 닫았다.
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기 상태와 다음 후보 재평가 상태로 갱신했다.
+
+### 검증
+- 신규 focused 테스트 통과.
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --no-restore` 통과(12개).
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 136개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - TCP outbound length-prefixed fan-out)
+
+### 작업 단위
+- D065의 TCP broker->subscriber outbound framing 을 구현했다.
+- 범위는 TCP fan-out send item, SAEA TCP send loop, Server 통합 테스트, 샘플 subscriber, benchmark receive path, root state docs 로 제한했다.
+- UDP outbound 는 기존 `1 datagram = 1 message` 계약을 유지했다.
+
+### Red
+- `TcpCommandLoopback_WhenPublisherSendsVariableLengthMessages_SubscriberReceivesLengthPrefixedFrames`를 먼저 추가했다.
+- raw outbound 구현에서는 첫 payload `{0,0,0,3,170,187,204}`의 앞 4바이트를 frame length 로 오해해
+  actual payload 가 `[170,187,204]`로 읽히며 실패했다.
+
+### Green
+- `TransportSendBuffer.WithLengthPrefix()`와 `PrependLengthPrefix` metadata 를 추가했다.
+- TCP `BrokerSubscriber`는 subscriber fan-out 때 같은 payload slice 를 length-prefixed logical send item 으로 바꿔 보낸다.
+- SAEA TCP send loop 는 연결당 pinned 4바이트 header buffer 를 재사용해 length prefix 를 먼저 보내고,
+  기존 shared `RefCountedBuffer` payload slice 를 이어서 보낸다.
+- header+payload 를 구독자별 새 버퍼로 합치지 않으므로 fan-out payload 복사 0회와 기존 release 경계를 유지한다.
+- 샘플 subscriber 와 benchmark receive path 는 raw payload 수신 대신 outbound frame 수신으로 갱신했다.
+
+### 상태 갱신
+- `TODOS.md`의 TCP outbound length-prefixed fan-out 항목을 Completed 로 이동했다.
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기와 다음 backlog 재평가 상태로 갱신했다.
+- 새 설계 결정은 없으며 D065의 concrete 구현으로 처리했다.
+
+### 검증
+- Red focused 테스트 실패 확인.
+- Green focused 테스트 통과.
+- Server tests 통과 11.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 135개 통과/실패 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --smoke` 통과,
+  sent 8, received 8, dropped 0, pool-rented 0.
+- 상태 문서 연결 확인 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-18 (Codex - TCP outbound framing policy decision)
+
+### 작업 단위
+- `.claude/review/2026-06-17-impl-vs-design-cross-verification.md`의 G1 지적을 검토하고,
+  TCP broker->subscriber outbound message boundary 정책을 문서 결정으로 닫았다.
+- 범위는 신규 설계 문서와 root state docs 로 제한했다.
+- production code, benchmark runner, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- D065로 TCP subscriber outbound 를 `4-byte big-endian length prefix + payload` frame 으로 보내기로 했다.
+- UDP outbound 는 기존 원칙대로 `1 datagram = 1 message`를 유지한다.
+- header 를 붙이기 위해 header+payload 를 구독자별 새 버퍼로 합치는 방식은 fan-out payload 무복사 불변식을 깨므로 기각했다.
+- 다음 구현은 header metadata 와 shared `RefCountedBuffer` payload slice 를 하나의 logical framed/composite send item 으로 다루는 방향으로 진행한다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-18-tcp-outbound-framing-policy-design.md`를 추가했다.
+- `DECISIONS.md`에 D065를 추가했다.
+- `TODOS.md`에 TCP outbound length-prefixed fan-out 구현을 `P1_SOON`으로 추가했다.
+- `CURRENT_PLAN.md`의 다음 후보를 D065 구현 TDD 단위로 갱신했다.
+
+### 검증
+- 상태 문서 연결 확인 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 문서 전용 결정 단위라 `dotnet build`/`dotnet test`는 실행하지 않는다.
+
+## 2026-06-17 (Codex - backpressure default policy decision)
+
+### 작업 단위
+- 백프레셔 기본 정책을 현재 구현과 문서 기준에 맞춰 재정렬했다.
+- 범위는 `PLAN.md`, root state docs, `DECISIONS.md`로 제한했다.
+- production code, benchmark runner, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- D064로 v1 TCP/UDP transport send queue 기본 정책을 bounded drop-oldest 로 확정했다.
+- TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`는 capacity 16 pending queue 가 가득 찼을 때
+  가장 오래된 pending 항목을 evict 하고 evict 된 transport 소유 ref 를 정확히 1회 Release 한다.
+- 느린 소비자 disconnect/reject, topic/endpoint 별 QoS, reliable/durable delivery 는 v1 기본 정책에 넣지 않고 후속으로 분리했다.
+
+### 상태 갱신
+- `PLAN.md` Phase 3 백프레셔 항목에 D064 참조를 추가했다.
+- `TODOS.md`의 백프레셔 기본 정책 재정렬 항목을 Completed 로 이동했다.
+- configurable backpressure/QoS policy surface 는 별도 `P2_LATER` 항목으로 남겼다.
+- `CURRENT_PLAN.md`의 다음 후보를 drop log/sampling 과 Server convenience diagnostics API 필요성 검토로 갱신했다.
+
+### 검증
+- 상태 문서 연결 확인 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 문서 전용 결정 단위라 `dotnet build`/`dotnet test`는 실행하지 않는다.
+
+## 2026-06-17 (Codex - benchmark latency gate decision)
+
+### 작업 단위
+- Phase 4 benchmark latency SLO gate 여부를 문서 결정으로 닫았다.
+- 범위는 root state docs 와 `DECISIONS.md`로 제한했다.
+- production code, benchmark runner, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- D063으로 p50/p99 latency, p99 growth ratio, actual-rate, TCP/UDP high-watermark 를 hard pass/fail 조건으로 승격하지 않기로 했다.
+- `TcpLoopbackRunResult.Passed`의 의미는 planned/sent/received 일치, dropped 0, payload-errors 0, pool-rented 0으로 유지한다.
+- latency 와 high-watermark 값은 stdout/JSON report 에 남기는 관측/추세 신호로 둔다.
+
+### 근거
+- 2026-06-17 로컬 실행에서 `--load`는 p99 720.9us, TCP HWM 1, dropped 0으로 pass 했다.
+- 같은 실행에서 `--load-open-loop`는 p99 527.7us, TCP HWM 3, dropped 0으로 pass 했다.
+- 다만 단일 개발 PC 실행값은 OS scheduling, 백그라운드 부하, JIT/워밍업 상태에 민감하므로
+  반복 가능한 baseline 없이 absolute threshold 를 hard gate 로 고정하지 않는다.
+
+### 상태 갱신
+- `TODOS.md`의 latency SLO gate 결정 항목을 Completed 로 이동했다.
+- 반복 가능한 latency baseline 수집과 threshold 재검토는 별도 `P2_LATER` 항목으로 축소했다.
+- `CURRENT_PLAN.md`의 다음 후보를 백프레셔 기본 정책 재정렬로 갱신했다.
+
+### 검증
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load --report <temp>` 통과.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load-open-loop --report <temp>` 통과.
+- 상태 문서 연결 확인 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 문서 전용 결정 단위라 `dotnet build`/`dotnet test`는 실행하지 않는다.
+
+## 2026-06-17 (Codex - last-drop diagnostics scope decision)
+
+### 작업 단위
+- 마지막 drop 발생 범위 관측성 후속을 문서 결정으로 닫았다.
+- 범위는 root state docs 와 `DECISIONS.md`로 제한했다.
+- production code, benchmark runner, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- D062로 v1 diagnostics 에 `last-drop` 전용 timestamp/id 필드를 추가하지 않기로 했다.
+- transport kind 범위는 `TransportDiagnosticsSnapshot`의 TCP/UDP 누적 drop count 로 보고,
+  active endpoint 범위는 `ITransportEndpointDiagnostics.GetEndpointSnapshots()`의
+  `EndpointSnapshot.DroppedPendingSendCount`로 본다.
+- 단일 마지막 drop 값은 여러 endpoint 동시 drop 에서 이전 사건을 덮어쓰고,
+  clock/ordering 의미와 hot path metadata 갱신 비용을 새로 만들기 때문에 v1 범위에서 제외했다.
+
+### 상태 갱신
+- `TODOS.md`의 마지막 drop scope 항목을 Deferred Backlog 에서 Completed 로 이동했다.
+- `CURRENT_PLAN.md`의 다음 후보를 Phase 4 benchmark latency SLO gate 여부 결정으로 갱신했다.
+- closed endpoint attribution, drop timestamp, log/sampling, Server convenience diagnostics API 는 필요성이 확인될 때 별도 후속으로 다룬다.
+
+### 검증
+- 문서 연결 확인 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 문서 전용 결정 단위라 `dotnet build`/`dotnet test`는 실행하지 않는다.
+
+## 2026-06-17 (Codex - UDP broker socket loopback integration test)
+
+### 작업 단위
+- `BrokerServer + SaeaTransport` 실제 UDP broker socket loopback 통합 테스트를 추가했다.
+- 범위는 Server tests 와 root state docs 로 제한했다.
+- production code 는 변경하지 않았다. 기존 UDP handler, broker routing, SAEA UDP receive/send pump 결선이 이미 end-to-end 테스트를 만족했다.
+
+### Red/Green
+- 새 focused 테스트 `UdpCommandLoopback_WhenSubscriberAndPublisherUseDatagramCommands_FansOutPayload`는 추가 직후 통과했다.
+- 즉 이번 단위는 누락된 production behavior 를 드러내는 Red 가 아니라, 이미 구현된 UDP broker 경로의 회귀 테스트 공백을 메운 Green-only 검증이다.
+
+### 상태 갱신
+- `TODOS.md`에서 UDP broker socket loopback 통합 테스트 항목을 Completed 로 이동했다.
+- `CURRENT_PLAN.md`의 다음 진입점을 사용자 리뷰 대기로 갱신하고, 다음 후보를 Deferred Backlog 재평가로 남겼다.
+- 새 설계 결정은 없어 `DECISIONS.md`는 변경하지 않았다.
+
+### 검증
+- UDP loopback focused 테스트 통과 1.
+- Server 전체 테스트 통과 10.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 134, 실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
+## 2026-06-17 (Codex - BrokerServer UDP bind wiring)
+
+### 작업 단위
+- `BrokerServer`가 기존 `BrokerUdpDatagramHandler`를 Transport UDP datagram 경계에 연결하도록 했다.
+- 범위는 `Hps.Server`, Server tests, root state docs 로 제한했다.
+- 실제 UDP socket loopback 통합 테스트와 stale remote idle expiry 는 다음 단위로 분리했다.
+
+### Red
+- `BrokerServerContract_WhenInspected_ExposesMinimalUdpHostWiringApi`가 `UdpLocalEndPoint` 부재로 실패했다.
+- `StartUdpAsync_WhenCalled_RegistersDatagramHandlerStartsTransportAndBindsEndpoint`,
+  `StartTcpAsyncThenStartUdpAsync_WhenCalled_StartsTransportOnceAndKeepsBothEndpoints`,
+  `StopAsync_WhenUdpStarted_ClosesUdpEndpointAndStopsTransport`가 기존 `StartUdpAsync` stub 에서 실패했다.
+
+### Green
+- `BrokerServer.StartUdpAsync`와 `UdpLocalEndPoint`를 추가했다.
+- `StartUdpAsync`가 `BrokerUdpDatagramHandler`를 Transport 에 등록하고 `BindUdpAsync` 결과 endpoint 를 보관하게 했다.
+- TCP listener 와 UDP endpoint 를 독립 시작할 수 있게 하되, 하나의 shared `ITransport.StartAsync`/`StopAsync` 수명 안에서 관리한다.
+- `StopAsync`가 TCP listener 와 UDP endpoint 를 모두 닫고 dispose 하게 했다.
+
+### 상태 갱신
+- `TODOS.md`에서 BrokerServer UDP bind wiring 항목을 Completed 로 이동했다.
+- 다음 후보를 `BrokerServer + SaeaTransport` UDP broker socket loopback 통합 테스트로 올렸다.
+- `DECISIONS.md`에 D061을 추가해 TCP/UDP ingress 독립 시작과 shared transport lifecycle 을 기록했다.
+
+### 검증
+- API Red focused 실패 1.
+- API Green focused 통과 1.
+- Behavior Red focused 실패 3.
+- Behavior focused Green 통과 3.
+- Server 전체 테스트 통과 9.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 133, 실패 0.
+- `git diff --check` 통과, whitespace 오류 없음.
+
+## 2026-06-17 (Codex - UDP broker datagram handler)
+
+### 작업 단위
+- D060 UDP datagram self-command 정책을 Broker handler 로 연결했다.
+- 범위는 `Hps.Broker`, Broker tests, root state docs 로 제한했다.
+- `BrokerServer` UDP bind wiring, 실제 UDP socket loopback 통합 테스트, idle expiry 는 다음 단위로 분리했다.
+
+### Red
+- `BrokerUdpDatagramHandler_Contract_ExistsAndImplementsDatagramHandler`가 handler 타입 부재로 실패했다.
+- `BrokerUdpDatagramHandlerTests`의 subscribe, unsubscribe, publish, malformed drop, endpoint close cleanup 테스트 5개가 빈 handler 에서 실패했다.
+
+### Green
+- `BrokerUdpDatagramHandler`를 추가해 `ITransportDatagramHandler`를 구현했다.
+- UDP `SUBSCRIBE`/`UNSUBSCRIBE` datagram 은 `(IUdpEndpoint, remote EndPoint)` runtime target 을 routing table 에 추가/제거한다.
+- UDP `PUBLISH` datagram 은 command prefix 뒤 payload range 만 `BrokerPublisher`로 넘겨 추가 복사 없이 fan-out 한다.
+- malformed UDP command 는 endpoint 를 닫지 않고 datagram 만 release/drop 한다.
+- `SubscriptionTable.UnsubscribeAll(IUdpEndpoint)`를 추가해 endpoint close notification 때 해당 local UDP endpoint 의 모든 remote 구독을 제거한다.
+
+### 상태 갱신
+- `TODOS.md`에서 UDP broker datagram handler 항목을 Completed 로 이동했다.
+- 다음 후보를 `BrokerServer` UDP bind wiring 으로 올렸다.
+- `CURRENT_PLAN.md`의 이번 검증 경로와 다음 실행 지점을 갱신했다.
+
+### 검증
+- Red focused 실패 1.
+- Green focused 통과 1.
+- Behavior Red focused 실패 5, 통과 1.
+- Handler focused Green 통과 6.
+- Broker 전체 테스트 통과 30.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 129, 실패 0.
+- `git diff --check` 통과, whitespace 오류 없음.
+
+## 2026-06-17 (Codex - UNSUBSCRIBE command grammar)
+
+### 작업 단위
+- D060 command set 의 누락분인 `UNSUBSCRIBE <topic>`를 protocol decoder 와 TCP broker handler 에 연결했다.
+- 범위는 `Hps.Protocol`, `BrokerTcpFrameHandler`, protocol/broker tests, root state docs 로 제한했다.
+- UDP datagram handler, server UDP bind wiring, idle expiry 는 다음 단위로 분리했다.
+
+### Red
+- `TcpCommandKind_Contract_ExposesUnsubscribeCommand`가 기존 enum 에 `Unsubscribe`가 없어 실패했다.
+- `TryDecode_WhenUnsubscribeFrameContainsTopic_ReturnsUnsubscribeCommand`가 기존 decoder 에서 unknown command 로 실패했다.
+- `OnFrame_WhenUnsubscribeCommandArrives_RemovesConnectionFromTopicAndKeepsConnectionOpen`가 기존 handler 에서 connection close 경로로 실패했다.
+
+### Green
+- `TcpCommandKind.Unsubscribe`를 추가했다.
+- `TcpCommandDecoder`의 topic-only command 검증 경로를 `SUBSCRIBE`와 `UNSUBSCRIBE`가 공유하게 했다.
+- malformed `UNSUBSCRIBE` topic 은 기존 `MissingTopic`/`InvalidTopic` error 로 보고한다.
+- `BrokerTcpFrameHandler`가 `UNSUBSCRIBE <topic>`를 `SubscriptionTable.Unsubscribe(topic, connection)`로 연결하고 connection 은 닫지 않게 했다.
+
+### 상태 갱신
+- `TODOS.md`에서 protocol command grammar 항목을 Completed 로 이동했다.
+- 다음 후보를 UDP broker datagram handler 구현으로 올렸다.
+- `CURRENT_PLAN.md`의 이번 검증 경로와 다음 실행 지점을 갱신했다.
+
+### 검증
+- Red focused 실패 1.
+- Green focused 통과 1.
+- Red unsubscribe focused 실패 2.
+- Green unsubscribe focused 통과 6.
+- Protocol 전체 테스트 통과 33.
+- Broker 전체 테스트 통과 24.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 123, 실패 0.
+- `git diff --check` 통과, whitespace 오류 없음.
+
+## 2026-06-16 (Codex — BrokerSubscriber UDP runtime target)
+
+### 작업 단위
+- D060의 첫 코드 단위로 `BrokerSubscriber`에 UDP runtime target 값을 추가했다.
+- 범위는 Broker routing value, publisher fan-out 분기, Broker tests, root state docs 로 제한했다.
+- UDP datagram command parser, server UDP bind wiring, idle expiry 는 포함하지 않았다.
+
+### Red
+- `BrokerSubscriber_Contract_ExposesUdpRuntimeTargetFactory`가 기존 구현에서 `ForUdp(IUdpEndpoint, EndPoint)` 부재로 실패했다.
+- `Subscribe_WhenUdpRuntimeTargetsAreUsed_DeduplicatesByEndpointAndRemote`가 기존 UDP equality 부재로 duplicate subscribe 를 막지 못해 실패했다.
+- `Publish_WhenTopicHasTcpAndUdpSubscribers_SendsToEachTransportTarget`가 기존 publisher UDP send 분기 부재로 `InvalidOperationException`에 실패했다.
+
+### Green
+- `BrokerSubscriber.ForUdp(IUdpEndpoint, EndPoint)`를 추가했다.
+- UDP 구독자 identity 를 local endpoint object reference 와 remote `EndPoint` 값 조합으로 고정했다.
+- `BrokerSubscriber.TrySend`가 UDP target 에 대해 `ITransport.TrySendTo`를 호출하게 했다.
+- Broker test double 에 UDP send capture 를 추가해 TCP/UDP mixed fan-out 을 검증했다.
+
+### 상태 갱신
+- `TODOS.md`에서 BrokerSubscriber UDP target 항목을 Completed 로 이동했다.
+- 다음 후보를 protocol command grammar 의 `UNSUBSCRIBE <topic>` 추가로 올렸다.
+- `CURRENT_PLAN.md`에 이번 Red/Green 경로와 다음 실행 후보를 반영했다.
+
+### 검증
+- Red focused 실패 1.
+- Red focused 실패 2.
+- Green focused 통과 3.
+- Broker 전체 테스트 통과 23.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 117, 실패 0.
+- `git diff --check` 통과, whitespace 오류 없음.
+
+## 2026-06-16 (Codex — UDP broker v1 wire/control 설계)
+
+### 작업 단위
+- D059 이후 남은 UDP broker v1 runtime target wire/control 질문을 설계 문서와 결정 로그로 닫았다.
+- 범위는 신규 설계 문서와 root state docs 에 한정했다.
+- production code, public API, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- UDP v1은 별도 TCP control plane 으로 remote 를 등록하지 않고 datagram self-command 를 사용한다.
+- UDP subscriber runtime target 은 `(IUdpEndpoint localEndpoint, EndPoint remoteEndPoint)` 조합이다.
+- v1 command set 은 `SUBSCRIBE <topic>`, `UNSUBSCRIBE <topic>`, `PUBLISH <topic> <payload>`로 둔다.
+- malformed UDP command 는 shared endpoint 를 닫지 않고 해당 datagram 만 폐기한다.
+- stale remote cleanup 은 explicit `UNSUBSCRIBE`와 UDP endpoint close cleanup 으로 제한하고, idle expiry 는 후속으로 둔다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-16-udp-broker-runtime-target-wire-control-design.md`를 추가했다.
+- `DECISIONS.md`에 D060을 추가했다.
+- `TODOS.md`에서 UDP broker v1 wire/control 설계를 Completed 로 옮기고,
+  `BrokerSubscriber` UDP runtime target 값 구현을 새 `P1_SOON` 항목으로 올렸다.
+- `CURRENT_PLAN.md`의 다음 후보를 `BrokerSubscriber` UDP runtime target 값 구현으로 갱신했다.
+
+### 검증
+- 문서 연결은 `rg`로 확인한다.
+- 문서 전용 변경이므로 solution build/test 는 실행하지 않는다.
+- whitespace 는 `git diff --check`로 확인한다.
+
+## 2026-06-16 (Codex — v1 runtime subscription 정책 확정)
+
+### 작업 단위
+- D058 이후 남은 stable subscriber identity/reconnect binding 질문을 v1 범위 기준으로 닫았다.
+- 범위는 endpoint identity 정책 문서와 root state docs 에 한정했다.
+- production code, public API, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- v1 subscription 은 runtime endpoint 수명에 묶는다.
+- TCP reconnect 는 기존 subscription 을 이어받지 않으며, 새 connection 에서 다시 `SUBSCRIBE` 해야 한다.
+- UDP broker 를 v1에 포함하더라도 stable subscriber identity 없이 bind 된 UDP endpoint 와 remote `EndPoint` 조합을 runtime target 으로 다룬다.
+- `REGISTER`, `SUBSCRIBE ... AS ...`, reconnect subscription transfer 는 v1 범위 밖으로 유지한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D059를 추가했다.
+- `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`에 v1 subscription 정책을 추가했다.
+- `TODOS.md`에서 stable subscriber identity 결정 항목을 완료하고, UDP broker v1 runtime target wire/control 설계를 새 `P1_SOON` 항목으로 올렸다.
+- `CURRENT_PLAN.md`의 다음 후보를 UDP broker v1 runtime target wire/control 설계로 갱신했다.
+
+### 검증
+- 문서 연결은 `rg`로 확인한다.
+- 문서 전용 변경이므로 solution build/test 는 실행하지 않는다.
+- whitespace 는 `git diff --check`로 확인한다.
+
+## 2026-06-16 (Codex — Endpoint identity 정책 결정)
+
+### 작업 단위
+- `.claude/review/2026-06-16-endpoint-model-cross-verification.md`의 F1을 코드 구현 전에 설계 결정으로 먼저 닫았다.
+- 범위는 endpoint identity 정책 문서, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`로 제한했다.
+- production code, public API, 테스트 코드는 변경하지 않았다.
+
+### 결정
+- `EndpointId`는 Transport 실행 중 endpoint snapshot 을 구분하는 transient diagnostics id 로 유지한다.
+- `EndpointId`를 reconnect stable routing key 또는 `SubscriptionTable` stable key 로 승격하지 않는다.
+- stable subscriber identity 가 필요하면 protocol handshake, server configuration, host API 같은 별도 control-plane identity 를 먼저 설계한다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`를 추가했다.
+- `DECISIONS.md`에 D058을 추가했다.
+- `TODOS.md`에 stable subscriber identity source 와 reconnect binding 정책 결정 항목을 `P1_SOON`으로 추가했다.
+- `CURRENT_PLAN.md`의 다음 후보를 D058 기준의 TCP/UDP stable subscriber identity source 와 UDP broker v1 wire/control 범위 결정으로 갱신했다.
+
+### 검증
+- 문서 연결은 `rg`로 확인한다.
+- 문서 전용 변경이므로 solution build/test 는 실행하지 않는다.
+- whitespace 는 `git diff --check`로 확인한다.
+
+## 2026-06-16 (Codex — Broker 구독자 endpoint-target 값 전환)
+
+### 작업 단위
+- Broker routing table 의 subscription value 를 TCP connection 직접 참조에서 `BrokerSubscriber` endpoint target 값으로 한 단계 분리했다.
+- 범위는 `Hps.Broker`의 `BrokerSubscriber`, `SubscriptionTable`, `BrokerPublisher`, Broker routing tests, root state docs 로 제한했다.
+- TCP command handler, Server wiring, UDP broker command/wire format 은 바꾸지 않았다.
+
+### Red
+- `SubscriptionTable_Contract_ExposesBrokerSubscriberSnapshot` 와 `CopySubscribers_WhenBrokerSubscriberDestinationIsUsed_CopiesTcpEndpointTargets`를 먼저 추가했다.
+- 기존 구현에서는 `BrokerSubscriber` 타입이 없어 `Assert.NotNull` 실패 2건으로 Red를 확인했다.
+
+### Green
+- `BrokerSubscriber` 값을 추가해 TCP `IConnection` send target 과 `EndpointTransportKind.Tcp` 를 감쌌다.
+- `SubscriptionTable` 내부 set key 를 `BrokerSubscriber` 로 바꾸고 기존 `IConnection` overload 는 compatibility API 로 유지했다.
+- `BrokerPublisher`는 `BrokerSubscriber[]` snapshot 을 사용해 fan-out 하며, TCP target 은 기존 `ITransport.TrySend(connection, sendBuffer)`로 수렴한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D057을 추가했다.
+- `TODOS.md`에서 Broker subscription value P1 항목을 Completed 로 이동하고, UDP broker v1 wire/control 결정을 다음 후보로 남겼다.
+- `CURRENT_PLAN.md`의 다음 실행 지점을 사용자 리뷰 대기와 UDP broker v1 범위 결정 후보로 갱신했다.
+
+### 검증
+- Red focused: 실패 2.
+- Green focused: 통과 2.
+- Broker 전체: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --no-restore` 통과 20.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 114, 실패 0, 건너뜀 0.
+
+## 2026-06-16 (Codex — high-watermark deeper-pass 리뷰 문서 최신화)
+
+### 작업 단위
+- `.claude/review/2026-06-16-send-queue-high-watermark-impl.md`의 deeper-pass 내용을 현재 HEAD 기준으로 정리했다.
+- 범위는 review artifact 와 root state docs 의 stale 문구 정리에 한정했다.
+- 코드, public API, benchmark runner, 테스트 코드는 변경하지 않았다.
+
+### 반영 내용
+- 리뷰 파일의 대상 커밋을 high-watermark 구현(`22591b5`, `db8984f`)과 후속 docs/runtime wiring(`7eabb3e`, `f77344b`)까지 확장했다.
+- schema-version follow-up 은 D055/CHANGELOG에 이미 반영된 완료 항목으로 표시했다.
+- EndpointId runtime wiring 은 D056 및 `f77344b`에서 완료된 항목으로 표시하고, 남은 후속은 마지막 drop scope 판단 1건으로 축소했다.
+- `TODOS.md`의 last-drop backlog 에서 "endpoint identity 기반 queue depth snapshot 미구현"이라는 stale 문구를 제거하고,
+  현재 endpoint snapshot API 가 존재하는 상태에서 남은 결정 질문을 다시 적었다.
+
+### 검증
+- 관련 Transport focused 테스트 6건을 재실행해 통과 6, 실패 0을 확인했다.
+- review/TODO/decision 연결은 `rg`로 확인했다.
+- conflict marker 검색에서 매칭이 없음을 확인했다.
+- 문서 전용 변경이므로 solution build/test 전체 재실행은 생략했고, `git diff --check` whitespace 오류 없음만 확인했다.
+
+## 2026-06-16 (Codex — EndpointId runtime wiring 과 endpoint snapshot collection)
+
+### 작업 단위
+- EndpointId/snapshot 최소 계약을 실제 TCP/UDP endpoint lifecycle 에 연결했다.
+- 범위는 `Hps.Transport`의 선택적 diagnostics capability, TCP/UDP runtime endpoint snapshot 생성, SAEA snapshot collection,
+  관련 transport tests, root state docs 로 제한했다.
+- Broker subscription value 전환과 UDP broker 결선은 다음 독립 단위로 남겼다.
+
+### Red
+- `EndpointDiagnostics_Contract_UsesOptionalCapabilityWithoutExpandingITransport`,
+  `CreateSnapshot_WhenTcpConnectionQueueChanges_ReportsEndpointSendDiagnostics`,
+  `GetEndpointSnapshots_WhenTcpAndUdpEndpointsAreOpen_ReturnsActiveEndpointSnapshots` 테스트를 먼저 추가했다.
+- 기존 구현에서는 endpoint diagnostics capability 와 snapshot 생성 경로가 없어 assertion 실패 3건으로 Red 를 확인했다.
+
+### Green
+- `ITransportEndpointDiagnostics.GetEndpointSnapshots()`를 선택적 capability 로 추가했다.
+- `TransportBase`가 backend 수명 안에서 transient `EndpointId`를 발급하도록 했다.
+- TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`가 endpoint id, transport kind, open/closed state,
+  현재 pending send count, pending send queue high-watermark, drop count 를 `EndpointSnapshot`으로 반환한다.
+- `SaeaTransport`는 active TCP connection 과 UDP endpoint 를 tracking 목록에서 복사해 값 snapshot 배열로 반환한다.
+  닫힌 endpoint 는 기존 close/unregister 경로로 목록에서 빠진다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D056을 추가해 endpoint snapshot collection 은 기본 `ITransport`가 아니라 선택적 diagnostics capability 로 둔다고 기록했다.
+- `TODOS.md`에서 EndpointId runtime wiring 항목을 Completed 로 옮기고, Broker subscription value 의 endpoint 중심 전환을 새 `P1_SOON`으로 남겼다.
+- `CURRENT_PLAN.md`의 다음 후보를 Broker subscription value 전환 설계/구현으로 갱신했다.
+
+### 검증
+- Red: focused 3개 테스트가 기존 구현에서 assertion 실패 3건으로 실패했다.
+- Green: 같은 focused 테스트 통과 3.
+- Transport 전체: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-restore` 통과 43, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 112, 실패 0, 건너뜀 0.
+- `git diff --check` whitespace 오류 없음. Windows 줄바꿈 안내만 출력됐다.
+
+## 2026-06-16 (Codex — high-watermark 리뷰 후속 문서 정합성)
+
+### 작업 단위
+- `.claude/review/2026-06-16-send-queue-high-watermark-impl.md`의 비차단 후속 2건을 상태 문서에 반영했다.
+- 범위는 `TODOS.md`, `DECISIONS.md`, `CHANGELOG_AGENT.md`, `CURRENT_PLAN.md` 문서에 한정했다.
+- 코드, public API, benchmark runner, 테스트 코드는 변경하지 않았다.
+
+### 반영 내용
+- `TODOS.md`에 마지막 drop 발생 범위를 transport kind/endpoint 단위로 관측할지 결정하는 `P2_LATER` 항목을 추가했다.
+- `DECISIONS.md`에 D055를 추가해 high-watermark report field 는 additive field 이므로 `schema-version: 1`을 유지한다고 기록했다.
+- D052의 benchmark JSON schema key 목록에 `tcp-pending-send-queue-high-watermark`와 `udp-pending-send-queue-high-watermark`를 추가해
+  실제 `TcpLoopbackReportWriter` 출력과 결정 문서를 맞췄다.
+
+### 검증
+- `rg -n "D055|last drop|마지막 drop|tcp-pending-send-queue-high-watermark|udp-pending-send-queue-high-watermark|schema-version" CURRENT_PLAN.md TODOS.md DECISIONS.md CHANGELOG_AGENT.md tests/Hps.Benchmarks`
+  로 문서와 writer의 연결을 확인한다.
+- 문서 전용 변경이므로 `dotnet build`/`dotnet test`는 실행하지 않는다.
+- `git diff --check`로 whitespace 오류를 확인한다.
+
+## 2026-06-16 (Codex — EndpointId/snapshot 최소 계약)
+
+### 작업 단위
+- Interface Server endpoint model 의 다음 단위로 `Hps.Transport` public abstraction 에 EndpointId/snapshot 최소 계약을 추가했다.
+- 범위는 값 타입/enum/snapshot 계약과 Transport contract 테스트, root state docs 로 제한했다.
+- TCP/UDP runtime lifecycle 에 id 를 발급하거나 Broker subscription value 를 바꾸는 작업은 포함하지 않았다.
+
+### Red
+- `EndpointSnapshot_Contract_ExposesStableIdentityAndSendDiagnostics` 테스트를 먼저 추가했다.
+- 기존 구현에서는 `Hps.Transport.EndpointId` 타입이 없어 `Assert.NotNull` 실패로 Red 를 확인했다.
+
+### Green
+- `EndpointId` 값 타입을 추가해 connection 객체 참조와 분리된 logical endpoint identity 를 표현했다.
+- `EndpointTransportKind`, `EndpointState` enum 으로 TCP/UDP 구분과 Open/Closing/Closed/Faulted 상태를 고정했다.
+- `EndpointSnapshot`에 id, transport kind, state, pending send count, pending send queue high-watermark, dropped pending send count 를 담았다.
+- Snapshot 은 socket, `IConnection`, `IUdpEndpoint`, raw `Memory<byte>`를 노출하지 않는다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D054를 추가해 endpoint identity 최소 계약을 값 snapshot 으로 시작한다고 기록했다.
+- `TODOS.md`에서 EndpointId/snapshot 최소 계약을 Completed 로 이동하고, runtime endpoint id 발급/snapshot collection API 를 새 P1 후속으로 남겼다.
+- `CURRENT_PLAN.md`의 다음 후보를 endpoint lifecycle wiring 으로 갱신했다.
+
+### 검증
+- Red: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-restore --filter "FullyQualifiedName~EndpointSnapshot_Contract"` 실패 1.
+- Green: 같은 focused 테스트 통과 1.
+- Transport 전체: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --no-restore` 통과 40.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과 109, 실패 0, 건너뜀 0.
+- `git diff --check` whitespace 오류 없음.
+
+## 2026-06-16 (Codex — high-watermark 상태 문서 동기화)
+
+### 작업 단위
+- 이미 구현된 TCP/UDP pending send queue high-watermark diagnostics 를 root state docs 에 완료 상태로 반영했다.
+- 범위는 `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`만이다.
+- 코드, public API, benchmark runner 변경은 포함하지 않았다.
+
+### 반영 내용
+- `TODOS.md`의 high-watermark backlog 를 Completed 로 이동하고 다음 P1 후보를 EndpointId/endpoint snapshot 으로 정리했다.
+- `CURRENT_PLAN.md`와 `DECISIONS.md`에서 high-watermark 를 다음 작업이 아니라 구현 완료된 관측성 기준으로 표현했다.
+- high-watermark 는 endpoint identity 가 아니라 TCP/UDP transport kind 별 lifetime max pending depth 라는 해석을 유지했다.
+
+### 검증
+- `rg -n "HighWatermark|high-watermark|PendingSendQueueHighWatermark|tcp-pending-send-queue-high-watermark|udp-pending-send-queue-high-watermark" src tests CURRENT_PLAN.md TODOS.md DECISIONS.md CHANGELOG_AGENT.md`로 실제 구현과 문서 연결을 확인한다.
+- `git log --oneline --grep="high watermark\|high-watermark" --all`로 관련 구현 커밋(`22591b5`, `db8984f`)을 확인한다.
+- 문서 전용 변경이므로 `dotnet build`/`dotnet test`는 새로 실행하지 않는다.
+- `git diff --check`로 whitespace 오류를 확인한다.
+
+## 2026-06-16 (Codex — Interface Server 설계 문서 구현 인계 보강)
+
+### 작업 단위
+- Interface Server endpoint model 설계와 검토 문서를 다음 구현 세션이 그대로 사용할 수 있도록 정합화했다.
+- 범위는 문서만이다. 코드 구현, public API 변경, benchmark runner 변경은 포함하지 않았다.
+
+### 반영 내용
+- `PLAN.md`의 Phase 3 백프레셔 기본 정책을 D053/spec와 맞춰 v1 bounded drop-oldest 로 정리했다.
+- high-watermark 의미를 endpoint identity 가 아니라 TCP/UDP transport kind 별 lifetime max pending depth 로 명확히 했다.
+- HWM이 capacity 16에서 포화되며, 초과 적체량은 drop count 와 함께 해석해야 한다는 한계를 설계 문서와 검토 문서에 남겼다.
+- 다음 구현 방식은 active connection/endpoint 목록을 나중에 훑는 방식이 아니라 enqueue 직후 depth 로 Transport 수명 max 를 갱신하는 방식으로 고정했다.
+- Source adapter/IngressMessage 모델은 1순위 high-watermark 단위 범위 밖이며, wire format/API 변경을 하지 않는다고 명시했다.
+
+### 검증
+- 문서 전용 변경이므로 `dotnet build`/`dotnet test`는 실행하지 않는다.
+- `rg -n "bounded drop-oldest|high-watermark|transport kind|IngressMessage|EndpointId" PLAN.md CURRENT_PLAN.md TODOS.md DECISIONS.md docs .claude/review/2026-06-16-interface-server-endpoint-model.md`로 문서 연결을 확인한다.
+- `git diff --check`로 whitespace 오류를 확인한다.
+
+## 2026-06-16 (Codex — Interface Server endpoint model 설계)
+
+### 작업 단위
+- 외부 정보를 받아 구독된 TCP/UDP endpoint 로 발행하는 Interface Server 목표에 맞춰 설계를 재정렬했다.
+- 범위는 새 설계 문서와 상태 문서 갱신으로 제한했다.
+- 코드 구현, public API 변경, benchmark schema 변경은 포함하지 않았다.
+
+### 설계 변경
+- `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`를 추가했다.
+- 현재 TCP broker 구현과 Interface Server 목표 사이의 차이를 정리했다.
+- endpoint identity, transport kind, endpoint state, send diagnostics, endpoint dispatcher 개념을 후속 설계 기준으로 잡았다.
+- latency SLO gate 보다 TCP/UDP send queue high-watermark diagnostics 를 먼저 구현하는 순서를 권장했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D053으로 Interface Server endpoint-aware publish model 과 send-side 관측성 우선 결정을 기록했다.
+- `CURRENT_PLAN.md`의 최종 목표와 다음 단일 작업 후보를 endpoint/send-side 관측성 기준으로 갱신했다.
+- `TODOS.md`에서 send queue high-watermark diagnostics 와 EndpointId/snapshot 최소 계약을 P1 후속으로 올리고,
+  latency SLO gate 는 endpoint 관측값 확보 뒤 판단할 P2 후속으로 낮췄다.
+
+### 검증
+- 문서 전용 변경이므로 `dotnet build`/`dotnet test`는 실행하지 않는다.
+- `rg -n "Interface Server|endpoint|high-watermark|D053" docs CURRENT_PLAN.md TODOS.md DECISIONS.md CHANGELOG_AGENT.md`로
+  문서 연결을 확인한다.
+- `git diff --check`로 whitespace 오류를 확인한다.
+
+## 2026-06-16 (Codex — Phase 4 benchmark JSON report)
+
+### 작업 단위
+- Phase 4 benchmark runner 결과를 JSON report 파일로 저장하는 경로를 추가했다.
+- 범위는 `tests/Hps.Benchmarks`의 CLI parser, `TcpLoopbackReportWriter`, 상태 문서 갱신으로 제한했다.
+- latency SLO gate, queue depth diagnostics, Markdown report, report history, CI gate 는 포함하지 않았다.
+
+### Red
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --smoke --report $env:TEMP\hps-benchmark-red-report.json`를 먼저 실행했다.
+- 기존 구현은 `Program.Main`의 runner 분기가 모두 `args.Length == 1`에 묶여 있어 `--smoke --report <path>`가 smoke runner 로 라우팅되지 않았다.
+- BenchmarkDotNet fallback 이 `smoke`와 `report`를 unknown option 으로 출력했고, report 파일은 생성되지 않았다.
+
+### 구현
+- `Program`의 known benchmark runner parser 를 다중 인자 옵션 구조로 확장했다.
+- `--smoke`, `--load`, `--load-open-loop`에 선택적 `--report <path>`를 추가했다.
+- `--report` 단독 사용, `--target --report`, path 누락은 usage error 로 처리한다.
+- `TcpLoopbackReportWriter`를 추가해 `TcpLoopbackRunResult`의 공통 계측값을 `schema-version: 1` JSON 파일로 저장한다.
+- report writer 는 기존 파일을 덮어쓰고 상위 디렉터리가 없으면 생성한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D052로 benchmark report JSON schema 와 파일 동작을 기록했다.
+- `TODOS.md`에서 report persistence 를 Completed 로 이동하고, latency SLO gate 판단만 P1 후속으로 남겼다.
+- `CURRENT_PLAN.md`의 다음 후보에서 report persistence 를 제거했다.
+
+### 검증
+- Red: `--smoke --report`는 기존 구현에서 BenchmarkDotNet unknown option 으로 흘러가 report 를 생성하지 않았다.
+- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore` → 경고 0, 오류 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --smoke --report $env:TEMP\hps-benchmark-smoke-report.json` →
+  `smoke-result: pass`, report JSON 생성, schema key 확인.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load --report $env:TEMP\hps-benchmark-load-report.json` →
+  `load-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load-open-loop --report $env:TEMP\hps-benchmark-open-loop-report.json` →
+  `open-loop-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --target` → 기존 target 출력 유지.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --report $env:TEMP\hps-benchmark-invalid-report.json` →
+  usage error 와 non-zero 종료 확인.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` → `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 37 + `Hps.Protocol.Tests` 통과 28 + `Hps.Broker.Tests` 통과 18 +
+  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
+## 2026-06-16 (Codex — Phase 4 open-loop TCP load benchmark)
+
+### 작업 단위
+- Phase 4 open-loop TCP load/backpressure benchmark 를 추가했다.
+- 범위는 `tests/Hps.Benchmarks`의 `--load-open-loop` runner, benchmark 출력 형식 확장, 상태 문서 갱신으로 제한했다.
+- Transport queue depth diagnostics, 백프레셔 정책 변경, report writer, latency SLO 실패 gate 는 포함하지 않았다.
+
+### Red
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --load-open-loop` 출력 검증을 먼저 실행했다.
+- 기존 구현은 BenchmarkDotNet 이 `--load-open-loop`를 unknown option 으로 처리했고, `open-loop-result:`를 출력하지 않아 실패했다.
+
+### 구현
+- `Program --load-open-loop` 명령을 추가했다.
+- `TcpLoopbackScenarioRunner.RunOpenLoopAsync()`를 추가해 기존 `BrokerServer + SaeaTransport` loopback orchestration 을 재사용한다.
+- open-loop 경로는 subscriber receive task 를 먼저 시작한 뒤, publisher loop 가 subscriber 수신 완료를 기다리지 않고
+  100Hz schedule 에 맞춰 4096B payload 3000개를 전송한다.
+- payload 내부에 timestamp 와 sequence 를 넣어 수신 순서/무결성을 `payload-errors`로 관측한다.
+- `TcpLoopbackRunResult` 출력에 `payload-errors`, first-half/second-half p99, p99 growth ratio 를 추가했다.
+- `BenchmarkTargets --target` 출력에 closed-loop/open-loop 명령과 `payload-errors==0` gate 를 반영했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 `--load-open-loop` 완료 상태와 검증 경로를 반영했다.
+- `TODOS.md`의 open-loop benchmark 항목을 Completed 로 이동했다.
+- `TODOS.md`에 TCP send queue depth diagnostics 검토를 별도 `P2_LATER` 후속으로 남겼다.
+
+### 검증
+- Red: `--load-open-loop`는 기존 구현에서 unknown option 으로 실패했다.
+- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore` → 경고 0, 오류 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load-open-loop` →
+  `open-loop-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0,
+  actual-rate-hz 99.9, p50 221.6us, p99 867.6us, first-half p99 873.3us, second-half p99 850.3us,
+  p99 growth ratio 0.97.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load` →
+  `load-result: pass`, planned/sent/received 3000, dropped 0, payload-errors 0, pool-rented 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --smoke` →
+  `smoke-result: pass`, sent 8, received 8, dropped 0, payload-errors 0, pool-rented 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --target` →
+  closed-loop/open-loop 명령과 payload-errors gate 출력 확인.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` → `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 37 + `Hps.Protocol.Tests` 통과 28 + `Hps.Broker.Tests` 통과 18 +
+  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
+## 2026-06-15 (Codex — Phase 4 closed-loop load review reflection)
+
+### 작업 단위
+- `.claude/review/overall-state-2026-06-15.md`의 추가 검토 중 closed-loop load runner 한계 지적을 상태 문서에 반영했다.
+- 범위는 `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md` 문서 갱신으로 제한했다.
+- open-loop runner 구현, diagnostics API 확장, 백프레셔 정책 변경, benchmark report writer 는 포함하지 않았다.
+
+### 검토 반영
+- 현재 `--load`는 4096B×100Hz×30초 SAEA TCP loopback baseline 으로 유지한다.
+- 단, 각 publish 뒤 subscriber 수신을 기다리는 closed-loop 구조라서 처리량, p50/p99 지연, drop 없음, pool leak 없음은 검증하지만
+  queue depth 증가나 drop-oldest/backpressure 경로를 stress 하지 않는다고 명시했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D051로 closed-loop baseline 과 open-loop backpressure benchmark 분리를 기록했다.
+- `CURRENT_PLAN.md`에 현재 `--load` 해석을 closed-loop 기준선으로 좁히고, 다음 후보에 open-loop TCP load/backpressure benchmark 를 추가했다.
+- `TODOS.md`에 `P1_SOON` open-loop TCP load/backpressure benchmark 항목을 self-contained backlog 로 추가했다.
+- 기존 report persistence/latency SLO backlog 는 open-loop 결과를 함께 담을 수 있게 schema 판단이 필요하다고 보강했다.
+
+### 검증
+- `rg -n "D051|open-loop|closed-loop|backpressure benchmark|큐 적체" CURRENT_PLAN.md TODOS.md DECISIONS.md CHANGELOG_AGENT.md`
+  로 상태 문서 연결을 확인한다.
+- `git diff --check`로 whitespace 오류를 확인한다.
+- 문서 전용 변경이므로 `dotnet build`/`dotnet test`는 실행하지 않는다.
+
+## 2026-06-15 (Codex — Phase 4 TCP loopback load runner)
+
+### 작업 단위
+- Phase 4 TCP loopback benchmark 에 `--load` runner 를 추가했다.
+- 범위는 `tests/Hps.Benchmarks`의 실제 `BrokerServer + SaeaTransport` loopback 30초/100Hz 실행과 상태 문서 갱신으로 제한했다.
+- latency threshold, benchmark summary 파일 저장, 백프레셔 정책 변경, UDP broker 결선은 포함하지 않았다.
+
+### Red
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --load` 출력 검증을 먼저 실행했다.
+- 기존 구현은 BenchmarkDotNet 이 `--load`를 unknown option 으로 처리했고, `load-result:`가 출력되지 않아 실패했다.
+
+### 구현
+- `Program --load` 명령을 추가해 30초/100Hz TCP loopback load 를 실행한다.
+- 기존 `TcpLoopbackSmokeRunner`/`TcpLoopbackSmokeResult`를 `TcpLoopbackScenarioRunner`/`TcpLoopbackRunResult`로 일반화해
+  smoke 와 load 가 같은 socket orchestration, 측정 방식, 출력 형식을 공유하게 했다.
+- load 는 실제 `BrokerServer`, `SaeaTransport`, `PinnedBlockMemoryPool`을 한 프로세스 안에서 조립하고,
+  실제 TCP subscriber/publisher socket 으로 `SUBSCRIBE`/`PUBLISH` frame 을 주고받는다.
+- 4096B payload 3000개를 100Hz pacing 으로 약 30초 동안 전송하고, sent/received count, drop count,
+  pool `RentedCount`, actual-rate, p50/p99 latency sample 을 출력한다.
+- pass/fail 은 sent==planned==received, dropped==0, pool-rented==0으로 제한했다. latency 는 아직 환경 독립 SLO가 아니므로
+  관측값으로만 출력한다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 Phase 4 load runner 상태와 focused 검증 결과를 반영했다.
+- `TODOS.md`의 Phase 4 load runner 항목을 Completed 로 이동하고, report persistence/latency SLO gate 판단을 새 Deferred Backlog 로 남겼다.
+
+### 검증
+- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore` → 경고 0, 오류 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --load` →
+  `load-result: pass`, planned/sent/received 3000, dropped 0, pool-rented 0, actual-rate-hz 99.9,
+  p50 205.9us, p99 799.0us.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --smoke` →
+  `smoke-result: pass`, sent 8, received 8, dropped 0, pool-rented 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build --no-restore -- --target` → 기준 목표 출력 유지 확인.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` → `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 37 + `Hps.Protocol.Tests` 통과 28 + `Hps.Broker.Tests` 통과 18 +
+  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
+## 2026-06-15 (Codex — Phase 4 TCP loopback smoke runner)
+
+### 작업 단위
+- Phase 4 TCP load runner 의 선행 단위로 짧은 `--smoke` runner 를 추가했다.
+- 범위는 `tests/Hps.Benchmarks` 내부의 실제 `BrokerServer + SaeaTransport` loopback smoke 실행과 상태 문서 갱신으로 제한했다.
+- 30초/100Hz 정식 runner, pass/fail latency gate, 파일 리포트, 백프레셔 정책 변경은 포함하지 않았다.
+
+### Red
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --smoke` 출력 검증을 먼저 실행했다.
+- 최초 실행은 sandbox 네트워크 차단으로 restore 실패했으므로 권한 요청 후 재실행했고, 기존 구현은 BenchmarkDotNet 이 `--smoke`를 unknown option 으로 처리해 `smoke-result:`를 출력하지 않아 실패했다.
+
+### 구현
+- `Program --smoke` 명령을 추가해 짧은 TCP loopback smoke 를 실행한다.
+- `TcpLoopbackSmokeRunner`는 `BrokerServer`, `SaeaTransport`, `PinnedBlockMemoryPool`을 한 프로세스 안에서 조립하고,
+  실제 TCP subscriber/publisher socket 으로 `SUBSCRIBE`/`PUBLISH` frame 을 주고받는다.
+- smoke 는 4096B payload 8개를 보내고, 수신 payload 원문, sent/received count, `ITransportDiagnostics` drop count,
+  pool `RentedCount`, p50/p99 latency sample 을 출력한다.
+- 현재 wire protocol 에 SUBSCRIBE ack 가 없으므로 publish 시작 race 를 피하기 위해 benchmark smoke 에서도 통합 테스트와 같은
+  white-box subscription count 대기 경계를 사용한다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 Phase 4 smoke runner 상태와 검증 결과를 반영했다.
+- `TODOS.md`의 Phase 4 load runner backlog 를 smoke 완료 이후 남은 30초/100Hz 정식 runner 작업으로 갱신했다.
+
+### 검증
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --smoke` → `smoke-result: pass`,
+  sent 8, received 8, dropped 0, pool-rented 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --target` → 기준 목표 출력 유지 확인.
+- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore` → 경고 0, 오류 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`와 `dotnet test HighPerformanceSocket.slnx --no-restore`를 병렬 실행했을 때
+  obj 파일 lock 충돌이 발생했다. 직렬 재실행으로 검증했다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` → `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 37 + `Hps.Protocol.Tests` 통과 28 + `Hps.Broker.Tests` 통과 18 +
+  `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
+## 2026-06-15 (Codex — Phase 4 benchmark scaffold)
+
+### 작업 단위
+- Phase 4 첫 단위로 `tests/Hps.Benchmarks` 프로젝트와 SAEA TCP loopback baseline 목표 출력을 추가했다.
+- 범위는 benchmark scaffold, 4096B×100Hz 목표값 코드 고정, BenchmarkDotNet artifact ignore, 상태 문서 갱신으로 제한했다.
+- 실제 TCP load runner, p50/p99 판정, 백프레셔 정책 변경, UDP broker 결선은 포함하지 않았다.
+
+### Red
+- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj`가 프로젝트 파일 부재로 실패했다.
+
+### 구현
+- `Hps.Benchmarks` console project 를 추가하고 BenchmarkDotNet 을 참조했다.
+- BenchmarkDotNet 실행 결과 기본 폴더인 `BenchmarkDotNet.Artifacts/`를 `.gitignore`에 추가했다.
+- `BenchmarkTargets`에 `tcp-loopback-saea-baseline` 기준값을 고정했다.
+  - payload 4096 bytes
+  - publish rate 100 Hz
+  - duration 30초
+  - subscriber 1명
+  - planned message count 3000
+  - gate: sent==received, dropped==0, pool-rented==0, p50/p99 report 기록
+- `Program --target`이 기준 목표를 출력하도록 했다.
+- `PinnedBlockMemoryPoolBenchmarks`를 추가해 counted pinned buffer `RentCounted + Release` 비용을 BenchmarkDotNet 으로 측정할 수 있게 했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D050으로 Phase 4 첫 기준선을 기록했다.
+- `CURRENT_PLAN.md`를 Phase 4 진입 상태와 이번 검증 경로로 갱신했다.
+- `TODOS.md`에 실제 TCP loopback load runner, 백프레셔 정책 정합성, UDP broker v1 범위 결정을 별도 Deferred Backlog 로 분리했다.
+
+### 검증
+- `dotnet build tests\Hps.Benchmarks\Hps.Benchmarks.csproj` → Red 프로젝트 파일 부재 실패 → 구현 뒤 경고 0, 오류 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --target` → 기준 목표 출력 확인.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 37 +
+  `Hps.Protocol.Tests` 통과 28 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
+## 2026-06-12 (Codex — TCP frame assembler random fuzz)
+
+### 작업 단위
+- D010 TCP frame assembler의 랜덤 적대적 분할 fuzz 를 영구 회귀 테스트로 추가했다.
+- 범위는 `tests/Hps.Protocol.Tests/TcpFrameAssemblerTests.cs`와 상태 문서 갱신으로 제한했다.
+- production code, protocol contract, broker/server 동작은 변경하지 않았다.
+
+### 테스트
+- `TryReadFrame_WhenChunksAreFragmentedRandomly_PreservesAllFramesAndReturnsBuffers`를 추가했다.
+- 테스트는 고정 seed 4개로 64개 frame 을 만들고, 0바이트 payload, max payload, 작은 chunk, 큰 chunk, 한 chunk 안의 다중 frame 을 함께 검증한다.
+- 각 완성 frame 은 테스트 안에서 즉시 `Release`하고, 마지막에 `PinnedBlockMemoryPool.RentedCount == 0`을 확인해 D010/D011 소유권 경계를 검증한다.
+- 기존 구현이 이미 이 케이스를 만족해 focused 실행에서 즉시 Green 통과했다. 이번 단위는 test-only hardening 이므로 production Red/Green 구현 단계는 없었다.
+
+### 상태 갱신
+- `TODOS.md`의 D010 랜덤 적대적 fuzz 항목을 Deferred Backlog 에서 Completed 로 이동했다.
+- `CURRENT_PLAN.md`의 다음 후보와 검증 경로를 이번 테스트 보강 단위 기준으로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TryReadFrame_WhenChunksAreFragmentedRandomly_PreservesAllFramesAndReturnsBuffers"` → 통과 4, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 28, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 37 +
+  `Hps.Protocol.Tests` 통과 28 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
+## 2026-06-12 (Codex — broker server console sample)
+
+### 작업 단위
+- Phase 3 samples 후속 단위로 `BrokerServer + SaeaTransport`를 실제 프로세스로 띄우는 broker server console sample 만 추가했다.
+- 범위는 `samples/Hps.Sample.BrokerServer`, solution 편입, 상태 문서 갱신으로 제한했다.
+- publisher/subscriber client 변경, protocol ack, diagnostics API, 운영용 host 설정은 포함하지 않았다.
+
+### Red
+- `dotnet build samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj`가 프로젝트 파일 부재로 실패했다.
+
+### 구현
+- `Hps.Sample.BrokerServer`는 `<host> <port> <max-frame-bytes>` 인자를 받아 `BrokerServer`를 시작한다.
+- Transport 는 `TransportFactory.CreateDefault()`로 만들고, TCP frame payload pool 은 `max-frame-bytes` 크기의 `PinnedBlockMemoryPool`로 만든다.
+- Ctrl+C 입력 시 기본 즉시 종료를 취소하고 `BrokerServer.StopAsync` 경로를 통과해 listener, accept loop, transport 를 정리한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D049로 broker server sample 경계를 기록했다.
+- `TODOS.md`의 broker server console sample 항목을 Completed 로 이동했다.
+- `CURRENT_PLAN.md`의 현재 실행 지점과 검증 경로를 이번 sample 단위 기준으로 갱신했다.
+
+### 검증
+- `dotnet build samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj` → Red 프로젝트 파일 부재 실패 → 구현 뒤 경고 0, 오류 0.
+- `dotnet run --project samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj --` → 사용법 출력, exit code 2 확인.
+- `dotnet build HighPerformanceSocket.slnx` → 첫 시도는 `dotnet test`와 병렬 실행되어 obj 파일 lock 으로 실패했다.
+  직렬 재실행 결과 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 37 +
+  `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
+## 2026-06-12 (Codex — TCP receive handler exception policy)
+
+### 작업 단위
+- 리뷰 의견의 TCP/UDP handler 예외 정책 비대칭만 처리했다.
+- 범위는 `SaeaTransport` TCP receive loop, `ITransportReceiveHandler` 계약 문서, 회귀 테스트, 상태 문서 갱신으로 제한했다.
+- broker server console sample, BipBuffer 미결선, 빈 topic entry cleanup 정책은 포함하지 않았다.
+
+### Red
+- `ReceivePump_WhenHandlerThrows_ClosesConnectionAndNotifiesHandler`를 추가했다.
+- 기존 구현에서는 handler 가 `OnReceived`에서 예외를 던지면 `OnConnectionClosed`가 호출되지 않아 5초 timeout 으로 실패했다.
+
+### 구현
+- `SaeaTransport.ReceiveLoopAsync`에서 `DispatchReceived` 예외를 catch 하고 `NotifyConnectionClosed(connection)` 후 loop 를 종료하도록 했다.
+- `ITransportReceiveHandler.OnReceived` XML doc 에 handler 예외 시 Transport 가 connection close notification 으로 수렴한다는 계약을 명시했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D048로 TCP receive handler 예외 정책을 기록했다.
+- `TODOS.md`와 `CURRENT_PLAN.md`에 이번 리뷰 반영 결과와 다음 후보 작업 지점을 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ReceivePump_WhenHandlerThrows_ClosesConnectionAndNotifiesHandler"` → Red timeout 실패 1/통과 0 → Green 통과 1.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 37, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 37 +
+  `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
+## 2026-06-12 (Codex — TCP publisher/subscriber samples)
+
+### 작업 단위
+- Phase 3 samples 첫 단위로 TCP wire protocol 기반 publisher/subscriber client 만 추가했다.
+- 범위는 `samples/Hps.Sample.Publisher`, `samples/Hps.Sample.Subscriber`, 공통 frame helper, solution 편입으로 제한했다.
+- broker server console sample, 수동 fan-out 실행 검증, UDP sample 은 포함하지 않았다.
+
+### Red
+- `dotnet build samples\Hps.Sample.Publisher\Hps.Sample.Publisher.csproj`가 프로젝트 파일 부재로 실패했다.
+- `dotnet build samples\Hps.Sample.Subscriber\Hps.Sample.Subscriber.csproj`가 프로젝트 파일 부재로 실패했다.
+
+### 구현
+- `samples/Shared/SampleTcpFrames.cs`를 추가해 `4바이트 big-endian 길이 + command payload` TCP frame 전송을 공유한다.
+- `Hps.Sample.Publisher`는 `<host> <port> <topic> <message>` 인자를 받아
+  `PUBLISH <topic> <payload>` frame 을 한 번 보내고 종료한다.
+- `Hps.Sample.Subscriber`는 `<host> <port> <topic>` 인자를 받아
+  `SUBSCRIBE <topic>` frame 을 보낸 뒤 서버가 fan-out 하는 raw payload chunk 를 UTF-8 문자열로 출력한다.
+- 두 sample client 는 D047에 따라 `Hps.Server` 내부 타입을 참조하지 않고 TCP wire protocol 만 사용한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D047로 sample client 경계 결정을 기록했다.
+- `TODOS.md`에 broker server console sample 을 `P1_SOON` 후속 항목으로 남겼다.
+- `CURRENT_PLAN.md`의 다음 후보를 수동 fan-out 확인용 broker server console sample 검토로 갱신했다.
+
+### 검증
+- `dotnet build samples\Hps.Sample.Publisher\Hps.Sample.Publisher.csproj` → Red 프로젝트 파일 부재 실패 → 구현 뒤 경고 0, 오류 0.
+- `dotnet build samples\Hps.Sample.Subscriber\Hps.Sample.Subscriber.csproj` → Red 프로젝트 파일 부재 실패 → 구현 뒤 경고 0, 오류 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 36 +
+  `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
+## 2026-06-12 (Codex — UDP receive prefetch boundary)
+
+### 작업 단위
+- `.claude/review/phase2-udp-datagram.md` Q1의 UDP receive backpressure 질문 중 SAEA Transport 내부 prefetch 경계만 처리했다.
+- 범위는 SAEA UDP receive 회귀 테스트와 D046 결정 기록으로 제한했다.
+- production code 와 public API 는 변경하지 않았다.
+
+### 테스트
+- `UdpReceive_WhenHandlerIsBlocked_DoesNotPrefetchAdditionalDatagrams`를 추가했다.
+- 이 테스트는 첫 datagram handler 를 동기적으로 막은 상태에서 두 번째 datagram 을 보내도 receive loop 가
+  추가 `RefCountedBuffer`를 대여하지 않는지 확인한다.
+- 최초 focused 실행은 receive loop 가 다음 `ReceiveFromAsync` 대기용 idle buffer 1개를 보유하는 기존 모델을
+  테스트가 반영하지 못해 실패했다. 단언을 “handler blocked 중 추가 prefetch 없음, endpoint close 후 0”으로 바로잡은 뒤 통과했다.
+
+### 결정
+- `DECISIONS.md`에 D046을 추가했다.
+- 현재 SAEA UDP receive 기준선은 동기 handler 호출이 반환될 때까지 다음 `RentCounted()`로 넘어가지 않으므로,
+  Transport 내부 receive queue/drop 정책을 추가하지 않는다.
+- handler/Broker 가 datagram ref 를 별도 작업으로 넘기고 즉시 반환하는 경우의 보관량은 상위 fan-out 정책에서 다시 다룬다.
+
+### 상태 갱신
+- `TODOS.md`에서 UDP receive backpressure Q1의 Transport prefetch 부분을 Completed 로 이동했다.
+- `CURRENT_PLAN.md`의 다음 후보를 Phase 3 sample publisher/subscriber 진입 범위 확인으로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenHandlerIsBlocked_DoesNotPrefetchAdditionalDatagrams"` → 최초 실패 1/통과 0 → 단언 보정 뒤 통과 1.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 36, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 36 +
+  `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+
+## 2026-06-12 (Codex — SAEA 기준선 BipBuffer 예외 문서화)
+
+### 작업 단위
+- 최신 리뷰 Finding 3의 문서 불변식 충돌만 처리했다.
+- 범위는 `AGENTS.md`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md` 문서 갱신으로 제한했다.
+- production code, public API, 테스트 코드는 변경하지 않았다.
+
+### 구현
+- `AGENTS.md`의 “send/recv 원형 큐는 `BipBuffer`” 원칙을 유지하면서, 현재 `SaeaTransport` 기준선의
+  pinned receive block 과 `TransportSendBuffer` direct send 를 D023/D024/D045에 따른 raw Socket 기준선 예외로 명시했다.
+- `AGENTS.md`의 fan-out 송신 경로 설명에 SAEA 기준선은 pending queue → 단일 raw Socket 펌프까지만 구현되어 있고,
+  SPSC 송신 `BipBuffer` 적용은 최적화 backend 또는 후속 송수신 큐 단위에서 다룬다고 보강했다.
+- `DECISIONS.md`에 D045를 추가해 SAEA 기준선 예외와 향후 RIO/io_uring 또는 명시적 송수신 큐 최적화의
+  `BipBuffer` 적용 요구를 분리했다.
+
+### 상태 갱신
+- `TODOS.md`에서 SAEA/BipBuffer 문서 일관성 항목을 Completed 로 이동했다.
+- `CURRENT_PLAN.md`의 다음 단일 작업 후보를 `P1_SOON` UDP receive backpressure 정책(Q1) 검토로 갱신했다.
+
+### 검증
+- `rg -n "D045|SAEA 기준선|direct pinned|TransportSendBuffer direct|BipBuffer" AGENTS.md DECISIONS.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md`로
+  D045와 SAEA 기준선 예외 문구가 관련 문서에 연결됐는지 확인했다.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됐다.
+- 이번 단위는 문서 전용 변경이므로 full test 는 실행하지 않았다.
+
+## 2026-06-12 (Codex — UDP datagram handler exception policy)
+
+### 작업 단위
+- UDP datagram handler 예외가 receive loop task fault 로 숨어 수신만 중단되는 경로를 막았다.
+- 범위는 SAEA UDP receive loop 의 handler 예외 정책, `ITransportDatagramHandler` XML doc, 회귀 테스트로 제한했다.
+- UDP receive backpressure, handler fault counter/log, SAEA/BipBuffer 문서 일관성 정리는 포함하지 않았다.
+
+### Red
+- 기존 `UdpReceive_WhenHandlerThrowsAfterTakingOwnership_DoesNotReleaseDatagramAgain` 테스트를
+  `UdpReceive_WhenHandlerThrowsAfterTakingOwnership_ClosesEndpointAndNotifiesHandler` 정책 테스트로 바꿨다.
+- 기존 구현에서는 handler 가 datagram 을 Release 한 뒤 예외를 던지면 close notification 이 오지 않아 timeout 으로 실패했다.
+
+### 구현
+- `SaeaTransport.UdpReceiveLoopAsync`의 일반 예외 catch 에서 datagram local ref 를 정리한 뒤
+  `NotifyUdpEndpointClosed(udpEndpoint)`를 호출하고 loop 를 종료하도록 했다.
+- `ITransportDatagramHandler.OnDatagramReceived` XML doc 에 handler 예외 후에도 datagram 반환 책임은 handler 에 남고,
+  Transport 는 endpoint close notification 으로 수렴한다는 계약을 명시했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D044로 UDP handler 예외 정책을 기록했다.
+- `CURRENT_PLAN.md`를 이번 단위의 Red/Green 결과와 다음 후보 작업 기준으로 갱신했다.
+- `TODOS.md`에서 UDP datagram handler 예외 정책을 Completed 로 이동했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenHandlerThrowsAfterTakingOwnership_ClosesEndpointAndNotifiesHandler"` — Red timeout 실패 1/통과 0 → Green 통과 1.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` — 통과 35, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` — `Hps.Transport.Tests` 통과 35 + `Hps.Protocol.Tests` 통과 24 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` — 경고 0, 오류 0.
+- `git diff --check` — whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-12 (Codex — malformed TCP command subscription cleanup)
+
+### 작업 단위
+- 리뷰 Finding 1의 malformed TCP command 직접 close 경로만 처리했다.
+- 범위는 `BrokerTcpFrameHandler`의 protocol-error close cleanup 과 해당 회귀 테스트로 제한했다.
+- UDP datagram handler 예외 정책과 SAEA/BipBuffer 문서 불일치 정리는 `TODOS.md` Deferred Backlog 로 분리했다.
+
+### Red
+- `OnFrame_WhenSubscribedConnectionSendsMalformedCommand_RemovesConnectionFromAllTopics`를 추가했다.
+- 기존 구현에서는 malformed command 처리 후 `connection.Close()`만 호출되고, fake transport 는 별도 close notify 를 주지 않으므로
+  `alpha` topic 에 connection 이 남아 `Assert.False()` 실패로 Red 를 확인했다.
+
+### 구현
+- `BrokerTcpFrameHandler.OnFrame`의 `closeConnection` 경로에서 frame 을 Release 한 뒤 `SubscriptionTable.UnsubscribeAll(connection)`을 먼저 호출하고
+  그 다음 `connection.Close()`를 호출하도록 했다.
+- 이 cleanup 은 idempotent 하므로 이후 Transport/Protocol close notify 가 다시 들어와 `OnConnectionClosed`가 호출되어도 중복 제거 부작용이 없다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D043으로 Broker 직접 close 경로의 cleanup 선행 계약을 기록했다.
+- `CURRENT_PLAN.md`를 이번 단위의 Red/Green 결과와 다음 후보 작업 기준으로 갱신했다.
+- `TODOS.md`에 UDP datagram handler 예외 정책을 `P1_SOON`, SAEA/BipBuffer 문서 일관성 정리를 `P2_LATER`로 추가했다.
+
+### 검증
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~OnFrame_WhenSubscribedConnectionSendsMalformedCommand_RemovesConnectionFromAllTopics"` — Red 실패 1/통과 0 → Green 통과 1.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj` — 통과 18, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` — `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 35 +
+  `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 18 + `Hps.Server.Tests` 통과 5, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` — 경고 0, 오류 0.
+- `git diff --check` — whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-12 (Codex — drop-oldest public diagnostics snapshot)
+
+### 작업 단위
+- drop-oldest 내부 counter 를 운영자가 읽을 수 있는 public Transport diagnostics snapshot 으로 끌어올렸다.
+- 범위는 `ITransportDiagnostics`, `TransportDiagnosticsSnapshot`, Transport 수명 누적 TCP/UDP drop counter 로 제한했다.
+- `ITransport` 기본 계약, 동기 log 출력, sampling 정책, Server convenience diagnostics API 는 포함하지 않았다.
+
+### Red
+- `ITransportDiagnostics`와 `TransportDiagnosticsSnapshot` 타입 부재로 contract 테스트가 `Assert.NotNull` 실패하는 것을 확인했다.
+- TCP drop aggregate 테스트도 diagnostics 타입 부재로 `Assert.NotNull` 실패하는 것을 확인했다.
+- UDP drop aggregate 테스트도 diagnostics 타입 부재로 `Assert.NotNull` 실패하는 것을 확인했다.
+
+### 구현
+- `ITransportDiagnostics.GetDiagnosticsSnapshot()` 선택적 capability 를 추가했다.
+- `TransportDiagnosticsSnapshot`에 `TcpDroppedPendingSendCount`, `UdpDroppedPendingSendCount`, `DroppedPendingSendCount`를 추가했다.
+- `TransportBase`가 TCP/UDP drop-oldest 누적 counter 를 유지하고 snapshot 을 반환한다.
+- `TransportConnection`은 drop-oldest 발생 시 내부 connection counter 와 Transport-level TCP counter 를 함께 증가시킨다.
+- `SaeaUdpEndpoint`는 drop-oldest 발생 시 내부 endpoint counter 와 Transport-level UDP counter 를 함께 증가시킨다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D042로 선택적 Transport diagnostics snapshot 결정을 기록했다.
+- `CURRENT_PLAN.md`를 public diagnostics snapshot 완료 및 UDP receive backpressure 정책 검토 대기 상태로 갱신했다.
+- `TODOS.md`에서 public metric snapshot 을 Completed 로 이동하고, log/sampling 및 Server convenience API 는 `P2_LATER`로 분리했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportDiagnostics"` → Red 실패 3/통과 0 → Green 통과 3.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 35, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Transport.Tests` 통과 35 + `Hps.Server.Tests` 통과 5 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-12 (Codex — 다중 subscriber TCP command fan-out 통합 테스트)
+
+### 작업 단위
+- `BrokerServer + SaeaTransport` 실제 TCP command 경로에서 subscriber 2명이 같은 topic 을 구독하는 fan-out 통합 테스트를 추가했다.
+- 범위는 `tests/Hps.Server.Tests/BrokerServerTests.cs`의 test-only 회귀 검증으로 제한했다.
+- production code, public diagnostics API, samples, 다중 메시지 순서/부하 검증은 포함하지 않았다.
+
+### Red/현상 확인
+- 새 통합 테스트는 기존 production 구현으로 첫 실행부터 통과했다.
+- 따라서 이번 단위는 누락된 실제 socket fan-out 회귀 검증을 고정하는 작업이며, production code 변경은 하지 않았다.
+
+### 테스트
+- raw TCP subscriber socket 2개가 length-prefix `SUBSCRIBE alpha` frame 을 보내고, 서버 내부 subscription table 에 등록될 때까지 기다린다.
+- publisher socket 1개가 length-prefix `PUBLISH alpha <payload>` frame 을 보내면 두 subscriber socket 이 동일 payload 원문을 받는지 검증한다.
+- 공유 frame/send ref 가 모두 반환되어 server payload pool 의 `RentedCount==0`으로 돌아오는지 검증한다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 다중 subscriber fan-out 통합 테스트 완료 및 public drop metric/log 표면 설계 대기 상태로 갱신했다.
+- `TODOS.md`에서 다중 subscriber fan-out 통합 테스트 항목을 Completed 로 이동했다.
+
+### 검증
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~TcpCommandLoopback_WhenTwoSubscribersShareTopic"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj` → 통과 5, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Transport.Tests` 통과 32 + `Hps.Server.Tests` 통과 5 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-12 (Codex — drop-oldest internal diagnostics counter)
+
+### 작업 단위
+- TCP `TransportConnection`과 UDP `SaeaUdpEndpoint`의 drop-oldest 경로에 내부 누적 counter 를 추가했다.
+- 범위는 connection/endpoint 내부 `DroppedPendingSendCount`와 그 회귀 테스트로 제한했다.
+- public metric API, log 출력, Server/Broker aggregate diagnostics 는 포함하지 않았다.
+
+### Red
+- TCP counter 테스트는 `DroppedPendingSendCount` property 부재로 `Assert.NotNull` 실패가 발생하는 것을 확인했다.
+- UDP counter 테스트도 `DroppedPendingSendCount` property 부재로 `Assert.NotNull` 실패가 발생하는 것을 확인했다.
+- Green 뒤에는 임시 reflection helper 를 제거하고 internal property 직접 호출 테스트로 정리했다.
+
+### 구현
+- `TransportConnection`에 internal `DroppedPendingSendCount` counter 를 추가했다.
+- `SaeaUdpEndpoint`에 internal `DroppedPendingSendCount` counter 를 추가했다.
+- drop-oldest eviction 이 실제로 발생한 경우에만 `Interlocked.Increment`로 counter 를 증가시킨다.
+- counter read 는 `Volatile.Read` helper 를 통해 수행한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D041로 drop-oldest 내부 counter 결정을 기록했다.
+- `CURRENT_PLAN.md`를 내부 counter 완료 및 다중 subscriber fan-out 통합 테스트 대기 상태로 갱신했다.
+- `TODOS.md`에서 내부 counter 항목을 Completed 로 이동하고, public metric/log 표면과 다중 subscriber 통합 테스트를 Deferred Backlog 로 분리했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~DroppedPendingSendCount"` → Red 실패 2/통과 0 → Green 통과 2.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 32, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Transport.Tests` 통과 32 + `Hps.Server.Tests` 통과 4 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-12 (Codex — UDP endpoint send queue backpressure)
+
+### 작업 단위
+- `.claude/review/overall-state-2026-06-11.md` H1 중 남은 UDP `SaeaUdpEndpoint` pending send queue backpressure 를 처리했다.
+- 범위는 UDP endpoint pending queue capacity 와 drop-oldest evict-release 로 제한했다.
+- drop 관측성 counter/log/metrics, UDP receive backpressure, configurable capacity 는 포함하지 않았다.
+
+### Red
+- capacity 17번째 datagram send 후 pending count 가 17로 남아 `Expected: 16, Actual: 17`로 실패하는 것을 확인했다.
+- overflow 뒤 publisher guard ref 를 놓고 close 하는 경로도 evict 가 없어 `RentedCount==17`로 남는 실패를 확인했다.
+
+### 구현
+- `SaeaUdpEndpoint` pending send queue 기본 capacity 를 16으로 두었다.
+- open endpoint 에서 queue 가 가득 찬 상태로 새 datagram 을 수락하면 가장 오래된 pending `UdpSendRequest`를 dequeue 하고,
+  그 Transport 소유 ref 를 `Release`한 뒤 새 datagram 을 enqueue 한다.
+- evict 대상 선택과 queue 제거는 `_sendGate` lock 으로 직렬화하고, `Release`는 lock 밖에서 수행한다.
+- close 는 남아 있는 pending datagram 만 drain 하므로 이미 evict 된 datagram 을 다시 Release 하지 않는다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D040으로 UDP endpoint pending send queue drop-oldest 결정을 기록했다.
+- `CURRENT_PLAN.md`를 TCP/UDP send backpressure 기준선 완료 및 drop 관측성 counter 대기 상태로 갱신했다.
+- `TODOS.md`에서 UDP endpoint queue 항목을 Completed 로 이동하고 drop 관측성 counter 를 Deferred Backlog 로 남겼다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpSendTo_WhenPendingQueue"` → Red 실패 2/통과 0 → Green 통과 2.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 30, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Transport.Tests` 통과 30 + `Hps.Server.Tests` 통과 4 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-12 (Codex — TCP pending send queue backpressure)
+
+### 작업 단위
+- `.claude/review/overall-state-2026-06-11.md` H1 중 TCP `TransportConnection` pending send queue backpressure 만 처리했다.
+- 범위는 TCP connection pending queue capacity 와 drop-oldest evict-release 로 제한했다.
+- UDP endpoint pending send queue backpressure, UDP receive backpressure, configurable capacity 는 포함하지 않았다.
+
+### Red
+- capacity 17번째 send 후 pending count 가 17로 남아 `Expected: 16, Actual: 17`로 실패하는 것을 확인했다.
+- overflow 뒤 publisher guard ref 를 놓고 close 하는 경로도 evict 가 없어 `RentedCount==17`로 남는 실패를 확인했다.
+
+### 구현
+- `TransportConnection` pending send queue 기본 capacity 를 16으로 두었다.
+- open connection 에서 queue 가 가득 찬 상태로 새 send 를 수락하면 가장 오래된 pending 항목을 dequeue 하고,
+  그 Transport 소유 ref 를 `Release`한 뒤 새 항목을 enqueue 한다.
+- evict 대상 선택과 queue 제거는 connection lock 으로 직렬화하고, `Release`는 lock 밖에서 수행한다.
+- close 는 남아 있는 pending 항목만 drain 하므로 이미 evict 된 항목을 다시 Release 하지 않는다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D039로 TCP pending send queue drop-oldest 결정을 기록했다.
+- `CURRENT_PLAN.md`를 TCP backpressure 완료 및 UDP endpoint pending send queue 대기 상태로 갱신했다.
+- `TODOS.md`에서 H1을 TCP 완료와 UDP endpoint 후속으로 분리했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"` → Red 실패 2/통과 7 → Green 통과 9.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 28, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Transport.Tests` 통과 28 + `Hps.Server.Tests` 통과 4 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-12 (Codex — BrokerServer TCP command loopback 통합 테스트)
+
+### 작업 단위
+- `BrokerServer + SaeaTransport` 실제 TCP command loopback 통합 테스트를 추가했다.
+- 범위는 subscriber/publisher raw socket 경로에서 length-prefix command 가 Broker fan-out 으로 이어지는지 검증하는 test-only 단위로 제한했다.
+- production code, backpressure, samples, 다중 subscriber fan-out 은 포함하지 않았다.
+
+### Red/현상 확인
+- 새 통합 테스트는 기존 production 구현으로 첫 실행부터 통과했다.
+- 따라서 이번 단위는 누락된 회귀 검증을 고정하는 작업이며, production code 변경은 하지 않았다.
+
+### 테스트
+- subscriber socket 이 length-prefix `SUBSCRIBE alpha` frame 을 보낸 뒤 서버 내부 subscription table 에 등록될 때까지 기다린다.
+- publisher socket 이 length-prefix `PUBLISH alpha <payload>` frame 을 보내면 subscriber socket 이 payload 원문을 받는지 검증한다.
+- publish frame/send ref 가 모두 반환되어 server payload pool 의 `RentedCount==0`으로 돌아오는지 검증한다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 실제 TCP command loopback 검증 완료 및 backpressure 대기 상태로 갱신했다.
+- `TODOS.md`에서 loopback 검증 항목을 Completed 로 이동하고 다음 후보를 Transport send pending queue backpressure 로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~TcpCommandLoopback"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj` → 통과 4, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Server.Tests` 통과 4 + `Hps.Transport.Tests` 통과 26 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-12 (Codex — Hps.Server 최소 TCP host wiring)
+
+### 작업 단위
+- `src/Hps.Server`와 `tests/Hps.Server.Tests` 프로젝트를 추가했다.
+- 범위는 `BrokerServer`가 기존 Transport/Protocol/Broker 구성요소를 조립하고 TCP listener accept loop 수명을 관리하는 최소 host wiring 으로 제한했다.
+- 실제 socket 경로의 `SUBSCRIBE`/`PUBLISH` end-to-end fan-out, samples, backpressure, protocol error 응답은 포함하지 않았다.
+
+### Red
+- `BrokerServer` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- 계약 surface Green 이후 stub 상태에서 receive handler 등록, Transport start/listen, accept loop 시작, Stop listener/Transport 정리 테스트가 실패했다.
+
+### 구현
+- `BrokerServer`가 `SubscriptionTable`, `BrokerPublisher`, `BrokerTcpFrameHandler`, `TcpFrameReceiveHandler`를 내부 조립한다.
+- `StartTcpAsync`는 주입된 `ITransport`에 `TcpFrameReceiveHandler`를 등록하고, `StartAsync`/`ListenTcpAsync` 후 accept loop 를 시작한다.
+- accept loop 는 accepted connection 을 별도로 저장하지 않는다. connection tracking, receive/send pump, close drain 은 Transport 계약이 계속 책임진다.
+- `StopAsync`/`Dispose`는 accept loop 취소, listener close/dispose, Transport stop 순서로 listener 수명을 정리한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D038로 Server host wiring 책임 경계를 기록했다.
+- `CURRENT_PLAN.md`를 Server 최소 wiring 완료 및 실제 TCP command loopback 통합 테스트 대기 상태로 갱신했다.
+- `TODOS.md` Completed에 이번 단위를 추가하고, 실제 socket command loopback 검증을 `P1_SOON` Deferred Backlog 로 남겼다.
+
+### 검증
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~BrokerServerContract"` → Red 실패 1/통과 0 → 계약 Green 통과 1.
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~BrokerServerTests"` → 동작 Red 실패 2/통과 1 → Green 통과 3.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Server.Tests` 통과 3 + `Hps.Transport.Tests` 통과 26 +
+  `Hps.Buffers.Tests` 통과 18 + `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — Broker TCP command handler)
+
+### 작업 단위
+- TCP frame payload command 를 Broker subscribe/publish/close cleanup 으로 연결하는 `BrokerTcpFrameHandler`를 추가했다.
+- 범위는 command handler 와 payload offset 선행 계약으로 제한했다.
+- Server host wiring, samples, backpressure, protocol error 응답 프레임은 포함하지 않았다.
+
+### Red
+- `TcpCommand.PayloadOffset` property 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- `PayloadOffset` 기본값 0 상태에서 `PUBLISH alpha <payload>`의 실제 payload 시작 offset 14 단언이 실패했다.
+- `BrokerTcpFrameHandler` 타입/생성자/`ITcpFrameHandler` 구현 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- no-op handler 에서 subscribe 등록, publish payload range fan-out, close cleanup, malformed command close/release 테스트가 실패했다.
+
+### 구현
+- `TcpCommand`에 `PayloadOffset`을 추가하고, `TcpCommandDecoder`가 `PUBLISH` payload 시작 offset 을 계산해 넘긴다.
+- `Hps.Broker`가 `Hps.Protocol`을 참조하도록 하고 `BrokerTcpFrameHandler`를 추가했다.
+- `BrokerTcpFrameHandler.OnFrame`은 `SUBSCRIBE`를 `SubscriptionTable.Subscribe`로, `PUBLISH`를
+  `BrokerPublisher.Publish(topic, frame, command.PayloadOffset, command.Payload.Length)`로 연결한다.
+- `OnConnectionClosed`는 `SubscriptionTable.UnsubscribeAll`을 호출한다.
+- malformed command 는 현재 protocol error response 가 없으므로 frame 을 Release 한 뒤 connection 을 닫는 최소 정책으로 정리했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D037로 Broker TCP frame handler 결정을 기록했다.
+- `CURRENT_PLAN.md`를 command handler 완료 및 Server wiring 대기 상태로 갱신했다.
+- `TODOS.md` Completed에 이번 단위를 추가하고 다음 후보를 `Hps.Server` 최소 host/wiring 으로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpCommandDecoderTests"` → Red: payload offset 계약 부재 실패 1/통과 9 → 계약 Green 통과 10 → offset 동작 Red 실패 2/통과 8 → Green 통과 10.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerTcpFrameHandlerTests"` → Red: handler 계약 부재 실패 1 → 계약 Green 통과 1 → 동작 Red 실패 4/통과 1 → Green 통과 5.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 24, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj` → 통과 17, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Protocol.Tests` 통과 24 + `Hps.Broker.Tests` 통과 17 +
+  `Hps.Transport.Tests` 통과 26 + `Hps.Buffers.Tests` 통과 18, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — Broker connection cleanup API)
+
+### 작업 단위
+- `.claude/review/overall-state-2026-06-11.md` H2의 연결 종료 구독 정리 누락 중 Broker 라우팅 테이블 API만 처리했다.
+- 범위는 `SubscriptionTable.UnsubscribeAll(IConnection)`과 해당 회귀 테스트로 제한했다.
+- TCP command handler, `OnConnectionClosed` wiring, Server wiring, backpressure 는 다음 단위로 남겼다.
+
+### Red
+- `SubscriptionTable.UnsubscribeAll(IConnection)` 메서드 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- 메서드 시그니처만 있는 no-op stub 에서 여러 topic 에 걸친 같은 connection 제거 수가 0으로 남아 동작 테스트가 실패했다.
+
+### 구현
+- `UnsubscribeAll`이 현재 topic entry 전체를 열거하며 각 `TopicSubscriptions`에서 대상 connection 을 제거한다.
+- D008 NoCleanup 정책을 유지하기 위해 빈 topic entry 자체는 제거하지 않는다.
+- 반환값은 실제 제거된 구독 수로 두어 command handler/운영 진단에서 cleanup 효과를 관측할 수 있게 했다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D036으로 connection-wide cleanup API 결정을 기록했다.
+- `CURRENT_PLAN.md`를 cleanup API 완료 및 command handler 결선 대기 상태로 갱신했다.
+- `TODOS.md` Completed에 이번 단위를 추가했고, overall review H1 send backpressure 를 별도 deferred backlog 로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerRoutingTests"` → Red: 계약 부재 실패 1/통과 4 → 계약 Green 통과 5 → 동작 Red 실패 1/통과 5 → Green 통과 6.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj` → 통과 12, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Broker.Tests` 통과 12 + `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — Broker publish payload range)
+
+### 작업 단위
+- `BrokerPublisher`가 같은 `RefCountedBuffer` 안의 일부 offset/length 범위만 fan-out 할 수 있게 했다.
+- 범위는 command handler 선행 조건인 payload slice 전송 계약으로 제한했다.
+- TCP command handler, protocol error 응답, Server wiring 은 포함하지 않았다.
+
+### Red
+- `Publish(string, RefCountedBuffer, int, int)` overload 부재를 reflection 기반 단언 실패로 확인했다.
+- overload no-op stub 에서 payload range fan-out 이 수락 수 0으로 실패하는 것을 확인했다.
+- 잘못된 offset/length 가 0-subscriber topic 에서 예외 없이 묻히는 실패를 확인했다.
+
+### 구현
+- 기존 `Publish(string, RefCountedBuffer)`는 `offset=0`, `length=payload.Length`로 ranged overload 에 위임한다.
+- ranged overload 는 구독자 snapshot 전에 offset/length 를 payload length 기준으로 검증한다.
+- 구독자별 send 는 기존 AddRef/TrySend/false-release 계약을 유지하면서 `TransportSendBuffer(payload, offset, length)`를 전달한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D035로 Broker publish payload range 결정을 기록했다.
+- `CURRENT_PLAN.md`를 payload range 완료 및 command handler 선행 조건 해소 상태로 갱신했다.
+- `TODOS.md` Completed에 이번 단위를 추가했다.
+
+### 검증
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerPublisherTests"` → Red: overload 부재 실패 1/통과 3 → Green 통과 4 → Red: range 동작 실패 2/통과 4 → Green 통과 6.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj` → 통과 10, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Broker.Tests` 통과 10 + `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — Claude 검토 조치 현황 문서화)
+
+### 작업 단위
+- 사용자가 요청한 `.claude/review/` 검토 의견 확인 결과를 문서로 남겼다.
+- 기존 Claude 검토 문서는 삭제하지 않고 보존했다.
+- 범위는 review status 문서와 상태 문서 연결로 제한했고, production/test code 는 수정하지 않았다.
+
+### 조치
+- `.claude/review/review-status-2026-06-11.md`를 추가했다.
+- `REVIEW_2026-06-11.md`가 현재 작업 트리 기준으로는 오래된 스냅샷임을 명시했다.
+- must-fix/should-fix/O 항목별 현재 조치 여부와 남은 비차단 항목을 정리했다.
+- `.claude/review/README.md`에 현재 조치 현황 문서 링크와 보존 원칙을 추가했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 review status 문서가 추가됐고 기존 검토 원문은 보존한다는 현재 상태를 기록했다.
+- `TODOS.md`의 Completed에 이번 문서화 작업을 추가했다.
+
+### 검증
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Broker.Tests` 통과 8 + `Hps.Buffers.Tests` 통과 18 +
+  `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — Broker publish fan-out)
+
+### 작업 단위
+- `SubscriptionTable` 위에 publish fan-out 진입점 `BrokerPublisher`를 추가했다.
+- 범위는 구독자 snapshot → 구독자별 `AddRef` → `ITransport.TrySend` → 거부 ref 즉시 반환까지로 제한했다.
+- command handler, Server wiring, backpressure/drop-oldest 정책은 포함하지 않았다.
+
+### Red
+- `BrokerPublisher` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- `BrokerPublisher(SubscriptionTable, ITransport)` 생성자와 `Publish(string, RefCountedBuffer)` 계약 부재를 reflection 기반 단언 실패로 확인했다.
+- no-op stub 에서 구독자 2명 fan-out 이 수락 수 0으로 실패했고, Transport 거부 구독자 경계도 수락 수 0으로 실패했다.
+
+### 구현
+- `BrokerPublisher.Publish`가 `SubscriptionTable.CopySubscribers`로 현재 구독자 snapshot 을 읽는다.
+- snapshot 배열은 `ArrayPool<IConnection>`에서 대여하고, 구독자 수가 배열보다 크면 더 큰 배열로 재시도한다.
+- 구독자마다 같은 `RefCountedBuffer`에 `AddRef()`한 뒤 `TransportSendBuffer(payload, 0, payload.Length)`로 `ITransport.TrySend`를 호출한다.
+- `TrySend`가 false 를 반환하거나 전송 시도 중 예외가 나면 Broker 가 방금 추가한 구독자 ref 를 즉시 `Release()`한다.
+- publish guard ref 는 caller 소유로 유지한다. BrokerPublisher 는 Publish 반환 시 caller ref 를 해제하지 않는다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D034로 Broker publish fan-out 소유권 결정을 기록했다.
+- `CURRENT_PLAN.md`를 publish fan-out 완료 및 사용자 리뷰 대기 상태로 갱신했다.
+- `TODOS.md`에 publish fan-out 완료 항목을 추가하고 다음 구현 후보는 리뷰 후 진행하도록 남겼다.
+
+### 검증
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerPublisherTests"` → Red: 타입 부재 실패 1 → 계약 부재 실패 1/통과 1 → 동작 Red 실패 2/통과 2 → Green 통과 4.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerPublisherTests"` → 최종 통과 4, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj` → 통과 8, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Broker.Tests` 통과 8 + `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — Broker subscription routing table)
+
+### 작업 단위
+- Phase 3 Broker 의 첫 단위로 `src/Hps.Broker`와 `tests/Hps.Broker.Tests` 프로젝트를 추가했다.
+- 범위는 topic 별 subscription routing table 로 제한했다. publish fan-out, command handler, backpressure 는 포함하지 않았다.
+
+### Red
+- Broker 프로젝트/`SubscriptionTable` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- `Subscribe`/`Unsubscribe`/`IsSubscribed`/`CountSubscribers`/`CopySubscribers` API 부재를 reflection 기반 테스트의 단언 실패로 확인했다.
+- 직접 public API 동작 테스트는 no-op stub 에서 구독 추가, 해지, snapshot 복사, D008 R1 동시 subscribe-vs-unsubscribe 경계를 만족하지 못해 실패했다.
+
+### 구현
+- `SubscriptionTable`을 추가해 `topic -> connection set` 라우팅을 관리한다.
+- D008에 따라 구독자 set 이 비어도 topic entry 를 즉시 제거하지 않는 NoCleanup 정책을 적용했다.
+- connection 비교는 reference equality 로 고정했다. 같은 connection handle 만 같은 구독자로 취급한다.
+- `CopySubscribers`는 caller 제공 배열에 가능한 만큼 복사하고, 반환값으로 전체 구독자 수를 알려 fan-out caller 가 재시도 크기를 판단할 수 있게 했다.
+- 테스트는 Green 후 reflection 계약 테스트를 제거하고 직접 public API 테스트만 남겼다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D033으로 Broker subscription routing 결정을 기록했다.
+- `TODOS.md`의 기존 Broker routing deferred 항목은 완료로 이동했다.
+- `CURRENT_PLAN.md`를 routing table 완료 및 사용자 리뷰 대기 상태로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~BrokerRoutingTests"` → Red: 타입 부재 실패 1 → API 부재 실패 1/통과 1 → 동작 Red 실패 4/통과 2 → Green 통과 6 → 리팩터 후 통과 4.
+- `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj` → 통과 4, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Broker.Tests` 통과 4 + `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — TCP frame receive handler hardening)
+
+### 작업 단위
+- `.claude/review/phase3-frame-adapter-command.md`의 low 관찰 중 O1/O2만 작은 Protocol hardening 단위로 처리했다.
+- O3 랜덤 적대적 fuzz 는 비차단 테스트 보강이므로 이번 커밋에 섞지 않고 `TODOS.md` Deferred Backlog 로 남겼다.
+
+### Red
+- `OnConnectionClosed_AfterPayloadTooLarge_NotifiesFrameHandlerOnlyOnce`는 PayloadTooLarge 후 Transport close 알림이 다시 오면
+  상위 `OnConnectionClosed`가 2회 호출되어 실패했다.
+- `OnReceived_WhenFrameHandlerThrows_ReleasesFrameAndClosesConnection`은 `OnFrame` 예외 후 frame 이 반환되지 않아
+  `pool.RentedCount == 1`로 남는 실패를 확인했다.
+
+### 구현
+- `TcpFrameReceiveHandler`가 connection 별 close 통지를 한 번만 수행하도록 `ConditionalWeakTable` 기반 weak marker 를 추가했다.
+- `ITcpFrameHandler.OnFrame` 계약을 정상 반환 시 소유권 이전으로 명확히 하고, 예외 시 어댑터가 frame 을 `Release()`하도록 했다.
+- `OnFrame` 예외는 해당 connection 의 protocol 처리 실패로 보고 assembler 를 제거한 뒤 connection 을 닫고 close 를 1회 통지한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D032로 dispatch 실패와 close 통지 멱등성 결정을 기록했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`를 hardening 완료 및 사용자 리뷰 대기 상태로 갱신했다.
+- D010 랜덤 적대적 fuzz 는 `P3_NICE` deferred backlog 로 분리했다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpFrameReceiveHandlerTests"` → Red: 실패 2/통과 5 → Green 통과 7.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpFrameReceiveHandlerTests"` → 최종 통과 7, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 23, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — TCP command decoder)
+
+### 작업 단위
+- Phase 3의 TCP frame payload 를 broker command 로 해석하는 작은 Protocol 단위를 구현했다.
+- `SUBSCRIBE <topic>`과 `PUBLISH <topic> <payload>`만 다룬다.
+- `TcpCommand`는 topic/payload 를 복사하지 않고 frame 내부 span view 로 노출한다.
+- Broker routing, subscription table, Server wiring, protocol error 응답은 포함하지 않았다.
+
+### Red
+- `TcpCommandDecoder` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- `TcpCommand`, `TcpCommandKind`, `TcpCommandDecodeError`, `TryDecode` 계약 부재를 reflection 기반 테스트의 단언 실패로 확인했다.
+- 직접 동작 테스트 8개는 스텁 decoder 가 모든 입력을 false 로 반환해 subscribe/publish 성공 경계와 malformed error 경계를 만족하지 못해 실패했다.
+
+### 구현
+- `TcpCommandKind`에 `Subscribe`, `Publish` command 종류를 추가했다.
+- `TcpCommandDecodeError`로 empty frame, unknown command, missing topic, invalid topic, missing publish payload separator 를 구분했다.
+- `TcpCommand`를 `readonly ref struct`로 두어 topic/payload 가 원본 frame span 을 가리키는 수명 경계를 코드로 강제했다.
+- `TcpCommandDecoder.TryDecode`는 예외 없이 `false + error`로 malformed input 을 보고한다.
+- `PUBLISH` payload 는 topic 뒤 두 번째 공백 이후의 나머지 전체 byte 로 유지해 payload 내부 공백과 임의 byte 를 보존한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D031로 TCP command decode 문법과 span view 소유권 결정을 기록했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`를 decoder 완료 및 사용자 리뷰 대기 상태로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpCommandDecoderTests"` → Red: 실패 1 → Green 통과 1 → Red: 실패 1/통과 1 → Green 통과 2 → Red: 실패 8/통과 3 → 최종 통과 9.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 21, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 21, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음.
+
+## 2026-06-11 (Codex — TCP receive frame 어댑터)
+
+### 작업 단위
+- Phase 3의 assembler ↔ Transport receive loop 연결을 작은 Protocol 단위로 구현했다.
+- `TcpFrameReceiveHandler`가 `ITransportReceiveHandler`를 구현해 raw TCP chunk 를 connection 별 `TcpFrameAssembler`로 조립한다.
+- 완성 frame 은 `ITcpFrameHandler.OnFrame`으로 소유권을 넘긴다. handler 는 받은 `RefCountedBuffer`를 Release 해야 한다.
+- `PayloadTooLarge`는 D010 계약대로 connection 을 닫고 상위 handler 에 close 를 알린다.
+- command codec, Broker, Server wiring 은 포함하지 않았다.
+
+### Red
+- `TcpFrameReceiveHandler` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- `ITcpFrameHandler`/constructor/`ITransportReceiveHandler` 계약 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- 동작 테스트 3개는 빈 adapter 구현에서 frame 전달 0건, partial payload 대여 0건, close 호출 0건으로 실패했다.
+
+### 구현
+- `src/Hps.Protocol`이 `Hps.Transport` public abstraction 을 참조하도록 project reference 를 추가했다.
+- `ITcpFrameHandler`를 추가해 완성 frame 과 connection close 알림을 Protocol 상위 계층으로 전달한다.
+- `TcpFrameReceiveHandler`가 connection 별 assembler dictionary 를 관리하고, `TransportReceiveBuffer`의 `Span`을 consumed loop 로 처리한다.
+- `OnConnectionClosed`는 partial payload 를 가진 assembler 를 Dispose 해 풀 누수를 막는다.
+- `PayloadTooLarge`를 받으면 assembler 를 제거하고 connection 을 닫은 뒤 상위 close callback 을 호출한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D030으로 TCP raw receive → frame callback 어댑터 결정을 기록했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`를 사용자 리뷰 대기 상태로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpFrameReceiveHandlerTests"` → Red: 실패 1 → Green 통과 2 → Red: 실패 3/통과 2 → 최종 통과 5.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 12, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 12, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — TCP 프레임 조립기 edge/fuzz 테스트 보강)
+
+### 작업 단위
+- `.claude/review/phase3-frame-assembler.md`의 should-add 항목 중 `TcpFrameAssembler` 단위 테스트 보강만 처리했다.
+- 범위는 `tests/Hps.Protocol.Tests/TcpFrameAssemblerTests.cs`의 테스트 추가와 상태 문서 갱신으로 제한했다.
+- production code 는 변경하지 않았다.
+
+### 테스트
+- 0 length frame 이 `FrameReady`로 완성되고 caller 가 Release 할 소유권 있는 빈 `RefCountedBuffer`를 받는지 검증했다.
+- 하나의 TCP chunk 에 여러 frame 이 붙었을 때 첫 호출이 첫 frame 길이까지만 `consumed`로 보고하고,
+  caller 가 remaining slice 로 재호출해 다음 frame 을 읽는 계약을 검증했다.
+- `payloadLength == maxPayloadLength`가 성공하는지 검증해 최대 payload 경계의 오프바이원 회귀를 막았다.
+- 결정적 fuzz 테스트로 24개 frame 을 1/2/7/3/11/5/1/13/4바이트 패턴 chunk 로 쪼개고,
+  consumed 기반 caller loop 가 참조 payload 목록과 같은 순서·내용으로 복원하는지 확인했다.
+
+### 결과
+- 추가 테스트는 기존 `TcpFrameAssembler` 구현으로 즉시 통과했다.
+- 따라서 이번 단위는 D010 회귀 테스트 고정이며 구현 변경은 없었다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpFrameAssemblerTests"` → 통과 7, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 7, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 7, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — TCP 프레임 조립기 기본 계약)
+
+### 작업 단위
+- Phase 3 첫 Protocol 단위로 `Hps.Protocol`과 `Hps.Protocol.Tests` 프로젝트를 추가했다.
+- TCP 4바이트 big-endian length-prefix frame 을 connection 단위로 조립하는 `TcpFrameAssembler` 기본 계약을 구현했다.
+- 범위는 fragmented header/payload 조립, maxPayload 초과 거부, partial payload dispose 반환으로 제한했다.
+
+### Red
+- `TcpFrameAssembler` 타입 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- `TryReadFrame` API 부재를 reflection 기반 테스트의 `Assert.NotNull` 실패로 확인했다.
+- 직접 public API 테스트 3개는 스텁 구현에서 `NeedMoreData`만 반환하거나 partial buffer 를 대여하지 않아 단언 실패했다.
+
+### 구현
+- `TcpFrameReadStatus`를 추가했다: `NeedMoreData`, `FrameReady`, `PayloadTooLarge`.
+- `TcpFrameAssembler`는 header 4바이트를 누적하고, payload length 가 허용 범위이면 `RefCountedBuffer`를 대여해 payload 를 누적 복사한다.
+- frame 완성 시 `SetLength` 후 caller 에 buffer 소유권을 넘기고, 내부 상태를 다음 frame 을 받을 수 있게 초기화한다.
+- 조립 중인 payload 가 있으면 `Dispose()`에서 정확히 한 번 `Release()`한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D029로 TCP 프레임 조립 API와 소유권 경계를 기록했다.
+- `CURRENT_PLAN.md`를 Phase 3 진입 상태로 갱신했다.
+- `TODOS.md`에 완료 항목과 후속 frame edge/fuzz coverage backlog 를 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter "FullyQualifiedName~TcpFrameAssemblerTests"` → Red: 실패 3, 통과 1. Green: 통과 4.
+- 리팩터 후 `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj` → 통과 3, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26 + `Hps.Protocol.Tests` 통과 3, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — TCP 동시 연결 echo 통합 테스트)
+
+### 작업 단위
+- Phase 2 테스트 기준의 동시 연결 안정성을 TCP echo loopback 통합 테스트로 보강했다.
+- 범위는 `SaeaTransportTests`의 테스트 추가와 상태 문서 갱신으로 제한했다. production code 는 변경하지 않았다.
+
+### 테스트
+- `TcpEcho_WhenMultipleClientsSendConcurrently_EchoesEachPayloadAndReturnsBuffers`를 추가했다.
+- 테스트는 loopback listener 에 8개 raw TCP client 를 연결하고, 각 accepted `IConnection`의 receive/send pump 가 동시에 echo 왕복을 처리하는지 검증한다.
+- client 별 payload 를 다르게 만들어 connection 간 응답 섞임을 단언으로 드러내고, echo buffer pool 이 `RentedCount==0`으로 돌아오는지 확인한다.
+- 모든 inbound connection 을 닫은 뒤 transport 내부 추적 수가 0으로 돌아와 단명 connection churn 의 누수 회귀도 함께 방어한다.
+
+### 결과
+- focused 실행에서 기존 TCP receive pump + send pump + connection tracking 구현만으로 동시 echo 왕복이 통과했다.
+- 따라서 이번 단위는 production 변경 없이 통합 회귀 테스트만 추가했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TcpEcho_WhenMultipleClientsSendConcurrently_EchoesEachPayloadAndReturnsBuffers"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 26, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 26, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — UDP echo loopback 통합 테스트)
+
+### 작업 단위
+- Phase 2 완료 기준의 UDP loopback echo 왕복을 작은 test-only 단위로 고정했다.
+- 범위는 `SaeaTransportTests`의 통합 테스트와 상태 문서 갱신으로 제한했다. production code 는 변경하지 않았다.
+
+### 테스트
+- `UdpEcho_WhenDatagramHandlerQueuesResponse_ClientReceivesSamePayload`를 추가했다.
+- 테스트 handler 는 UDP receive 로 받은 owned `RefCountedBuffer`에 Transport 송신 ref 를 먼저 추가하고,
+  같은 `IUdpEndpoint`의 `TrySendTo`로 원격 endpoint 에 되돌려 보낸다.
+- `TrySendTo` 성공 뒤 handler guard ref 를 Release 하고, send pump completion 이 남은 ref 를 반환하는 경계를 실제 socket 왕복으로 검증한다.
+
+### 결과
+- focused 실행에서 기존 UDP receive loop + endpoint send pump 구현만으로 echo 왕복이 통과했다.
+- 따라서 이번 단위는 production 변경 없이 통합 회귀 테스트만 추가했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpEcho_WhenDatagramHandlerQueuesResponse_ClientReceivesSamePayload"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 25, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 25, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF↔CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — TCP echo loopback 통합 테스트)
+
+### 작업 단위
+- Phase 2 완료 기준의 TCP loopback echo 왕복을 작은 test-only 단위로 고정했다.
+- 범위는 `SaeaTransportTests`의 통합 테스트와 상태 문서 갱신으로 제한했다. production code 는 변경하지 않았다.
+
+### 테스트
+- `TcpEcho_WhenReceiveHandlerQueuesResponse_ClientReceivesSamePayload`를 추가했다.
+- 테스트 handler 는 `TransportReceiveBuffer`가 콜백 동안만 유효하다는 계약을 지키기 위해 payload 를 테스트 전용
+  `RefCountedBuffer`로 즉시 복사한다.
+- handler 는 echo buffer 에 publish 가드 ref 와 Transport 송신 ref 를 분리해 적용하고,
+  `TrySend` 성공 뒤 publish 가드 ref 를 Release 한다. 송신 completion 뒤 `RentedCount==0`으로 돌아오는지 확인한다.
+
+### 결과
+- focused 실행에서 기존 recv pump + send pump 구현만으로 echo 왕복이 통과했다.
+- 따라서 이번 단위는 production 변경 없이 통합 회귀 테스트만 추가했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TcpEcho_WhenReceiveHandlerQueuesResponse_ClientReceivesSamePayload"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 24, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 24, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — UDP endpoint send 직렬화)
+
+### 작업 단위
+- `.claude/review/phase2-udp-datagram.md`의 S2 중 UDP send 의 datagram별 `Task.Run` 생성을 제거했다.
+- 범위는 endpoint별 pending send queue 와 단일 send pump, close 전 queued datagram drain 으로 제한했다.
+  UDP receive backpressure 정책(Q1)은 fan-out/backpressure 결정과 맞물리므로 별도 backlog 로 유지했다.
+
+### Red
+- `SaeaTransportTests`에 `UdpSendTo_WhenEndpointClosesBeforePumpSends_DrainsQueuedDatagramRef`를 추가했다.
+- 구현 전에는 `SaeaUdpEndpoint.PendingSendCount`가 없어 `Assert.NotNull` 단언 실패가 발생했다.
+
+### 구현
+- `SaeaUdpEndpoint`에 pending send queue, send signal, `PendingSendCount`, `TryAcceptSend`, `TryBeginSend`를 추가했다.
+- `SaeaTransport.TrySendTo`는 live buffer 검증 후 endpoint queue 에 송신 요청을 수락시키며, datagram마다 별도 `Task.Run`을 만들지 않는다.
+- `BindUdpAsync`는 endpoint별 단일 UDP send loop 를 시작한다. loop 는 queued datagram 을 순차적으로 `SendToAsync`로 보내고,
+  기존 `SendUdpDatagramAsync` finally 경로에서 Transport 소유 ref 를 정확히 한 번 Release 한다.
+- `SaeaUdpEndpoint.Close()`는 아직 pump 가 가져가지 않은 queued datagram 을 drain 하고 각 `RefCountedBuffer`를 Release 한다.
+
+### 테스트
+- Red 단계에서는 pending queue 관측 지점 부재를 reflection 으로 확인했다.
+- Green 후에는 테스트를 internal API 직접 검증으로 리팩터링해 endpoint queue 상태와 close drain 결과를 명확히 단언했다.
+- 기존 UDP send loopback 테스트와 함께 실행해 실제 datagram 전송, offset/length 범위, completion Release 계약이 유지되는지 확인했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 UDP send 직렬화 반영 상태와 다음 리뷰 대기 지점으로 갱신했다.
+- `TODOS.md`에서 combined UDP send/receive backlog 를 receive backpressure 항목으로 축소하고, send 직렬화 완료 항목을 추가했다.
+- `DECISIONS.md`에 UDP send 는 endpoint별 pending queue 와 단일 pump 로 처리한다는 D028을 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpSendTo_WhenEndpointClosesBeforePumpSends_DrainsQueuedDatagramRef"` → Red: `PendingSendCount` 부재 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- Green 후 테스트 리팩터링: UDP focused 테스트 2개 통과, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 23, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 23, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — Hps.Transport 폴더 구조 분리)
+
+### 작업 단위
+- 보기 어려워진 `src/Hps.Transport` flat 파일 배치를 책임별 하위 폴더로 분리했다.
+- 동작, namespace, public API 는 바꾸지 않는 파일 이동 전용 refactor 로 제한했다.
+
+### 구조
+- `src/Hps.Transport/Abstractions`: `ITransport`, `IConnection`, listener/handler/endpoint 계약, `TransportSendBuffer`, `TransportReceiveBuffer`.
+- `src/Hps.Transport/Runtime`: `TransportBase`, `TransportConnection`, `TransportFactory`.
+- `src/Hps.Transport/Saea`: `SaeaTransport`, `SaeaConnectionListener`, `SaeaUdpEndpoint`.
+- `tests/Hps.Transport.Tests/Contracts`: public 계약 테스트.
+- `tests/Hps.Transport.Tests/Runtime`: 공통 queue/ownership runtime 테스트.
+- `tests/Hps.Transport.Tests/Saea`: SAEA loopback/backend 기준선 테스트.
+
+### 상태 갱신
+- `AGENTS.md`의 프로젝트 레이아웃에 `Hps.Transport` 하위 폴더 책임을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`를 새 구조 기준으로 갱신했다.
+- `DECISIONS.md`에는 D027로 이후 파일 추가 위치 규칙을 남겼다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 22, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 22, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — TransportFactory SAEA fallback 기준선)
+
+### 작업 단위
+- Phase 2 backend selector 최소 계약으로 `TransportFactory.CreateDefault()`를 추가했다.
+- 범위는 상위 계층이 concrete backend 를 직접 선택하지 않도록 `ITransport` 생성 진입점을 만드는 데 한정했다.
+  실제 OS/capability probe, RIO/io_uring backend 선택, backend 옵션은 포함하지 않았다.
+
+### Red
+- `TransportContractTests`에 기본 Transport factory 계약 테스트를 추가했다.
+- 구현 전에는 `TransportFactory` 타입이 없어 `Assert.NotNull` 단언 실패가 발생했다.
+
+### 구현
+- `TransportFactory` 정적 클래스를 추가했다.
+- `CreateDefault()`는 현재 모든 환경에서 크로스플랫폼 기준선인 `SaeaTransport`를 `ITransport`로 반환한다.
+- XML doc에는 현재 fallback 성격과 이후 backend probe 확장 위치임을 명시했다.
+
+### 테스트
+- Red 단계에서는 타입 부재를 확인하기 위해 reflection 으로 factory 존재를 검사했다.
+- Green 이후에는 테스트를 직접 `TransportFactory.CreateDefault()` 호출로 리팩터링해 public API 사용 형태를 고정했다.
+- 반환값이 `ITransport`로 사용 가능하고 현재 fallback 이 `SaeaTransport`인지 검증했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 backend selector 최소 계약 완료와 테스트 40개 기준으로 갱신했다.
+- `TODOS.md`에서 backend selector 항목을 Completed 로 옮기고, 다음 후보로 UDP endpoint send 직렬화/backpressure 항목을 유지했다.
+- `DECISIONS.md`에 기본 Transport 생성 진입점을 D026으로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportFactory_CreateDefault_ReturnsSaeaFallbackAsITransport"` → Red: `TransportFactory` 타입 부재 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- Green 후 테스트 리팩터링: 같은 focused 테스트 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 22, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 22, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — UDP datagram receive 소유권 이전 순서 수정)
+
+### 작업 단위
+- `.claude/review/phase2-udp-datagram.md`의 S1 should-fix 를 반영해 UDP receive loop 의 datagram 소유권 이전 시점을 명확히 했다.
+- 범위는 handler 호출 전 local ref 차단과 회귀 테스트로 제한했다. UDP send pump/배압 정책(S2/Q1)은 별도 backlog 로 이월했다.
+
+### Red
+- `SaeaTransportTests`에 handler 가 받은 `RefCountedBuffer`를 Release 한 뒤 예외를 던지는 회귀 테스트를 추가했다.
+- 구현 전에는 receive loop catch 가 같은 datagram 을 다시 Release 하면서 원래 handler 예외가 `InvalidOperationException`으로 덮였다.
+
+### 구현
+- `UdpReceiveLoopAsync`에서 `SetLength` 후 `ownedDatagram`으로 소유권을 옮기고, handler dispatch 전에 local `datagram`을 null 로 끊었다.
+- 이 순서로 handler 호출 시점부터 Release 책임이 `ITransportDatagramHandler` 계약으로 넘어가며, handler 예외 경로에서 loop catch 가 이미 이전된 ref 를 다시 만지지 않는다.
+
+### 테스트
+- public receive API 는 background loop 예외를 노출하지 않으므로, 이번 회귀 테스트는 private receive loop 를 reflection 으로 직접 실행한다.
+- handler 가 Release 후 던진 고유 예외가 double-release 예외로 덮이지 않는지 검증한다.
+- 테스트 주석에는 white-box 테스트가 필요한 이유와 보호하는 소유권 경계를 한국어로 남겼다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 S1 반영 상태와 테스트 39개 기준으로 갱신했다.
+- `TODOS.md`에 S1 완료 항목을 추가하고, S2/Q1을 UDP endpoint send 직렬화와 receive backpressure 정책 backlog 로 남겼다.
+- `DECISIONS.md`에 UDP datagram handler 호출 시점의 소유권 이전 결정을 D025로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenHandlerThrowsAfterTakingOwnership_DoesNotReleaseDatagramAgain"` → Red: `InvalidOperationException`으로 예외가 덮여 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 21, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 21, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — UDP datagram 계약과 SAEA 기준선)
+
+### 작업 단위
+- UDP datagram public 계약을 TCP connection/listener 모델과 분리하고, `SaeaTransport`의 UDP loopback bind/send/receive 기준선을 구현했다.
+- 범위는 `IUdpEndpoint`, datagram handler, UDP bind/send/receive 와 ref 반환 검증으로 제한했다.
+  UDP 신뢰성/순서 보장/혼잡 제어, backend selector, RIO/io_uring 구현은 포함하지 않았다.
+
+### Red
+- `TransportContractTests`에 UDP endpoint/datagram handler 계약 테스트를 추가했다.
+  구현 전에는 `IUdpEndpoint` 타입이 없어 `Assert.NotNull` 단언 실패가 발생했다.
+- `SaeaTransportTests`에 UDP receive loopback 테스트를 추가했다.
+  구현 전에는 `BindUdpAsync`가 `NotImplementedException`을 던졌다.
+- `SaeaTransportTests`에 UDP send loopback 테스트를 추가했다.
+  구현 전에는 `TrySendTo`가 `NotImplementedException`을 던졌다.
+
+### 구현
+- `IUdpEndpoint`를 추가해 UDP local endpoint 의 수명과 `LocalEndPoint`를 표현했다.
+- `ITransportDatagramHandler`를 추가해 UDP receive 가 owned `RefCountedBuffer`를 handler 로 넘기도록 했다.
+- `ITransport`에 `SetDatagramHandler`, `BindUdpAsync`, `TrySendTo`를 추가했다.
+- `TransportBase`는 datagram handler 등록과 snapshot 을 공통 처리하고, 기존 테스트용 subclass 가 깨지지 않도록 UDP 메서드는 기본 `NotImplementedException` 구현을 제공한다.
+- `SaeaUdpEndpoint`를 추가해 UDP socket 과 transport unregister 경계를 캡슐화했다.
+- `SaeaTransport`는 UDP endpoint 를 bind 하고 receive loop 에서 pinned counted buffer 를 직접 대여해 datagram handler 로 전달한다.
+- `TrySendTo`는 `TransportSendBuffer.Offset/Length` 범위만 UDP socket 으로 전송하고, true 반환 뒤 Transport 소유 ref 를 completion/unwind 경로에서 반환한다.
+
+### 테스트
+- UDP public 계약이 TCP accept 모델과 섞이지 않고, raw `Memory<byte>`/`ReadOnlyMemory<byte>`를 public datagram 계약에 노출하지 않는지 검증했다.
+- 외부 UDP socket 이 보낸 datagram 이 handler 로 전달되고, handler 가 받은 `RefCountedBuffer`를 직접 Release 하는지 검증했다.
+- `TrySendTo`가 offset/length 범위만 원격 UDP socket 에 보내며, publish guard ref 해제 뒤 Transport 소유 ref 가 반환되어 `RentedCount==0`으로 돌아오는지 검증했다.
+- 테스트에는 각 테스트가 보호하는 UDP datagram 소유권과 1 datagram = 1 message 의도를 한국어 주석으로 남겼다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 UDP datagram 기준선과 테스트 38개 통과 상태로 갱신했다.
+- `TODOS.md`에서 UDP datagram 항목을 Completed 로 옮기고, 다음 후보를 Phase 2 backend selector 최소 계약으로 남겼다.
+- `DECISIONS.md`에 UDP datagram 과 `RefCountedBuffer` handler 소유권 결정을 D024로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesUdpDatagramModelWithoutTcpConnection"` → Red: `IUdpEndpoint` 타입 부재 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpReceive_WhenSocketSendsDatagram_DeliversOwnedRefCountedBuffer"` → Red: `BindUdpAsync` `NotImplementedException` 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~UdpSendTo_WhenTrySendToBoundEndpoint_SendsRequestedDatagramAndReleasesRef"` → Red: `TrySendTo` `NotImplementedException` 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 20, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 20, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → whitespace 오류 없음. Git의 LF→CRLF 안내 경고만 출력됨.
+
+## 2026-06-11 (Codex — SaeaTransport TCP send pump 기준선)
+
+### 작업 단위
+- `SaeaTransport`가 `ITransport.TrySend`로 enqueue 된 `TransportSendBuffer`를 실제 TCP socket 으로 전송하는 최소 기준선을 구현했다.
+- 범위는 raw TCP payload send 와 in-flight ref 반환으로 제한했다. 프레이밍, UDP, backpressure, 명시적 SocketAsyncEventArgs 최적화는 포함하지 않았다.
+
+### Red
+- `SaeaTransportTests`에 accepted connection 으로 `TrySend`한 payload 가 raw socket client 로 도착하고,
+  send completion 뒤 `RefCountedBuffer`가 풀로 반환되는지 검증하는 테스트를 추가했다.
+- 구현 전에는 send pump 가 없어 client receive 가 5초 안에 완료되지 않아 timeout 단언 실패가 발생했다.
+
+### 구현
+- `TransportConnection`에 pending send signal 을 추가했다. 빈 큐에서 첫 항목이 enqueue 되거나 close 로 펌프를 깨워야 할 때만 signal 을 보낸다.
+- `SaeaTransport`가 connection 생성 시 send loop 를 시작하게 했다.
+- send loop 는 `TryBeginInFlightSend`로 in-flight handle 을 얻고, `TransportSendBuffer.Offset/Length` 범위만 socket 으로 전송한다.
+- send completion 은 `InFlightSend.Complete()`를 호출하고, socket error/close/unwind 경로는 `Dispose()`가 Transport 소유 ref 를 반환한다.
+
+### 테스트
+- payload 앞뒤에 sentry byte 를 둔 뒤 `TransportSendBuffer`의 offset/length 범위만 client 가 받는지 검증했다.
+- publish guard ref 를 먼저 `Release()`한 뒤에도 send completion 전에는 풀로 돌아가지 않고, completion 뒤 `RentedCount==0`이 되는지 검증했다.
+- 테스트에는 TCP send pump 가 보호해야 하는 socket write 와 ref 반환 의도를 한국어 주석으로 남겼다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 TCP send pump 기준선과 테스트 35개 통과 상태로 갱신했다.
+- `TODOS.md`에서 TCP send pump 항목을 Completed 로 옮기고, 다음 후보를 UDP datagram public 계약/SAEA 기준선으로 남겼다.
+- `DECISIONS.md`에 TCP send pump 의 raw Socket baseline 과 in-flight handle 재사용 결정을 D023으로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~SendPump_WhenTrySendAcceptedConnection_SendsRequestedPayloadAndReleasesRef"` → Red: timeout 단언 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 17, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 17, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → 문제 없음.
+
+## 2026-06-11 (Codex — SaeaTransport connection unregister 누수 수정)
+
+### 작업 단위
+- 사용자 리뷰에서 지적된 `SaeaTransport._connections` 등록 해제 누락을 수정했다.
+- 범위는 닫힌 connection 의 transport 추적 참조 제거와 close 시 socket dispose lock 분리로 제한했다.
+  TCP send pump, 프레이밍, UDP, backpressure 는 포함하지 않았다.
+
+### Red
+- `SaeaTransportTests`에 accepted connection 을 `Close()`한 뒤 transport 내부 tracking count 가 0으로 돌아오는지 검증하는 회귀 테스트를 추가했다.
+- 구현 전에는 `_connections`에 닫힌 connection 이 남아 `Expected: 0`, `Actual: 1` 단언 실패가 발생했다.
+
+### 구현
+- `TransportConnection`에 close callback 을 추가해 첫 `Close()` 성공 경로에서만 transport 에 등록 해제를 알린다.
+- `SaeaTransport`는 connection 생성 시 `UnregisterConnection` callback 을 넘기고, 개별 connection close 시 `_connections`에서 제거한다.
+- `TransportConnection.Close()`는 pending drain 과 closed 표시를 lock 안에서 끝낸 뒤,
+  unregister callback 과 backend socket dispose 를 lock 밖에서 수행하도록 정리했다.
+
+### 테스트
+- raw socket client 로 listener 에 연결해 transport 가 추적하는 accepted connection 하나를 만든다.
+- accepted `IConnection.Close()` 이후 transport 내부 추적 목록 count 가 0으로 감소하는지 검증했다.
+- 테스트에는 목적 주석을 남겨 단명 connection churn 에서 닫힌 socket 참조가 누적되는 회귀를 막는다는 의도를 명시했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 connection tracking 누수 해소와 테스트 34개 통과 상태로 갱신했다.
+- `TODOS.md`에 이번 누수 수정 단위를 Completed 로 기록하고, 다음 구현 단위는 계속 TCP send pump 기준선으로 남겼다.
+- `DECISIONS.md`에 닫힌 SAEA connection unregister 와 dispose lock 분리를 D022로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Close_WhenAcceptedConnectionIsClosed_RemovesTransportTrackingReference"` → Red: 실패 1(`Expected: 0`, `Actual: 1`), Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 16, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 16, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → 문제 없음.
+
+## 2026-06-11 (Codex — SaeaTransport TCP recv pump 기준선)
+
+### 작업 단위
+- `SaeaTransport`가 실제 TCP socket 에서 받은 raw byte stream 조각을 receive handler 로 전달하는 최소 기준선을 구현했다.
+- 프레이밍, `RefCountedBuffer` payload 조립, 송신 펌프, UDP, 명시적 SocketAsyncEventArgs 최적화는 넣지 않고 recv chunk 전달만 별도 단위로 처리했다.
+
+### Red
+- `SaeaTransportTests`에 raw socket client 가 loopback listener 로 작은 byte 배열을 보내고,
+  accepted `IConnection`의 receive handler 가 해당 bytes 를 관측하는 테스트를 추가했다.
+- 구현 전에는 handler 가 호출되지 않아 timeout 단언 실패가 발생했다.
+
+### 구현
+- `SaeaTransport`가 connection 생성 시 receive loop 를 시작하게 했다.
+- receive loop 는 `PinnedBlockMemoryPool`에서 receive block 을 대여하고, socket recv 결과를 `TransportReceiveBuffer` borrowed view 로 동기 dispatch 한다.
+- `TransportReceiveBuffer`는 async method 안에 보관하지 않고, 별도 동기 helper 에서만 생성해 ref struct 제약을 유지했다.
+- remote close 또는 socket error 는 `ITransportReceiveHandler.OnConnectionClosed`를 호출하고 `IConnection.Close()` 경로로 정리한다.
+
+### 테스트
+- raw socket client 가 `{10,20,30,40}` payload 를 보내면 handler 가 같은 bytes 를 받는지 검증했다.
+- handler 가 받은 `IConnection`이 listener 에서 accept 한 inbound connection 과 같은 instance 인지 검증했다.
+- 테스트 helper 는 borrowed buffer 를 콜백 안에서 즉시 복사해, 콜백 이후 span 수명에 의존하지 않게 했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 TCP recv pump 기준선과 테스트 33개 통과 상태로 갱신했다.
+- `TODOS.md`에서 이번 recv pump 기준선을 Completed로 옮기고, 다음 리뷰 단위를 TCP send pump 기준선으로 남겼다.
+- `DECISIONS.md`에 receive pump 의 pinned block 사용과 raw chunk 전달 범위를 D021로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ReceivePump_WhenRawClientSendsBytes_DeliversBorrowedChunkToHandler"` → Red: timeout 단언 실패 1, Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 15, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 15, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → 문제 없음.
+
+## 2026-06-11 (Codex — Transport receive delivery 계약)
+
+### 작업 단위
+- TCP payload I/O 구현 전에 Transport 가 상위 계층으로 recv byte stream 을 전달하는 public 계약을 확정했다.
+- 실제 socket recv pump, 프레이밍, `RefCountedBuffer` payload 조립은 넣지 않고 borrowed receive boundary 만 별도 단위로 처리했다.
+
+### Red
+- `TransportContractTests`에 receive handler 와 borrowed receive buffer 계약 테스트를 추가했다.
+- 구현 전에는 `ITransportReceiveHandler`/`TransportReceiveBuffer` 타입이 없어 `Assert.NotNull`이 실패했다.
+
+### 구현
+- `ITransport.SetReceiveHandler(ITransportReceiveHandler)`를 추가했다.
+- `ITransportReceiveHandler`를 추가해 `OnReceived(IConnection, TransportReceiveBuffer)`와 `OnConnectionClosed(IConnection)`를 정의했다.
+- `TransportReceiveBuffer`를 `readonly ref struct`로 추가해 콜백 동안만 유효한 `ReadOnlySpan<byte>` view 와 `Length`만 노출하게 했다.
+- `TransportBase`에 receive handler 저장과 recv pump 용 snapshot helper 를 추가했다.
+
+### 테스트
+- receive delivery 계약이 `IConnection` public API 가 아니라 `ITransport` handler 경계에 있는지 검증했다.
+- `TransportReceiveBuffer`가 byref-like 타입이며 `Span`/`Length`를 제공하는지 검증했다.
+- handler/transport/receive buffer 계약이 raw `Memory<byte>`/`ReadOnlyMemory<byte>` parameter/property 를 노출하지 않는지 검증했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 receive delivery 계약 확정 상태와 테스트 32개 통과 상태로 갱신했다.
+- `TODOS.md`에서 receive delivery 계약을 Completed로 옮기고, 다음 리뷰 단위를 `SaeaTransport` TCP recv pump 기준선으로 남겼다.
+- `DECISIONS.md`에 borrowed receive delivery 경계를 D020으로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesBorrowedReceiveDeliveryBoundary"` → Red: 실패 1(`ITransportReceiveHandler`/`TransportReceiveBuffer` 없음), Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 14, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 14, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → 문제 없음.
+
+## 2026-06-11 (Codex — SaeaTransport TCP loopback 연결 기준선)
+
+### 작업 단위
+- `SaeaTransport`가 실제 loopback TCP listener/connect/accept 를 수행해 양쪽 `IConnection`을 만들 수 있는 최소 기준선을 구현했다.
+- payload send/recv, SocketAsyncEventArgs 버퍼 운용, UDP, backpressure 는 넣지 않고 연결 수명만 별도 단위로 처리했다.
+
+### Red
+- `SaeaTransportTests`에 localhost loopback 에서 listener 를 열고 outbound connect 와 inbound accept 를 수행하는 테스트를 추가했다.
+- 구현 전에는 `SaeaTransport` 타입이 없어 reflection 기반 `Assert.NotNull`이 실패했다.
+
+### 구현
+- `SaeaTransport`를 추가해 `StartAsync`, `ListenTcpAsync`, `ConnectTcpAsync`, `StopAsync`, `Dispose`를 구현했다.
+- `SaeaConnectionListener`를 추가해 listen socket 을 `IConnectionListener` 뒤에 숨기고, accepted socket 을 `TransportConnection`으로 등록하게 했다.
+- `TransportConnection`에 backend resource dispose 경계를 추가해, 실제 socket 을 감싼 연결도 `Close()`에서 함께 닫히게 했다.
+- listener 와 connection 은 Transport 내부 목록으로 추적하고, `StopAsync`/`Dispose`에서 idempotent close 경로를 재사용한다.
+
+### 테스트
+- 포트 0으로 listener 를 열고 `LocalEndPoint`의 실제 포트가 채워지는지 검증했다.
+- listener 의 `AcceptAsync`와 transport 의 `ConnectTcpAsync`를 loopback 으로 연결해 inbound/outbound `IConnection`이 각각 생성되는지 검증했다.
+- Green 후 테스트는 reflection 에서 직접 `SaeaTransport` public 타입 호출 방식으로 리팩터링했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 SAEA TCP loopback 기준선과 테스트 31개 통과 상태로 갱신했다.
+- `TODOS.md`에서 이번 loopback 기준선을 Completed로 옮기고, 다음 리뷰 단위를 Transport receive delivery 계약 확정으로 남겼다.
+- `DECISIONS.md`에 TCP socket 수명과 이번 SAEA 기준선 범위를 D019로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~ListenConnectAccept_WhenLoopbackTcp_CreatesInboundAndOutboundConnections"` → Red: 실패 1(`SaeaTransport` 없음), Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 13, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 13, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → 문제 없음.
+
+## 2026-06-11 (Codex — Transport TCP listen/connect/accept public 계약)
+
+### 작업 단위
+- Phase 2 SAEA 기준선에 들어가기 전에 상위 계층이 TCP 연결을 어떻게 얻는지 public 계약으로 고정했다.
+- 실제 SAEA socket I/O, UDP datagram 계약, send/recv payload 처리는 넣지 않고 연결 획득 모델만 별도 단위로 처리했다.
+
+### Red
+- `TransportContractTests`에 TCP listen/connect/accept 계약 테스트를 추가했다.
+- 구현 전에는 `IConnectionListener` 타입이 없어 `Assert.NotNull`이 실패했다.
+
+### 구현
+- `ITransport.ListenTcpAsync(EndPoint, CancellationToken)`를 추가해 TCP listener 생성 진입점을 명시했다.
+- `ITransport.ConnectTcpAsync(EndPoint, CancellationToken)`를 추가해 outbound TCP 연결 생성 진입점을 명시했다.
+- `IConnectionListener`를 추가해 listener 의 `LocalEndPoint`, `AcceptAsync`, `Close`/`Dispose` 계약을 분리했다.
+- `TransportBase`에 TCP listen/connect 추상 멤버를 추가해 concrete transport 가 같은 계약을 구현하도록 했다.
+
+### 테스트
+- public contract 가 TCP listener, connect, accept 를 `IConnection`/`IConnectionListener` 중심으로 노출하는지 검증했다.
+- listener 계약에 `LocalEndPoint`, `AcceptAsync`, `Close`, `IDisposable`이 있는지 검증했다.
+- 기존 raw `Memory<byte>`/`ReadOnlyMemory<byte>` parameter 금지 검사를 listener 계약까지 확장했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 TCP 연결 계약 확정 상태와 테스트 30개 통과 상태로 갱신했다.
+- `TODOS.md`에서 public 연결 모델 항목을 Completed로 이동하고, 다음 리뷰 단위를 SAEA TCP loopback 기준선으로 남겼다.
+- `DECISIONS.md`에 TCP 연결 획득 계약을 D018로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~Transport_Contract_ExposesTcpListenConnectAcceptModel"` → Red: 실패 1(`IConnectionListener` 없음), Green: 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 12, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 12, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+- `git diff --check` → 문제 없음.
+
+## 2026-06-11 (Codex — Transport in-flight handle abandon-leak 방어)
+
+### 작업 단위
+- `REVIEW_2026-06-11.md`의 위험 #1을 반영해, 송신 펌프가 dequeue 이후 close/unwind 로 completion 없이 빠져나가는 abandon-leak 경로를 막았다.
+- 실제 socket send, SAEA 백엔드, listen/connect/accept 모델은 넣지 않고 in-flight 소유권 API만 별도 단위로 처리했다.
+
+### Red
+- `TransportSendQueueTests`에 pump abandon 시나리오를 보호하는 테스트를 추가했다.
+- 구현 전에는 `TryBeginInFlightSend` 메서드가 없어 reflection 기반 `Assert.NotNull`이 실패했다.
+
+### 구현
+- `TransportConnection.TryDequeueSend(out TransportSendBuffer)` raw dequeue API를 제거했다.
+- `TransportConnection.TryBeginInFlightSend(out InFlightSend?)`를 추가해 송신 펌프가 pending 항목을 dispose 가능한 handle 로 받게 했다.
+- `InFlightSend.Complete()`와 `Dispose()`는 같은 release 경로를 타며, `Interlocked.Exchange`로 실제 Release 를 한 번만 수행한다.
+- `Close()`는 여전히 pending 만 drain 한다. 이미 begin 된 in-flight ref 는 펌프 handle 의 completion/unwind 경로가 책임진다.
+
+### 테스트
+- close 이후 completion 없이 펌프가 unwind 되는 abandon 시나리오에서 `Dispose()`가 Transport 소유 ref 를 반환하는지 검증했다.
+- 정상 completion 후 finally/dispose 가 다시 지나가도 이중 Release 가 발생하지 않는지 검증했다.
+- 기존 close/in-flight 경계 테스트를 raw buffer release 에서 handle `Dispose()` 경로로 바꿨다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 in-flight handle 구현 상태와 테스트 29개 통과 상태로 갱신했다.
+- `TODOS.md`에 이번 abandon-leak 방어 작업을 Completed로 기록하고, 다음 리뷰 단위는 Phase 2 연결 모델 확정으로 유지했다.
+- `DECISIONS.md`의 D017을 raw `CompleteInFlightSend` 계약에서 handle 기반 completion/unwind 계약으로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~InFlightSend_WhenPumpAbandonsAfterClose_DisposePathReleasesTransportOwnedRef"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~InFlightSend_WhenPumpCompletesDequeuedSend_CompleteReleasesTransportOwnedRef"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"` → 통과 7, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 11, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 11, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+
+## 2026-06-10 (Codex — Transport in-flight completion release)
+
+### 작업 단위
+- 송신 펌프가 pending 큐에서 dequeue 한 in-flight 항목을 완료/취소/unwind 시 반환하는 최소 release 경로를 구현했다.
+- 실제 socket send, SAEA 백엔드, listen/connect/accept 모델은 넣지 않고 completion ownership 경계만 별도 단위로 처리했다.
+
+### Red
+- `TransportSendQueueTests`에 `CompleteInFlightSend` 메서드 존재와 release 동작을 요구하는 테스트를 먼저 추가했다.
+- 구현 전에는 reflection 기반 `Assert.NotNull`이 실패해 completion release 경로가 아직 없음을 확인했다.
+
+### 구현
+- `TransportConnection.CompleteInFlightSend(TransportSendBuffer)`를 추가했다.
+- 이 메서드는 이미 `TryDequeueSend`로 pending 큐에서 빠져나온 항목의 Transport 소유 ref 를 `Release`한다.
+- pending 큐 상태를 변경하지 않으므로 `_gate` lock 을 잡지 않는다. close 는 pending 만 drain 하고 in-flight 는 펌프 완료 경로가 책임진다는 D016 경계를 유지한다.
+
+### 테스트
+- close 이후에도 이미 dequeue 된 in-flight 항목은 close 가 반환하지 않고, `CompleteInFlightSend`가 반환하는지 검증했다.
+- close 없이 정상 completion 만으로도 Transport 소유 ref 가 반환되어 `RentedCount==0`으로 돌아오는지 검증했다.
+- Red 확인 뒤 테스트는 reflection 을 제거하고 internal API 직접 호출 방식으로 리팩터링했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 in-flight completion release 구현 상태와 테스트 28개 통과 상태로 갱신했다.
+- `TODOS.md`에서 이번 in-flight completion release 작업을 Completed로 이동하고, 다음 리뷰 단위를 Phase 2 연결 모델 확정으로 남겼다.
+- `DECISIONS.md`에 completion callback 이 사용할 단일 in-flight release 경로를 D017로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~CompleteInFlightSend_WhenPumpCompletesDequeuedSend_ReleasesTransportOwnedRef"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"` → 통과 6, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 10, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 10, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+
+## 2026-06-10 (Codex — Transport 송신 큐 close/drain release)
+
+### 작업 단위
+- `ITransport.TrySend`가 수락한 pending 송신 항목을 close 시 누수 없이 release 하는 최소 큐 골격을 구현했다.
+- 실제 소켓 I/O, SAEA 백엔드, completion callback 은 넣지 않고 pending queue 와 close/drain 소유권만 별도 단위로 처리했다.
+
+### Red
+- `TransportSendQueueTests`에 `TransportBase` 타입 존재 테스트를 먼저 추가해 타입 부재 단언 실패를 확인했다.
+- `default(TransportSendBuffer)`가 `TrySend`에서 예외 없이 pending 큐에 들어갈 수 있음을 `Assert.Throws` 실패로 확인했다.
+
+### 구현
+- `TransportBase`를 추가해 `ITransport.TrySend(IConnection, TransportSendBuffer)`의 공통 소유권 판정을 구현했다.
+- `TransportConnection`을 내부 연결 상태로 추가하고 pending 송신 큐, close reject, close drain 을 구현했다.
+- `Close()`는 closed 표시와 pending drain 을 같은 lock 안에서 처리해 close 이후 새 send 가 drain 을 빠져나가지 못하게 했다.
+- 송신 펌프가 `TryDequeueSend`로 가져간 in-flight 항목은 close 가 release 하지 않도록 pending 과 분리했다.
+- `TransportBase.TrySend`는 pending 큐에 넣기 전에 `TransportSendBuffer`가 live `RefCountedBuffer`를 가리키는지 확인한다.
+  생성자를 거치지 않은 default 요청이나 이미 반환된 버퍼를 close drain 시점까지 지연시키지 않기 위한 방어다.
+- 테스트 접근을 위해 `InternalsVisibleTo("Hps.Transport.Tests")`를 추가했다.
+- `ITransport.StartAsync`/`StopAsync`는 기존 작업 중 반영된 기본 `CancellationToken` 인자를 유지했다.
+
+### 테스트
+- open 연결에서 `TrySend` 성공 후 publish 가드 ref 를 Release 해도 close 전까지 pool 이 반환되지 않고, close drain 에서 반환되는지 검증했다.
+- closed 연결에서 `TrySend`가 false 를 반환하면 Transport 가 ref 소유권을 가져가지 않아 호출자가 Release 해야 함을 검증했다.
+- `default(TransportSendBuffer)`가 pending 큐에 들어가지 않고 수락 경계에서 즉시 거부되는지 검증했다.
+- `Close()`를 두 번 호출해도 pending 항목이 한 번만 Release 되는지 검증했다.
+- 송신 펌프가 dequeue 한 in-flight 항목은 close 가 Release 하지 않고 펌프 완료 경로가 Release 해야 함을 검증했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 Transport pending queue/close drain 구현 상태와 테스트 27개 통과 상태로 갱신했다.
+- `TODOS.md`에서 이번 close/drain 작업을 Completed로 이동하고, 다음 리뷰 단위를 in-flight send completion Release 경로로 남겼다.
+- `DECISIONS.md`에 pending 과 in-flight release 책임 분리를 D016으로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportSendQueueTests"` → 통과 5, 실패 0, 건너뜀 0.
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj` → 통과 9, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 9, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+
+## 2026-06-10 (Codex — Transport 버퍼 소유권 계약)
+
+### 작업 단위
+- Phase 2 진입을 위해 `Hps.Transport` public 계약의 첫 단위를 추가했다.
+- 실제 소켓 I/O, SAEA 백엔드, 송신 큐/펌프 구현은 넣지 않고, raw `Memory<byte>` 대신 `RefCountedBuffer` 핸들을 받는 송신 소유권 경계만 고정했다.
+
+### Red
+- `tests/Hps.Transport.Tests`를 추가하고 reflection 기반 테스트로 `Hps.Transport.TransportSendBuffer` 타입 부재를 단언 실패로 확인했다.
+
+### 구현
+- `src/Hps.Transport` 프로젝트를 추가하고 `Hps.Buffers`를 참조하도록 했다.
+- `TransportSendBuffer`를 `RefCountedBuffer + offset + length` 값 타입으로 추가했다.
+- `TransportSendBuffer`는 `RefCountedBuffer.Length` 기준 payload 범위를 벗어난 offset/length 를 거부한다.
+- 사용자 리뷰를 반영해 송신 시도와 소유권 판정을 `IConnection`이 아니라 `ITransport.TrySend(IConnection, TransportSendBuffer)`에 둔다.
+- `IConnection`은 연결 핸들/수명 계약에 집중하도록 `Close()`/`Dispose()`만 노출한다.
+- `ITransport`는 lifecycle 계약과 `TrySend` 계약만 우선 추가했고 listen/connect/accept 모델은 다음 구현 단위로 남겼다.
+
+### 테스트
+- `TransportSendBuffer`가 `RefCountedBuffer`와 payload range 를 그대로 노출하는지 검증했다.
+- payload 범위 밖 송신 요청이 거부되는지 검증했다.
+- 이미 풀에 반환된 `RefCountedBuffer`로 송신 요청을 만들면 거부되는지 검증했다.
+- `ITransport.TrySend(IConnection, TransportSendBuffer)`가 존재하고 bool 을 반환하는지 검증했다.
+- `IConnection` public 계약에 `TransportSendBuffer` parameter 가 없고, Transport public 계약에 raw `Memory<byte>`/
+  `ReadOnlyMemory<byte>` parameter 가 없는지 검증했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 Phase 2 초기 계약 상태와 테스트 22개 통과 상태로 갱신했다.
+- `TODOS.md`에서 이번 계약 작업을 Completed로 이동하고, 다음 리뷰 단위를 `ITransport.TrySend` 송신 큐 close/drain release 계약 구현으로 남겼다.
+- `DECISIONS.md`에 Transport 송신 계약의 소유권 경계를 D015로 기록했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter "FullyQualifiedName~TransportContractTests"` → 통과 4, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → `Hps.Buffers.Tests` 통과 18 + `Hps.Transport.Tests` 통과 4, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+
+## 2026-06-10 (Codex — RefCountedBuffer 동시 Release 스트레스 테스트)
+
+### 작업 단위
+- D013에 따라 `RefCountedBuffer` 동시 Release/팬아웃 스트레스 테스트만 별도 리뷰 단위로 보강했다.
+- production code 수정 없이 기존 참조계수 구현이 동시 반환 계약을 만족하는지 테스트로 확인했다.
+
+### 테스트
+- 구독자 수 0, 1, 2, 4, 8, 32명 fan-out에서 publish 가드 ref와 구독자별 ref가 동시에 `Release()`되는 상황을 반복 검증했다.
+- 64개 buffer가 동시에 in-flight 상태일 때 각 buffer의 여러 ref가 경쟁적으로 `Release()`되어도 종료 후 `RentedCount==0`으로 돌아오는지 검증했다.
+- 새 테스트와 helper에는 무엇을 보호하는지 설명하는 한국어 주석을 남겼다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 테스트 18개 통과와 빌드 경고 0개 상태를 반영했다.
+- `TODOS.md`에서 이번 스트레스 테스트 보강을 Completed로 이동하고, 다음 리뷰 단위를 Phase 2 `ITransport`/버퍼 소유권 계약 구체화로 남겼다.
+
+### 검증
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RefCountedBufferTests"` → 통과 7, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 18, 실패 0, 건너뜀 0.
+- `dotnet build HighPerformanceSocket.slnx` → 경고 0, 오류 0.
+
+## 2026-06-10 (Codex — private helper 주석 보강)
+
+### 작업 단위
+- 사용자 검토 의견에 따라 `BipBuffer`와 `RefCountedBuffer`의 private helper 주석을 보강했다.
+- 기능 변경 없이 helper가 감싼 volatile snapshot/publish 의미와 소유권/수명 경계를 설명하는 주석만 추가했다.
+
+### 수정
+- `BipBuffer` helper에 committed count, consumer cursor snapshot, producer cursor snapshot, watermark snapshot,
+  producer/consumer cursor publish 의도를 설명했다.
+- `RefCountedBuffer` helper에 payload length publish, ref count snapshot, live block snapshot, returned flag 의미를 설명했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 private helper 주석 보강 상태와 검증 결과를 반영했다.
+- `TODOS.md`에 이번 주석 보강을 Completed로 기록했고, 다음 리뷰 단위는 `RefCountedBuffer` 동시 Release/fan-out 스트레스 테스트로 유지했다.
+
+### 검증
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~BipBufferTests|FullyQualifiedName~RefCountedBufferTests"` → 통과 11, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 16, 실패 0, 건너뜀 0.
+
+## 2026-06-10 (Codex — BipBuffer Volatile helper 리팩터링)
+
+### 작업 단위
+- 사용자 검토 의견에 따라 `BipBuffer` 내부 public 메서드 본문에 직접 보이던 `Volatile.Read/Write` 호출을 helper로 감쌌다.
+- 기능 변경 없이 SPSC cursor/count 상태 관측 의미를 더 읽기 쉽게 만드는 리팩터링 단위로만 진행했다.
+
+### 수정
+- `ReadCommittedCountSnapshot`, `IsCommittedCountZero`, `ReadConsumerCursorSnapshot`, `ReadProducerCursorSnapshot`,
+  `ReadWatermarkSnapshot`, `PublishProducerCursor`, `PublishConsumerCursor` helper를 추가했다.
+- `Interlocked.Add(ref _count, ...)`는 생산자/소비자 간 commit/consume count 변경의 핵심이라 그대로 명시적으로 남겼다.
+- `Volatile.Read/Write` 호출은 helper 영역으로 모았다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 BipBuffer helper 리팩터링 상태와 검증 결과를 반영했다.
+- `TODOS.md`에 이번 리팩터링을 Completed로 기록했고, 다음 리뷰 단위는 `RefCountedBuffer` 동시 Release/fan-out 스트레스 테스트로 유지했다.
+
+### 검증
+- 리팩터링 전 `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~BipBufferTests"` → 통과 6, 실패 0, 건너뜀 0.
+- 리팩터링 후 `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~BipBufferTests"` → 통과 6, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 16, 실패 0, 건너뜀 0.
+
+## 2026-06-10 (Codex — RefCountedBuffer Volatile helper 리팩터링)
+
+### 작업 단위
+- 사용자 검토 의견에 따라 `RefCountedBuffer` 내부의 `Volatile.Read/Write` 호출을 읽기 쉬운 helper로 감쌌다.
+- 기능 변경 없이 코드 읽기성을 개선하는 리팩터링 단위로만 진행했다.
+
+### 수정
+- `ReadPublishedLength`, `PublishLength`, `ReadRefCountSnapshot`, `ReadBlockSnapshot`, `IsReturned` helper를 추가했다.
+- public API와 참조계수 알고리즘은 변경하지 않았다.
+- `Interlocked.CompareExchange`/`Exchange`는 참조계수와 정확히-1회 반환 알고리즘의 핵심이므로 `AddRef`/`Release`/반환 경로에 명시적으로 남겼다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 helper 리팩터링 상태와 검증 결과를 반영했다.
+- `TODOS.md`에 이번 리팩터링을 Completed로 기록했고, 다음 리뷰 단위는 `RefCountedBuffer` 동시 Release/fan-out 스트레스 테스트로 유지했다.
+
+### 검증
+- 리팩터링 전 `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RefCountedBufferTests"` → 통과 5, 실패 0, 건너뜀 0.
+- 리팩터링 후 `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RefCountedBufferTests"` → 통과 5, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 16, 실패 0, 건너뜀 0.
+
+## 2026-06-10 (Codex — RefCountedBuffer 최소 참조계수/반환 계약)
+
+### 작업 단위
+- D013에 따라 `RefCountedBuffer`의 최소 참조계수/반환 계약만 별도 리뷰 단위로 진행했다.
+- 고동시성 fan-out/release 해머 테스트는 다음 보강 단위로 분리했다.
+
+### Red
+- `RefCountedBufferTests`를 먼저 추가했다.
+- 컴파일 실패가 아니라 단언 실패가 되도록 임시 reflection helper를 사용했다.
+- `PinnedBlockMemoryPool.RentCounted 메서드가 존재해야 한다.` 실패 5개로 Red를 확인했다.
+
+### 구현
+- `src/Hps.Buffers/RefCountedBuffer.cs`를 추가했다.
+- `PinnedBlockMemoryPool.RentCounted()`를 추가해 기존 `Rent()`/`Return(byte[])` 경로를 재사용하도록 했다.
+- `RefCountedBuffer`는 생성 ref=1로 시작하고, `AddRef()`/`Release()`를 Interlocked 기반으로 처리한다.
+- 마지막 `Release()`가 0에 도달하면 내부 블록을 풀에 정확히 1회 반환한다.
+- 이미 반환된 버퍼의 과다 `Release()`와 반환 후 `AddRef()` 부활을 계약 위반으로 거부한다.
+- `Memory`/`Span`은 전체 블록을 노출하고, `Length`/`SetLength(int)`는 유효 payload 길이를 별도로 관리한다.
+
+### 테스트
+- counted buffer 대여 시 `RentedCount` 증가, `Memory`/`Span` 전체 블록 노출, `Length` 갱신, 마지막 `Release()` 반환.
+- 균형 잡힌 `AddRef()`/`Release()`에서 마지막 Release 전에는 반환되지 않고 마지막 Release 에서만 반환.
+- 과다 `Release()` 예외 및 풀 카운트 보존.
+- 반환 후 `AddRef()` 부활 거부.
+- `SetLength` 음수/용량 초과 거부 및 기존 길이 보존.
+- Green 후 테스트를 직접 public API 호출 방식으로 리팩터링해 reflection helper를 제거했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 RefCountedBuffer 최소 계약 구현과 테스트 16개 통과 상태를 반영했다.
+- `TODOS.md`에서 최소 계약 구현을 Completed로 옮기고, 동시 Release/fan-out 스트레스 테스트를 다음 `P1_SOON` 항목으로 분리했다.
+
+### 검증
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RefCountedBufferTests"` → 통과 5, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 16, 실패 0, 건너뜀 0.
+
+## 2026-06-10 (Codex — PinnedBlockMemoryPool 테스트 직접 API 리팩터링)
+
+### 작업 단위
+- `PinnedBlockMemoryPoolTests`에서 production 타입을 reflection으로 호출하던 `PoolApi` nested class를 제거했다.
+- `PinnedBlockMemoryPool`은 이미 public API가 존재하므로, 현재 테스트는 실제 호출 경로를 직접 검증하는 방식이 더 적합하다.
+- production code 수정은 없었다.
+
+### 수정
+- `PoolApi.Create(...)` 호출을 `new PinnedBlockMemoryPool(...)`로 바꿨다.
+- reflection 전용 `using System.Reflection`, `using System.Runtime.ExceptionServices`를 제거했다.
+- `PoolApi` nested class를 삭제해 테스트가 타입/메서드 존재 여부가 아니라 실제 API 계약을 바로 검증하게 했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 Pool 테스트가 직접 public API를 사용하도록 정리됐음을 반영했다.
+- `TODOS.md`에 이번 리팩터링을 Completed로 기록했고, 다음 리뷰 단위는 `RefCountedBuffer` 최소 참조계수/반환 계약으로 유지했다.
+
+### 검증
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~PinnedBlockMemoryPoolTests"` → 통과 5, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 11, 실패 0, 건너뜀 0.
+
+## 2026-06-10 (Codex — PinnedBlockMemoryPool 멀티스레드 스트레스 테스트)
+
+### 작업 단위
+- D013에 따라 `PinnedBlockMemoryPool` 멀티스레드 대여/반환 스트레스 테스트만 별도 리뷰 단위로 진행했다.
+- production code 수정 없이 테스트 보강만 수행했다.
+
+### 테스트
+- 8개 worker를 동시에 시작해 각 10,000회 `Rent()`/`Return(byte[])`을 반복한다.
+- 각 worker는 대여한 블록 길이가 `BlockSize`와 같은지 확인하고, 예외가 발생하면 테스트 스레드로 전달한다.
+- 모든 worker 종료 후 `RentedCount==0`을 검증해 누수와 카운트 경합을 확인한다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기 상태로 갱신했다.
+- `TODOS.md`에서 Pool 멀티스레드 스트레스 테스트를 Completed로 옮기고,
+  다음 리뷰 단위는 `RefCountedBuffer` 최소 참조계수/반환 계약으로 유지했다.
+
+### 검증
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~RentAndReturn_WhenCalledFromMultipleThreads_FinishesWithNoLeaks"` → 통과 1, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 11, 실패 0, 건너뜀 0.
+
+## 2026-06-10 (Codex — PinnedBlockMemoryPool 최소 API)
+
+### 작업 단위
+- D013에 따라 `PinnedBlockMemoryPool` 최소 API와 단일스레드 계약 테스트만 별도 리뷰 단위로 진행했다.
+- `RefCountedBuffer`와 Pool 멀티스레드 스트레스 테스트는 이번 단위에서 제외했다.
+
+### Red
+- `PinnedBlockMemoryPoolTests`를 먼저 추가했다.
+- 타입이 아직 없어서 `Hps.Buffers.PinnedBlockMemoryPool, Hps.Buffers 타입이 존재해야 한다.` 단언 실패로 Red를 확인했다.
+
+### 구현
+- `src/Hps.Buffers/PinnedBlockMemoryPool.cs`를 추가했다.
+- API: `PinnedBlockMemoryPool(int blockSize)`, `BlockSize`, `RentedCount`, `Rent()`, `Return(byte[])`.
+- 새 블록은 `GC.AllocateUninitializedArray<byte>(BlockSize, pinned: true)`로 생성한다.
+- 반납 블록 크기가 `BlockSize`와 다르면 `ArgumentException`으로 거부한다.
+- `RentedCount`가 음수가 되지 않도록 Return 시 대여 카운트 가드를 둔다.
+
+### 테스트
+- block size와 `RentedCount` 추적.
+- 반납 블록 재사용.
+- 잘못된 크기 배열 반환 거부 및 count 보존.
+- 0 이하 block size 거부.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기 상태로 갱신했다.
+- `TODOS.md`에서 Pool 최소 API를 Completed로 옮기고, 멀티스레드 대여/반환 스트레스 테스트를 다음 `P1_SOON` 항목으로 분리했다.
+
+### 검증
+- `dotnet test tests\Hps.Buffers.Tests\Hps.Buffers.Tests.csproj --filter "FullyQualifiedName~PinnedBlockMemoryPoolTests"` → 통과 4, 실패 0, 건너뜀 0.
+- `dotnet test HighPerformanceSocket.slnx` → 통과 10, 실패 0, 건너뜀 0.
+
+## 2026-06-10 (Codex — 테스트 의도 주석 규칙 반영)
+
+### 작업 단위
+- 사용자 지시에 따라 테스트에도 무엇을 검증하는지 주석으로 남기는 규칙을 `AGENT_RULES.md`에 추가했다.
+- 장기 결정으로 DECISIONS D014를 추가했다.
+- `BipBufferTests.cs`의 각 테스트에 보호하는 불변식, 회귀 사례, 경계 조건, 동시성 가정을 설명하는 주석을 추가했다.
+
+### 검증
+- `dotnet test HighPerformanceSocket.slnx` → 통과 6, 실패 0, 건너뜀 0.
+
+## 2026-06-10 (Codex — BipBuffer seeded fuzz 테스트)
+
+### 작업 단위
+- D013에 따라 `BipBuffer` seeded fuzz 테스트만 별도 리뷰 단위로 진행했다.
+- 테스트는 capacity `2, 3, 4, 8, 17, 64`와 seed 4개 조합에서 20,000회 랜덤 write/read를 실행하고,
+  단순 참조 큐와 바이트 순서 및 `Count`를 비교한다.
+- 실패 시 최근 operation 로그를 메시지에 포함해 재현 조건을 바로 볼 수 있게 했다.
+
+### Red 및 원인
+- Red 확인: `capacity=3, seed=4660, iteration=17`에서 `GetReadSpan()`이 빈 span을 반환했지만
+  참조 큐와 `buffer.Count`에는 1바이트가 남아 있었다.
+- 추가 확인: 첫 수정 후 `capacity=4, seed=4660, iteration=6`에서도 같은 계열이 재현됐다.
+- 원인: 버퍼가 비어 있고 `read == write > 0`인 상태에서 producer가 front로 wrap하면
+  `watermark == read`인 0길이 상단 구간을 만들 수 있다. 이 경우 consumer는 아직 `read`를 0으로
+  되돌릴 기회가 없어 front 데이터를 관측하지 못한다.
+
+### 수정
+- `GetWriteSpan()`에서 버퍼가 비어 있고 cursor가 non-zero 위치에서 만난 경우에는 `minimumSize`보다 작더라도
+  tail을 먼저 반환하도록 했다.
+- tail/front 비교는 실제 front 여유인 `read - 1` 기준으로 바꿨다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기 상태로 갱신했다.
+- `TODOS.md`에서 fuzz 테스트를 Completed로 옮기고, 다음 리뷰 단위는 `PinnedBlockMemoryPool`로 유지했다.
+
+### 검증
+- `dotnet test HighPerformanceSocket.slnx` → 통과 6, 실패 0, 건너뜀 0.
+
+## 2026-06-10 (Codex — BipBuffer deterministic edge 테스트)
+
+### 작업 단위
+- D013에 따라 `BipBuffer` deterministic edge 테스트만 별도 리뷰 단위로 진행했다.
+- 추가한 테스트:
+  - `Capacity - 1` 실사용 용량과 full 상태 검증.
+  - partial commit 후 커밋된 prefix만 읽히는지 검증.
+  - tail이 `minimumSize`를 만족하지 못할 때 front wrap으로 전환되고 watermark 순서가 보존되는지 검증.
+- production code 수정은 없었다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기 상태로 갱신했다.
+- `TODOS.md`에서 deterministic edge 테스트를 Completed로 옮기고, fuzz 테스트는 별도 `P1_SOON` 항목으로 남겼다.
+
+### 검증
+- `dotnet test HighPerformanceSocket.slnx` → 통과 5, 실패 0, 건너뜀 0.
+
+## 2026-06-10 (Codex — BipBuffer M1/M2 최소 구현 + 리뷰 게이트 반영)
+
+### 작업 단위 크기 규칙 추가
+- 사용자 지시에 따라 구현을 작고 리뷰 가능한 기능 단위로 나누고, 한 단위 완료 후 사용자 리뷰 전에는
+  다음 기능으로 자동 진행하지 않는 규칙을 `AGENT_RULES.md`에 추가했다.
+- 장기 결정으로 DECISIONS D013을 추가했다.
+- 후속 사용자 지시에 따라 각 기능 단위 완료 후 관련 파일만 stage 하여 단일 커밋으로 남기고,
+  unrelated 변경은 커밋에 포함하지 않는 규칙을 D013과 `AGENT_RULES.md`에 보강했다.
+
+### BipBuffer must-fix 2건 구현
+- M1: capacity 끝까지 commit 후 read가 0으로 돌아온 빈 버퍼가 다시 쓰기 가능해야 함을 Red 테스트로 확인했다.
+  `Commit()`에서 `_write == _capacity` 상태를 저장하지 않고 즉시 0으로 wrap하도록 수정했다.
+- M2: SPSC 스트레스에서 `GetReadSpan()`이 커밋량보다 긴 span을 노출해 `Consume` 계약을 깨는 Red 테스트를 확인했다.
+  반환 길이를 `_count` 기준으로 제한했고, `_count` 값 자체는 보정하지 않았다.
+- 소비자는 데이터를 처리한 뒤에만 `Consume()`해야 한다는 SPSC 계약을 XML doc에 명시했다.
+
+### 범위 조정
+- 이번 사이클은 M1/M2만 리뷰 단위로 닫는다.
+- `PLAN.md`가 요구하는 추가 edge/fuzz 테스트는 `TODOS.md`의 `Deferred Backlog`로 분리했다.
+  사용자 리뷰 후 계속 진행 지시가 있으면 별도 Red 테스트 사이클로 처리한다.
+
+### 검증
+- `dotnet test HighPerformanceSocket.slnx` → 통과 2, 실패 0, 건너뜀 0.
+
+## 2026-06-10 (마무리 — drop-oldest release + CURRENT_PLAN 최신화, Claude)
+
+### D012 (drop-oldest evict release) 확정 — 실측 검증
+- 외부 검토의 남은 minor 항목. drop-oldest는 이미 enqueue된 가장 오래된 항목을 능동 제거하므로 별도
+  release 지점. evict한 RefCountedBuffer를 정확히 1회 Release, evict/dequeue/close를 단일 락으로 직렬화.
+- 프로토타입 실측: 720만 enqueue(cap=16, 대량 eviction) + 동시 pump + close-drain → 누수 0·이중 반환 0.
+- 반영: DECISIONS D012, `AGENTS.md §2-5`, `PLAN.md` Phase 3, `phase3-framing-and-close.md`, TODOS.
+
+### CURRENT_PLAN.md 최신화
+- 검토 6건·결정 D005~D012 종결을 반영. 다음 단일 작업은 여전히 Phase 1 BipBuffer M1·M2 3색 TDD.
+- 테스트 discover 재확인: 0개(D003 기준 green 아님). 첫 Red 테스트로 해소 예정.
+
+### 검증
+- D012 프로토타입 실측 통과. 프로덕션 코드 미변경(Codex 구현 대기). 구현 전 설계 결정은 모두 종결.
+
+## 2026-06-10 (설계 결정 — TCP 프레임 조립 + 종료 release, Claude)
+
+### 외부 검토 Major×2 반영 → D010, D011 확정
+- **D010 (TCP 프레임 조립)**: recv BipBuffer는 미파싱 스트림만 담고, 파서 상태머신이 헤더 4B 누적(분할 처리)
+  → payload를 RefCountedBuffer로 누적 복사. recv 링이 프레임을 통째로 담을 필요 없음(payload > recv 링 허용),
+  maxPayload 상한. **프로토타입 실측**: recv 링 64B < payload 300B, 청크 1~7B, 10만 프레임 무결성·누수 0.
+- **D011 (연결 종료 release 계약)**: `Close()/Dispose()`는 송신 큐 pending·in-flight·조립중 RefCountedBuffer를
+  모두 Release + 이후 enqueue 원자적 reject. 종료 후 `RentedCount==0`. (느린 소비자 끊기 시 누수 방지)
+- 반영: `.claude/review/phase3-framing-and-close.md` 신규, DECISIONS D010·D011, `AGENTS.md §2-7`(프레임 조립)·
+  신규 `§2-8`(종료 계약), `PLAN.md` Phase 2(종료 계약)·Phase 3(프레임 조립 + D010/D011 테스트), TODOS.
+- 검증: D010 프로토타입 실측 통과. 프로덕션 코드 미변경(Codex 구현 대기).
+
+## 2026-06-10 (설계 결정 — Publish payload 소유권, Claude)
+
+### recv→팬아웃 payload 소유권 핸드오프 확정 (D009)
+- 미해결 핵심이던 "파싱한 PUBLISH payload를 어떤 소유권으로 RefCountedBuffer 팬아웃에 넘길지"를 결정.
+  - TCP: recv 링은 프레이밍 전용, payload는 RefCountedBuffer로 **1회 복사** 후 recv 즉시 Consume.
+  - UDP: datagram을 RefCountedBuffer로 **직접 recv**(zero-copy).
+  - 수명: publish 가드 ref → 구독자별 AddRef+enqueue(실패 시 즉시 Release) → publish 마지막 Release.
+- 반영: `.claude/review/phase3-publish-ownership.md` 신규, DECISIONS D009, `AGENTS.md §2-1/§2-5` 복사 불변식
+  문구 정정("구독자당/불필요한 복사 금지, TCP publish 1회 복사 허용"), `PLAN.md` Phase 3, TODOS RefCountedBuffer 항목.
+- `RefCountedBuffer`에 `Span`/`Memory`/`Length`/`SetLength` 필요(복사 대상·송신 뷰)로 명시.
+
+### 테스트 discover 상태 확인
+- `tests/Hps.Buffers.Tests`에 테스트 `.cs`가 없어 `dotnet test`가 0개 discover. 회귀 아님(Phase 1 TDD 미착수).
+  다음 P0(M1·M2 Red 테스트)가 들어가면 discover 시작. D003대로 0개 상태는 green 불인정.
+
+### 검증
+- 설계/문서 작업. 프로덕션 코드 미변경(Codex 구현 대기).
+
+## 2026-06-10 (검토 사이클 — Claude)
+
+### 설계 실측 검증 + 상태 파일 동기화
+- 핵심 자료구조/설계를 임시 하니스로 실측 검증하고 결과를 `.claude/review/`에 기록(하니스는 검토 후 삭제).
+  - `phase1-bipbuffer.md`: **M1**(단일스레드 deadlock)·**M2**(크로스스레드 over-read, SPSC 200만 바이트에서
+    소비자가 미커밋 ~115만 바이트 과독·`Count` 음수) 재현. 두 수정 적용 시 단일·크로스스레드 통과.
+    M2 문구를 "반환 길이 clamp(≠ `_count` 값 보정)"로 정확히 명시.
+  - `phase1-refcounted-pool.md`: 팬아웃 5만 반복·동시 2만 버퍼에서 정확히-1회 반환·누수 0. 설계 승인.
+  - `phase2-transport-bipbuffer.md`: 송신 다중생산자 위험(D1) → MPSC 큐→단일 펌프→SPSC. 버퍼 소유권은 풀 핸들(D2).
+  - `phase3-broker-routing.md`: 빈 토픽 eager-cleanup이 동시 구독과 경합해 약 51% 유실(20만 회 실측).
+    NoCleanup·set-lock은 0 유실. 영리한 lock-free verify-retry는 여전히 틀림(약 50% 유실).
+- 위 결과로 상태 파일을 갱신: BipBuffer must-fix를 1건→2건으로, 신규 결정 DECISIONS D005~D008 추가,
+  `CURRENT_PLAN.md`/`TODOS.md`의 미결 질문(버퍼 소유권 등)을 해소.
+
+### 검증
+- 검증은 임시 콘솔 하니스(`dotnet run`)로 수행. 프로덕션 코드/테스트는 아직 변경하지 않음(Codex 구현 대기).
+- `BipBuffer.cs`는 여전히 초안(수정 전). 다음 P0는 M1·M2를 3색 TDD로 해소하는 것.
+
+### 남은 불확실성
+- M1·M2 수정과 회귀 테스트는 아직 코드에 반영되지 않음(P0_NOW).
+- 라우팅 토픽 키 누적이 실제 문제되는 규모인지는 미정(필요 시에만 sweep).
+
+## 2026-06-10
+
+### 상태 관리 문서 초기화
+- `PLAN.md`와 `AGENTS.md` 기준으로 작업 상태 관리 파일을 추가했다.
+- 사용자 목표를 현재 작업 목표에 반영했다.
+  - 4096 bytes 메시지.
+  - 100 Hz.
+  - 지연 누적 없이 처리.
+- 현재 실행 지점을 Phase 1의 `BipBuffer` must-fix TDD 작업으로 정리했다.
+- `.claude/review/phase1-bipbuffer.md`의 M1 deadlock 지적을 다음 작업의 P0 항목으로 연결했다.
+- 현재 테스트 프로젝트에는 실제 테스트 `.cs` 파일이 없으므로 `dotnet test` 성공만으로 완료 판단하지 않도록 기록했다.
+
+### 검증
+- 문서 작성 작업이므로 빌드/테스트는 새로 실행하지 않았다.
+- 이전 확인 기준으로 `dotnet test HighPerformanceSocket.slnx`는 테스트를 discover하지 못하는 상태였다.
+
+### 남은 불확실성
+- “딜레이 없이”의 정량 기준은 아직 확정되지 않았다.
+- Phase 4에서 p50/p99 latency, 큐 적체, 동시 연결 수, 팬아웃 배율을 포함한 벤치마크 기준으로 구체화해야 한다.
