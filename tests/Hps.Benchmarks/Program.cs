@@ -11,19 +11,14 @@ namespace Hps.Benchmarks
         private const int UsageErrorExitCode = 2;
         private const int ReportWriteFailedExitCode = 2;
 
-        private const string MessageReportOnlyWithRuns = "--report 옵션은 --smoke, --load, --load-open-loop 뒤에서만 사용할 수 있습니다.";
-        private const string MessageUnknownRunnerArgs = "알 수 없는 benchmark runner 인자입니다.";
-        private const string MessageReportPathRequired = "--report 옵션에는 저장할 파일 경로가 필요합니다.";
-        private const string MessageReportExecutionOnly = "--report 옵션은 benchmark 실행 명령에서만 사용할 수 있습니다.";
         private const string MessageUsage = "사용법";
 
         public static int Main(string[] args)
         {
-            BenchmarkCommand command;
-            string? reportPath;
+            BenchmarkCommandLine commandLine;
             string? errorMessage;
 
-            if (!TryParseKnownCommand(args, out command, out reportPath, out errorMessage))
+            if (!BenchmarkCommandParser.TryParse(args, out commandLine, out errorMessage))
             {
                 BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
                 return SuccessExitCode;
@@ -36,20 +31,20 @@ namespace Hps.Benchmarks
                 return UsageErrorExitCode;
             }
 
-            switch (command)
+            switch (commandLine.Command)
             {
                 case BenchmarkCommand.Target:
                     BenchmarkTargets.Print(Console.Out);
                     return SuccessExitCode;
 
                 case BenchmarkCommand.Smoke:
-                    return CompleteRun(TcpLoopbackScenarioRunner.RunSmokeAsync().GetAwaiter().GetResult(), reportPath);
+                    return CompleteRun(TcpLoopbackScenarioRunner.RunSmokeAsync().GetAwaiter().GetResult(), commandLine.ReportPath);
 
                 case BenchmarkCommand.Load:
-                    return CompleteRun(TcpLoopbackScenarioRunner.RunLoadAsync().GetAwaiter().GetResult(), reportPath);
+                    return CompleteRun(TcpLoopbackScenarioRunner.RunLoadAsync().GetAwaiter().GetResult(), commandLine.ReportPath);
 
                 case BenchmarkCommand.LoadOpenLoop:
-                    return CompleteRun(TcpLoopbackScenarioRunner.RunOpenLoopAsync().GetAwaiter().GetResult(), reportPath);
+                    return CompleteRun(TcpLoopbackScenarioRunner.RunOpenLoopAsync().GetAwaiter().GetResult(), commandLine.ReportPath);
 
                 case BenchmarkCommand.Help:
                     PrintUsage(Console.Out);
@@ -58,112 +53,6 @@ namespace Hps.Benchmarks
                 default:
                     return UsageErrorExitCode;
             }
-        }
-
-        private static bool TryParseKnownCommand(
-            string[] args,
-            out BenchmarkCommand command,
-            out string? reportPath,
-            out string? errorMessage)
-        {
-            command = BenchmarkCommand.None;
-            reportPath = null;
-            errorMessage = null;
-
-            if (args.Length == 0)
-                return false;
-
-            string commandArg = args[0];
-
-            if (string.Equals(commandArg, "--help", StringComparison.OrdinalIgnoreCase))
-            {
-                command = BenchmarkCommand.Help;
-                ValidateNoReportOption(args, out errorMessage);
-                return true;
-            }
-
-            if (string.Equals(commandArg, "--target", StringComparison.OrdinalIgnoreCase))
-            {
-                command = BenchmarkCommand.Target;
-                ValidateNoReportOption(args, out errorMessage);
-                return true;
-            }
-
-            if (string.Equals(commandArg, "--smoke", StringComparison.OrdinalIgnoreCase))
-            {
-                command = BenchmarkCommand.Smoke;
-                ParseOptionalReport(args, out reportPath, out errorMessage);
-                return true;
-            }
-
-            if (string.Equals(commandArg, "--load", StringComparison.OrdinalIgnoreCase))
-            {
-                command = BenchmarkCommand.Load;
-                ParseOptionalReport(args, out reportPath, out errorMessage);
-                return true;
-            }
-
-            if (string.Equals(commandArg, "--load-open-loop", StringComparison.OrdinalIgnoreCase))
-            {
-                command = BenchmarkCommand.LoadOpenLoop;
-                ParseOptionalReport(args, out reportPath, out errorMessage);
-                return true;
-            }
-
-            if (ContainsReportOption(args))
-            {
-                errorMessage = MessageReportOnlyWithRuns;
-                return true;
-            }
-
-            return false;
-        }
-
-        private static void ParseOptionalReport(string[] args, out string? reportPath, out string? errorMessage)
-        {
-            reportPath = null;
-            errorMessage = null;
-
-            if (args.Length == 1)
-                return;
-
-            if (args.Length != 3 || !string.Equals(args[1], "--report", StringComparison.OrdinalIgnoreCase))
-            {
-                errorMessage = MessageUnknownRunnerArgs;
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(args[2]))
-            {
-                errorMessage = MessageReportPathRequired;
-                return;
-            }
-
-            reportPath = args[2];
-        }
-
-        private static void ValidateNoReportOption(string[] args, out string? errorMessage)
-        {
-            errorMessage = null;
-
-            if (args.Length == 1)
-                return;
-
-            if (ContainsReportOption(args))
-                errorMessage = MessageReportExecutionOnly;
-            else
-                errorMessage = MessageUnknownRunnerArgs;
-        }
-
-        private static bool ContainsReportOption(string[] args)
-        {
-            for (int i = 0; i < args.Length; i++)
-            {
-                if (string.Equals(args[i], "--report", StringComparison.OrdinalIgnoreCase))
-                    return true;
-            }
-
-            return false;
         }
 
         private static int CompleteRun(TcpLoopbackRunResult result, string? reportPath)
@@ -196,14 +85,5 @@ namespace Hps.Benchmarks
             writer.WriteLine("  Hps.Benchmarks [BenchmarkDotNet arguments]");
         }
 
-        private enum BenchmarkCommand
-        {
-            None,
-            Target,
-            Smoke,
-            Load,
-            LoadOpenLoop,
-            Help
-        }
     }
 }

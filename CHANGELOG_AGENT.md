@@ -1,5 +1,31 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - benchmark command parser seam)
+
+### 작업 단위
+- 반복 baseline collection 계획의 Task 1을 구현했다.
+- benchmark CLI parser 를 `Program` 내부 helper 에서 internal parser 타입으로 분리했다.
+- 새 `--baseline-suite` command 는 아직 추가하지 않았다.
+
+### Red/Green
+- Red: `tests/Hps.Benchmarks.Tests`를 추가하고 `BenchmarkCommandParser_TypeExists` bootstrap 테스트를 실행했다.
+  `Assert.NotNull()` 실패 1개로 parser seam 이 아직 없음을 확인했다.
+- Green: `BenchmarkCommand`, `BenchmarkCommandLine`, `BenchmarkCommandParser`를 추가하고,
+  `Program`은 새 parser 결과를 사용하도록 정리했다.
+- Refactor: bootstrap 테스트를 실제 계약 테스트 2개로 교체했다.
+  `--load --report <path>`는 `BenchmarkCommand.Load`와 report path 로 parse 되고,
+  `--report <path>` 단독은 usage error 로 parse 되는지 검증한다.
+
+### 상태 갱신
+- `HighPerformanceSocket.slnx`에 `tests/Hps.Benchmarks.Tests`를 추가했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`를 Task 1 완료와 Task 2 대기 상태로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj` Red 실패 확인, 실패 1/통과 0.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 2개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 138개 통과/실패 0.
+
 ## 2026-06-18 (Codex - repeat baseline collection implementation plan)
 
 ### 작업 단위
