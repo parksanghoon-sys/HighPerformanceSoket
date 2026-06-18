@@ -1,5 +1,31 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - backpressure QoS policy surface decision)
+
+### 작업 단위
+- D064/D066 이후 configurable backpressure/QoS policy surface 를 v1에 추가할지 판단했다.
+- 범위는 신규 설계 문서와 root state docs 로 제한했다.
+- production code/test 는 변경하지 않았다.
+
+### 결정
+- D067로 v1 TCP/UDP send queue 는 capacity 16 bounded drop-oldest 를 public 설정 없이 유지한다고 결정했다.
+- `BackpressurePolicy` enum, pending capacity option, per-topic/per-endpoint QoS, disconnect/reject 기본 정책은 추가하지 않는다.
+- reliable/durable delivery, reconnect subscription transfer 는 실제 요구가 구체화될 때 별도 설계로 다룬다.
+
+### 근거
+- D066 stalled subscriber stress 로 drop-oldest fire 와 HWM 16 포화를 기존 diagnostics 로 관측할 수 있음이 확인됐다.
+- disconnect/reject/reliable 정책은 queue 옵션 하나가 아니라 subscription cleanup, reconnect, publisher 실패 응답,
+  ack/retry/history 를 함께 요구한다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-18-backpressure-qos-policy-surface-design.md`를 추가했다.
+- `DECISIONS.md`에 D067을 추가했다.
+- `TODOS.md`에서 configurable backpressure/QoS policy surface 검토 항목을 Completed 로 이동했다.
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기와 다음 후보 재평가 상태로 갱신했다.
+
+### 검증
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - stalled subscriber drop-oldest stress)
 
 ### 작업 단위

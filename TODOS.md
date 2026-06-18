@@ -42,7 +42,8 @@
   - D065 구현으로 TCP outbound length-prefixed fan-out, 샘플 subscriber 수신, benchmark receive path 를 갱신했다.
   - stalled TCP subscriber stress 통합 테스트로 drop-oldest evict 와 TCP HWM 16 포화 관측을 고정했다.
   - D066으로 v1 drop 관측은 pull snapshot 으로 충분하다고 판단하고 drop log/sampling 은 보류했다.
-  - 다음 후보: 사용자 리뷰 후 latency baseline 또는 configurable backpressure/QoS policy surface 중 하나를 Current TODOs 로 승격할지 재평가한다.
+  - D067로 configurable backpressure/QoS policy surface 는 v1에 추가하지 않기로 결정했다.
+  - 다음 후보: 사용자 리뷰 후 latency baseline 을 Current TODOs 로 승격할지 재평가한다.
 
 ## Deferred Backlog
 
@@ -61,22 +62,6 @@
   - known blockers/open questions: 절대 threshold, baseline 대비 상대 threshold, multi-run median/p95, soft warning 과
     hard failure 경계를 어떻게 나눌지 정해야 한다.
   - next step: 같은 환경에서 여러 번 report 를 수집하고 변동 폭을 본 뒤, threshold 를 코드 gate 로 넣을지 문서/CI warning 으로 둘지 결정한다.
-
-- [ ] `P2_LATER` configurable backpressure/QoS policy surface 필요성을 검토한다.
-  - 무엇이 남았는지: D064로 v1 기본 정책은 bounded drop-oldest 로 확정했지만,
-    느린 소비자 disconnect/reject, per-topic/per-endpoint QoS, reliable/durable delivery 는 아직 제공하지 않는다.
-  - 왜 defer 되었는지: 이 정책들은 메시지 손실/연결 종료 semantics, reconnect/subscription 복구, 운영자 알림,
-    host configuration surface 를 함께 바꾼다. 현재 단위의 문서 결정과 섞으면 범위가 과도하게 넓어진다.
-  - objective: Interface Server 사용자가 endpoint 별로 최신성 우선(drop-oldest)과 신뢰성/연결 종료 우선(disconnect/reject)을
-    선택해야 하는 요구가 실제로 있는지 판단하고, 필요하면 설정/API/테스트 경계를 설계한다.
-  - relevant context: DECISIONS D039/D040/D041/D042/D064, `TransportConnection`, `SaeaUdpEndpoint`,
-    `TransportDiagnosticsSnapshot`, `EndpointSnapshot`.
-  - 관련 파일/범위: `src/Hps.Transport/`, `src/Hps.Server/`, `src/Hps.Broker/`, transport/server tests, configuration 문서.
-  - 현재 상태: queue capacity 16 drop-oldest, 누적 drop counter, transport/endpoint snapshot 은 구현돼 있다.
-    policy 선택 API, disconnect-on-backpressure 구현, reliable/durable delivery 는 없다.
-  - known blockers/open questions: 정책 선택 단위를 transport 전체, topic, subscriber, endpoint 중 어디에 둘지와
-    drop-oldest 에서 disconnect 로 전환할 때 구독 정리/재구독 semantics 를 어떻게 둘지 정해야 한다.
-  - next step: 실제 운영 요구가 최신성 우선인지 신뢰성 우선인지 확인한 뒤, 필요하면 별도 설계 문서로 승격한다.
 
 - [ ] `P2_LATER` Server convenience diagnostics API 필요성을 실제 host surface 기준으로 재검토한다.
   - 무엇이 남았는지: D066으로 drop log/sampling 은 보류했고, `ITransportDiagnostics.GetDiagnosticsSnapshot()`의 pull snapshot 만으로
@@ -98,6 +83,18 @@
   - next step: 실제 운영 host 표면이 생기거나 샘플에서 transport 캐스팅이 반복되면 pass-through accessor 설계를 별도 단위로 승격한다.
 
 ## Completed
+
+- [x] configurable backpressure/QoS policy surface 필요성을 D067로 닫았다.
+  - 범위: `docs/superpowers/specs/2026-06-18-backpressure-qos-policy-surface-design.md`,
+    `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결정: v1 TCP/UDP send queue 는 capacity 16 bounded drop-oldest 를 public 설정 없이 유지한다.
+    `BackpressurePolicy` enum, pending capacity option, topic/endpoint 별 QoS, disconnect/reject 기본 정책은 추가하지 않는다.
+  - 이유: D066으로 drop-oldest 는 실제 stalled subscriber 경로에서 fire 하며 기존 diagnostics 로 관측 가능함이 확인됐다.
+    disconnect/reject/reliable/durable 정책은 구독 정리, 재구독, publisher 실패 응답, ack/retry/history 저장 등
+    protocol/control-plane 결정을 함께 요구하므로 v1 transport queue 옵션으로 넣기에는 범위가 크다.
+  - 후속: 손실 불가 topic, endpoint 별 최신성/신뢰성 혼합 운영, pending capacity 16의 반복 benchmark 부적합 근거,
+    stable endpoint identity/reconnect rebinding 도입이 확인되면 별도 설계 단위로 재등록한다.
+  - 검증: 문서 일관성 확인과 `git diff --check`로 검증한다.
 
 - [x] stalled TCP subscriber stress 로 drop-oldest evict 경로를 검증했다.
   - 범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.

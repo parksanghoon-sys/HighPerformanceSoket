@@ -21,6 +21,9 @@
 - D066으로 stalled TCP subscriber stress 를 Server 통합 테스트로 고정했다. 기존 open-loop runner 는 dropped 0 / TCP HWM 3으로
   drop-oldest 를 fire 하지 못했지만, subscriber 가 읽지 않는 실제 socket 경로에서는 TCP drop count > 0 과 HWM 16 포화를 관측했다.
   따라서 v1 drop 관측은 기존 pull snapshot 으로 충분하다고 보고 drop log/sampling 과 Server convenience diagnostics API 는 보류한다.
+- D067로 configurable backpressure/QoS policy surface 를 v1에 추가하지 않기로 했다. 현재 TCP/UDP send queue 는 capacity 16
+  bounded drop-oldest 를 고정 기본값으로 유지하고, disconnect/reject/reliable/durable/per-topic QoS 는 실제 요구가 구체화될 때
+  별도 설계로 승격한다.
 
 ## 현재 Phase
 Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Server endpoint/send-side 관측성 설계.
@@ -283,18 +286,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-이번 단위에서 stalled TCP subscriber stress 통합 테스트를 추가해 D012 drop-oldest evict 경로와 D041/D042/D062 진단 snapshot 을
-실제 Server/SAEA/TCP socket 경로에서 검증했다. production code 변경은 없었다.
+이번 단위에서 v1 backpressure/QoS policy surface 필요성을 검토하고, public 설정/API를 추가하지 않는다고 D067로 확정했다.
+production code 변경은 없었다.
 다음 구현은 사용자 리뷰 뒤 `TODOS.md`의 Deferred Backlog 를 다시 평가해 하나의 작은 단위로 승격한다.
-현재 가까운 후보는 반복 가능한 latency baseline 수집 또는 configurable backpressure/QoS policy surface 필요성 검토다.
+현재 가까운 후보는 반복 가능한 latency baseline 수집이다.
 
 ## 이번 단위의 검증 경로
-- 신규 focused 확인: `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~TcpCommandLoopback_WhenSubscriberDoesNotRead_DropsOldestAndReportsTransportDiagnostics"` 통과.
-  drop-oldest 구현은 이미 존재하므로 새 stress 테스트는 기존 production code 에서 바로 green 이었다.
-- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --no-restore` 통과(12개).
-- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과(경고 0, 오류 0).
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과(136개, 실패 0).
-- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 문서/결정 단위이므로 production build/test 는 새로 실행하지 않는다.
+- `git diff --check`로 whitespace 오류를 확인한다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화

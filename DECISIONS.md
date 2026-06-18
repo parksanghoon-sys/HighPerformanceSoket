@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D067 — v1에는 configurable backpressure/QoS policy surface 를 추가하지 않는다
+
+- 날짜: 2026-06-18
+- 상태: Accepted
+- 결정: v1 TCP/UDP transport send queue 는 D064의 capacity 16 bounded drop-oldest 정책을 public 설정 없이 유지한다.
+  `BackpressurePolicy` enum, pending send capacity option, topic/endpoint 별 QoS surface, disconnect/reject 기본 정책은 추가하지 않는다.
+  reliable/durable delivery, per-topic/per-endpoint QoS, reconnect subscription transfer 는 실제 요구가 구체화될 때 별도 설계로 다룬다.
+- 근거: D066 stalled subscriber stress 로 drop-oldest 가 실제 socket 경로에서 fire 하고, drop count/HWM/pool leak 0을 기존 diagnostics 로
+  관측할 수 있음이 확인됐다. 현재 Interface Server v1은 외부 최신 상태를 endpoint 로 배포하는 기준선이므로, 느린 subscriber 때문에
+  broker memory 를 무한히 키우는 것보다 오래된 pending message 를 버리고 최신 publish 를 유지하는 편이 더 안전하다.
+  disconnect/reject/reliable 정책은 단순 queue 옵션이 아니라 구독 정리, 재구독, publisher 실패 응답, ack/retry/history 저장 같은
+  protocol/control-plane 결정을 함께 요구하므로 이번 범위보다 크다.
+- 영향: `ITransport`, `IConnection`, `IUdpEndpoint`, `BrokerServer` public API 는 넓히지 않는다.
+  capacity 16이 workload 에 맞지 않는다는 반복 benchmark 근거가 생기거나, command/event log 처럼 손실 불가 topic 요구가 확인되면
+  `docs/superpowers/specs/2026-06-18-backpressure-qos-policy-surface-design.md`의 후속 승격 조건에 따라 별도 단위로 다시 설계한다.
+
 ## D066 — drop-oldest stress 관측은 pull snapshot 으로 충분하며 log/sampling 은 보류한다
 
 - 날짜: 2026-06-18
