@@ -1,5 +1,29 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - repeat baseline session 02)
+
+### 작업 단위
+- D069 후속으로 반복 baseline artifact `session-02`를 수집했다.
+- 코드 변경 없이 `--baseline-suite` 실행 결과 raw JSON 6개와 baseline 요약 문서, root 상태 문서를 갱신했다.
+
+### 실행 결과
+- 명령: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite docs\benchmarks\baselines\2026-06-18\session-02 --runs 3`
+- 결과: exit code 0, `baseline-suite-result: pass`.
+- closed-loop 3회: sent/received 3000, dropped 0, payload-errors 0, pool-rented 0, TCP HWM 1, p99 481.6~512.1us.
+- open-loop 3회: sent/received 3000, dropped 0, payload-errors 0, pool-rented 0, TCP HWM 2~3, p99 564.9~643.3us.
+
+### 상태 갱신
+- `docs/benchmarks/baselines/2026-06-18/session-02/*.json`를 추가했다.
+- `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`에 Session 02 표와 해석을 추가했다.
+- `TODOS.md`의 P1 backlog 는 기존 로컬 baseline 과 `session-02`까지 2개 session 이 확보됐고,
+  최소 3개 session 기준에는 `session-03`이 더 필요하다고 갱신했다.
+
+### 검증
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
+- baseline suite 실행 통과, exit code 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - lingering design docs reconciliation)
 
 ### 작업 단위

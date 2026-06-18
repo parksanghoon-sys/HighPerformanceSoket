@@ -34,6 +34,11 @@
 - D069로 latency hard gate 전에는 반복 baseline artifact 를 먼저 축적하기로 했다. `--load`와 `--load-open-loop`의
   raw JSON report 를 여러 baseline session 으로 남긴 뒤, 같은 장비 또는 같은 CI runner 기준의 재현성이 확보되면
   soft warning 과 hard failure 경계를 다시 판단한다.
+- 반복 baseline artifact `session-02`를 수집했다. `--baseline-suite docs\benchmarks\baselines\2026-06-18\session-02 --runs 3`가
+  closed-loop 3회와 open-loop 3회를 모두 pass 로 끝냈고, 모든 run 이 sent/received 3000, dropped 0,
+  payload-errors 0, pool-rented 0이었다. closed-loop p99 범위는 481.6~512.1us, open-loop p99 범위는
+  564.9~643.3us, TCP HWM 은 각각 1 / 2~3으로 관측됐다. 결과는
+  `docs/benchmarks/baselines/2026-06-18/session-02/`와 `local-latency-baseline.md`에 기록했다.
 - D069 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`로 작성했다.
   구현은 세부 task 를 여러 커밋으로 나누며, 첫 단위는 `tests/Hps.Benchmarks.Tests` 추가와 benchmark CLI parser extraction 이다.
 - 반복 baseline collection 계획의 Task 1을 완료했다. `tests/Hps.Benchmarks.Tests`를 solution 에 추가하고,
@@ -327,11 +332,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 남아 있던 사용자 문서 변경을 검토해 현재 상태와 맞췄다.
 Interface Server 명명 변경은 현재 목표와 맞고, endpoint high-watermark 의미 보정은 D062/D066 계열 관측성 설계와 맞다.
 drop-stress spec 은 이미 D066/D067/D068로 반영된 설계 제안이므로 다음 구현 지시가 아니라 historical proposal 로 보존한다.
-다음 작업은 구현 확대가 아니라 사용자 리뷰를 받은 뒤, 필요하면 review finding 을 먼저 반영한다.
+반복 baseline artifact `session-02`도 수집했다. 현재 같은 장비 기준 baseline session 은 기존 로컬 baseline 과
+`session-02`까지 2개로 볼 수 있으므로, D069 판단 기준을 채우려면 최소 1개 session 을 더 확보하는 것이 다음 자연스러운 후보이다.
+다음 작업은 사용자 리뷰를 받은 뒤, review finding 이 있으면 먼저 반영하고 없으면 `session-03` 수집을 진행한다.
 latency hard threshold, summary JSON, Markdown report, CI workflow 는 D069 계획의 명시적 제외 범위로 유지한다.
 
 ## 이번 단위의 검증 경로
-- 문서 전용 변경이므로 build/test 는 실행하지 않는다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite docs\benchmarks\baselines\2026-06-18\session-02 --runs 3`
+  통과, exit code 0. `session-02` 아래 closed-loop 3개와 open-loop 3개 raw JSON 이 생성됐고 suite 결과는 pass 였다.
 - 문서 정리 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없었다.
 
 ## 이번 작업에서 건드리지 않은 범위
