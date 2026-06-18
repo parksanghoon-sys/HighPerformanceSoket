@@ -1,5 +1,26 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline summary implementation plan)
+
+### 작업 단위
+- D070 후속으로 baseline summary artifact 구현 계획을 작성했다.
+- 코드 변경 없이 계획 문서와 root 상태 문서를 갱신했다.
+
+### 계획 내용
+- 계획 파일: `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`.
+- Task 1: `--summarize-baseline <input-dir> --summary <output-json>` parser 계약과 usage 갱신.
+- Task 2: `BaselineReport`/`BaselineSummary` 계열 모델과 D070 soft warning 계산.
+- Task 3: per-run JSON v1 directory reader 와 summary JSON writer.
+- Task 4: `Program` execution wiring 과 실제 baseline artifact directory 기반 CLI smoke.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`의 다음 실행 지점을 Task 1 parser 계약 단위로 갱신했다.
+- `TODOS.md`의 P1 backlog 에 새 plan 파일을 연결하고, next step 을 Task 1 실행으로 갱신했다.
+
+### 검증
+- 문서 전용 변경이므로 build/test 는 실행하지 않았다.
+- `git diff --check`는 통과했고 CRLF 변환 경고만 있으며 whitespace 오류는 없었다.
+
 ## 2026-06-18 (Codex - repeat baseline policy decision)
 
 ### 작업 단위

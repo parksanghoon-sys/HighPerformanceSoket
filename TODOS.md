@@ -59,6 +59,7 @@
   - 반복 baseline artifact `session-02`를 수집해 closed-loop/open-loop 각 3회 raw JSON 을 추가했다.
   - 반복 baseline artifact `session-03`를 수집해 D069의 최소 3개 baseline session 조건을 채웠다.
   - D070으로 3개 baseline session 분포 분석 뒤 latency hard gate 보류와 summary/soft warning 우선 정책을 결정했다.
+  - 반복 baseline summary artifact 구현 계획을 작성하고, 다음 실행 단위를 parser 계약 Task 1로 분리했다.
 
 ## Deferred Backlog
 
@@ -74,6 +75,7 @@
     `docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`,
     `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`,
     `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`,
+    `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`,
     `tests/Hps.Benchmarks/Program.cs`, `tests/Hps.Benchmarks/BaselineSuiteRunner.cs`,
     `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`,
     `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`.
@@ -94,8 +96,8 @@
     첫 구현의 권장 CLI 는 `--summarize-baseline <input-dir> --summary <output-json>`이다.
   - known blockers/open questions: summary JSON schema 의 최소 필드는 D070 설계에 정리됐다.
     Markdown report, CI provider workflow, warning-as-failure, hard latency gate 는 이 항목의 현재 구현 범위가 아니다.
-  - next step: `--summarize-baseline <input-dir> --summary <output-json>` 구현 계획을 작성한다.
-    계획은 fake JSON file set 기반 xUnit 테스트, summary generator, CLI wiring, JSON writer 검증으로 쪼갠다.
+  - next step: `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 1만 진행한다.
+    범위는 summary CLI parser 계약과 usage 갱신이며, summary 계산/JSON reader/writer/Program execution wiring 은 후속 task 로 분리한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -116,6 +118,14 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] 반복 baseline summary artifact 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결과: 구현을 4개 reviewable task 로 분리했다. Task 1은 summary CLI parser 계약,
+    Task 2는 summary model/generator, Task 3은 JSON reader/writer, Task 4는 Program wiring 과 CLI smoke 다.
+  - 검증: 문서 전용 변경이므로 build/test 는 실행하지 않았다. `git diff --check`는 통과했고
+    CRLF 변환 경고만 있으며 whitespace 오류는 없었다.
 
 - [x] 3개 반복 baseline session 기반 latency/CI 정책을 D070으로 정리했다.
   - 범위: `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`,

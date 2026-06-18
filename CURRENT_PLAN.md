@@ -48,6 +48,9 @@
   다음 구현 후보는 기존 per-run JSON을 입력으로 읽는 baseline summary artifact 와 non-failing soft warning 산출이다.
   권장 command 는 `--summarize-baseline <input-dir> --summary <output-json>`이며,
   Markdown report, CI workflow, warning-as-failure, hard latency gate 는 summary artifact 이후 별도 단위로 분리한다.
+- D070 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`로 작성했다.
+  구현은 4개 reviewable task 로 나눈다. Task 1은 `BenchmarkCommandParser`에
+  `--summarize-baseline <input-dir> --summary <output-json>` command 를 추가하는 parser 계약 단위다.
 - D069 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`로 작성했다.
   구현은 세부 task 를 여러 커밋으로 나누며, 첫 단위는 `tests/Hps.Benchmarks.Tests` 추가와 benchmark CLI parser extraction 이다.
 - 반복 baseline collection 계획의 Task 1을 완료했다. `tests/Hps.Benchmarks.Tests`를 solution 에 추가하고,
@@ -338,13 +341,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-반복 baseline 분포 정책 설계는 D070으로 닫았다. 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영하고,
-없으면 baseline summary artifact 구현 계획을 작성하는 것이다.
-구현 후보는 `--summarize-baseline <input-dir> --summary <output-json>` CLI 와 summary JSON writer 이며,
-Markdown report, CI workflow, warning-as-failure, hard latency gate 는 제외한다.
+반복 baseline summary artifact 구현 계획을 작성했다. 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영하고,
+없으면 `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 1만 진행한다.
+Task 1 범위는 `BenchmarkCommandParser`/`BenchmarkCommandLine`/`BenchmarkCommand`/usage 에
+`--summarize-baseline <input-dir> --summary <output-json>` parser 계약을 추가하는 것이다.
+summary 계산, JSON reader/writer, Program execution wiring 은 이후 task 로 분리한다.
 
 ## 이번 단위의 검증 경로
-- raw JSON 18개를 파싱해 D070 정책 설계의 baseline envelope 를 확인했다.
+- 구현 계획 문서가 D070 설계의 범위와 기존 benchmark CLI 구조를 반영하는지 확인했다.
 - 문서 전용 변경이므로 build/test 는 실행하지 않는다.
 - `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 
