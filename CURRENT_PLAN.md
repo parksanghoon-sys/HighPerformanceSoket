@@ -51,6 +51,9 @@
 - D070 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`로 작성했다.
   구현은 4개 reviewable task 로 나눈다. Task 1은 `BenchmarkCommandParser`에
   `--summarize-baseline <input-dir> --summary <output-json>` command 를 추가하는 parser 계약 단위다.
+- baseline summary artifact 계획의 Task 1을 완료했다. `BenchmarkCommandParser`가
+  `--summarize-baseline <input-dir> --summary <output-json>`를 해석하고, `--summary` 누락과 `--report` 혼용은
+  usage error 로 반환한다. 아직 summary 계산, JSON reader/writer, Program execution wiring 은 추가하지 않았다.
 - D069 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`로 작성했다.
   구현은 세부 task 를 여러 커밋으로 나누며, 첫 단위는 `tests/Hps.Benchmarks.Tests` 추가와 benchmark CLI parser extraction 이다.
 - 반복 baseline collection 계획의 Task 1을 완료했다. `tests/Hps.Benchmarks.Tests`를 solution 에 추가하고,
@@ -342,14 +345,18 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 사용자 리뷰 대기.
 
 반복 baseline summary artifact 구현 계획을 작성했다. 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영하고,
-없으면 `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 1만 진행한다.
-Task 1 범위는 `BenchmarkCommandParser`/`BenchmarkCommandLine`/`BenchmarkCommand`/usage 에
-`--summarize-baseline <input-dir> --summary <output-json>` parser 계약을 추가하는 것이다.
-summary 계산, JSON reader/writer, Program execution wiring 은 이후 task 로 분리한다.
+없으면 `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 2만 진행한다.
+Task 2 범위는 `BaselineReport`/`BaselineSummary` 계열 모델과 `BaselineSummaryGenerator`로
+D070 hard gate 집계 및 non-failing soft warning 계산을 추가하는 것이다.
+JSON reader/writer 와 Program execution wiring 은 이후 task 로 분리한다.
 
 ## 이번 단위의 검증 경로
-- 구현 계획 문서가 D070 설계의 범위와 기존 benchmark CLI 구조를 반영하는지 확인했다.
-- 문서 전용 변경이므로 build/test 는 실행하지 않는다.
+- Red: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BenchmarkCommandParserTests`
+  실행 시 신규 summary parser 테스트 3개가 실패하고 기존 5개는 통과했다.
+- Green: 같은 focused parser 테스트가 8개 통과했다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 11개 통과/실패 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 147개 통과/실패 0.
 - `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 
 ## 이번 작업에서 건드리지 않은 범위

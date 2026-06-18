@@ -6,12 +6,16 @@ namespace Hps.Benchmarks
             BenchmarkCommand command,
             string? reportPath,
             string? baselineOutputDirectory,
-            int baselineRunCount)
+            int baselineRunCount,
+            string? summaryInputDirectory,
+            string? summaryOutputPath)
         {
             Command = command;
             ReportPath = reportPath;
             BaselineOutputDirectory = baselineOutputDirectory;
             BaselineRunCount = baselineRunCount;
+            SummaryInputDirectory = summaryInputDirectory;
+            SummaryOutputPath = summaryOutputPath;
         }
 
         public BenchmarkCommand Command { get; }
@@ -21,5 +25,9 @@ namespace Hps.Benchmarks
         public string? BaselineOutputDirectory { get; }
 
         public int BaselineRunCount { get; }
+
+        public string? SummaryInputDirectory { get; }
+
+        public string? SummaryOutputPath { get; }
     }
 }

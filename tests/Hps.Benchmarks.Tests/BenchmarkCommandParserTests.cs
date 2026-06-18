@@ -1,3 +1,4 @@
+using System.Reflection;
 using Xunit;
 
 namespace Hps.Benchmarks.Tests
@@ -100,6 +101,72 @@ namespace Hps.Benchmarks.Tests
             Assert.True(parsed);
             Assert.NotNull(errorMessage);
             Assert.Equal(BenchmarkCommand.BaselineSuite, commandLine.Command);
+        }
+
+        // summary command 는 기존 per-run JSON directory 를 입력으로 받고 별도 summary JSON 파일을 출력한다.
+        // 아직 Program wiring 전이라도 parser 가 command 와 두 경로를 정확히 보존해야 이후 실행 단위가 흔들리지 않는다.
+        [Fact]
+        public void TryParse_WhenSummarizeBaselineHasInputAndSummary_ReturnsSummaryCommand()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--summarize-baseline", "docs/baseline", "--summary", "out/summary.json" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal("SummarizeBaseline", commandLine.Command.ToString());
+            Assert.Equal("docs/baseline", GetStringProperty(commandLine, "SummaryInputDirectory"));
+            Assert.Equal("out/summary.json", GetStringProperty(commandLine, "SummaryOutputPath"));
+            Assert.Null(commandLine.ReportPath);
+            Assert.Null(commandLine.BaselineOutputDirectory);
+            Assert.Equal(0, commandLine.BaselineRunCount);
+        }
+
+        // summary command 는 output directory command 가 아니므로 --summary 파일 경로가 반드시 필요하다.
+        // 이 검증이 없으면 사용자는 summary 파일이 생겼다고 생각하지만 실제로는 usage error 없이 다른 경로로 흐를 수 있다.
+        [Fact]
+        public void TryParse_WhenSummarizeBaselineMissingSummary_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--summarize-baseline", "docs/baseline" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Equal("SummarizeBaseline", commandLine.Command.ToString());
+        }
+
+        // --report 는 단일 runner raw JSON 출력용이고, summary command 의 출력은 --summary 로만 지정한다.
+        // 두 옵션을 섞으면 입력/출력 artifact 의 의미가 불명확해지므로 parser 단계에서 막는다.
+        [Fact]
+        public void TryParse_WhenSummarizeBaselineHasReport_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--summarize-baseline", "docs/baseline", "--report", "out/report.json" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Equal("SummarizeBaseline", commandLine.Command.ToString());
+        }
+
+        private static string? GetStringProperty(BenchmarkCommandLine commandLine, string propertyName)
+        {
+            PropertyInfo? property = typeof(BenchmarkCommandLine).GetProperty(propertyName);
+            Assert.NotNull(property);
+            return (string?)property!.GetValue(commandLine, null);
         }
     }
 }

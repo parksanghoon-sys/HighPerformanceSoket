@@ -60,6 +60,7 @@
   - 반복 baseline artifact `session-03`를 수집해 D069의 최소 3개 baseline session 조건을 채웠다.
   - D070으로 3개 baseline session 분포 분석 뒤 latency hard gate 보류와 summary/soft warning 우선 정책을 결정했다.
   - 반복 baseline summary artifact 구현 계획을 작성하고, 다음 실행 단위를 parser 계약 Task 1로 분리했다.
+  - baseline summary artifact 계획의 Task 1로 `--summarize-baseline` parser 계약과 usage 를 구현했다.
 
 ## Deferred Backlog
 
@@ -96,8 +97,8 @@
     첫 구현의 권장 CLI 는 `--summarize-baseline <input-dir> --summary <output-json>`이다.
   - known blockers/open questions: summary JSON schema 의 최소 필드는 D070 설계에 정리됐다.
     Markdown report, CI provider workflow, warning-as-failure, hard latency gate 는 이 항목의 현재 구현 범위가 아니다.
-  - next step: `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 1만 진행한다.
-    범위는 summary CLI parser 계약과 usage 갱신이며, summary 계산/JSON reader/writer/Program execution wiring 은 후속 task 로 분리한다.
+  - next step: `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 2만 진행한다.
+    범위는 summary domain model 과 `BaselineSummaryGenerator` 계산이며, JSON reader/writer/Program execution wiring 은 후속 task 로 분리한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -118,6 +119,21 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] baseline summary artifact Task 1로 summary CLI parser 계약을 구현했다.
+  - 범위: `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`,
+    `tests/Hps.Benchmarks/BenchmarkCommand.cs`,
+    `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`,
+    `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`,
+    `tests/Hps.Benchmarks/Program.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - Red: focused parser test 에서 신규 summary parser 테스트 3개가 실패하고 기존 5개는 통과했다.
+  - Green: `BenchmarkCommandParser`가 `--summarize-baseline <input-dir> --summary <output-json>`를 해석하고,
+    `--summary` 누락과 `--report` 혼용을 usage error 로 반환한다. `Program` usage 에도 command 를 추가했다.
+    실제 summary execution switch case 는 Task 4 범위라 아직 추가하지 않았다.
+  - 검증: focused parser tests 8개 통과, benchmark tests 11개 통과,
+    solution build 경고 0/오류 0, solution tests 전체 147개 통과/실패 0,
+    `git diff --check` 통과.
 
 - [x] 반복 baseline summary artifact 구현 계획을 작성했다.
   - 범위: `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`,

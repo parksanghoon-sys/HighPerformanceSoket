@@ -13,10 +13,13 @@ namespace Hps.Benchmarks
         public const string MessageBaselineOutputRequired = "--baseline-suite 옵션에는 report directory 경로가 필요합니다.";
         public const string MessageBaselineRunsInvalid = "--runs 옵션에는 1 이상의 정수가 필요합니다.";
         public const string MessageBaselineReportNotAllowed = "--report 옵션은 --baseline-suite 와 함께 사용할 수 없습니다.";
+        public const string MessageSummaryInputRequired = "--summarize-baseline 옵션에는 입력 directory 경로가 필요합니다.";
+        public const string MessageSummaryOutputRequired = "--summary 옵션에는 저장할 summary JSON 파일 경로가 필요합니다.";
+        public const string MessageSummaryReportNotAllowed = "--report 옵션은 --summarize-baseline 과 함께 사용할 수 없습니다.";
 
         public static bool TryParse(string[] args, out BenchmarkCommandLine commandLine, out string? errorMessage)
         {
-            commandLine = new BenchmarkCommandLine(BenchmarkCommand.None, null, null, 0);
+            commandLine = new BenchmarkCommandLine(BenchmarkCommand.None, null, null, 0, null, null);
             errorMessage = null;
 
             if (args.Length == 0)
@@ -27,16 +30,19 @@ namespace Hps.Benchmarks
             if (string.Equals(commandArg, "--help", StringComparison.OrdinalIgnoreCase))
             {
                 errorMessage = ValidateNoReportOption(args);
-                commandLine = new BenchmarkCommandLine(BenchmarkCommand.Help, null, null, 0);
+                commandLine = new BenchmarkCommandLine(BenchmarkCommand.Help, null, null, 0, null, null);
                 return true;
             }
 
             if (string.Equals(commandArg, "--target", StringComparison.OrdinalIgnoreCase))
             {
                 errorMessage = ValidateNoReportOption(args);
-                commandLine = new BenchmarkCommandLine(BenchmarkCommand.Target, null, null, 0);
+                commandLine = new BenchmarkCommandLine(BenchmarkCommand.Target, null, null, 0, null, null);
                 return true;
             }
+
+            if (string.Equals(commandArg, "--summarize-baseline", StringComparison.OrdinalIgnoreCase))
+                return ParseSummarizeBaseline(args, out commandLine, out errorMessage);
 
             if (string.Equals(commandArg, "--baseline-suite", StringComparison.OrdinalIgnoreCase))
                 return ParseBaselineSuite(args, out commandLine, out errorMessage);
@@ -64,7 +70,7 @@ namespace Hps.Benchmarks
             out BenchmarkCommandLine commandLine,
             out string? errorMessage)
         {
-            commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, null, DefaultBaselineRunCount);
+            commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, null, DefaultBaselineRunCount, null, null);
             errorMessage = null;
 
             if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
@@ -75,7 +81,7 @@ namespace Hps.Benchmarks
 
             if (ContainsReportOption(args))
             {
-                commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, args[1], DefaultBaselineRunCount);
+                commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, args[1], DefaultBaselineRunCount, null, null);
                 errorMessage = MessageBaselineReportNotAllowed;
                 return true;
             }
@@ -91,7 +97,44 @@ namespace Hps.Benchmarks
                 errorMessage = MessageUnknownRunnerArgs;
             }
 
-            commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, args[1], runCount);
+            commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, args[1], runCount, null, null);
+            return true;
+        }
+
+        private static bool ParseSummarizeBaseline(
+            string[] args,
+            out BenchmarkCommandLine commandLine,
+            out string? errorMessage)
+        {
+            string? inputDirectory = args.Length >= 2 ? args[1] : null;
+            commandLine = new BenchmarkCommandLine(BenchmarkCommand.SummarizeBaseline, null, null, 0, inputDirectory, null);
+            errorMessage = null;
+
+            if (string.IsNullOrWhiteSpace(inputDirectory))
+            {
+                errorMessage = MessageSummaryInputRequired;
+                return true;
+            }
+
+            if (ContainsReportOption(args))
+            {
+                errorMessage = MessageSummaryReportNotAllowed;
+                return true;
+            }
+
+            if (args.Length != 4 || !string.Equals(args[2], "--summary", StringComparison.OrdinalIgnoreCase))
+            {
+                errorMessage = MessageSummaryOutputRequired;
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(args[3]))
+            {
+                errorMessage = MessageSummaryOutputRequired;
+                return true;
+            }
+
+            commandLine = new BenchmarkCommandLine(BenchmarkCommand.SummarizeBaseline, null, null, 0, inputDirectory, args[3]);
             return true;
         }
 
@@ -103,7 +146,7 @@ namespace Hps.Benchmarks
         {
             string? reportPath;
             ParseOptionalReport(args, out reportPath, out errorMessage);
-            commandLine = new BenchmarkCommandLine(command, reportPath, null, 0);
+            commandLine = new BenchmarkCommandLine(command, reportPath, null, 0, null, null);
             return true;
         }
 

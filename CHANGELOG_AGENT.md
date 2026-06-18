@@ -1,5 +1,32 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline summary parser)
+
+### 작업 단위
+- `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 1만 구현했다.
+- summary 계산이나 JSON reader/writer 없이 CLI parser 계약과 usage 표기만 추가했다.
+
+### Red/Green
+- Red: `BenchmarkCommandParserTests`에 summary command 테스트 3개를 먼저 추가했다.
+  - `--summarize-baseline <input-dir> --summary <output-json>` 정상 parsing
+  - `--summary` 누락 usage error
+  - `--report` 혼용 usage error
+- Red 실행 결과: 신규 테스트 3개 실패, 기존 parser 테스트 5개 통과.
+- Green: `BenchmarkCommand.SummarizeBaseline`, `BenchmarkCommandLine.SummaryInputDirectory`,
+  `BenchmarkCommandLine.SummaryOutputPath`, `BenchmarkCommandParser.ParseSummarizeBaseline`를 추가했다.
+  `Program`에는 usage 한 줄만 추가했고 execution switch case 는 Task 4로 남겼다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`의 다음 실행 지점을 Task 2 summary model/generator 로 갱신했다.
+- `TODOS.md`의 P1 backlog 와 Completed 이력에 Task 1 결과를 반영했다.
+
+### 검증
+- focused parser tests: 8개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 11개 통과/실패 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 147개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - baseline summary implementation plan)
 
 ### 작업 단위
