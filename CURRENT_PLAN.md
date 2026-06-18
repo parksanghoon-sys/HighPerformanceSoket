@@ -78,6 +78,9 @@
 - `--summarize-baseline` CLI 에 선택 옵션 `--summary-md <output-md>`를 연결했다.
   command 는 기존 `--summary <output-json>`을 계속 필수로 요구하고, `--summary-md`가 있을 때만 같은 `BaselineSummary`에서
   Markdown 보조 artifact 를 추가로 쓴다. JSON summary 는 자동화용 canonical artifact 로 유지한다.
+- 2026-06-18 baseline directory 들에 `summary.md` 보조 artifact 를 생성했다.
+  root, `session-02`, `session-03` 모두 source report 6개, hard-passed true, warning 0으로 검증됐고,
+  `local-latency-baseline.md`의 Summary artifacts 표에는 JSON 과 Markdown 경로를 함께 남겼다.
 - D069 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`로 작성했다.
   구현은 세부 task 를 여러 커밋으로 나누며, 첫 단위는 `tests/Hps.Benchmarks.Tests` 추가와 benchmark CLI parser extraction 이다.
 - 반복 baseline collection 계획의 Task 1을 완료했다. `tests/Hps.Benchmarks.Tests`를 solution 에 추가하고,
@@ -368,20 +371,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-baseline summary artifact Task 1~4, 2026-06-18 canonical summary JSON 생성, Markdown writer, CLI `--summary-md` 연결 단위를 완료했다.
+baseline summary artifact Task 1~4, 2026-06-18 canonical summary JSON 생성, Markdown writer, CLI `--summary-md` 연결,
+기존 baseline directory 3개의 `summary.md` 보조 artifact 생성 단위를 완료했다.
 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
 현재 자동으로 이어서 실행할 구현 항목은 없다.
 
 ## 이번 단위의 검증 경로
-- Red 1: `BenchmarkCommandParserTests`에 `--summary-md` parser 테스트를 추가했고,
-  기존 parser 가 6개 인자를 summary output usage error 로 처리해 1개 실패/9개 통과했다.
-- Green 1: `BenchmarkCommandLine.SummaryMarkdownOutputPath`와 parser optional `--summary-md <path>` 처리를 추가했고,
-  focused parser tests 10개가 통과했다.
-- Red 2: parser Green 뒤 CLI smoke 에서 `--summary-md`를 지정하면 exit-code 0과 JSON 생성은 확인됐지만 Markdown 파일은 생성되지 않았다.
-- Green 2: `Program`이 summary JSON 생성 뒤 선택적으로 `BaselineSummaryMarkdownWriter`를 호출하도록 연결했다.
-  CLI smoke 에서 exit-code 0, JSON/Markdown 파일 생성, Markdown heading/load row/no-warning 문구를 확인했다.
-- focused benchmark tests: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore`
-  통과, 20개 통과/실패 0.
+- Red: root, `session-02`, `session-03` baseline directory 에 `summary.md`가 모두 없는 상태를 `Test-Path`로 확인했다.
+- Green: `--summarize-baseline ... --summary ... --summary-md ...`를 세 directory 에 실행했고,
+  모두 exit-code 0, source report count 6, hard-passed true, warning count 0을 출력했다.
+- 생성된 `summary.md` 3개 모두 `# Baseline Summary`, `Warnings`, `- 없음`을 포함하고,
+  kind별 load/open-loop row 를 제공한다.
 - 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
 - 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과,
   전체 156개 통과/실패 0.

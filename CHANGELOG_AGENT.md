@@ -1,5 +1,32 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline summary markdown artifacts)
+
+### 작업 단위
+- 이미 구현된 `--summarize-baseline <input-dir> --summary <output-json> --summary-md <output-md>` command 로
+  2026-06-18 baseline root, `session-02`, `session-03` directory 의 `summary.md` 보조 artifact 를 생성했다.
+- 코드 변경 없이 benchmark artifact 와 상태 문서만 갱신했다.
+
+### Red/Green
+- Red: root, `session-02`, `session-03`의 `summary.md`가 모두 없는 상태를 `Test-Path`로 확인했다.
+- Green: 세 directory 에 대해 `--summary-md` 포함 summary command 를 실행해 모두 exit-code 0,
+  `source-report-count=6`, `hard-passed=true`, `warning-count=0`을 확인했다.
+
+### 생성 artifact
+- `docs/benchmarks/baselines/2026-06-18/summary.md`
+- `docs/benchmarks/baselines/2026-06-18/session-02/summary.md`
+- `docs/benchmarks/baselines/2026-06-18/session-03/summary.md`
+
+### 상태 갱신
+- `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`의 Summary artifacts 표에 Markdown 경로를 추가했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`에 이번 생성 단위와 다음 리뷰 대기 상태를 반영했다.
+
+### 검증
+- 생성된 세 `summary.md`가 `# Baseline Summary`, load/open-loop row, `Warnings`, `- 없음`을 포함하는지 확인했다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 156개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - baseline summary markdown cli)
 
 ### 작업 단위

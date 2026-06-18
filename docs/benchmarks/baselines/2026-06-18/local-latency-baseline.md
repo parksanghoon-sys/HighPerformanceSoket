@@ -129,18 +129,19 @@ latency, actual rate, queue high-watermark 는 회귀 판단을 돕는 관측값
 
 ## Summary artifacts
 
-`--summarize-baseline <input-dir> --summary <output-json>` command 로 각 baseline directory 의 top-level raw JSON 6개를 요약한
-`summary.json`을 함께 남겼다. summary reader 는 top-level `load-*.json`/`open-loop-*.json`만 읽고, 같은 directory 의
-`summary.json`은 다시 run report 로 집계하지 않는다.
+`--summarize-baseline <input-dir> --summary <output-json> --summary-md <output-md>` command 로 각 baseline directory 의
+top-level raw JSON 6개를 요약한 `summary.json`과 사람이 빠르게 확인할 `summary.md`를 함께 남겼다.
+summary reader 는 top-level `load-*.json`/`open-loop-*.json`만 읽고, 같은 directory 의 `summary.json`이나 `summary.md`는
+다시 run report 로 집계하지 않는다.
 
-| scope | summary | source reports | hard passed | warnings | load runs | open-loop runs |
-| --- | --- | ---: | --- | ---: | ---: | ---: |
-| root | `summary.json` | 6 | true | 0 | 3 | 3 |
-| session-02 | `session-02/summary.json` | 6 | true | 0 | 3 | 3 |
-| session-03 | `session-03/summary.json` | 6 | true | 0 | 3 | 3 |
+| scope | summary JSON | summary Markdown | source reports | hard passed | warnings | load runs | open-loop runs |
+| --- | --- | --- | ---: | --- | ---: | ---: | ---: |
+| root | `summary.json` | `summary.md` | 6 | true | 0 | 3 | 3 |
+| session-02 | `session-02/summary.json` | `session-02/summary.md` | 6 | true | 0 | 3 | 3 |
+| session-03 | `session-03/summary.json` | `session-03/summary.md` | 6 | true | 0 | 3 | 3 |
 
-summary artifact 는 현재 hard gate 결과와 관측 통계를 자동 소비하기 위한 JSON 기준선이다. Markdown 표는 사람이 빠르게 보는
-기록이고, 추후 CI나 report tooling 은 summary JSON을 우선 입력으로 사용한다.
+summary JSON은 현재 hard gate 결과와 관측 통계를 자동 소비하기 위한 기준선이다. Markdown 표는 사람이 빠르게 보는
+보조 기록이고, 추후 CI나 report tooling 은 summary JSON을 우선 입력으로 사용한다.
 
 ## 결론
 
