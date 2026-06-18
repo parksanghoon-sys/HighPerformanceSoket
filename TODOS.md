@@ -65,6 +65,7 @@
   - baseline summary artifact 계획의 Task 2로 summary domain model 과 soft warning 계산을 구현했다.
   - baseline summary artifact 계획의 Task 3으로 per-run JSON reader 와 summary JSON writer 를 구현했다.
   - baseline summary artifact 계획의 Task 4로 Program execution wiring 과 실제 CLI smoke 를 완료했다.
+  - 2026-06-18 baseline root/session-02/session-03 directory 에 canonical `summary.json` artifact 를 생성했다.
 
 ## Deferred Backlog
 
@@ -87,6 +88,18 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] 2026-06-18 baseline summary JSON artifact 를 생성했다.
+  - 범위: `docs/benchmarks/baselines/2026-06-18/summary.json`,
+    `docs/benchmarks/baselines/2026-06-18/session-02/summary.json`,
+    `docs/benchmarks/baselines/2026-06-18/session-03/summary.json`,
+    `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결과: 세 baseline directory 모두 top-level per-run JSON 6개를 summary JSON v1으로 요약했다.
+    root, `session-02`, `session-03` 모두 hard-passed true, warning 0, load/open-loop 각 3개 run 이다.
+  - 검증: 생성 전 세 `summary.json` 부재를 확인했고, `--summarize-baseline ... --summary ...` 세 실행이 모두 exit-code 0이었다.
+    생성 뒤 `ConvertFrom-Json`으로 `summary-version == 1`, `source-report-count == 6`, `hard-passed == true`,
+    `warning-count == 0`, load/open-loop run count 3을 확인했다.
 
 - [x] 반복 baseline summary artifact 와 soft warning 산출을 구현했다.
   - 범위: `tests/Hps.Benchmarks/`, `tests/Hps.Benchmarks.Tests/`,

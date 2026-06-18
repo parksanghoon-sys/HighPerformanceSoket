@@ -127,6 +127,21 @@ latency, actual rate, queue high-watermark 는 회귀 판단을 돕는 관측값
 - TCP pending send queue HWM: 2~3
 - drop/leak/payload error: 0
 
+## Summary artifacts
+
+`--summarize-baseline <input-dir> --summary <output-json>` command 로 각 baseline directory 의 top-level raw JSON 6개를 요약한
+`summary.json`을 함께 남겼다. summary reader 는 top-level `load-*.json`/`open-loop-*.json`만 읽고, 같은 directory 의
+`summary.json`은 다시 run report 로 집계하지 않는다.
+
+| scope | summary | source reports | hard passed | warnings | load runs | open-loop runs |
+| --- | --- | ---: | --- | ---: | ---: | ---: |
+| root | `summary.json` | 6 | true | 0 | 3 | 3 |
+| session-02 | `session-02/summary.json` | 6 | true | 0 | 3 | 3 |
+| session-03 | `session-03/summary.json` | 6 | true | 0 | 3 | 3 |
+
+summary artifact 는 현재 hard gate 결과와 관측 통계를 자동 소비하기 위한 JSON 기준선이다. Markdown 표는 사람이 빠르게 보는
+기록이고, 추후 CI나 report tooling 은 summary JSON을 우선 입력으로 사용한다.
+
 ## 결론
 
 현재 로컬 기준선에서는 closed-loop 와 open-loop 모두 4096B x 100Hz x 30초 목표를 delivery/drop/leak 관점에서 통과했다.

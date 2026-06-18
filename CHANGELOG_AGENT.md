@@ -1,5 +1,33 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline summary artifacts)
+
+### 작업 단위
+- 이미 구현된 `--summarize-baseline <input-dir> --summary <output-json>` command 로
+  2026-06-18 baseline root, `session-02`, `session-03` directory 의 canonical `summary.json`을 생성했다.
+- 코드 변경 없이 benchmark artifact 와 상태 문서만 갱신했다.
+
+### Red/Green
+- Red: root, `session-02`, `session-03`의 `summary.json`이 모두 없는 상태를 `Test-Path`로 확인했다.
+- Green: 세 directory 에 대해 summary command 를 실행해 모두 exit-code 0,
+  `source-report-count=6`, `hard-passed=true`, `warning-count=0`을 확인했다.
+
+### 생성 artifact
+- `docs/benchmarks/baselines/2026-06-18/summary.json`
+- `docs/benchmarks/baselines/2026-06-18/session-02/summary.json`
+- `docs/benchmarks/baselines/2026-06-18/session-03/summary.json`
+
+### 상태 갱신
+- `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`에 summary artifact 표를 추가했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`에 이번 생성 단위와 다음 리뷰 대기 상태를 반영했다.
+
+### 검증
+- 생성된 세 `summary.json`을 `ConvertFrom-Json`으로 읽어 `summary-version == 1`,
+  `source-report-count == 6`, `hard-passed == true`, `warning-count == 0`,
+  load/open-loop run count 3을 확인했다.
+- 최종 검증으로 `dotnet build HighPerformanceSocket.slnx --no-restore`,
+  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`, `git diff --check`를 실행한다.
+
 ## 2026-06-18 (Codex - baseline summary cli wiring)
 
 ### 작업 단위

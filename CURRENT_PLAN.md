@@ -68,6 +68,10 @@
   `BaselineReportReader` → `BaselineSummaryGenerator` → `BaselineSummaryWriter`로 연결한다.
   2026-06-18 root baseline, session-02, session-03 directory 로 CLI smoke 를 실행해 각 summary 가 report 6개,
   hard-passed true, load/open-loop 각 3개 run 으로 생성되는지 확인했다.
+- 2026-06-18 baseline directory 들에 canonical `summary.json` artifact 를 생성했다.
+  root, `session-02`, `session-03` 모두 source report 6개, hard-passed true, warning 0,
+  load/open-loop 각 3개 run 으로 검증됐다. 이 파일은 이후 CI/report tooling 이 사람이 읽는 Markdown 대신
+  우선 소비할 JSON 기준선이다.
 - D069 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`로 작성했다.
   구현은 세부 task 를 여러 커밋으로 나누며, 첫 단위는 `tests/Hps.Benchmarks.Tests` 추가와 benchmark CLI parser extraction 이다.
 - 반복 baseline collection 계획의 Task 1을 완료했다. `tests/Hps.Benchmarks.Tests`를 solution 에 추가하고,
@@ -358,18 +362,20 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-baseline summary artifact Task 1~4를 모두 완료했다. 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
+baseline summary artifact Task 1~4와 2026-06-18 canonical summary JSON 생성을 모두 완료했다.
+다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
 현재 자동으로 이어서 실행할 구현 항목은 없다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --summarize-baseline ...`
-  실행 시 exit-code 2, summary 파일 미생성을 확인했다.
-- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- Green: root `docs\benchmarks\baselines\2026-06-18`, `session-02`, `session-03`에 대해 CLI smoke 를 실행했다.
-  세 실행 모두 exit-code 0, `source-report-count == 6`, `hard-passed == true`,
+- Red: root, `session-02`, `session-03`의 `summary.json`이 모두 없는 상태를 `Test-Path`로 확인했다.
+- Green: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --summarize-baseline ... --summary ...`
+  를 세 baseline directory 에 실행했다. 세 실행 모두 exit-code 0,
+  `source-report-count == 6`, `hard-passed == true`, `warning-count == 0`을 출력했다.
+- 생성된 세 `summary.json`을 `ConvertFrom-Json`으로 읽어 `summary-version == 1`,
+  `source-report-count == 6`, `hard-passed == true`, `warning-count == 0`,
   `by-kind.load.run-count == 3`, `by-kind.open-loop.run-count == 3`을 확인했다.
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 152개 통과/실패 0.
-- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 최종 검증으로 `dotnet build HighPerformanceSocket.slnx --no-restore`,
+  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`, `git diff --check`를 실행한다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
