@@ -1,5 +1,37 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - local TCP loopback latency baseline)
+
+### 작업 단위
+- D063 후속으로 2026-06-18 로컬 TCP loopback latency baseline 을 수집했다.
+- 범위는 기존 `tests/Hps.Benchmarks` runner 실행 결과와 baseline summary 문서, root state docs 로 제한했다.
+- production code/test 는 변경하지 않았다.
+
+### 실행
+- `dotnet build HighPerformanceSocket.slnx --no-restore`로 현재 코드 빌드를 확인했다.
+- `--load --report`를 3회 실행해 closed-loop report 를 저장했다.
+- `--load-open-loop --report`를 3회 실행해 open-loop report 를 저장했다.
+- report 는 `docs/benchmarks/baselines/2026-06-18/` 아래 JSON 파일로 남겼고,
+  요약은 `local-latency-baseline.md`에 기록했다.
+
+### 결과
+- closed-loop 3회는 모두 sent/received 3000, dropped 0, payload-errors 0, pool-rented 0으로 pass 했다.
+  TCP HWM 은 1, p99 범위는 879.7~924.1us 였다.
+- open-loop 3회는 모두 sent/received 3000, dropped 0, payload-errors 0, pool-rented 0으로 pass 했다.
+  TCP HWM 은 2, p99 범위는 915.9~1005.5us 였다.
+- 이번 결과는 개발 PC의 참고 baseline 이며, hard latency SLO 나 CI gate 로 승격하지 않는다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 baseline 결과와 다음 후보를 반영했다.
+- `TODOS.md`에서 로컬 baseline 수집은 Completed 로 이동하고,
+  남은 hard threshold 판단은 CI 또는 장기 반복 baseline 후속으로 좁혔다.
+
+### 검증
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load --report ...` 3회 통과.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load-open-loop --report ...` 3회 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - backpressure QoS policy surface decision)
 
 ### 작업 단위

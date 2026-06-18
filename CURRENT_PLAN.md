@@ -24,6 +24,10 @@
 - D067로 configurable backpressure/QoS policy surface 를 v1에 추가하지 않기로 했다. 현재 TCP/UDP send queue 는 capacity 16
   bounded drop-oldest 를 고정 기본값으로 유지하고, disconnect/reject/reliable/durable/per-topic QoS 는 실제 요구가 구체화될 때
   별도 설계로 승격한다.
+- 2026-06-18 로컬 반복 baseline 을 수집했다. `--load` 3회와 `--load-open-loop` 3회가 모두 sent/received 3000,
+  dropped 0, payload-errors 0, pool-rented 0으로 통과했다. closed-loop p99 범위는 879.7~924.1us, open-loop p99 범위는
+  915.9~1005.5us, TCP HWM 은 각각 1/2로 관측됐다. 결과는
+  `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`에 기록했다.
 
 ## 현재 Phase
 Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Server endpoint/send-side 관측성 설계.
@@ -286,13 +290,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-이번 단위에서 v1 backpressure/QoS policy surface 필요성을 검토하고, public 설정/API를 추가하지 않는다고 D067로 확정했다.
-production code 변경은 없었다.
+이번 단위에서 2026-06-18 로컬 TCP loopback latency baseline 을 수집하고 summary/report 파일로 보존했다.
+production code 변경은 없었다. hard latency SLO 는 아직 정하지 않고, 같은 환경의 추가 반복 또는 CI 전용 baseline 이 쌓인 뒤
+별도 결정으로 다룬다.
 다음 구현은 사용자 리뷰 뒤 `TODOS.md`의 Deferred Backlog 를 다시 평가해 하나의 작은 단위로 승격한다.
-현재 가까운 후보는 반복 가능한 latency baseline 수집이다.
+현재 가까운 후보는 Server convenience diagnostics API 필요성 재검토 또는 CI/반복 baseline 확대 설계다.
 
 ## 이번 단위의 검증 경로
-- 문서/결정 단위이므로 production build/test 는 새로 실행하지 않는다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load --report ...` 3회.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load-open-loop --report ...` 3회.
 - `git diff --check`로 whitespace 오류를 확인한다.
 
 ## 이번 작업에서 건드리지 않은 범위

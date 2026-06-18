@@ -43,25 +43,28 @@
   - stalled TCP subscriber stress 통합 테스트로 drop-oldest evict 와 TCP HWM 16 포화 관측을 고정했다.
   - D066으로 v1 drop 관측은 pull snapshot 으로 충분하다고 판단하고 drop log/sampling 은 보류했다.
   - D067로 configurable backpressure/QoS policy surface 는 v1에 추가하지 않기로 결정했다.
-  - 다음 후보: 사용자 리뷰 후 latency baseline 을 Current TODOs 로 승격할지 재평가한다.
+  - 2026-06-18 로컬 TCP loopback latency baseline 을 수집했다.
+  - 다음 후보: 사용자 리뷰 후 Server convenience diagnostics API 필요성 또는 CI/반복 baseline 확대를 재평가한다.
 
 ## Deferred Backlog
 
-- [ ] `P2_LATER` 반복 가능한 latency baseline 을 만든 뒤 hard SLO threshold 를 재검토한다.
-  - 무엇이 남았는지: D063에 따라 p50/p99, p99 growth ratio, actual-rate, TCP/UDP high-watermark 는 report 관측값으로 유지하고,
-    아직 hard failure threshold 로 쓰지 않는다.
-  - 왜 defer 되었는지: 단일 개발 PC 실행값은 OS scheduling, 백그라운드 부하, JIT/워밍업 상태에 민감하다.
-    false negative 를 줄이려면 동일 장비/CI 조건에서 반복 실행한 baseline 과 regression 기준이 먼저 필요하다.
-  - objective: 4096B×100Hz 목표를 latency 측면에서도 자동 판정할 수 있을 만큼 재현 가능한 기준을 만든다.
+- [ ] `P2_LATER` CI 또는 장기 반복 baseline 을 쌓은 뒤 hard SLO threshold 를 재검토한다.
+  - 무엇이 남았는지: 2026-06-18 로컬 3회 반복 baseline 은 남겼지만, p50/p99, p99 growth ratio, actual-rate,
+    TCP/UDP high-watermark 는 아직 hard failure threshold 로 쓰지 않는다.
+  - 왜 defer 되었는지: 단일 개발 PC의 같은 날 3회 실행만으로는 OS scheduling, 백그라운드 부하, JIT/워밍업 상태 변동을
+    충분히 설명하기 어렵다. false negative 를 줄이려면 날짜를 달리한 반복 실행이나 CI 전용 baseline 이 더 필요하다.
+  - objective: 4096B×100Hz 목표를 latency 측면에서도 자동 판정할 수 있을 만큼 재현 가능한 기준과 regression policy 를 만든다.
   - relevant context: DECISIONS D050/D051/D052/D063, `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`,
-    `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`, `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`.
+    `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`, `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`,
+    `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`.
   - 관련 파일/범위: `tests/Hps.Benchmarks/`, benchmark output 저장 위치, 필요 시 CI script.
-  - 현재 상태: 2026-06-17 로컬 실행에서 `--load`는 sent/received 3000, dropped 0, TCP HWM 1, p99 720.9us,
-    p99 growth ratio 0.50으로 pass 했다. `--load-open-loop`는 sent/received 3000, dropped 0, TCP HWM 3,
-    p99 527.7us, p99 growth ratio 0.75로 pass 했다.
-  - known blockers/open questions: 절대 threshold, baseline 대비 상대 threshold, multi-run median/p95, soft warning 과
-    hard failure 경계를 어떻게 나눌지 정해야 한다.
-  - next step: 같은 환경에서 여러 번 report 를 수집하고 변동 폭을 본 뒤, threshold 를 코드 gate 로 넣을지 문서/CI warning 으로 둘지 결정한다.
+  - 현재 상태: 2026-06-18 로컬 baseline 에서 `--load` 3회는 모두 pass 했고 p99 879.7~924.1us, TCP HWM 1로 관측됐다.
+    `--load-open-loop` 3회도 모두 pass 했고 p99 915.9~1005.5us, TCP HWM 2로 관측됐다. 두 runner 모두 dropped 0,
+    payload-errors 0, pool-rented 0이다.
+  - known blockers/open questions: 절대 threshold 대신 baseline 대비 상대 threshold 를 쓸지, multi-run median/p95 를 쓸지,
+    soft warning 과 hard failure 경계를 어떻게 나눌지 정해야 한다.
+  - next step: 같은 장비에서 날짜를 달리해 baseline 을 더 쌓거나 CI 전용 runner 를 만든 뒤,
+    threshold 를 코드 gate 로 넣을지 문서/CI warning 으로 둘지 결정한다.
 
 - [ ] `P2_LATER` Server convenience diagnostics API 필요성을 실제 host surface 기준으로 재검토한다.
   - 무엇이 남았는지: D066으로 drop log/sampling 은 보류했고, `ITransportDiagnostics.GetDiagnosticsSnapshot()`의 pull snapshot 만으로
@@ -83,6 +86,17 @@
   - next step: 실제 운영 host 표면이 생기거나 샘플에서 transport 캐스팅이 반복되면 pass-through accessor 설계를 별도 단위로 승격한다.
 
 ## Completed
+
+- [x] 2026-06-18 로컬 TCP loopback latency baseline 을 수집했다.
+  - 범위: `docs/benchmarks/baselines/2026-06-18/*.json`,
+    `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`, root state docs.
+  - 실행: `dotnet build HighPerformanceSocket.slnx --no-restore` 후, `--load --report` 3회와
+    `--load-open-loop --report` 3회를 `--no-build`로 실행했다.
+  - 결과: closed-loop 3회는 모두 sent/received 3000, dropped 0, payload-errors 0, pool-rented 0,
+    TCP HWM 1, p99 879.7~924.1us 로 pass 했다. open-loop 3회는 모두 sent/received 3000, dropped 0,
+    payload-errors 0, pool-rented 0, TCP HWM 2, p99 915.9~1005.5us 로 pass 했다.
+  - 결정: 새 hard SLO는 정하지 않았다. 이 결과는 현재 개발 PC의 참고 baseline 이며,
+    날짜를 달리한 반복 실행이나 CI 전용 baseline 이 쌓인 뒤 threshold 승격을 다시 판단한다.
 
 - [x] configurable backpressure/QoS policy surface 필요성을 D067로 닫았다.
   - 범위: `docs/superpowers/specs/2026-06-18-backpressure-qos-policy-surface-design.md`,
