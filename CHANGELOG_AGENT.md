@@ -1,5 +1,32 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - CI/repeat baseline policy decision)
+
+### 작업 단위
+- Phase 4 latency hard gate 이전에 어떤 baseline 을 더 쌓을지 정책을 정리했다.
+- 범위는 신규 설계 문서와 root state docs 로 제한했다.
+- production code/test 는 변경하지 않았다.
+
+### 결정
+- D069로 p50/p99, p99 growth ratio, actual-rate, TCP/UDP high-watermark 기반 hard failure threshold 는 아직 추가하지 않기로 했다.
+- 다음 작업은 threshold 추가가 아니라 `--load`와 `--load-open-loop` 반복 실행 결과를 raw JSON artifact 로 쌓는 방향으로 둔다.
+- hard pass/fail 은 기존처럼 planned/sent/received 일치, dropped 0, payload-errors 0, pool-rented 0으로 유지한다.
+
+### 근거
+- 2026-06-18 로컬 baseline 은 `--load` 3회와 `--load-open-loop` 3회가 모두 pass 했지만,
+  단일 개발 PC의 같은 날 실행값만으로 OS scheduling, 백그라운드 부하, JIT/워밍업 상태 변동을 설명하기 어렵다.
+- threshold 를 바로 넣으면 false negative 위험이 크므로, 같은 장비 또는 같은 CI runner 에서 baseline session 을 먼저 축적한다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`를 추가했다.
+- `DECISIONS.md`에 D069를 추가했다.
+- `TODOS.md`의 기존 CI/장기 baseline 후속을 D069 완료 항목과 반복 baseline collection 후보로 재정리했다.
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기와 다음 후보 재평가 상태로 갱신했다.
+
+### 검증
+- 문서 일관성을 확인했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - review snapshot status overlay)
 
 ### 작업 단위

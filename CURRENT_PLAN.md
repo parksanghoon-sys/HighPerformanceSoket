@@ -31,9 +31,13 @@
 - D068로 v1에서는 `BrokerServer` diagnostics pass-through API 를 추가하지 않기로 했다. 현재 Server 는 단일 injected
   Transport 를 조립하는 얇은 host 이며, diagnostics 소비자는 테스트/benchmark 중심이라 Transport capability 를 직접 읽는
   기존 경계가 더 명확하다. 실제 host/metrics/exporter 요구가 생기면 server-level diagnostics surface 를 별도 설계한다.
+- D069로 latency hard gate 전에는 반복 baseline artifact 를 먼저 축적하기로 했다. `--load`와 `--load-open-loop`의
+  raw JSON report 를 여러 baseline session 으로 남긴 뒤, 같은 장비 또는 같은 CI runner 기준의 재현성이 확보되면
+  soft warning 과 hard failure 경계를 다시 판단한다.
 - 아직 추적되지 않던 `.claude/review` snapshot 원문을 보존하고,
   `.claude/review/review-status-2026-06-18.md`로 과거 review snapshot 을 현재 HEAD 기준으로 정리했다.
-  HEAD `980721c`에서 build 0/0, test 136/0 green 이며, 현재 다음 구현을 막는 must-fix/blocker 는 없다.
+  overlay 기준 HEAD `980721c`에서 build 0/0, test 136/0 green 이었고, 해당 정리는 `0628d20`으로 커밋됐다.
+  현재 다음 구현을 막는 must-fix/blocker 는 없다.
 
 ## 현재 Phase
 Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Server endpoint/send-side 관측성 설계.
@@ -296,16 +300,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-이번 단위에서 아직 추적되지 않던 `.claude/review` snapshot 원문을 보존하고,
-`.claude/review/review-status-2026-06-18.md` overlay 를 추가해 과거 Claude review snapshot 을 현재 HEAD 기준으로 재분류했다.
+이번 단위에서 CI/반복 baseline 확대 정책을 D069로 닫고,
+`docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`에 설계로 남긴다.
 production code 변경은 없었다.
 다음 구현은 사용자 리뷰 뒤 `TODOS.md`의 Deferred Backlog 를 다시 평가해 하나의 작은 단위로 승격한다.
-현재 가까운 후보는 CI/반복 baseline 확대 설계 또는 Phase 5/6 backend selector/OS capability probe 설계다.
+현재 가까운 후보는 반복 baseline collection command 설계/구현 또는 Phase 5/6 backend selector/OS capability probe 설계다.
 
 ## 이번 단위의 검증 경로
-- `dotnet build HighPerformanceSocket.slnx --no-restore`.
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`.
-- `git diff --check`로 whitespace 오류를 확인한다.
+- 문서 일관성 확인 완료.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화

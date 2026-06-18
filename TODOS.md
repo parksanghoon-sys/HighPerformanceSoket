@@ -47,27 +47,30 @@
   - D068로 `BrokerServer` diagnostics pass-through API 는 v1에 추가하지 않기로 결정했다.
   - 아직 추적되지 않던 `.claude/review` snapshot 원문을 보존하고,
     `review-status-2026-06-18.md`로 과거 review snapshot 의 현재 상태를 정리했다.
-  - 다음 후보: 사용자 리뷰 후 CI/반복 baseline 확대 또는 Phase 5/6 backend selector/OS capability probe 설계를 재평가한다.
+  - D069로 latency hard gate 전에는 반복 baseline artifact 를 먼저 축적하기로 결정했다.
+  - 다음 후보: 사용자 리뷰 후 반복 baseline collection command 또는 Phase 5/6 backend selector/OS capability probe 설계를 재평가한다.
 
 ## Deferred Backlog
 
-- [ ] `P2_LATER` CI 또는 장기 반복 baseline 을 쌓은 뒤 hard SLO threshold 를 재검토한다.
-  - 무엇이 남았는지: 2026-06-18 로컬 3회 반복 baseline 은 남겼지만, p50/p99, p99 growth ratio, actual-rate,
-    TCP/UDP high-watermark 는 아직 hard failure threshold 로 쓰지 않는다.
-  - 왜 defer 되었는지: 단일 개발 PC의 같은 날 3회 실행만으로는 OS scheduling, 백그라운드 부하, JIT/워밍업 상태 변동을
-    충분히 설명하기 어렵다. false negative 를 줄이려면 날짜를 달리한 반복 실행이나 CI 전용 baseline 이 더 필요하다.
-  - objective: 4096B×100Hz 목표를 latency 측면에서도 자동 판정할 수 있을 만큼 재현 가능한 기준과 regression policy 를 만든다.
-  - relevant context: DECISIONS D050/D051/D052/D063, `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`,
+- [ ] `P1_SOON` 반복 baseline collection command 또는 절차를 설계/구현한다.
+  - 무엇이 남았는지: D069로 hard latency gate 전에는 raw JSON baseline artifact 를 먼저 축적하기로 했다.
+    아직 `--load`와 `--load-open-loop`를 여러 번 실행하고 per-run JSON과 summary 를 한 번에 남기는 command 또는 공식 절차는 없다.
+  - 왜 defer 되었는지: 이번 단위는 정책 결정과 문서화로 제한했다. 실제 command 를 추가하려면 CLI parser, 반복 실행 실패 처리,
+    출력 directory naming, summary 생성 여부를 별도 TDD 단위로 정해야 한다.
+  - objective: 같은 장비 또는 같은 CI runner 에서 baseline session 을 재현 가능하게 수집하고, raw JSON report 를 artifact 로 남긴다.
+    p50/p99 hard failure 는 만들지 않고 soft warning 후보 산출의 입력만 준비한다.
+  - relevant context: DECISIONS D063/D069,
+    `docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`,
+    `tests/Hps.Benchmarks/Program.cs`, `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`,
     `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`, `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`,
     `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`.
   - 관련 파일/범위: `tests/Hps.Benchmarks/`, benchmark output 저장 위치, 필요 시 CI script.
-  - 현재 상태: 2026-06-18 로컬 baseline 에서 `--load` 3회는 모두 pass 했고 p99 879.7~924.1us, TCP HWM 1로 관측됐다.
-    `--load-open-loop` 3회도 모두 pass 했고 p99 915.9~1005.5us, TCP HWM 2로 관측됐다. 두 runner 모두 dropped 0,
-    payload-errors 0, pool-rented 0이다.
-  - known blockers/open questions: 절대 threshold 대신 baseline 대비 상대 threshold 를 쓸지, multi-run median/p95 를 쓸지,
-    soft warning 과 hard failure 경계를 어떻게 나눌지 정해야 한다.
-  - next step: 같은 장비에서 날짜를 달리해 baseline 을 더 쌓거나 CI 전용 runner 를 만든 뒤,
-    threshold 를 코드 gate 로 넣을지 문서/CI warning 으로 둘지 결정한다.
+  - 현재 상태: 기존 `--report`는 단일 runner 의 JSON 파일을 생성하고, 상위 directory 생성과 기존 파일 덮어쓰기를 지원한다.
+    2026-06-18 로컬 baseline 에서 `--load` 3회는 p99 879.7~924.1us/TCP HWM 1,
+    `--load-open-loop` 3회는 p99 915.9~1005.5us/TCP HWM 2였으며 모든 run 은 drop/leak/payload error 0으로 pass 했다.
+  - known blockers/open questions: 새 command 를 만들지 문서화된 shell 절차로 둘지, summary 파일을 만들지,
+    output directory 이름에 timestamp/run index 를 어떻게 넣을지 정해야 한다.
+  - next step: 사용자 리뷰 뒤 반복 baseline collection 의 최소 구현 계획을 세운다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -88,6 +91,17 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] CI/반복 baseline 확대 정책을 D069로 닫았다.
+  - 범위: `docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`,
+    `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결정: p50/p99, p99 growth ratio, actual-rate, TCP/UDP high-watermark 기반 hard failure threshold 는 아직 추가하지 않는다.
+    기존 hard pass/fail 은 planned/sent/received 일치, dropped 0, payload-errors 0, pool-rented 0으로 유지한다.
+  - 이유: 2026-06-18 로컬 baseline 은 모두 pass 했지만, 단일 개발 PC의 같은 날 실행값만으로 latency threshold 를 고정하면
+    OS scheduling, 백그라운드 부하, JIT/워밍업 상태 때문에 false negative 위험이 크다.
+  - 후속: 같은 장비 또는 같은 CI runner 에서 `--load` 3회와 `--load-open-loop` 3회를 포함하는 baseline session 을
+    최소 3개 축적한 뒤, soft warning 과 hard failure 경계를 다시 판단한다.
+  - 검증: 문서 일관성 확인과 `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 
 - [x] 과거 Claude review snapshot 을 현재 HEAD 기준으로 정리했다.
   - 범위: 아직 추적되지 않던 `.claude/review/*.md` snapshot 원문,

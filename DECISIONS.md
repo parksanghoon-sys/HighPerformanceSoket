@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D069 — latency hard gate 전에는 반복 baseline artifact 를 먼저 축적한다
+
+- 날짜: 2026-06-18
+- 상태: Accepted
+- 결정: Phase 4 benchmark 에 p50/p99 latency, p99 growth ratio, actual-rate, TCP/UDP high-watermark 기반 hard failure threshold 를
+  아직 추가하지 않는다. 다음 작업은 threshold 추가가 아니라 `--load`와 `--load-open-loop` 반복 실행 결과를 raw JSON artifact 로
+  안정적으로 쌓고, 같은 장비 또는 같은 CI runner 기준의 반복 baseline 을 확보하는 방향으로 둔다.
+  기존 hard pass/fail 은 D063처럼 planned/sent/received 일치, dropped 0, payload-errors 0, pool-rented 0으로 유지한다.
+- 근거: 2026-06-18 로컬 baseline 은 `--load` 3회와 `--load-open-loop` 3회가 모두 통과했고 p99 범위도 기록됐지만,
+  단일 개발 PC의 같은 날 실행값만으로 OS scheduling, 백그라운드 부하, JIT/워밍업 상태 변동을 설명하기 어렵다.
+  false negative 를 줄이려면 서로 다른 시점의 baseline session 이나 CI 전용 runner 결과를 먼저 축적해야 한다.
+- 영향: latency 숫자는 당분간 stdout/JSON report 의 관측값으로 유지한다. hard latency gate 를 재검토하려면
+  같은 장비 또는 같은 CI runner 에서 최소 3개 baseline session 을 확보하고, 각 session 에 `--load` 3회와
+  `--load-open-loop` 3회가 포함되어야 한다. 그 전까지는 soft warning 후보만 다루고,
+  세부 정책은 `docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`를 따른다.
+
 ## D068 — v1에서는 BrokerServer diagnostics pass-through API 를 추가하지 않는다
 
 - 날짜: 2026-06-18
