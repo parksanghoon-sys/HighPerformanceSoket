@@ -5,6 +5,24 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-18 (Codex - baseline history index)
+
+### 작업 단위
+- 반복 baseline session 을 한곳에서 찾기 위한 전역 history index 를 추가했다.
+- 코드, benchmark schema, CI workflow 는 변경하지 않았다.
+
+### 변경 내용
+- `docs/benchmarks/baselines/index.md`: 2026-06-18 root/session-02/session-03 summary artifact 와 hard/warning 상태를 연결했다.
+- `docs/superpowers/specs/2026-06-18-baseline-report-history-warning-policy-design.md`: 상태를 Accepted 로 갱신했다.
+- `DECISIONS.md`: D071을 active decision index 에 추가했다.
+- `CURRENT_PLAN.md`: 다음 리뷰 게이트를 baseline history index 로 갱신했다.
+- `TODOS.md`: baseline history index P1 항목을 완료로 이동했다.
+
+### 검증
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 156개 통과/실패 0.
+
 ## 2026-06-18 (Codex - baseline report history/warning policy design)
 
 ### 작업 단위

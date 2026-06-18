@@ -1,8 +1,8 @@
 # Baseline report history 와 warning 승격 정책 설계
 
 - 날짜: 2026-06-18
-- 상태: Proposed
-- 관련 결정: D063, D069, D070
+- 상태: Accepted
+- 관련 결정: D063, D069, D070, D071
 - 관련 artifact:
   - `docs/benchmarks/baselines/2026-06-18/summary.json`
   - `docs/benchmarks/baselines/2026-06-18/summary.md`
