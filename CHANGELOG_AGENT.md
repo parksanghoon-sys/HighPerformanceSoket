@@ -1,5 +1,31 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline summary reader writer)
+
+### 작업 단위
+- `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 3만 구현했다.
+- Program execution wiring 없이 per-run JSON v1 directory reader 와 summary JSON writer 만 추가했다.
+
+### Red/Green
+- Red 1: `BaselineReportReaderWriterTests` bootstrap 을 추가했다.
+  `BaselineReportReader`/`BaselineSummaryWriter` 타입이 없어 `Assert.NotNull()` 실패 1개/통과 0개를 확인했다.
+- Green 1: 최소 reader/writer shell 을 추가해 bootstrap 테스트 1개 통과를 확인했다.
+- Red 2: bootstrap 을 실제 동작 테스트 2개로 교체했다.
+  per-run JSON v1 reader 와 summary JSON writer 테스트가 `NotImplementedException`으로 실패함을 확인했다.
+- Green 2: `BaselineReportReader`는 top-level `*.json` 중 `schema-version == 1`과 `result-name`이 있는 run report 만 읽고,
+  `BaselineSummaryWriter`는 `summary-version`, `warnings`, `by-kind`를 포함한 summary JSON v1을 쓰게 했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`의 다음 실행 지점을 Task 4 Program wiring/CLI smoke 로 갱신했다.
+- `TODOS.md`의 P1 backlog 에 Task 3 구현 상태와 Task 4 next step 을 반영하고, Completed 이력을 추가했다.
+
+### 검증
+- focused reader/writer tests: 2개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 16개 통과/실패 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 152개 통과/실패 0.
+- `git diff --check` 통과.
+
 ## 2026-06-18 (Codex - baseline summary generator)
 
 ### 작업 단위

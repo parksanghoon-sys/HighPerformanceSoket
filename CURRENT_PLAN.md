@@ -61,6 +61,9 @@
 - baseline summary artifact 계획의 Task 2를 완료했다. `BaselineReport`/`BaselineSummary` 계열 도메인 모델과
   `BaselineSummaryGenerator`가 기존 per-run 결과 object 를 입력으로 받아 hard gate 집계, kind별 min/max/median 집계,
   non-failing per-run soft warning 을 계산한다. 아직 per-run JSON reader/writer 와 Program execution wiring 은 추가하지 않았다.
+- baseline summary artifact 계획의 Task 3을 완료했다. `BaselineReportReader`가 top-level per-run JSON schema v1 파일만 읽고
+  `summary.json` 같은 다른 artifact 는 건너뛰며, `BaselineSummaryWriter`가 summary JSON v1 모양을 쓴다.
+  아직 `Program` execution wiring 과 실제 CLI smoke 는 추가하지 않았다.
 - D069 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`로 작성했다.
   구현은 세부 task 를 여러 커밋으로 나누며, 첫 단위는 `tests/Hps.Benchmarks.Tests` 추가와 benchmark CLI parser extraction 이다.
 - 반복 baseline collection 계획의 Task 1을 완료했다. `tests/Hps.Benchmarks.Tests`를 solution 에 추가하고,
@@ -351,21 +354,20 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-baseline summary artifact Task 2를 완료했다. 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영하고,
-없으면 `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 3만 진행한다.
-Task 3 범위는 per-run JSON v1 directory reader 와 summary JSON writer 를 추가하는 것이다.
-`Program` execution wiring 과 실제 CLI smoke 는 Task 4로 계속 분리한다.
+baseline summary artifact Task 3을 완료했다. 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영하고,
+없으면 `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 4만 진행한다.
+Task 4 범위는 `Program` execution wiring 과 실제 baseline artifact directory 기반 CLI smoke 다.
+summary model/generator 와 JSON reader/writer 는 이미 구현되어 있으므로 Task 4에서는 CLI 연결과 smoke artifact 검증만 다룬다.
 
 ## 이번 단위의 검증 경로
-- Red 1: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BaselineSummaryGeneratorTests`
-  실행 시 `BaselineSummaryGenerator` 타입 부재로 1개 실패/0개 통과.
-- Green 1: 최소 도메인 타입과 generator shell 추가 뒤 같은 focused 테스트 1개 통과.
-- Red 2: 동작 테스트 3개로 교체한 뒤 같은 focused 테스트가 `NotImplementedException`으로 3개 실패/0개 통과.
-- Green 2: `BaselineSummaryGenerator` 구현 뒤 같은 focused 테스트 3개 통과.
-- 리팩터 후 focused 테스트 3개 통과.
+- Red 1: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BaselineReportReaderWriterTests`
+  실행 시 `BaselineReportReader`/`BaselineSummaryWriter` 타입 부재로 1개 실패/0개 통과.
+- Green 1: 최소 reader/writer shell 추가 뒤 같은 focused 테스트 1개 통과.
+- Red 2: 동작 테스트 2개로 교체한 뒤 같은 focused 테스트가 `NotImplementedException`으로 2개 실패/0개 통과.
+- Green 2: `BaselineReportReader`/`BaselineSummaryWriter` 구현 뒤 같은 focused 테스트 2개 통과.
 - `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 14개 통과/실패 0.
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 150개 통과/실패 0.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 16개 통과/실패 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 152개 통과/실패 0.
 - `git diff --check` 통과.
 
 ## 이번 작업에서 건드리지 않은 범위
