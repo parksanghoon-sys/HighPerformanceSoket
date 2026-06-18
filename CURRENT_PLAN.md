@@ -32,9 +32,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
+- baseline summary 이후 report history 와 warning 승격 정책은
+  `docs/superpowers/specs/2026-06-18-baseline-report-history-warning-policy-design.md` 초안으로 정리했다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — baseline report history/warning 정책 설계
+  - baseline summary 이후 report history 단위, summary artifact 역할, warning-as-failure 보류 조건을 provider-independent 설계로 정리했다.
+  - 검증: `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 156개 통과.
 - `6a3d747 docs: add baseline summary markdown artifacts`
   - 2026-06-18 baseline root/session-02/session-03 에 `summary.md` 보조 artifact 를 생성했다.
   - 검증: build 0/0, solution tests 156개 통과, `git diff --check` 통과.
@@ -48,15 +53,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 사용자 리뷰 대기.
 
-현재 자동으로 이어서 실행할 구현 항목은 없다. 사용자 리뷰에서 finding 이 있으면 먼저 반영한다.
-리뷰 finding 이 없다면 후보는 `TODOS.md`의 Deferred Backlog 중 우선순위와 현재 목적에 맞는 항목을 하나만 승격한다.
+`docs/superpowers/specs/2026-06-18-baseline-report-history-warning-policy-design.md` 검토가 다음 게이트다.
+리뷰 finding 이 있으면 먼저 반영한다. 승인되면 `TODOS.md`의 다음 후보 중 하나만 Current TODO 로 승격한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 root 상태 문서 compaction 이다.
+이번 단위는 baseline report history 와 warning 승격 정책 설계 문서화다.
 
-- Red/확인: root 상태 파일 크기가 `CURRENT_PLAN.md` 약 44KB, `TODOS.md` 약 122KB, `CHANGELOG_AGENT.md` 약 221KB, `DECISIONS.md` 약 100KB로 커져 빠른 진입점 역할을 잃었음을 확인했다.
-- Green: `docs/agent-state/` archive 에 원문을 보존하고 root 문서를 현재 지점 중심으로 축약한다.
+- 확인: `TODOS.md`의 P1 deferred 항목과 기존 D069/D070 설계가 report history/warning 정책을 다음 판단 지점으로 남겼음을 확인했다.
+- Green: CI workflow 나 code path 를 바꾸지 않고 provider-independent 설계 문서와 상태 문서만 갱신한다.
 - 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
 - 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 156개 통과/실패 0.
