@@ -1,5 +1,25 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline summary markdown writer)
+
+### 작업 단위
+- `BaselineSummary`를 사람이 빠르게 리뷰할 Markdown 표로 쓰는 writer 를 추가했다.
+- 이번 단위는 writer 와 xUnit 테스트만 포함한다. `--summarize-baseline` CLI 에 `summary.md` 출력 옵션을 붙이는 작업은 다음 단위로 분리한다.
+
+### Red/Green
+- Red 1: `BaselineSummaryMarkdownWriterTests` bootstrap 이 writer 타입 부재로 1개 실패/0개 통과했다.
+- Green 1: 최소 writer 타입 추가 뒤 focused test 1개가 통과했다.
+- Red 2: Markdown 내용 테스트 2개가 `Write(TextWriter, BaselineSummary)` 메서드 부재로 실패했다.
+- Green 2: `BaselineSummaryMarkdownWriter.Write`가 hard gate, kind별 요약, warning table 을 출력하게 했다.
+- Refactor: 테스트를 reflection 호출에서 직접 writer API 호출로 정리했고 focused tests 2개가 통과했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`와 `TODOS.md`에 Markdown writer 완료와 다음 리뷰 대기 상태를 반영했다.
+
+### 검증
+- 최종 검증으로 `dotnet build HighPerformanceSocket.slnx --no-restore`,
+  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`, `git diff --check`를 실행한다.
+
 ## 2026-06-18 (Codex - baseline summary artifacts)
 
 ### 작업 단위

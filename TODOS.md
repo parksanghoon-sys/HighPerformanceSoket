@@ -66,6 +66,7 @@
   - baseline summary artifact 계획의 Task 3으로 per-run JSON reader 와 summary JSON writer 를 구현했다.
   - baseline summary artifact 계획의 Task 4로 Program execution wiring 과 실제 CLI smoke 를 완료했다.
   - 2026-06-18 baseline root/session-02/session-03 directory 에 canonical `summary.json` artifact 를 생성했다.
+  - baseline summary Markdown writer 를 추가해 `BaselineSummary`를 사람 리뷰용 표로 출력할 수 있게 했다.
 
 ## Deferred Backlog
 
@@ -88,6 +89,17 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] baseline summary Markdown writer 를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/BaselineSummaryMarkdownWriter.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineSummaryMarkdownWriterTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결과: `BaselineSummaryMarkdownWriter.Write(TextWriter, BaselineSummary)`가 hard gate 상태,
+    source report count, kind별 p50/p99 median·p99 max·TCP HWM·drop/pool 값, warning table 을 Markdown 으로 쓴다.
+    이 writer 는 canonical `summary.json`을 대체하지 않는 사람 리뷰용 보조 출력이다.
+  - 검증: bootstrap Red/Green 뒤 Markdown 내용 Red/Green 을 수행했다.
+    focused tests 는 리팩터 전 3개 통과, reflection 제거 리팩터 뒤 2개 통과했다.
+    CLI 연결과 파일 artifact 생성은 다음 단위로 분리했다.
 
 - [x] 2026-06-18 baseline summary JSON artifact 를 생성했다.
   - 범위: `docs/benchmarks/baselines/2026-06-18/summary.json`,
