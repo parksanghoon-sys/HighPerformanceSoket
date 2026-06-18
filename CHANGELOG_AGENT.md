@@ -1,5 +1,34 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - server diagnostics surface decision)
+
+### 작업 단위
+- `BrokerServer` diagnostics convenience API 필요성을 현재 HEAD 기준으로 재검토했다.
+- 범위는 신규 설계 문서와 root state docs 로 제한했다.
+- production code/test 는 변경하지 않았다.
+
+### 결정
+- D068로 v1에서는 `BrokerServer`에 diagnostics pass-through API 를 추가하지 않기로 했다.
+- diagnostics 는 기존처럼 `ITransportDiagnostics.GetDiagnosticsSnapshot()`과
+  `ITransportEndpointDiagnostics.GetEndpointSnapshots()` 선택적 Transport capability 로 읽는다.
+- 실제 host/metrics/exporter 요구가 생기면 nullable pass-through 가 아니라 server-level diagnostics model 로 별도 설계한다.
+
+### 근거
+- 현재 `BrokerServer`는 단일 injected `ITransport`를 조립하는 얇은 host 이며, 다중 transport 합산이나 monitoring endpoint 를 제공하지 않는다.
+- 현재 diagnostics 소비자는 테스트와 benchmark 중심이고, 이 코드는 transport 인스턴스를 직접 보유한다.
+- 지금 Server API 를 넓히면 endpoint snapshot 포함 여부, capability 미지원 backend 표현, 다중 transport `EndpointId` namespace 같은 결정을 앞당긴다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-18-server-diagnostics-surface-design.md`를 추가했다.
+- `DECISIONS.md`에 D068을 추가했다.
+- `TODOS.md`에서 Server convenience diagnostics 재검토 항목을 Completed 로 이동하고,
+  실제 host/metrics surface 발생 시 server-level diagnostics model 을 설계하는 낮은 우선순위 후속으로 정리했다.
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기와 다음 후보 재평가 상태로 갱신했다.
+
+### 검증
+- source 검색으로 diagnostics 소비자가 테스트/benchmark 중심임을 확인했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - local TCP loopback latency baseline)
 
 ### 작업 단위

@@ -28,6 +28,9 @@
   dropped 0, payload-errors 0, pool-rented 0으로 통과했다. closed-loop p99 범위는 879.7~924.1us, open-loop p99 범위는
   915.9~1005.5us, TCP HWM 은 각각 1/2로 관측됐다. 결과는
   `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`에 기록했다.
+- D068로 v1에서는 `BrokerServer` diagnostics pass-through API 를 추가하지 않기로 했다. 현재 Server 는 단일 injected
+  Transport 를 조립하는 얇은 host 이며, diagnostics 소비자는 테스트/benchmark 중심이라 Transport capability 를 직접 읽는
+  기존 경계가 더 명확하다. 실제 host/metrics/exporter 요구가 생기면 server-level diagnostics surface 를 별도 설계한다.
 
 ## 현재 Phase
 Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Server endpoint/send-side 관측성 설계.
@@ -290,22 +293,20 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-이번 단위에서 2026-06-18 로컬 TCP loopback latency baseline 을 수집하고 summary/report 파일로 보존했다.
-production code 변경은 없었다. hard latency SLO 는 아직 정하지 않고, 같은 환경의 추가 반복 또는 CI 전용 baseline 이 쌓인 뒤
-별도 결정으로 다룬다.
+이번 단위에서 `BrokerServer` diagnostics convenience API 필요성을 재검토하고, v1 public Server API 를 넓히지 않는다고
+D068로 확정했다. production code 변경은 없었다.
 다음 구현은 사용자 리뷰 뒤 `TODOS.md`의 Deferred Backlog 를 다시 평가해 하나의 작은 단위로 승격한다.
-현재 가까운 후보는 Server convenience diagnostics API 필요성 재검토 또는 CI/반복 baseline 확대 설계다.
+현재 가까운 후보는 CI/반복 baseline 확대 설계 또는 review snapshot 정리 상태 점검이다.
 
 ## 이번 단위의 검증 경로
-- `dotnet build HighPerformanceSocket.slnx --no-restore`.
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load --report ...` 3회.
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --load-open-loop --report ...` 3회.
+- source 검색으로 diagnostics 소비자가 테스트/benchmark 중심임을 확인한다.
+- 문서/결정 단위이므로 production build/test 는 새로 실행하지 않는다.
 - `git diff --check`로 whitespace 오류를 확인한다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
 - 실제 OS/capability probe 와 RIO/io_uring backend 선택 로직
-- drop log/sampling 및 Server convenience diagnostics API 구현
+- drop log/sampling 및 server-level diagnostics/metrics surface 구현
 - handler/Broker 가 UDP datagram ref 를 비동기 작업으로 보관하는 경우의 상위 fan-out backpressure 정책
 - configurable pending send capacity
 - `TransportFactory.CreateDefault()`를 직접 사용하는 server factory/convenience API

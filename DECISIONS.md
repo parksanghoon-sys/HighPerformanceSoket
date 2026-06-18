@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D068 — v1에서는 BrokerServer diagnostics pass-through API 를 추가하지 않는다
+
+- 날짜: 2026-06-18
+- 상태: Accepted
+- 결정: `BrokerServer`에 `GetDiagnostics`, `TryGetTransportDiagnostics`, `GetEndpointSnapshots` 같은 convenience diagnostics API 를
+  추가하지 않는다. v1 diagnostics 는 기존처럼 `ITransportDiagnostics.GetDiagnosticsSnapshot()`과
+  `ITransportEndpointDiagnostics.GetEndpointSnapshots()` 선택적 Transport capability 로 읽는다.
+- 근거: 현재 `BrokerServer`는 D038/D061에 따라 단일 injected `ITransport`를 조립하는 얇은 host 이며,
+  다중 transport 합산, monitoring endpoint, server-level subscription/endpoint registry view 를 제공하지 않는다.
+  현재 diagnostics 소비자는 테스트와 benchmark 중심이고, 이 코드는 transport 인스턴스를 직접 보유하므로 pass-through API 가 필요하지 않다.
+  지금 Server API 를 넓히면 nullable pass-through 인지 server-level aggregate 인지, endpoint snapshot 포함 여부,
+  capability 미지원 backend 표현 방식, 다중 transport `EndpointId` namespace 같은 결정을 앞당긴다.
+- 영향: `BrokerServer` public API 는 수명 orchestration 표면으로 유지한다. 실제 host/metrics/exporter 가 생기거나
+  `BrokerServer`만 보유한 소비자가 diagnostics 를 읽어야 하는 요구가 확인되면
+  `docs/superpowers/specs/2026-06-18-server-diagnostics-surface-design.md`의 승격 조건에 따라 별도 설계한다.
+
 ## D067 — v1에는 configurable backpressure/QoS policy surface 를 추가하지 않는다
 
 - 날짜: 2026-06-18

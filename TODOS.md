@@ -44,7 +44,8 @@
   - D066으로 v1 drop 관측은 pull snapshot 으로 충분하다고 판단하고 drop log/sampling 은 보류했다.
   - D067로 configurable backpressure/QoS policy surface 는 v1에 추가하지 않기로 결정했다.
   - 2026-06-18 로컬 TCP loopback latency baseline 을 수집했다.
-  - 다음 후보: 사용자 리뷰 후 Server convenience diagnostics API 필요성 또는 CI/반복 baseline 확대를 재평가한다.
+  - D068로 `BrokerServer` diagnostics pass-through API 는 v1에 추가하지 않기로 결정했다.
+  - 다음 후보: 사용자 리뷰 후 CI/반복 baseline 확대 또는 review snapshot 정리 상태를 재평가한다.
 
 ## Deferred Backlog
 
@@ -66,26 +67,37 @@
   - next step: 같은 장비에서 날짜를 달리해 baseline 을 더 쌓거나 CI 전용 runner 를 만든 뒤,
     threshold 를 코드 gate 로 넣을지 문서/CI warning 으로 둘지 결정한다.
 
-- [ ] `P2_LATER` Server convenience diagnostics API 필요성을 실제 host surface 기준으로 재검토한다.
-  - 무엇이 남았는지: D066으로 drop log/sampling 은 보류했고, `ITransportDiagnostics.GetDiagnosticsSnapshot()`의 pull snapshot 만으로
-    stalled subscriber drop 과 HWM 16 포화를 설명할 수 있음이 확인됐다. 다만 운영 host 가 `BrokerServer`만 들고 있을 때
-    Transport 를 직접 캐스팅하지 않게 하는 pass-through accessor 가 필요한지는 아직 결정하지 않았다.
+- [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
+  - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
+    다만 실제 운영 host, metrics exporter, HTTP endpoint, 또는 `BrokerServer`만 보유한 consumer 가 생기면
+    server-level diagnostics snapshot 이 필요할 수 있다.
   - 왜 defer 되었는지: 현재 서버는 단일 injected `ITransport` 를 감싼 얇은 host 이며, 다중 transport 합산, endpoint registry,
-    hosting configuration surface 가 아직 없다. 지금 `BrokerServer.GetDiagnostics()`를 추가하면 작은 편의 API일 수는 있지만,
-    향후 host surface 와 합산 semantics 를 다시 바꿀 가능성이 있다.
-  - objective: 실제 host/운영 API가 구체화된 뒤 Server-level diagnostics accessor 를 nullable pass-through 로 둘지,
-    여러 transport/endpoint 를 합산하는 별도 diagnostics surface 로 둘지 결정한다.
+    hosting configuration surface 가 아직 없다. 현재 diagnostics 소비자는 테스트/benchmark 중심이고 transport 인스턴스를 직접 보유한다.
+  - objective: 실제 host/운영 API가 구체화된 뒤 nullable pass-through 가 아니라 server-level diagnostics model 이 필요한지 결정한다.
   - relevant context: DECISIONS D041/D042/D056/D062/D066,
+    `docs/superpowers/specs/2026-06-18-server-diagnostics-surface-design.md`,
     `src/Hps.Transport/Abstractions/ITransportDiagnostics.cs`,
     `src/Hps.Transport/Abstractions/TransportDiagnosticsSnapshot.cs`, `src/Hps.Server/BrokerServer.cs`.
   - 관련 파일/범위: `src/Hps.Server/`, `src/Hps.Transport/`, host/sample 코드, 관련 tests.
   - 현재 상태: Transport 수명 누적 TCP/UDP drop snapshot 은 public 으로 읽을 수 있고 reset API는 없다.
-    stalled subscriber stress 는 `ITransportDiagnostics` 직접 캐스팅으로 drop 관측을 검증한다.
-  - known blockers/open questions: `BrokerServer`가 diagnostics capability 를 필수로 요구할지 nullable 로 노출할지,
-    다중 transport 를 도입할 경우 snapshot 합산과 `EndpointId` 충돌을 어떻게 다룰지 정해야 한다.
-  - next step: 실제 운영 host 표면이 생기거나 샘플에서 transport 캐스팅이 반복되면 pass-through accessor 설계를 별도 단위로 승격한다.
+    active endpoint snapshot 도 optional capability 로 읽을 수 있다. `BrokerServer` public API 는 lifecycle orchestration 에 집중한다.
+  - known blockers/open questions: server-level snapshot 에 transport aggregate 만 넣을지 endpoint snapshots, subscription count,
+    closed endpoint attribution, drop timestamp 까지 포함할지 정해야 한다. 다중 transport 를 도입할 경우 `EndpointId` namespace 도 정해야 한다.
+  - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] `BrokerServer` diagnostics pass-through API 필요성을 D068로 닫았다.
+  - 범위: `docs/superpowers/specs/2026-06-18-server-diagnostics-surface-design.md`,
+    `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결정: v1에서는 `BrokerServer`에 `GetDiagnostics`, `TryGetTransportDiagnostics`, `GetEndpointSnapshots` 같은
+    convenience API 를 추가하지 않는다.
+  - 이유: 현재 `BrokerServer`는 단일 injected transport 를 조립하는 얇은 host 이며,
+    diagnostics 소비자는 테스트/benchmark 중심으로 transport 인스턴스를 직접 보유한다.
+    지금 pass-through API 를 추가하면 nullable capability, endpoint snapshot 포함 여부, 다중 transport 합산,
+    `EndpointId` namespace 같은 결정을 앞당긴다.
+  - 후속: 실제 host/metrics/exporter 가 생기거나 `BrokerServer`만 보유한 소비자가 diagnostics 를 읽어야 하면
+    server-level diagnostics model 을 별도 설계로 승격한다.
 
 - [x] 2026-06-18 로컬 TCP loopback latency baseline 을 수집했다.
   - 범위: `docs/benchmarks/baselines/2026-06-18/*.json`,
