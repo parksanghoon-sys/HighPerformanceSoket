@@ -4,8 +4,8 @@
 각 Phase 는 독립적으로 검증 가능하며, **순서대로** 진행한다. Phase 완료 = 해당 "완료 기준" 충족 +
 Claude 검토(`.claude/review/`)의 must-fix 해소.
 
-> Phase 1~4 로 동작하는 크로스플랫폼 브로커를 먼저 완성하고, Phase 5~6 에서 동일 `ITransport` 뒤에
-> RIO/io_uring 커널 백엔드를 붙인다.
+> Phase 1~4 로 동작하는 크로스플랫폼 Interface Server(topic 기반 pub/sub broker 메커니즘, D053)를
+> 먼저 완성하고, Phase 5~6 에서 동일 `ITransport` 뒤에 RIO/io_uring 커널 백엔드를 붙인다.
 
 ---
 

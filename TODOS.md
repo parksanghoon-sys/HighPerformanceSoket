@@ -55,6 +55,7 @@
   - 반복 baseline collection 계획의 Task 4로 `Program` wiring 과 실제 CLI 검증을 완료했다.
   - 다음 후보: 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
   - 반복 baseline command 구현 완료 뒤, `TODOS.md`의 중복 P1 backlog 를 완료된 command 와 후속 정책 항목으로 분리 정리했다.
+  - 남아 있던 사용자 설계 문서 변경을 검토하고, 현재 결정과 충돌하지 않도록 상태를 정리했다.
 
 ## Deferred Backlog
 
@@ -102,6 +103,16 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] 남아 있던 사용자 설계 문서 변경의 현재 상태를 정리했다.
+  - 범위: `AGENTS.md`, `PLAN.md`,
+    `docs/superpowers/specs/2026-06-16-interface-server-endpoint-model-design.md`,
+    `docs/superpowers/specs/2026-06-18-drop-stress-and-observability-design.md`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결과: Interface Server 명명 변경과 high-watermark 의미 보정은 현재 설계와 일치하므로 보존했다.
+    drop-stress spec 은 D066/D067/D068로 반영 완료된 historical proposal 로 상태를 정리했다.
+  - 검증: 문서 전용 변경이므로 build/test 는 실행하지 않았다. `git diff --check`는 통과했고,
+    CRLF 변환 경고만 있으며 whitespace 오류는 없었다.
 
 - [x] 반복 baseline command 구현 후 상태 문서 backlog 를 정리했다.
   - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.

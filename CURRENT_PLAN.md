@@ -58,6 +58,10 @@
   `.claude/review/review-status-2026-06-18.md`로 과거 review snapshot 을 현재 HEAD 기준으로 정리했다.
   overlay 기준 HEAD `980721c`에서 build 0/0, test 136/0 green 이었고, 해당 정리는 `0628d20`으로 커밋됐다.
   현재 다음 구현을 막는 must-fix/blocker 는 없다.
+- 남아 있던 사용자 문서 변경을 검토했다. `AGENTS.md`/`PLAN.md`의 Interface Server 명명 변경과
+  endpoint model spec 의 high-watermark 의미 보정은 현재 설계와 일치하므로 보존한다.
+  `2026-06-18-drop-stress-and-observability-design.md`는 D066/D067/D068로 이미 반영된 historical proposal 이므로
+  `Resolved` 상태로 정리했다.
 
 ## 현재 Phase
 Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Server endpoint/send-side 관측성 설계.
@@ -320,22 +324,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-반복 baseline collection 계획의 Task 1~4를 모두 완료했다.
-`--baseline-suite <output-dir> [--runs <count>]`는 이제 실제로 closed-loop load 와 open-loop load 를
-반복 실행하고, 같은 output directory 에 per-run raw JSON report 를 남긴다.
-상태 문서도 command 완료 상태에 맞춰 정리됐다.
+남아 있던 사용자 문서 변경을 검토해 현재 상태와 맞췄다.
+Interface Server 명명 변경은 현재 목표와 맞고, endpoint high-watermark 의미 보정은 D062/D066 계열 관측성 설계와 맞다.
+drop-stress spec 은 이미 D066/D067/D068로 반영된 설계 제안이므로 다음 구현 지시가 아니라 historical proposal 로 보존한다.
 다음 작업은 구현 확대가 아니라 사용자 리뷰를 받은 뒤, 필요하면 review finding 을 먼저 반영한다.
 latency hard threshold, summary JSON, Markdown report, CI workflow 는 D069 계획의 명시적 제외 범위로 유지한다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite artifacts\baseline-red --runs 1`
-  기준으로 exit code 2, `load-01.json` 미생성, `open-loop-01.json` 미생성을 확인했다.
-  parser 는 command 를 인식하지만 `Program` switch 에 execution wiring 이 아직 없던 상태다.
-- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
-- CLI smoke: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite <temp-output> --runs 1`
-  통과, exit code 0. `<temp-output>\load-01.json`과 `<temp-output>\open-loop-01.json`이 생성됐고,
-  두 JSON 모두 `"schema-version": 1`, `"passed": true`였다.
+- 문서 전용 변경이므로 build/test 는 실행하지 않는다.
 - 문서 정리 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없었다.
 
 ## 이번 작업에서 건드리지 않은 범위

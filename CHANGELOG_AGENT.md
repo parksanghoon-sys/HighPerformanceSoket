@@ -1,5 +1,23 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - lingering design docs reconciliation)
+
+### 작업 단위
+- 남아 있던 사용자 문서 변경이 현재 설계/구현 흐름과 맞는지 검토했다.
+- 코드 변경 없이 root 가이드, phase 계획, endpoint model spec, drop-stress spec 의 상태만 정리했다.
+
+### 정리 내용
+- `AGENTS.md`와 `PLAN.md`의 "메시지 브로커" 중심 표현을 Interface Server 중심 표현으로 유지했다.
+  현재 목표는 외부 source 정보를 topic/data type 기준으로 받아 TCP/UDP endpoint 로 발행하는 Interface Server 이며,
+  내부 구현 메커니즘으로 pub/sub broker 를 사용한다.
+- endpoint model spec 의 high-watermark 설명은 D062/D066 계열 관측성 결정과 맞으므로 보존했다.
+- `2026-06-18-drop-stress-and-observability-design.md`는 D066/D067/D068로 이미 반영된 제안이므로
+  `Proposed`가 아니라 `Resolved` 상태의 historical proposal 로 정리했다.
+
+### 검증
+- 문서 전용 변경이므로 build/test 는 실행하지 않는다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - baseline backlog state cleanup)
 
 ### 작업 단위
