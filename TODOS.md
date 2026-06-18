@@ -48,7 +48,8 @@
   - 아직 추적되지 않던 `.claude/review` snapshot 원문을 보존하고,
     `review-status-2026-06-18.md`로 과거 review snapshot 의 현재 상태를 정리했다.
   - D069로 latency hard gate 전에는 반복 baseline artifact 를 먼저 축적하기로 결정했다.
-  - 다음 후보: 사용자 리뷰 후 반복 baseline collection command 또는 Phase 5/6 backend selector/OS capability probe 설계를 재평가한다.
+  - 반복 baseline collection 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`에 작성했다.
+  - 다음 후보: 사용자 리뷰 후 계획의 Task 1인 benchmark CLI parser/test seam 을 구현한다.
 
 ## Deferred Backlog
 
@@ -68,9 +69,11 @@
   - 현재 상태: 기존 `--report`는 단일 runner 의 JSON 파일을 생성하고, 상위 directory 생성과 기존 파일 덮어쓰기를 지원한다.
     2026-06-18 로컬 baseline 에서 `--load` 3회는 p99 879.7~924.1us/TCP HWM 1,
     `--load-open-loop` 3회는 p99 915.9~1005.5us/TCP HWM 2였으며 모든 run 은 drop/leak/payload error 0으로 pass 했다.
-  - known blockers/open questions: 새 command 를 만들지 문서화된 shell 절차로 둘지, summary 파일을 만들지,
-    output directory 이름에 timestamp/run index 를 어떻게 넣을지 정해야 한다.
-  - next step: 사용자 리뷰 뒤 반복 baseline collection 의 최소 구현 계획을 세운다.
+  - 현재 상태: `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`가 구현을 4개 task 로 쪼갰다.
+    Task 1은 test project 와 기존 parser extraction, Task 2는 `--baseline-suite` parsing,
+    Task 3은 fake runner 기반 `BaselineSuiteRunner`, Task 4는 Program wiring 과 CLI 검증이다.
+  - known blockers/open questions: summary JSON, Markdown report, CI provider workflow, p99 hard threshold 는 이번 계획에서 제외했다.
+  - next step: 사용자 리뷰 뒤 Task 1을 진행한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -91,6 +94,15 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] 반복 baseline collection 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결과: `--baseline-suite <output-dir> [--runs <count>]` 구현을 parser/test seam, parser 확장,
+    suite runner, Program wiring 의 4개 reviewable task 로 쪼갰다.
+  - 결정: 다음 구현은 production code 를 바로 넓히지 않고, 먼저 `tests/Hps.Benchmarks.Tests`와 parser extraction 으로
+    빠른 TDD 경계를 만든다. latency hard gate, summary JSON, Markdown report, CI provider workflow 는 제외한다.
+  - 검증: plan self-review 와 `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 
 - [x] CI/반복 baseline 확대 정책을 D069로 닫았다.
   - 범위: `docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`,

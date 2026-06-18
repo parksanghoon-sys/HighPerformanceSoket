@@ -1,5 +1,34 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - repeat baseline collection implementation plan)
+
+### 작업 단위
+- D069 후속 구현을 위한 반복 baseline collection 계획을 작성했다.
+- 범위는 implementation plan 문서와 root state docs 로 제한했다.
+- production code/test 는 변경하지 않았다.
+
+### 계획
+- 새 command 는 `--baseline-suite <output-dir> [--runs <count>]`로 잡았다.
+- 기본 run count 는 3이고, 각 run 은 `load-01.json`, `open-loop-01.json` 같은 raw JSON artifact 를 남긴다.
+- 구현은 네 단계로 나눈다.
+  1. benchmark CLI test project 추가와 기존 parser extraction
+  2. `--baseline-suite` parser 확장
+  3. fake runner 기반 `BaselineSuiteRunner`
+  4. `Program` wiring 과 실제 CLI 검증
+
+### 범위 제한
+- latency hard gate 는 만들지 않는다.
+- summary JSON, Markdown report, CI provider workflow 는 이번 계획에서 제외한다.
+- 다음 구현은 Task 1만 한 커밋으로 진행한다.
+
+### 상태 갱신
+- `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`를 추가했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`를 사용자 리뷰 대기와 Task 1 실행 지점으로 갱신했다.
+
+### 검증
+- plan self-review 를 수행했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - CI/repeat baseline policy decision)
 
 ### 작업 단위

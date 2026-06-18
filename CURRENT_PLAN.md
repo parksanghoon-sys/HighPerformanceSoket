@@ -34,6 +34,8 @@
 - D069로 latency hard gate 전에는 반복 baseline artifact 를 먼저 축적하기로 했다. `--load`와 `--load-open-loop`의
   raw JSON report 를 여러 baseline session 으로 남긴 뒤, 같은 장비 또는 같은 CI runner 기준의 재현성이 확보되면
   soft warning 과 hard failure 경계를 다시 판단한다.
+- D069 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`로 작성했다.
+  구현은 세부 task 를 여러 커밋으로 나누며, 첫 단위는 `tests/Hps.Benchmarks.Tests` 추가와 benchmark CLI parser extraction 이다.
 - 아직 추적되지 않던 `.claude/review` snapshot 원문을 보존하고,
   `.claude/review/review-status-2026-06-18.md`로 과거 review snapshot 을 현재 HEAD 기준으로 정리했다.
   overlay 기준 HEAD `980721c`에서 build 0/0, test 136/0 green 이었고, 해당 정리는 `0628d20`으로 커밋됐다.
@@ -300,14 +302,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-이번 단위에서 CI/반복 baseline 확대 정책을 D069로 닫고,
-`docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`에 설계로 남긴다.
+이번 단위에서 반복 baseline collection 구현 계획을
+`docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`에 작성했다.
 production code 변경은 없었다.
-다음 구현은 사용자 리뷰 뒤 `TODOS.md`의 Deferred Backlog 를 다시 평가해 하나의 작은 단위로 승격한다.
-현재 가까운 후보는 반복 baseline collection command 설계/구현 또는 Phase 5/6 backend selector/OS capability probe 설계다.
+다음 구현은 사용자 리뷰 뒤 계획의 Task 1, 즉 benchmark CLI test project 추가와 기존 parser extraction 을 하나의 작은 단위로 진행한다.
 
 ## 이번 단위의 검증 경로
 - 문서 일관성 확인 완료.
+- plan self-review 완료.
 - `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 
 ## 이번 작업에서 건드리지 않은 범위
