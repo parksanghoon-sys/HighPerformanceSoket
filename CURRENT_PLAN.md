@@ -42,6 +42,11 @@
 - 반복 baseline collection 계획의 Task 2를 완료했다. `BenchmarkCommandParser`가
   `--baseline-suite <output-dir> [--runs <count>]`를 해석하고, 기본 run count 3,
   명시 run count, `--report` 혼용 usage error 를 테스트로 고정했다. 실제 suite runner 와 Program execution wiring 은 아직 없다.
+- 반복 baseline collection 계획의 Task 3을 완료했다. `BaselineSuiteRunner`가 fake runner/report writer 기반으로
+  closed-loop load 와 open-loop load 를 지정 run count 만큼 번갈아 실행하고,
+  `load-01.json`/`open-loop-01.json` 형식의 per-run report path 를 만들며,
+  모든 run 의 `Passed` 값이 true 일 때만 suite 성공을 반환하도록 테스트로 고정했다.
+  실제 Program execution wiring 은 아직 없다.
 - 아직 추적되지 않던 `.claude/review` snapshot 원문을 보존하고,
   `.claude/review/review-status-2026-06-18.md`로 과거 review snapshot 을 현재 HEAD 기준으로 정리했다.
   overlay 기준 HEAD `980721c`에서 build 0/0, test 136/0 green 이었고, 해당 정리는 `0628d20`으로 커밋됐다.
@@ -306,19 +311,24 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
-사용자 리뷰 대기.
+사용자가 남은 Task 전체 진행을 승인했으므로 반복 baseline collection 계획의 Task 4를 다음 단위로 진행한다.
 
-이번 단위에서 반복 baseline collection 계획의 Task 2를 완료했다.
-production 동작은 parser 가 `--baseline-suite` command line 을 인식하는 것까지이며,
-아직 실제 baseline suite 실행은 연결하지 않았다.
-다음 구현은 사용자 리뷰 뒤 계획의 Task 3, 즉 fake runner 기반 `BaselineSuiteRunner`를 하나의 작은 단위로 진행한다.
+이번 단위에서 Task 3 `BaselineSuiteRunner`를 완료했다.
+production 동작은 아직 `Program`에서 `--baseline-suite`를 실행하지 않지만,
+runner 단위에서는 load/open-loop 반복 순서, per-run JSON path, run count 자리수 padding,
+실패 run 집계가 테스트로 고정됐다.
+다음 구현은 Task 4, 즉 `Program`에 baseline suite command 를 연결하고 실제 CLI smoke 로
+`load-01.json`과 `open-loop-01.json` 생성 및 schema/pass 값을 검증하는 것이다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BenchmarkCommandParserTests`
-  실패 3개/통과 2개. `--baseline-suite` 미지원으로 `parsed == false` 또는 `Command == None` 실패를 확인했다.
-- Focused Green: 같은 명령 통과, 5개 통과.
+- Red 1: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BaselineSuiteRunnerTests`
+  실패 1개/통과 0개. `BaselineSuiteRunner` 타입 부재로 `Assert.NotNull()` 실패를 확인했다.
+- Green 1: 같은 명령 통과, 1개 통과. 타입 seam 만 최소 구현했다.
+- Red 2: bootstrap 테스트를 실제 runner 동작 테스트 3개로 교체한 뒤 같은 명령을 실행해
+  `NotImplementedException` 실패 3개/통과 0개를 확인했다.
+- Focused Green: 같은 명령 통과, 3개 통과.
 - `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 141개 통과/실패 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화

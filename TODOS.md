@@ -51,7 +51,8 @@
   - 반복 baseline collection 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`에 작성했다.
   - 반복 baseline collection 계획의 Task 1로 benchmark CLI parser/test seam 을 구현했다.
   - 반복 baseline collection 계획의 Task 2로 `--baseline-suite` parser 확장을 구현했다.
-  - 다음 후보: 사용자 리뷰 후 계획의 Task 3인 fake runner 기반 `BaselineSuiteRunner`를 구현한다.
+  - 반복 baseline collection 계획의 Task 3으로 fake runner 기반 `BaselineSuiteRunner`를 구현했다.
+  - 다음 후보: 계획의 Task 4인 `Program` wiring 과 실제 CLI 검증을 진행한다.
 
 ## Deferred Backlog
 
@@ -73,9 +74,9 @@
     `--load-open-loop` 3회는 p99 915.9~1005.5us/TCP HWM 2였으며 모든 run 은 drop/leak/payload error 0으로 pass 했다.
   - 현재 상태: `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`가 구현을 4개 task 로 쪼갰다.
     Task 1은 test project 와 기존 parser extraction 으로 완료됐다. Task 2는 `--baseline-suite` parsing 으로 완료됐다.
-    Task 3은 fake runner 기반 `BaselineSuiteRunner`, Task 4는 Program wiring 과 CLI 검증이다.
+    Task 3은 fake runner 기반 `BaselineSuiteRunner`로 완료됐다. Task 4는 Program wiring 과 CLI 검증이다.
   - known blockers/open questions: summary JSON, Markdown report, CI provider workflow, p99 hard threshold 는 이번 계획에서 제외했다.
-  - next step: 사용자 리뷰 뒤 Task 3을 진행한다.
+  - next step: Task 4에서 `Program`에 baseline suite command 를 연결하고 실제 CLI smoke 로 per-run JSON 생성을 검증한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -96,6 +97,21 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] 반복 baseline collection Task 3으로 fake runner 기반 `BaselineSuiteRunner`를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/BaselineRunKind.cs`,
+    `tests/Hps.Benchmarks/BaselineSuiteRunner.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineSuiteRunnerTests.cs`, root state docs.
+  - Red 1: `BaselineSuiteRunner` 타입 부재를 bootstrap 테스트의 `Assert.NotNull()` 실패로 확인했다.
+  - Green 1: 타입 seam 만 최소 구현했다.
+  - Red 2: 실제 runner 동작 테스트 3개가 `NotImplementedException`으로 실패해
+    반복 실행, report path 생성, 실패 집계가 아직 없음을 확인했다.
+  - Green: runner 가 load/open-loop 순서로 run 을 실행하고,
+    `load-01.json`/`open-loop-01.json` 형식의 per-run path 를 만들며,
+    run count 가 100처럼 두 자리보다 크면 index 폭을 run count 자리수로 맞추고,
+    하나라도 `Passed == false`이면 suite 실패를 반환하게 했다.
+  - 검증: focused runner tests 통과 3, solution build 경고 0/오류 0,
+    solution tests 통과 144/실패 0.
 
 - [x] 반복 baseline collection Task 2로 `--baseline-suite` parser 확장을 구현했다.
   - 범위: `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`,

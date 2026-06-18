@@ -1,5 +1,34 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline suite runner)
+
+### 작업 단위
+- 반복 baseline collection 계획의 Task 3을 구현했다.
+- `BaselineSuiteRunner`가 fake runner 와 fake report writer 를 주입받아
+  closed-loop load 와 open-loop load report path 를 반복 생성하게 했다.
+- 실제 `Program` execution wiring 과 긴 benchmark 실행은 아직 추가하지 않았다.
+
+### Red/Green
+- Red 1: bootstrap 테스트를 추가하고 focused test 를 실행했다.
+  `BaselineSuiteRunner` 타입이 없어 `Assert.NotNull()` 실패 1개/통과 0개를 확인했다.
+- Green 1: `BaselineRunKind`와 최소 `BaselineSuiteRunner` 타입 seam 을 추가해 bootstrap 테스트를 통과시켰다.
+- Red 2: bootstrap 테스트를 실제 동작 테스트 3개로 교체했다.
+  `RunAsync`가 아직 구현되지 않아 `NotImplementedException` 실패 3개/통과 0개를 확인했다.
+- Green 2: load/open-loop 실행 순서, `load-01.json`/`open-loop-01.json` report path,
+  run count 자리수 padding, 실패 run 집계를 구현했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`와 `TODOS.md`를 Task 3 완료와 Task 4 실행 지점으로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BaselineSuiteRunnerTests`
+  Red 1 실패 확인, 실패 1/통과 0.
+- 같은 focused test Green 1 통과, 1개 통과.
+- 같은 focused test Red 2 실패 확인, 실패 3/통과 0.
+- 같은 focused test Green 2 통과, 3개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
+
 ## 2026-06-18 (Codex - baseline suite parser command)
 
 ### 작업 단위
