@@ -31,6 +31,9 @@
 - D068로 v1에서는 `BrokerServer` diagnostics pass-through API 를 추가하지 않기로 했다. 현재 Server 는 단일 injected
   Transport 를 조립하는 얇은 host 이며, diagnostics 소비자는 테스트/benchmark 중심이라 Transport capability 를 직접 읽는
   기존 경계가 더 명확하다. 실제 host/metrics/exporter 요구가 생기면 server-level diagnostics surface 를 별도 설계한다.
+- 아직 추적되지 않던 `.claude/review` snapshot 원문을 보존하고,
+  `.claude/review/review-status-2026-06-18.md`로 과거 review snapshot 을 현재 HEAD 기준으로 정리했다.
+  HEAD `980721c`에서 build 0/0, test 136/0 green 이며, 현재 다음 구현을 막는 must-fix/blocker 는 없다.
 
 ## 현재 Phase
 Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Server endpoint/send-side 관측성 설계.
@@ -293,14 +296,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-이번 단위에서 `BrokerServer` diagnostics convenience API 필요성을 재검토하고, v1 public Server API 를 넓히지 않는다고
-D068로 확정했다. production code 변경은 없었다.
+이번 단위에서 아직 추적되지 않던 `.claude/review` snapshot 원문을 보존하고,
+`.claude/review/review-status-2026-06-18.md` overlay 를 추가해 과거 Claude review snapshot 을 현재 HEAD 기준으로 재분류했다.
+production code 변경은 없었다.
 다음 구현은 사용자 리뷰 뒤 `TODOS.md`의 Deferred Backlog 를 다시 평가해 하나의 작은 단위로 승격한다.
-현재 가까운 후보는 CI/반복 baseline 확대 설계 또는 review snapshot 정리 상태 점검이다.
+현재 가까운 후보는 CI/반복 baseline 확대 설계 또는 Phase 5/6 backend selector/OS capability probe 설계다.
 
 ## 이번 단위의 검증 경로
-- source 검색으로 diagnostics 소비자가 테스트/benchmark 중심임을 확인한다.
-- 문서/결정 단위이므로 production build/test 는 새로 실행하지 않는다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`.
 - `git diff --check`로 whitespace 오류를 확인한다.
 
 ## 이번 작업에서 건드리지 않은 범위

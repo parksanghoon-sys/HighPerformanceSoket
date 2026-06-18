@@ -45,7 +45,9 @@
   - D067로 configurable backpressure/QoS policy surface 는 v1에 추가하지 않기로 결정했다.
   - 2026-06-18 로컬 TCP loopback latency baseline 을 수집했다.
   - D068로 `BrokerServer` diagnostics pass-through API 는 v1에 추가하지 않기로 결정했다.
-  - 다음 후보: 사용자 리뷰 후 CI/반복 baseline 확대 또는 review snapshot 정리 상태를 재평가한다.
+  - 아직 추적되지 않던 `.claude/review` snapshot 원문을 보존하고,
+    `review-status-2026-06-18.md`로 과거 review snapshot 의 현재 상태를 정리했다.
+  - 다음 후보: 사용자 리뷰 후 CI/반복 baseline 확대 또는 Phase 5/6 backend selector/OS capability probe 설계를 재평가한다.
 
 ## Deferred Backlog
 
@@ -86,6 +88,17 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] 과거 Claude review snapshot 을 현재 HEAD 기준으로 정리했다.
+  - 범위: 아직 추적되지 않던 `.claude/review/*.md` snapshot 원문,
+    `.claude/review/review-status-2026-06-18.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 기준: HEAD `980721c`, `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 136개 통과/실패 0.
+  - 결과: 과거 review snapshot 의 H1/H2/H3, G1, endpoint model F1/F3, high-watermark 후속 등은
+    해소 또는 명시적 설계 결정으로 재분류했다. 현재 다음 구현을 막는 must-fix/blocker 는 없다.
+  - 남은 비차단 후속: CI/장기 baseline 기반 hard SLO 재검토, 실제 host/metrics surface 발생 시 server-level diagnostics,
+    topic entry 안전 sweep, 다중 transport `EndpointId` namespace, `EndpointState.Closing/Faulted` 산출 여부,
+    샘플 기반 수동 fan-out 확인.
 
 - [x] `BrokerServer` diagnostics pass-through API 필요성을 D068로 닫았다.
   - 범위: `docs/superpowers/specs/2026-06-18-server-diagnostics-surface-design.md`,

@@ -1,5 +1,30 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - review snapshot status overlay)
+
+### 작업 단위
+- 과거 `.claude/review/*.md` snapshot 을 현재 HEAD 기준으로 재분류했다.
+- 아직 추적되지 않던 review 원문은 수정/삭제하지 않고 보존하며, 새 overlay 문서로 현재 해석을 남겼다.
+- production code/test 는 변경하지 않았다.
+
+### 정리 내용
+- 기존 작업 트리에 있던 untracked `.claude/review/*.md` snapshot 원문을 함께 보존 대상으로 삼았다.
+- `.claude/review/review-status-2026-06-18.md`를 추가했다.
+- 2026-06-11/2026-06-15 종합 검토의 H1/H2/H3, Phase 4 benchmark, backpressure 정책, UDP broker 범위 항목은
+  현재 구현과 D064/D065/D066/D067/D068 기준으로 해소 또는 후속으로 재분류했다.
+- 2026-06-17 G1(TCP outbound 무프레이밍)은 D065와 `f316d11` 구현으로 해소된 상태로 기록했다.
+- endpoint model F1/F3은 D058/D059/D062로 재분류했고, EndpointState 2값 산출은 forward-looking 계약으로 남겼다.
+- 현재 다음 구현을 막는 must-fix/blocker 는 없다고 정리했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`에 review overlay 추가와 현재 green 상태를 반영했다.
+- `TODOS.md`에 review snapshot 정리 완료 항목을 추가하고 다음 후보를 CI/반복 baseline 또는 Phase 5/6 backend selector 설계로 좁혔다.
+
+### 검증
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 136개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - server diagnostics surface decision)
 
 ### 작업 단위
