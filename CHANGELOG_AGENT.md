@@ -1,5 +1,34 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline summary cli wiring)
+
+### 작업 단위
+- `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 4만 구현했다.
+- `Program`이 `--summarize-baseline <input-dir> --summary <output-json>`를 실행해 summary JSON을 생성하도록 연결했다.
+
+### Red/Green
+- Red: 기존 바이너리로 summary command 를 실행했을 때 exit-code 2가 반환되고 summary 파일이 생성되지 않음을 확인했다.
+- Green: `Program` switch 에 `BenchmarkCommand.SummarizeBaseline` case 를 추가하고,
+  `BaselineReportReader.ReadDirectory` → `BaselineSummaryGenerator.Generate` → `BaselineSummaryWriter.Write`를 조립했다.
+
+### CLI smoke
+- root `docs\benchmarks\baselines\2026-06-18`: exit-code 0, `source-report-count=6`, `hard-passed=true`,
+  load/open-loop 각 run-count 3.
+- `docs\benchmarks\baselines\2026-06-18\session-02`: exit-code 0, `source-report-count=6`, `hard-passed=true`,
+  load/open-loop 각 run-count 3.
+- `docs\benchmarks\baselines\2026-06-18\session-03`: exit-code 0, `source-report-count=6`, `hard-passed=true`,
+  load/open-loop 각 run-count 3.
+- smoke summary 파일은 `%TEMP%` 아래 고유 directory 에 생성해 작업 트리에 남기지 않았다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`를 baseline summary artifact Task 1~4 완료와 사용자 리뷰 대기 상태로 갱신했다.
+- `TODOS.md`의 P1 summary artifact backlog 를 완료 이력으로 이동했다.
+
+### 검증
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 152개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - baseline summary reader writer)
 
 ### 작업 단위

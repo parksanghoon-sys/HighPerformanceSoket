@@ -49,6 +49,9 @@ namespace Hps.Benchmarks
                 case BenchmarkCommand.BaselineSuite:
                     return CompleteBaselineSuite(commandLine.BaselineOutputDirectory!, commandLine.BaselineRunCount);
 
+                case BenchmarkCommand.SummarizeBaseline:
+                    return CompleteBaselineSummary(commandLine.SummaryInputDirectory!, commandLine.SummaryOutputPath!);
+
                 case BenchmarkCommand.Help:
                     PrintUsage(Console.Out);
                     return SuccessExitCode;
@@ -92,6 +95,26 @@ namespace Hps.Benchmarks
 
             bool passed = runner.RunAsync(outputDirectory, runCount, Console.Out).GetAwaiter().GetResult();
             return passed ? SuccessExitCode : FailedRunExitCode;
+        }
+
+        private static int CompleteBaselineSummary(string inputDirectory, string summaryPath)
+        {
+            try
+            {
+                System.Collections.Generic.IReadOnlyList<BaselineReport> reports = BaselineReportReader.ReadDirectory(inputDirectory);
+                BaselineSummary summary = BaselineSummaryGenerator.Generate(inputDirectory, reports);
+                BaselineSummaryWriter.Write(summaryPath, summary);
+                Console.Out.WriteLine("baseline-summary: {0}", summaryPath);
+                Console.Out.WriteLine("source-report-count: {0}", summary.SourceReportCount);
+                Console.Out.WriteLine("hard-passed: {0}", summary.HardPassed ? "true" : "false");
+                Console.Out.WriteLine("warning-count: {0}", summary.WarningCount);
+                return summary.HardPassed ? SuccessExitCode : FailedRunExitCode;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("baseline-summary-error: {0}", ex.Message);
+                return ReportWriteFailedExitCode;
+            }
         }
 
         private static void PrintUsage(TextWriter writer)

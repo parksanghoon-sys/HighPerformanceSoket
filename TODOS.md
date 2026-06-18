@@ -64,55 +64,9 @@
   - baseline summary policy review 권고를 반영해 warning granularity 와 summary 중심경향 필드를 확정했다.
   - baseline summary artifact 계획의 Task 2로 summary domain model 과 soft warning 계산을 구현했다.
   - baseline summary artifact 계획의 Task 3으로 per-run JSON reader 와 summary JSON writer 를 구현했다.
+  - baseline summary artifact 계획의 Task 4로 Program execution wiring 과 실제 CLI smoke 를 완료했다.
 
 ## Deferred Backlog
-
-- [ ] `P1_SOON` 반복 baseline summary artifact 와 soft warning 산출을 구현한다.
-  - 무엇이 남았는지: `--baseline-suite <output-dir> [--runs <count>]` command 와 3개 baseline session 수집은 완료됐다.
-    이제 남은 것은 기존 per-run JSON directory 를 읽어 전체 hard pass/fail 상태와 soft warning 후보를 요약하는
-    summary JSON artifact 를 만드는 것이다.
-  - 왜 defer 되었는지: D070에서 latency hard failure threshold 는 아직 보류하기로 결정했다.
-    다만 다음 구현은 코드 변경이 필요한 별도 단위이므로, 이번 문서 단위에서는 설계와 상태 기록까지만 닫는다.
-  - objective: 반복 수집된 raw JSON artifact 를 자동 요약해 리뷰와 CI artifact 소비 비용을 줄인다.
-    delivery/drop/leak hard gate 는 유지하고, p99/HWM/actual-rate 이상 징후는 non-failing soft warning 으로만 기록한다.
-  - relevant context: DECISIONS D063/D069/D070,
-    `docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`,
-    `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`,
-    `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`,
-    `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`,
-    `tests/Hps.Benchmarks/Program.cs`, `tests/Hps.Benchmarks/BaselineSuiteRunner.cs`,
-    `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`,
-    `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`.
-  - 관련 파일/범위: `tests/Hps.Benchmarks/`, `tests/Hps.Benchmarks.Tests/`,
-    `docs/benchmarks/baselines/`, 향후 CI script 또는 docs report 위치.
-  - 현재 상태: `--baseline-suite`는 closed-loop load 와 open-loop load 를 반복 실행하고
-    `load-01.json`, `open-loop-01.json` 형식의 per-run raw JSON 을 생성한다.
-    Task 4 CLI smoke 에서 exit code 0, 두 report 의 `schema-version == 1`, `passed == true`를 확인했다.
-  - 현재 상태: 2026-06-18 로컬 baseline 에서 `--load` 3회는 p99 879.7~924.1us/TCP HWM 1,
-    `--load-open-loop` 3회는 p99 915.9~1005.5us/TCP HWM 2였으며 모든 run 은 drop/leak/payload error 0으로 pass 했다.
-  - 현재 상태: `docs/benchmarks/baselines/2026-06-18/session-02/`에 `--baseline-suite --runs 3` 결과를 추가했다.
-    closed-loop 3회는 p99 481.6~512.1us/TCP HWM 1,
-    open-loop 3회는 p99 564.9~643.3us/TCP HWM 2~3이었고 모든 run 은 drop/leak/payload error 0으로 pass 했다.
-  - 현재 상태: `docs/benchmarks/baselines/2026-06-18/session-03/`에 `--baseline-suite --runs 3` 결과를 추가했다.
-    closed-loop 3회는 p99 471.0~489.9us/TCP HWM 1,
-    open-loop 3회는 p99 502.6~587.8us/TCP HWM 2~3이었고 모든 run 은 drop/leak/payload error 0으로 pass 했다.
-  - 현재 상태: D070으로 hard latency gate 는 보류하고 summary JSON 과 soft warning 을 먼저 구현하기로 결정했다.
-    첫 구현의 권장 CLI 는 `--summarize-baseline <input-dir> --summary <output-json>`이다.
-  - 현재 상태: `.claude/review/2026-06-18-repeat-baseline-policy-review.md` 권고를 반영해
-    첫 soft warning threshold 는 session-01 max 기반 초기 임시 envelope 로만 해석하기로 했다.
-    warning 은 aggregate max 가 아니라 per-run 단위로 만들고, 각 warning 에 `source-path`를 포함한다.
-    `by-kind`에는 p50/p99 min/max 와 함께 median 도 포함한다.
-  - 현재 상태: Task 2로 `BaselineReport`, `BaselineKindSummary`, `BaselineWarning`, `BaselineSummary`,
-    `BaselineSummaryGenerator`와 generator 테스트를 추가했다. generator 는 in-memory `BaselineReport` 목록을 입력으로
-    hard gate 실패 수, kind별 p50/p99 min/max/median, per-run warning/source-path 를 계산한다.
-  - 현재 상태: Task 3으로 `BaselineReportReader`, `BaselineSummaryWriter`와 reader/writer 테스트를 추가했다.
-    reader 는 top-level per-run JSON schema v1 파일만 summary 입력으로 읽고, summary artifact 같은 다른 JSON은 건너뛴다.
-    writer 는 `summary-version`, `hard-passed`, `warning-count`, `warnings`, `by-kind`를 포함한 summary JSON v1을 쓴다.
-    Program execution wiring 은 아직 없다.
-  - known blockers/open questions: summary JSON schema 의 최소 필드는 D070 설계와 review 권고 반영본에 정리됐다.
-    Markdown report, CI provider workflow, warning-as-failure, hard latency gate 는 이 항목의 현재 구현 범위가 아니다.
-  - next step: `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 4만 진행한다.
-    범위는 Program execution wiring 과 실제 baseline artifact directory 기반 CLI smoke 다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -133,6 +87,20 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] 반복 baseline summary artifact 와 soft warning 산출을 구현했다.
+  - 범위: `tests/Hps.Benchmarks/`, `tests/Hps.Benchmarks.Tests/`,
+    `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`,
+    `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`,
+    root 상태 문서.
+  - 결과: `--summarize-baseline <input-dir> --summary <output-json>` command 가 기존 per-run JSON directory 를 읽고
+    summary JSON v1을 쓴다. hard gate 는 delivery/drop/leak 조건만 사용하고, p99/HWM/actual-rate 이상 징후는
+    non-failing per-run warning 으로 남긴다.
+  - 검증: root baseline, session-02, session-03 CLI smoke 모두 exit-code 0,
+    `source-report-count == 6`, `hard-passed == true`, load/open-loop 각 3개 run 으로 통과했다.
+    `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 152개 통과/실패 0,
+    `git diff --check` 통과.
 
 - [x] baseline summary artifact Task 3으로 JSON reader/writer 를 구현했다.
   - 범위: `tests/Hps.Benchmarks/BaselineReportReader.cs`,

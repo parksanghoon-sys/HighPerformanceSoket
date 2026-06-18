@@ -64,6 +64,10 @@
 - baseline summary artifact 계획의 Task 3을 완료했다. `BaselineReportReader`가 top-level per-run JSON schema v1 파일만 읽고
   `summary.json` 같은 다른 artifact 는 건너뛰며, `BaselineSummaryWriter`가 summary JSON v1 모양을 쓴다.
   아직 `Program` execution wiring 과 실제 CLI smoke 는 추가하지 않았다.
+- baseline summary artifact 계획의 Task 4를 완료했다. `Program`이 `--summarize-baseline <input-dir> --summary <output-json>`를
+  `BaselineReportReader` → `BaselineSummaryGenerator` → `BaselineSummaryWriter`로 연결한다.
+  2026-06-18 root baseline, session-02, session-03 directory 로 CLI smoke 를 실행해 각 summary 가 report 6개,
+  hard-passed true, load/open-loop 각 3개 run 으로 생성되는지 확인했다.
 - D069 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`로 작성했다.
   구현은 세부 task 를 여러 커밋으로 나누며, 첫 단위는 `tests/Hps.Benchmarks.Tests` 추가와 benchmark CLI parser extraction 이다.
 - 반복 baseline collection 계획의 Task 1을 완료했다. `tests/Hps.Benchmarks.Tests`를 solution 에 추가하고,
@@ -354,21 +358,18 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-baseline summary artifact Task 3을 완료했다. 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영하고,
-없으면 `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 4만 진행한다.
-Task 4 범위는 `Program` execution wiring 과 실제 baseline artifact directory 기반 CLI smoke 다.
-summary model/generator 와 JSON reader/writer 는 이미 구현되어 있으므로 Task 4에서는 CLI 연결과 smoke artifact 검증만 다룬다.
+baseline summary artifact Task 1~4를 모두 완료했다. 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
+현재 자동으로 이어서 실행할 구현 항목은 없다.
 
 ## 이번 단위의 검증 경로
-- Red 1: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BaselineReportReaderWriterTests`
-  실행 시 `BaselineReportReader`/`BaselineSummaryWriter` 타입 부재로 1개 실패/0개 통과.
-- Green 1: 최소 reader/writer shell 추가 뒤 같은 focused 테스트 1개 통과.
-- Red 2: 동작 테스트 2개로 교체한 뒤 같은 focused 테스트가 `NotImplementedException`으로 2개 실패/0개 통과.
-- Green 2: `BaselineReportReader`/`BaselineSummaryWriter` 구현 뒤 같은 focused 테스트 2개 통과.
+- Red: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --summarize-baseline ...`
+  실행 시 exit-code 2, summary 파일 미생성을 확인했다.
 - `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 16개 통과/실패 0.
+- Green: root `docs\benchmarks\baselines\2026-06-18`, `session-02`, `session-03`에 대해 CLI smoke 를 실행했다.
+  세 실행 모두 exit-code 0, `source-report-count == 6`, `hard-passed == true`,
+  `by-kind.load.run-count == 3`, `by-kind.open-loop.run-count == 3`을 확인했다.
 - `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 152개 통과/실패 0.
-- `git diff --check` 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
