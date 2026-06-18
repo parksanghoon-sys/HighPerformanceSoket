@@ -126,6 +126,45 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal(0, commandLine.BaselineRunCount);
         }
 
+        // Markdown summary 는 JSON summary 를 대체하지 않는 선택 보조 artifact 다.
+        // parser 가 markdown path 를 보존해야 Program wiring 이 JSON 생성 뒤 같은 summary object 로 .md 를 추가 출력할 수 있다.
+        [Fact]
+        public void TryParse_WhenSummarizeBaselineHasSummaryMarkdown_ReturnsSummaryCommandWithMarkdownPath()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--summarize-baseline", "docs/baseline", "--summary", "out/summary.json", "--summary-md", "out/summary.md" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal("SummarizeBaseline", commandLine.Command.ToString());
+            Assert.Equal("docs/baseline", GetStringProperty(commandLine, "SummaryInputDirectory"));
+            Assert.Equal("out/summary.json", GetStringProperty(commandLine, "SummaryOutputPath"));
+            Assert.Equal("out/summary.md", GetStringProperty(commandLine, "SummaryMarkdownOutputPath"));
+        }
+
+        // --summary-md 는 선택 옵션이지만 지정했다면 파일 경로가 반드시 필요하다.
+        // 경로 없이 통과시키면 사용자는 Markdown report 가 생긴다고 믿지만 Program 은 출력 위치를 알 수 없다.
+        [Fact]
+        public void TryParse_WhenSummarizeBaselineSummaryMarkdownMissingPath_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--summarize-baseline", "docs/baseline", "--summary", "out/summary.json", "--summary-md" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Equal("SummarizeBaseline", commandLine.Command.ToString());
+        }
+
         // summary command 는 output directory command 가 아니므로 --summary 파일 경로가 반드시 필요하다.
         // 이 검증이 없으면 사용자는 summary 파일이 생겼다고 생각하지만 실제로는 usage error 없이 다른 경로로 흐를 수 있다.
         [Fact]

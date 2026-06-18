@@ -50,7 +50,7 @@ namespace Hps.Benchmarks
                     return CompleteBaselineSuite(commandLine.BaselineOutputDirectory!, commandLine.BaselineRunCount);
 
                 case BenchmarkCommand.SummarizeBaseline:
-                    return CompleteBaselineSummary(commandLine.SummaryInputDirectory!, commandLine.SummaryOutputPath!);
+                    return CompleteBaselineSummary(commandLine.SummaryInputDirectory!, commandLine.SummaryOutputPath!, commandLine.SummaryMarkdownOutputPath);
 
                 case BenchmarkCommand.Help:
                     PrintUsage(Console.Out);
@@ -97,14 +97,20 @@ namespace Hps.Benchmarks
             return passed ? SuccessExitCode : FailedRunExitCode;
         }
 
-        private static int CompleteBaselineSummary(string inputDirectory, string summaryPath)
+        private static int CompleteBaselineSummary(string inputDirectory, string summaryPath, string? summaryMarkdownPath)
         {
             try
             {
                 System.Collections.Generic.IReadOnlyList<BaselineReport> reports = BaselineReportReader.ReadDirectory(inputDirectory);
                 BaselineSummary summary = BaselineSummaryGenerator.Generate(inputDirectory, reports);
                 BaselineSummaryWriter.Write(summaryPath, summary);
+                if (summaryMarkdownPath != null)
+                    WriteBaselineSummaryMarkdown(summaryMarkdownPath, summary);
+
                 Console.Out.WriteLine("baseline-summary: {0}", summaryPath);
+                if (summaryMarkdownPath != null)
+                    Console.Out.WriteLine("baseline-summary-md: {0}", summaryMarkdownPath);
+
                 Console.Out.WriteLine("source-report-count: {0}", summary.SourceReportCount);
                 Console.Out.WriteLine("hard-passed: {0}", summary.HardPassed ? "true" : "false");
                 Console.Out.WriteLine("warning-count: {0}", summary.WarningCount);
@@ -117,6 +123,19 @@ namespace Hps.Benchmarks
             }
         }
 
+        private static void WriteBaselineSummaryMarkdown(string path, BaselineSummary summary)
+        {
+            string fullPath = Path.GetFullPath(path);
+            string? directory = Path.GetDirectoryName(fullPath);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
+            using (StreamWriter writer = new StreamWriter(fullPath, false))
+            {
+                BaselineSummaryMarkdownWriter.Write(writer, summary);
+            }
+        }
+
         private static void PrintUsage(TextWriter writer)
         {
             writer.WriteLine(MessageUsage);
@@ -125,7 +144,7 @@ namespace Hps.Benchmarks
             writer.WriteLine("  Hps.Benchmarks --load [--report <path>]");
             writer.WriteLine("  Hps.Benchmarks --load-open-loop [--report <path>]");
             writer.WriteLine("  Hps.Benchmarks --baseline-suite <output-dir> [--runs <count>]");
-            writer.WriteLine("  Hps.Benchmarks --summarize-baseline <input-dir> --summary <output-json>");
+            writer.WriteLine("  Hps.Benchmarks --summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]");
             writer.WriteLine("  Hps.Benchmarks [BenchmarkDotNet arguments]");
         }
 

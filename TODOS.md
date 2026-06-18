@@ -67,6 +67,7 @@
   - baseline summary artifact 계획의 Task 4로 Program execution wiring 과 실제 CLI smoke 를 완료했다.
   - 2026-06-18 baseline root/session-02/session-03 directory 에 canonical `summary.json` artifact 를 생성했다.
   - baseline summary Markdown writer 를 추가해 `BaselineSummary`를 사람 리뷰용 표로 출력할 수 있게 했다.
+  - `--summarize-baseline` CLI 에 `--summary-md <output-md>` 선택 출력 옵션을 연결했다.
 
 ## Deferred Backlog
 
@@ -89,6 +90,21 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] baseline summary Markdown CLI 선택 출력을 연결했다.
+  - 범위: `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`,
+    `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`,
+    `tests/Hps.Benchmarks/Program.cs`,
+    `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결과: `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`가
+    JSON summary 를 계속 필수 canonical artifact 로 쓰고, `--summary-md`가 있을 때 같은 `BaselineSummary`에서
+    Markdown 보조 artifact 를 추가로 쓴다.
+  - 검증: parser Red/Green, CLI Red/Green, focused benchmark tests 20개 통과.
+    최종 검증은 solution build 경고 0/오류 0, solution tests 전체 156개 통과/실패 0,
+    `git diff --check` 통과다.
+    NuGet global-packages 가 sandbox offline 경로를 보며 `Hps.Benchmarks` assets 가 한 번 깨진 뒤,
+    `NUGET_PACKAGES=$env:USERPROFILE\.nuget\packages`로 restore/build 환경을 복구했다.
 
 - [x] baseline summary Markdown writer 를 구현했다.
   - 범위: `tests/Hps.Benchmarks/BaselineSummaryMarkdownWriter.cs`,

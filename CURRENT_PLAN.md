@@ -75,6 +75,9 @@
 - baseline summary Markdown writer 를 추가했다. 이 writer 는 canonical `summary.json`을 대체하지 않고,
   `BaselineSummary`를 사람이 리뷰하기 쉬운 Markdown 표로 쓰는 보조 출력 계층이다.
   이번 단위는 `TextWriter` 기반 writer 와 테스트까지만 다뤘고, CLI 옵션 또는 파일 artifact 생성은 다음 단위로 분리한다.
+- `--summarize-baseline` CLI 에 선택 옵션 `--summary-md <output-md>`를 연결했다.
+  command 는 기존 `--summary <output-json>`을 계속 필수로 요구하고, `--summary-md`가 있을 때만 같은 `BaselineSummary`에서
+  Markdown 보조 artifact 를 추가로 쓴다. JSON summary 는 자동화용 canonical artifact 로 유지한다.
 - D069 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`로 작성했다.
   구현은 세부 task 를 여러 커밋으로 나누며, 첫 단위는 `tests/Hps.Benchmarks.Tests` 추가와 benchmark CLI parser extraction 이다.
 - 반복 baseline collection 계획의 Task 1을 완료했다. `tests/Hps.Benchmarks.Tests`를 solution 에 추가하고,
@@ -365,19 +368,24 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-baseline summary artifact Task 1~4, 2026-06-18 canonical summary JSON 생성, Markdown writer 단위를 완료했다.
+baseline summary artifact Task 1~4, 2026-06-18 canonical summary JSON 생성, Markdown writer, CLI `--summary-md` 연결 단위를 완료했다.
 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
 현재 자동으로 이어서 실행할 구현 항목은 없다.
 
 ## 이번 단위의 검증 경로
-- Red 1: `BaselineSummaryMarkdownWriterTests` bootstrap 이 writer 타입 부재로 1개 실패/0개 통과했다.
-- Green 1: 최소 writer 타입 추가 뒤 bootstrap focused test 가 1개 통과했다.
-- Red 2: Markdown 내용 테스트 2개가 `Write(TextWriter, BaselineSummary)` 메서드 부재로 실패했다.
-- Green 2: `BaselineSummaryMarkdownWriter.Write`가 hard gate, 종류별 요약, warning table 을 쓰도록 구현해
-  focused Markdown writer tests 3개가 통과했다.
-- Refactor: 테스트를 reflection 호출에서 직접 writer API 호출로 정리했고 focused tests 2개가 통과했다.
-- 최종 검증으로 `dotnet build HighPerformanceSocket.slnx --no-restore`,
-  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`, `git diff --check`를 실행한다.
+- Red 1: `BenchmarkCommandParserTests`에 `--summary-md` parser 테스트를 추가했고,
+  기존 parser 가 6개 인자를 summary output usage error 로 처리해 1개 실패/9개 통과했다.
+- Green 1: `BenchmarkCommandLine.SummaryMarkdownOutputPath`와 parser optional `--summary-md <path>` 처리를 추가했고,
+  focused parser tests 10개가 통과했다.
+- Red 2: parser Green 뒤 CLI smoke 에서 `--summary-md`를 지정하면 exit-code 0과 JSON 생성은 확인됐지만 Markdown 파일은 생성되지 않았다.
+- Green 2: `Program`이 summary JSON 생성 뒤 선택적으로 `BaselineSummaryMarkdownWriter`를 호출하도록 연결했다.
+  CLI smoke 에서 exit-code 0, JSON/Markdown 파일 생성, Markdown heading/load row/no-warning 문구를 확인했다.
+- focused benchmark tests: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore`
+  통과, 20개 통과/실패 0.
+- 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과,
+  전체 156개 통과/실패 0.
+- 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
@@ -388,7 +396,7 @@ baseline summary artifact Task 1~4, 2026-06-18 canonical summary JSON 생성, Ma
 - `TransportFactory.CreateDefault()`를 직접 사용하는 server factory/convenience API
 - 샘플 기반 수동 fan-out 확인
 - p50/p99 latency 합격선 확정 및 실패 gate
-- Markdown report CLI/file artifact wiring, report history, CI gate
+- Markdown report layout 확장, report history, CI gate
 - stable subscriber identity 구현
 - UDP stale remote idle expiry 구현
 - protocol error 응답

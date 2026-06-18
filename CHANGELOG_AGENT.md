@@ -1,5 +1,34 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline summary markdown cli)
+
+### 작업 단위
+- `--summarize-baseline <input-dir> --summary <output-json>` command 에 선택 옵션
+  `--summary-md <output-md>`를 연결했다.
+- JSON summary 는 계속 필수 canonical artifact 로 유지하고, Markdown 은 같은 `BaselineSummary`에서 파생되는
+  사람 리뷰용 보조 artifact 로만 생성한다.
+
+### Red/Green
+- Red 1: `BenchmarkCommandParserTests`에 `--summary-md` parser 테스트를 먼저 추가했다.
+  기존 parser 는 6개 인자를 summary output usage error 로 처리해 신규 테스트 1개 실패/기존 9개 통과가 됐다.
+- Green 1: `BenchmarkCommandLine.SummaryMarkdownOutputPath`와 parser optional `--summary-md <path>` 처리를 추가했고
+  focused parser tests 10개가 통과했다.
+- Red 2: parser Green 뒤 CLI smoke 에서 `--summary-md`를 지정하면 exit-code 0과 JSON 생성은 확인됐지만
+  Markdown 파일은 생성되지 않았다.
+- Green 2: `Program`이 summary JSON 생성 뒤 선택적으로 `BaselineSummaryMarkdownWriter`를 호출하게 연결했다.
+  CLI smoke 에서 exit-code 0, JSON/Markdown 파일 생성, Markdown heading/load row/no-warning 문구를 확인했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`와 `TODOS.md`에 CLI Markdown 선택 출력 완료와 사용자 리뷰 대기 상태를 반영했다.
+
+### 검증
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 20개 통과/실패 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 156개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- sandbox NuGet global-packages 가 offline 경로를 보며 `Hps.Benchmarks` assets 가 한 번 깨졌고,
+  `NUGET_PACKAGES=$env:USERPROFILE\.nuget\packages`를 지정해 restore/build 환경을 복구했다.
+
 ## 2026-06-18 (Codex - baseline summary markdown writer)
 
 ### 작업 단위
