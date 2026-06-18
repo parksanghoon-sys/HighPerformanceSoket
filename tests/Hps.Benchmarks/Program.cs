@@ -82,6 +82,7 @@ namespace Hps.Benchmarks
             writer.WriteLine("  Hps.Benchmarks --smoke [--report <path>]");
             writer.WriteLine("  Hps.Benchmarks --load [--report <path>]");
             writer.WriteLine("  Hps.Benchmarks --load-open-loop [--report <path>]");
+            writer.WriteLine("  Hps.Benchmarks --baseline-suite <output-dir> [--runs <count>]");
             writer.WriteLine("  Hps.Benchmarks [BenchmarkDotNet arguments]");
         }
 

@@ -1,5 +1,29 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline suite parser command)
+
+### 작업 단위
+- 반복 baseline collection 계획의 Task 2를 구현했다.
+- `BenchmarkCommandParser`가 `--baseline-suite <output-dir> [--runs <count>]`를 해석하게 했다.
+- 실제 baseline suite runner 와 `Program` execution wiring 은 아직 추가하지 않았다.
+
+### Red/Green
+- Red: baseline suite parser 테스트 3개를 추가하고 focused test 를 실행했다.
+  `--baseline-suite`를 아직 인식하지 못해 실패 3개/통과 2개를 확인했다.
+- Green: parser 에 baseline suite 분기, 기본 run count 3, `--runs` parsing,
+  `--report` 혼용 usage error 를 추가했다.
+- Program usage 에 `Hps.Benchmarks --baseline-suite <output-dir> [--runs <count>]`를 표시했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`와 `TODOS.md`를 Task 2 완료와 Task 3 대기 상태로 갱신했다.
+
+### 검증
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BenchmarkCommandParserTests`
+  Red 실패 확인, 실패 3/통과 2.
+- 같은 focused test Green 통과, 5개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 141개 통과/실패 0.
+
 ## 2026-06-18 (Codex - benchmark command parser seam)
 
 ### 작업 단위

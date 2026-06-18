@@ -50,7 +50,8 @@
   - D069로 latency hard gate 전에는 반복 baseline artifact 를 먼저 축적하기로 결정했다.
   - 반복 baseline collection 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`에 작성했다.
   - 반복 baseline collection 계획의 Task 1로 benchmark CLI parser/test seam 을 구현했다.
-  - 다음 후보: 사용자 리뷰 후 계획의 Task 2인 `--baseline-suite` parser 확장을 구현한다.
+  - 반복 baseline collection 계획의 Task 2로 `--baseline-suite` parser 확장을 구현했다.
+  - 다음 후보: 사용자 리뷰 후 계획의 Task 3인 fake runner 기반 `BaselineSuiteRunner`를 구현한다.
 
 ## Deferred Backlog
 
@@ -71,10 +72,10 @@
     2026-06-18 로컬 baseline 에서 `--load` 3회는 p99 879.7~924.1us/TCP HWM 1,
     `--load-open-loop` 3회는 p99 915.9~1005.5us/TCP HWM 2였으며 모든 run 은 drop/leak/payload error 0으로 pass 했다.
   - 현재 상태: `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`가 구현을 4개 task 로 쪼갰다.
-    Task 1은 test project 와 기존 parser extraction 으로 완료됐다. Task 2는 `--baseline-suite` parsing,
+    Task 1은 test project 와 기존 parser extraction 으로 완료됐다. Task 2는 `--baseline-suite` parsing 으로 완료됐다.
     Task 3은 fake runner 기반 `BaselineSuiteRunner`, Task 4는 Program wiring 과 CLI 검증이다.
   - known blockers/open questions: summary JSON, Markdown report, CI provider workflow, p99 hard threshold 는 이번 계획에서 제외했다.
-  - next step: 사용자 리뷰 뒤 Task 2를 진행한다.
+  - next step: 사용자 리뷰 뒤 Task 3을 진행한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -95,6 +96,16 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] 반복 baseline collection Task 2로 `--baseline-suite` parser 확장을 구현했다.
+  - 범위: `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`,
+    `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`, `tests/Hps.Benchmarks/Program.cs`, root state docs.
+  - Red: baseline suite parser 테스트 3개가 실패해 parser 가 아직 `--baseline-suite`를 인식하지 않음을 확인했다.
+  - Green: parser 가 `--baseline-suite <output-dir> [--runs <count>]`를 인식하고,
+    기본 run count 3, 명시 run count, `--report` 혼용 usage error 를 반환하게 했다.
+    Program usage 에도 새 command 형식을 표시했다.
+  - 검증: focused benchmark parser tests 통과 5, solution build 경고 0/오류 0,
+    solution tests 통과 141/실패 0.
 
 - [x] 반복 baseline collection Task 1로 benchmark CLI parser/test seam 을 구현했다.
   - 범위: `tests/Hps.Benchmarks.Tests`, `tests/Hps.Benchmarks/BenchmarkCommand.cs`,

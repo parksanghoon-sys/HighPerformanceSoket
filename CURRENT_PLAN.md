@@ -39,6 +39,9 @@
 - 반복 baseline collection 계획의 Task 1을 완료했다. `tests/Hps.Benchmarks.Tests`를 solution 에 추가하고,
   기존 `Program` 내부 parser 를 `BenchmarkCommandParser`/`BenchmarkCommandLine`/`BenchmarkCommand`로 분리했다.
   `--load --report`와 `--report` 단독 usage error 계약은 새 parser 테스트로 고정했다.
+- 반복 baseline collection 계획의 Task 2를 완료했다. `BenchmarkCommandParser`가
+  `--baseline-suite <output-dir> [--runs <count>]`를 해석하고, 기본 run count 3,
+  명시 run count, `--report` 혼용 usage error 를 테스트로 고정했다. 실제 suite runner 와 Program execution wiring 은 아직 없다.
 - 아직 추적되지 않던 `.claude/review` snapshot 원문을 보존하고,
   `.claude/review/review-status-2026-06-18.md`로 과거 review snapshot 을 현재 HEAD 기준으로 정리했다.
   overlay 기준 HEAD `980721c`에서 build 0/0, test 136/0 green 이었고, 해당 정리는 `0628d20`으로 커밋됐다.
@@ -305,16 +308,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-이번 단위에서 반복 baseline collection 계획의 Task 1을 완료했다.
-production 동작은 기존 command parsing 을 분리한 것뿐이며, 새 `--baseline-suite` command 는 아직 추가하지 않았다.
-다음 구현은 사용자 리뷰 뒤 계획의 Task 2, 즉 `--baseline-suite <output-dir> [--runs <count>]` parser 확장을 하나의 작은 단위로 진행한다.
+이번 단위에서 반복 baseline collection 계획의 Task 2를 완료했다.
+production 동작은 parser 가 `--baseline-suite` command line 을 인식하는 것까지이며,
+아직 실제 baseline suite 실행은 연결하지 않았다.
+다음 구현은 사용자 리뷰 뒤 계획의 Task 3, 즉 fake runner 기반 `BaselineSuiteRunner`를 하나의 작은 단위로 진행한다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj` 실패 1개.
-  `BenchmarkCommandParser_TypeExists`가 `Assert.NotNull()`로 실패해 parser seam 부재를 확인했다.
-- Focused Green: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 2개 통과.
+- Red: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BenchmarkCommandParserTests`
+  실패 3개/통과 2개. `--baseline-suite` 미지원으로 `parsed == false` 또는 `Command == None` 실패를 확인했다.
+- Focused Green: 같은 명령 통과, 5개 통과.
 - `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 138개 통과/실패 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 141개 통과/실패 0.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
