@@ -1,5 +1,43 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - stalled subscriber drop-oldest stress)
+
+### 작업 단위
+- `.claude/review/2026-06-18-outbound-framing-and-state.md`와
+  `docs/superpowers/specs/2026-06-18-drop-stress-and-observability-design.md`가 지적한 drop-oldest 미stress 경로를
+  Server 통합 테스트로 고정했다.
+- 범위는 stalled TCP subscriber stress 테스트와 root state docs 로 제한했다.
+- production code 는 변경하지 않았다.
+
+### Red/Green
+- `TcpCommandLoopback_WhenSubscriberDoesNotRead_DropsOldestAndReportsTransportDiagnostics`를 추가했다.
+- drop-oldest 구현과 diagnostics 는 이미 존재했으므로, 신규 stress 테스트는 기존 production code 에서 바로 통과했다.
+  이 단위는 실패하는 production 요구를 새로 구현한 것이 아니라, 기존 open-loop runner 로 fire 하지 못했던 D012 경로를
+  실제 socket end-to-end 테스트로 고정한 보강 단위다.
+
+### 테스트 내용
+- subscriber 는 `SUBSCRIBE` 후 socket 을 읽지 않아 server->subscriber TCP send buffer 를 정체시킨다.
+- publisher 는 큰 payload 를 반복 발행해 `TransportConnection` pending send queue 가 capacity 16까지 포화되게 한다.
+- 테스트는 `TcpDroppedPendingSendCount > 0`, `TcpPendingSendQueueHighWatermark == 16`,
+  UDP drop/HWM 0, 종료 후 `PinnedBlockMemoryPool.RentedCount == 0`을 확인한다.
+
+### 결정
+- D066으로 v1 drop 관측은 `ITransportDiagnostics.GetDiagnosticsSnapshot()` pull snapshot 으로 충분하다고 판단했다.
+- drop log/sampling 은 hot path 비용과 과부하 시 log noise 위험 때문에 보류한다.
+- `BrokerServer` convenience diagnostics API 는 실제 host 운영 표면이 구체화된 뒤 별도 단위로 재검토한다.
+
+### 상태 갱신
+- `DECISIONS.md`에 D066을 추가했다.
+- `TODOS.md`에 stalled subscriber stress 완료 항목을 추가하고, drop log/sampling 후속을 닫았다.
+- `CURRENT_PLAN.md`를 사용자 리뷰 대기 상태와 다음 후보 재평가 상태로 갱신했다.
+
+### 검증
+- 신규 focused 테스트 통과.
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --no-restore` 통과(12개).
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 136개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - TCP outbound length-prefixed fan-out)
 
 ### 작업 단위

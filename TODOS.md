@@ -40,7 +40,9 @@
   - 백프레셔 기본 정책 정합성 판단을 D064로 닫았다.
   - TCP outbound message boundary 정책을 D065로 닫았다. TCP subscriber outbound 는 length-prefixed frame 으로 보낸다.
   - D065 구현으로 TCP outbound length-prefixed fan-out, 샘플 subscriber 수신, benchmark receive path 를 갱신했다.
-  - 다음 후보: 사용자 리뷰 후 drop log/sampling, Server convenience diagnostics API, latency baseline 중 하나를 Current TODOs 로 승격할지 재평가한다.
+  - stalled TCP subscriber stress 통합 테스트로 drop-oldest evict 와 TCP HWM 16 포화 관측을 고정했다.
+  - D066으로 v1 drop 관측은 pull snapshot 으로 충분하다고 판단하고 drop log/sampling 은 보류했다.
+  - 다음 후보: 사용자 리뷰 후 latency baseline 또는 configurable backpressure/QoS policy surface 중 하나를 Current TODOs 로 승격할지 재평가한다.
 
 ## Deferred Backlog
 
@@ -76,21 +78,39 @@
     drop-oldest 에서 disconnect 로 전환할 때 구독 정리/재구독 semantics 를 어떻게 둘지 정해야 한다.
   - next step: 실제 운영 요구가 최신성 우선인지 신뢰성 우선인지 확인한 뒤, 필요하면 별도 설계 문서로 승격한다.
 
-- [ ] `P2_LATER` drop log/sampling 과 Server convenience diagnostics API 필요성을 검토한다.
-  - 무엇이 남았는지: `ITransportDiagnostics.GetDiagnosticsSnapshot()`으로 Transport-level public 누적 metric 은 제공하지만,
-    drop 발생 시 log 를 남기거나 `BrokerServer`가 Transport diagnostics 를 직접 감싸는 convenience API 는 없다.
-  - 왜 defer 되었는지: 이번 단위는 hot path 비용이 낮은 누적 snapshot 까지만 닫았다. drop 마다 log 를 남기면 고빈도 과부하에서
-    비용과 노이즈가 커질 수 있고, Server convenience API 는 실제 운영 host surface 가 더 구체화된 뒤 결정해도 된다.
-  - objective: 운영자가 snapshot pull 방식만으로 충분한지, 아니면 sampling/threshold log 또는 Server-level aggregate accessor 가 필요한지 결정한다.
-  - relevant context: DECISIONS D041/D042, `src/Hps.Transport/Abstractions/ITransportDiagnostics.cs`,
+- [ ] `P2_LATER` Server convenience diagnostics API 필요성을 실제 host surface 기준으로 재검토한다.
+  - 무엇이 남았는지: D066으로 drop log/sampling 은 보류했고, `ITransportDiagnostics.GetDiagnosticsSnapshot()`의 pull snapshot 만으로
+    stalled subscriber drop 과 HWM 16 포화를 설명할 수 있음이 확인됐다. 다만 운영 host 가 `BrokerServer`만 들고 있을 때
+    Transport 를 직접 캐스팅하지 않게 하는 pass-through accessor 가 필요한지는 아직 결정하지 않았다.
+  - 왜 defer 되었는지: 현재 서버는 단일 injected `ITransport` 를 감싼 얇은 host 이며, 다중 transport 합산, endpoint registry,
+    hosting configuration surface 가 아직 없다. 지금 `BrokerServer.GetDiagnostics()`를 추가하면 작은 편의 API일 수는 있지만,
+    향후 host surface 와 합산 semantics 를 다시 바꿀 가능성이 있다.
+  - objective: 실제 host/운영 API가 구체화된 뒤 Server-level diagnostics accessor 를 nullable pass-through 로 둘지,
+    여러 transport/endpoint 를 합산하는 별도 diagnostics surface 로 둘지 결정한다.
+  - relevant context: DECISIONS D041/D042/D056/D062/D066,
+    `src/Hps.Transport/Abstractions/ITransportDiagnostics.cs`,
     `src/Hps.Transport/Abstractions/TransportDiagnosticsSnapshot.cs`, `src/Hps.Server/BrokerServer.cs`.
-  - 관련 파일/범위: `src/Hps.Transport/`, `src/Hps.Server/`, 테스트 프로젝트 전반.
+  - 관련 파일/범위: `src/Hps.Server/`, `src/Hps.Transport/`, host/sample 코드, 관련 tests.
   - 현재 상태: Transport 수명 누적 TCP/UDP drop snapshot 은 public 으로 읽을 수 있고 reset API는 없다.
-  - known blockers/open questions: log 는 drop 마다 남길지 sampling/threshold 기반으로 둘지, Server 는 nullable snapshot 을 노출할지
-    diagnostics capability 를 필수로 요구할지 결정해야 한다.
-  - next step: Phase 3 host/samples surface 가 더 구체화된 뒤 pull snapshot 만으로 운영성이 충분한지 먼저 검토한다.
+    stalled subscriber stress 는 `ITransportDiagnostics` 직접 캐스팅으로 drop 관측을 검증한다.
+  - known blockers/open questions: `BrokerServer`가 diagnostics capability 를 필수로 요구할지 nullable 로 노출할지,
+    다중 transport 를 도입할 경우 snapshot 합산과 `EndpointId` 충돌을 어떻게 다룰지 정해야 한다.
+  - next step: 실제 운영 host 표면이 생기거나 샘플에서 transport 캐스팅이 반복되면 pass-through accessor 설계를 별도 단위로 승격한다.
 
 ## Completed
+
+- [x] stalled TCP subscriber stress 로 drop-oldest evict 경로를 검증했다.
+  - 범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 테스트: subscriber 가 `SUBSCRIBE` 후 socket 을 읽지 않도록 정체시키고, publisher 가 큰 payload 를 반복 발행해
+    실제 SAEA TCP send loop 의 OS send buffer 포화와 Transport pending send queue 포화를 유도한다.
+  - 단언: `TcpDroppedPendingSendCount > 0`, `TcpPendingSendQueueHighWatermark == 16`,
+    UDP drop/HWM 0, 종료 후 `PinnedBlockMemoryPool.RentedCount == 0`.
+  - 결과: 기존 production code 에서 신규 stress 테스트가 바로 통과했다. 즉 D012 drop-oldest 구현은 이미 동작했고,
+    이번 단위는 그동안 benchmark 로 fire 하지 못한 경로를 end-to-end 회귀 테스트로 고정한 것이다.
+  - 결정: D066으로 v1 drop 관측은 pull snapshot 으로 충분하다고 판단하고 drop log/sampling 은 보류했다.
+    Server convenience diagnostics API 는 실제 host surface 가 더 구체화될 때 재검토한다.
+  - 검증: 신규 focused test 통과, Server tests 통과 12, solution build 경고 0/오류 0,
+    solution tests 통과 136/실패 0, `git diff --check` 통과(CRLF 변환 경고만 존재).
 
 - [x] TCP outbound length-prefixed fan-out 을 구현했다.
   - 범위: `src/Hps.Transport/Abstractions/TransportSendBuffer.cs`,

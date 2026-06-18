@@ -1,5 +1,24 @@
 # DECISIONS.md
 
+## D066 — drop-oldest stress 관측은 pull snapshot 으로 충분하며 log/sampling 은 보류한다
+
+- 날짜: 2026-06-18
+- 상태: Accepted
+- 결정: 느린 TCP subscriber 가 읽지 않는 stalled socket 시나리오를 Server 통합 테스트로 고정한다.
+  이 시나리오에서 `TransportDiagnosticsSnapshot.TcpDroppedPendingSendCount > 0` 과
+  `TcpPendingSendQueueHighWatermark == 16` 을 관측하므로, v1에서는 drop 발생 여부와 queue capacity 포화를
+  기존 pull snapshot 으로 설명할 수 있다고 본다. drop 마다 동기 log 를 남기거나 sampling/threshold log 를 추가하지 않는다.
+  `BrokerServer` convenience diagnostics accessor 도 이번 단위에서는 추가하지 않고, 실제 host 운영 표면이 더 구체화될 때 다시 판단한다.
+- 근거: 기존 `--load-open-loop`는 publisher 가 receive 완료를 기다리지 않지만 loopback subscriber 가 계속 읽어
+  dropped 0, TCP HWM 3 수준에 머물러 D012 evict 경로를 실제로 fire 하지 못했다. 반면 stalled subscriber 테스트는
+  subscriber socket 을 읽지 않게 두고 다수 publish 를 보내 OS send buffer 포화 뒤 Transport pending queue capacity 16과
+  drop-oldest evict 를 end-to-end 로 관측한다. 같은 테스트 종료 후 `PinnedBlockMemoryPool.RentedCount == 0`도 확인하므로
+  evict release 와 close drain 의 누수/이중반환 회귀도 함께 막는다.
+- 영향: drop log/sampling 은 별도 current work 로 승격하지 않는다. 운영자가 drop 을 확인할 때는
+  `ITransportDiagnostics.GetDiagnosticsSnapshot()`의 TCP/UDP 누적 drop count 와 high-watermark 를 먼저 본다.
+  Server-level aggregate accessor, closed endpoint attribution, drop timestamp, configurable backpressure/QoS 는
+  실제 요구가 드러날 때 별도 설계와 테스트로 다룬다.
+
 ## D065 — TCP subscriber outbound 는 length-prefixed message frame 으로 보낸다
 
 - 날짜: 2026-06-18

@@ -286,6 +286,58 @@ namespace Hps.Server.Tests
             }
         }
 
+        // drop-oldest 실제 fire 경로 검증: 기존 closed/open-loop 부하는 subscriber 가 계속 읽기 때문에
+        // TCP pending queue capacity 16에 도달하지 못했다. 이 테스트는 subscriber 를 의도적으로 읽지 않게 정체시켜
+        // OS send buffer 포화 뒤 Transport pending queue drop 과 high-watermark 포화를 end-to-end 로 고정한다.
+        [Fact]
+        public async Task TcpCommandLoopback_WhenSubscriberDoesNotRead_DropsOldestAndReportsTransportDiagnostics()
+        {
+            const string Topic = "alpha";
+            const int PayloadLength = 32768;
+            const int MaxPublishCount = 2048;
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(65536);
+            byte[] payload = new byte[PayloadLength];
+
+            using (SaeaTransport transport = new SaeaTransport())
+            using (BrokerServer server = new BrokerServer(transport, pool, 65536))
+            {
+                Socket? stalledSubscriber = null;
+                Socket? publisher = null;
+
+                try
+                {
+                    await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(server.LocalEndPoint);
+
+                    stalledSubscriber = CreateConnectedTcpClient(boundEndPoint);
+                    stalledSubscriber.ReceiveBufferSize = 1024;
+                    publisher = CreateConnectedTcpClient(boundEndPoint);
+
+                    await SendFrameAsync(stalledSubscriber, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
+                    await WaitForSubscriberCountAsync(server, Topic, 1);
+
+                    TransportDiagnosticsSnapshot diagnostics = await PublishUntilTcpDropAsync(
+                        publisher,
+                        (ITransportDiagnostics)transport,
+                        Topic,
+                        payload,
+                        MaxPublishCount);
+
+                    Assert.True(diagnostics.TcpDroppedPendingSendCount > 0);
+                    Assert.Equal(16, diagnostics.TcpPendingSendQueueHighWatermark);
+                    Assert.Equal(0, diagnostics.UdpDroppedPendingSendCount);
+                    Assert.Equal(0, diagnostics.UdpPendingSendQueueHighWatermark);
+                }
+                finally
+                {
+                    publisher?.Dispose();
+                    stalledSubscriber?.Dispose();
+                    await server.StopAsync();
+                    await WaitForRentedCountAsync(pool, 0);
+                }
+            }
+        }
+
         // 실제 UDP command loopback 테스트는 host wiring, SAEA UDP receive/send pump, Broker datagram handler 를 함께 묶는다.
         // UDP protocol 에는 subscribe ack 가 아직 없으므로 publish 전 white-box 구독 카운트로 race 를 제거하고,
         // fan-out 결과는 command prefix 가 아닌 원본 payload 만 datagram 으로 돌아오는지 실제 socket 으로 검증한다.
@@ -403,6 +455,37 @@ namespace Hps.Server.Tests
             return command;
         }
 
+        private static async Task<TransportDiagnosticsSnapshot> PublishUntilTcpDropAsync(
+            Socket publisher,
+            ITransportDiagnostics diagnosticsReader,
+            string topic,
+            byte[] payload,
+            int maxPublishCount)
+        {
+            for (int index = 0; index < maxPublishCount; index++)
+            {
+                WritePublishSequence(payload, index);
+                await SendFrameWithTimeoutAsync(
+                    publisher,
+                    CreatePublishCommand(topic, payload),
+                    TimeSpan.FromSeconds(5));
+
+                TransportDiagnosticsSnapshot snapshot = diagnosticsReader.GetDiagnosticsSnapshot();
+                if (snapshot.TcpDroppedPendingSendCount > 0)
+                    return snapshot;
+            }
+
+            return diagnosticsReader.GetDiagnosticsSnapshot();
+        }
+
+        private static void WritePublishSequence(byte[] payload, int sequence)
+        {
+            payload[0] = (byte)((sequence >> 24) & 0xFF);
+            payload[1] = (byte)((sequence >> 16) & 0xFF);
+            payload[2] = (byte)((sequence >> 8) & 0xFF);
+            payload[3] = (byte)(sequence & 0xFF);
+        }
+
         private static async Task<byte[]> ReceiveFrameAsync(Socket socket)
         {
             byte[] header = await ReceiveExactAsync(socket, 4);
@@ -434,6 +517,16 @@ namespace Hps.Server.Tests
 
                 offset += sent;
             }
+        }
+
+        private static async Task SendFrameWithTimeoutAsync(Socket socket, byte[] payload, TimeSpan timeout)
+        {
+            Task sendTask = SendFrameAsync(socket, payload);
+            Task timeoutTask = Task.Delay(timeout);
+            Task completedTask = await Task.WhenAny(sendTask, timeoutTask);
+
+            Assert.Same(sendTask, completedTask);
+            await sendTask;
         }
 
         private static async Task SendUdpDatagramAsync(Socket socket, EndPoint remoteEndPoint, byte[] payload)

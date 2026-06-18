@@ -18,6 +18,9 @@
 - D065 구현이 반영됐다. TCP subscriber fan-out 은 `TransportSendBuffer.WithLengthPrefix()`로 같은 payload slice 앞에
   4바이트 big-endian length header 를 붙이는 logical send item 으로 전송한다. SAEA send loop 는 연결당 pinned 4바이트
   header buffer 를 재사용하고, payload `RefCountedBuffer` release 경계는 기존 in-flight handle 이 그대로 책임진다.
+- D066으로 stalled TCP subscriber stress 를 Server 통합 테스트로 고정했다. 기존 open-loop runner 는 dropped 0 / TCP HWM 3으로
+  drop-oldest 를 fire 하지 못했지만, subscriber 가 읽지 않는 실제 socket 경로에서는 TCP drop count > 0 과 HWM 16 포화를 관측했다.
+  따라서 v1 drop 관측은 기존 pull snapshot 으로 충분하다고 보고 drop log/sampling 과 Server convenience diagnostics API 는 보류한다.
 
 ## 현재 Phase
 Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Server endpoint/send-side 관측성 설계.
@@ -280,26 +283,23 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-이번 단위에서 D065 TCP outbound length-prefixed fan-out 구현, 샘플 subscriber 수신 경로, benchmark receive path 갱신을 완료했다.
+이번 단위에서 stalled TCP subscriber stress 통합 테스트를 추가해 D012 drop-oldest evict 경로와 D041/D042/D062 진단 snapshot 을
+실제 Server/SAEA/TCP socket 경로에서 검증했다. production code 변경은 없었다.
 다음 구현은 사용자 리뷰 뒤 `TODOS.md`의 Deferred Backlog 를 다시 평가해 하나의 작은 단위로 승격한다.
-현재 가까운 후보는 drop log/sampling 과 Server convenience diagnostics API 필요성 검토 또는 반복 가능한 latency baseline 수집이다.
+현재 가까운 후보는 반복 가능한 latency baseline 수집 또는 configurable backpressure/QoS policy surface 필요성 검토다.
 
 ## 이번 단위의 검증 경로
-- Red 확인: `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~TcpCommandLoopback_WhenPublisherSendsVariableLengthMessages_SubscriberReceivesLengthPrefixedFrames"` 가
-  raw outbound 구현에서 `Expected: [0, 0, 0, 3, 170, ...] / Actual: [170, 187, 204]`로 실패했다.
-- Green 확인: 같은 focused 테스트 통과.
-- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --no-restore` 통과(11개).
+- 신규 focused 확인: `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter "FullyQualifiedName~TcpCommandLoopback_WhenSubscriberDoesNotRead_DropsOldestAndReportsTransportDiagnostics"` 통과.
+  drop-oldest 구현은 이미 존재하므로 새 stress 테스트는 기존 production code 에서 바로 green 이었다.
+- `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --no-restore` 통과(12개).
 - `dotnet build HighPerformanceSocket.slnx --no-restore` 통과(경고 0, 오류 0).
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과(135개, 실패 0).
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --smoke` 통과
-  (sent 8, received 8, dropped 0, pool-rented 0).
-- 상태 문서 연결 확인 통과.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과(136개, 실패 0).
 - `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화
 - 실제 OS/capability probe 와 RIO/io_uring backend 선택 로직
-- drop log/sampling 및 Server convenience diagnostics API
+- drop log/sampling 및 Server convenience diagnostics API 구현
 - handler/Broker 가 UDP datagram ref 를 비동기 작업으로 보관하는 경우의 상위 fan-out backpressure 정책
 - configurable pending send capacity
 - `TransportFactory.CreateDefault()`를 직접 사용하는 server factory/convenience API
