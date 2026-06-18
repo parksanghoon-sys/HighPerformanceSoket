@@ -54,6 +54,10 @@
 - baseline summary artifact 계획의 Task 1을 완료했다. `BenchmarkCommandParser`가
   `--summarize-baseline <input-dir> --summary <output-json>`를 해석하고, `--summary` 누락과 `--report` 혼용은
   usage error 로 반환한다. 아직 summary 계산, JSON reader/writer, Program execution wiring 은 추가하지 않았다.
+- `.claude/review/2026-06-18-repeat-baseline-policy-review.md`의 권고를 확인했다.
+  must-fix 는 없고, Task 2 구현 전 확정해야 할 warning granularity 는 per-run warning + source path 로 닫았다.
+  첫 soft warning threshold 는 session-01 max 기반 초기 임시 envelope 로 문서화했고,
+  `by-kind` 집계에는 p50/p99 median 을 추가해 min/max 만으로 outlier 를 해석하지 않게 했다.
 - D069 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`로 작성했다.
   구현은 세부 task 를 여러 커밋으로 나누며, 첫 단위는 `tests/Hps.Benchmarks.Tests` 추가와 benchmark CLI parser extraction 이다.
 - 반복 baseline collection 계획의 Task 1을 완료했다. `tests/Hps.Benchmarks.Tests`를 solution 에 추가하고,
@@ -344,19 +348,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-반복 baseline summary artifact 구현 계획을 작성했다. 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영하고,
+반복 baseline summary artifact 구현 계획과 review 권고 반영을 마쳤다. 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영하고,
 없으면 `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 2만 진행한다.
 Task 2 범위는 `BaselineReport`/`BaselineSummary` 계열 모델과 `BaselineSummaryGenerator`로
-D070 hard gate 집계 및 non-failing soft warning 계산을 추가하는 것이다.
+D070 hard gate 집계 및 non-failing soft warning 계산을 추가하는 것이다. 이때 warning 은 aggregate max 가 아니라
+per-run 단위로 만들고, 각 warning 에 `source-path`를 포함한다. `by-kind`에는 p50/p99 min/max 와 함께 median 도 포함한다.
 JSON reader/writer 와 Program execution wiring 은 이후 task 로 분리한다.
 
 ## 이번 단위의 검증 경로
-- Red: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BenchmarkCommandParserTests`
-  실행 시 신규 summary parser 테스트 3개가 실패하고 기존 5개는 통과했다.
-- Green: 같은 focused parser 테스트가 8개 통과했다.
-- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 11개 통과/실패 0.
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 147개 통과/실패 0.
+- 이번 단위는 review 권고를 spec/plan/decision/state 문서에 반영하는 문서 전용 작업이다.
+- 코드 변경이 없으므로 build/test 는 실행하지 않았다.
 - `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 
 ## 이번 작업에서 건드리지 않은 범위

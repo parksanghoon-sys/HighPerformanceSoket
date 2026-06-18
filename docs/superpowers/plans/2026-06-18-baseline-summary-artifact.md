@@ -42,9 +42,9 @@
 - Create: `tests/Hps.Benchmarks/BaselineReport.cs`
   - per-run JSON의 최소 분석 필드를 담고 hard gate 를 재계산한다.
 - Create: `tests/Hps.Benchmarks/BaselineKindSummary.cs`
-  - `load`와 `open-loop`별 min/max 집계 값을 담는다.
+  - `load`와 `open-loop`별 min/max/median 집계 값을 담는다.
 - Create: `tests/Hps.Benchmarks/BaselineWarning.cs`
-  - soft warning code, kind, metric, value, threshold 를 담는다.
+  - per-run soft warning code, kind, metric, value, threshold, source path 를 담는다.
 - Create: `tests/Hps.Benchmarks/BaselineSummary.cs`
   - 전체 summary 결과 object 를 담는다.
 - Create: `tests/Hps.Benchmarks/BaselineSummaryGenerator.cs`
@@ -58,7 +58,7 @@
 - Modify: `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`
   - summary parser 계약을 검증한다.
 - Create: `tests/Hps.Benchmarks.Tests/BaselineSummaryGeneratorTests.cs`
-  - hard pass/fail, kind별 min/max, soft warning 을 검증한다.
+  - hard pass/fail, kind별 min/max/median, per-run soft warning 을 검증한다.
 - Create: `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`
   - fake JSON file set 으로 reader/writer 를 검증한다.
 - Modify: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`
@@ -459,8 +459,10 @@ namespace Hps.Benchmarks
             int runCount,
             double p50Min,
             double p50Max,
+            double p50Median,
             double p99Min,
             double p99Max,
+            double p99Median,
             double p99GrowthRatioMin,
             double p99GrowthRatioMax,
             double actualRateMin,
@@ -475,8 +477,10 @@ namespace Hps.Benchmarks
             RunCount = runCount;
             P50Min = p50Min;
             P50Max = p50Max;
+            P50Median = p50Median;
             P99Min = p99Min;
             P99Max = p99Max;
+            P99Median = p99Median;
             P99GrowthRatioMin = p99GrowthRatioMin;
             P99GrowthRatioMax = p99GrowthRatioMax;
             ActualRateMin = actualRateMin;
@@ -492,8 +496,10 @@ namespace Hps.Benchmarks
         public int RunCount { get; }
         public double P50Min { get; }
         public double P50Max { get; }
+        public double P50Median { get; }
         public double P99Min { get; }
         public double P99Max { get; }
+        public double P99Median { get; }
         public double P99GrowthRatioMin { get; }
         public double P99GrowthRatioMax { get; }
         public double ActualRateMin { get; }
@@ -632,6 +638,7 @@ namespace Hps.Benchmarks.Tests
             Assert.NotNull(summary.OpenLoop);
             Assert.Equal(221.6, summary.Load!.P50Min, 1);
             Assert.Equal(924.1, summary.Load.P99Max, 1);
+            Assert.Equal(697.6, summary.Load.P99Median, 1);
             Assert.Equal(2, summary.OpenLoop!.RunCount);
             Assert.Equal(3, summary.OpenLoop.TcpHighWatermarkMax);
         }
@@ -654,7 +661,7 @@ namespace Hps.Benchmarks.Tests
         }
 
         // D070의 p99/HWM/actual-rate 기준은 hard failure 가 아니라 warning artifact 로만 남긴다.
-        // warning 이 있어도 hard gate 조건을 만족하면 hardPassed 는 true 여야 한다.
+        // warning 은 per-run 으로 발생해야 source file 을 통해 어떤 run 이 튄 것인지 바로 추적할 수 있다.
         [Fact]
         public void Generate_WhenSoftLimitIsExceeded_EmitsWarningButKeepsHardPass()
         {
@@ -667,10 +674,10 @@ namespace Hps.Benchmarks.Tests
 
             Assert.True(summary.HardPassed);
             Assert.True(summary.WarningCount >= 4);
-            Assert.Contains(summary.Warnings, warning => warning.Code == "open-loop-p99-latency-high");
-            Assert.Contains(summary.Warnings, warning => warning.Code == "p99-growth-ratio-high");
-            Assert.Contains(summary.Warnings, warning => warning.Code == "actual-rate-low");
-            Assert.Contains(summary.Warnings, warning => warning.Code == "open-loop-tcp-hwm-high");
+            Assert.Contains(summary.Warnings, warning => warning.Code == "open-loop-p99-latency-high" && warning.SourcePath == "a/open-loop-01.json");
+            Assert.Contains(summary.Warnings, warning => warning.Code == "p99-growth-ratio-high" && warning.SourcePath == "a/open-loop-01.json");
+            Assert.Contains(summary.Warnings, warning => warning.Code == "actual-rate-low" && warning.SourcePath == "a/open-loop-01.json");
+            Assert.Contains(summary.Warnings, warning => warning.Code == "open-loop-tcp-hwm-high" && warning.SourcePath == "a/open-loop-01.json");
         }
 
         private static BaselineReport CreateReport(
@@ -727,6 +734,8 @@ namespace Hps.Benchmarks
 {
     internal static class BaselineSummaryGenerator
     {
+        // D070의 첫 warning threshold 는 session-01 max 기반 임시 envelope 이다.
+        // hard SLO 가 아니며, session 이 더 쌓이면 median-anchor 또는 percentile 기준으로 재산정한다.
         private const double LoadP99WarningThreshold = 1386.2;
         private const double OpenLoopP99WarningThreshold = 1508.3;
         private const double P99GrowthRatioWarningThreshold = 2.0;
@@ -785,6 +794,8 @@ namespace Hps.Benchmarks
             long droppedTotal = 0;
             int payloadErrorTotal = 0;
             int poolRentedMax = 0;
+            List<double> p50Values = new List<double>();
+            List<double> p99Values = new List<double>();
 
             for (int i = 0; i < reports.Count; i++)
             {
@@ -823,6 +834,8 @@ namespace Hps.Benchmarks
                 }
 
                 runCount++;
+                p50Values.Add(report.P50LatencyMicroseconds);
+                p99Values.Add(report.P99LatencyMicroseconds);
                 droppedTotal += report.Dropped;
                 payloadErrorTotal += report.PayloadErrors;
             }
@@ -830,7 +843,18 @@ namespace Hps.Benchmarks
             if (!hasAny)
                 return null;
 
-            return new BaselineKindSummary(kind, runCount, p50Min, p50Max, p99Min, p99Max, growthMin, growthMax, rateMin, rateMax, tcpHwmMin, tcpHwmMax, droppedTotal, payloadErrorTotal, poolRentedMax);
+            return new BaselineKindSummary(kind, runCount, p50Min, p50Max, CalculateMedian(p50Values), p99Min, p99Max, CalculateMedian(p99Values), growthMin, growthMax, rateMin, rateMax, tcpHwmMin, tcpHwmMax, droppedTotal, payloadErrorTotal, poolRentedMax);
+        }
+
+        private static double CalculateMedian(List<double> values)
+        {
+            values.Sort();
+            int middle = values.Count / 2;
+
+            if ((values.Count % 2) == 1)
+                return values[middle];
+
+            return (values[middle - 1] + values[middle]) / 2.0;
         }
 
         private static void AddWarnings(BaselineReport report, List<BaselineWarning> warnings)
@@ -1175,8 +1199,10 @@ namespace Hps.Benchmarks
             writer.WriteNumber("run-count", kind.RunCount);
             writer.WriteNumber("p50-min-us", kind.P50Min);
             writer.WriteNumber("p50-max-us", kind.P50Max);
+            writer.WriteNumber("p50-median-us", kind.P50Median);
             writer.WriteNumber("p99-min-us", kind.P99Min);
             writer.WriteNumber("p99-max-us", kind.P99Max);
+            writer.WriteNumber("p99-median-us", kind.P99Median);
             writer.WriteNumber("p99-growth-ratio-min", kind.P99GrowthRatioMin);
             writer.WriteNumber("p99-growth-ratio-max", kind.P99GrowthRatioMax);
             writer.WriteNumber("actual-rate-min-hz", kind.ActualRateMin);
@@ -1333,7 +1359,8 @@ git commit -m "feat: wire baseline summary command"
 - Spec coverage:
   - D070 hard gate 보류: Task 2에서 `HardPassed`는 delivery/drop/leak 조건만 사용한다.
   - summary JSON artifact: Task 3에서 writer 가 `summary-version`, `hard-passed`, `warning-count`, `warnings`, `by-kind`를 쓴다.
-  - non-failing soft warning: Task 2에서 warning 을 산출하지만 hard pass 를 바꾸지 않는다.
+  - non-failing soft warning: Task 2에서 warning 을 per-run 으로 산출하고 source path 를 남기지만 hard pass 를 바꾸지 않는다.
+  - outlier 해석: Task 2/3에서 `by-kind`에 p50/p99 median 을 포함해 min/max 만으로는 약한 중심경향 정보를 보강한다.
   - CLI command: Task 1 parser, Task 4 Program wiring 으로 닫는다.
   - Markdown/CI/hard latency gate 제외: Scope 와 Task 4에서 제외한다.
 - Placeholder scan:

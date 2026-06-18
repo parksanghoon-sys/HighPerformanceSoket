@@ -13,6 +13,7 @@
   반면 TCP HWM 은 closed-loop 1, open-loop 2~3으로 capacity 16에 멀리 못 미쳤고 dropped count 는 계속 0이었다.
 - 영향: 다음 구현은 CI workflow 나 hard threshold 가 아니라 `--summarize-baseline <input-dir> --summary <output-json>` 같은
   summary command 를 우선한다. summary 는 기존 per-run JSON schema v1을 대체하지 않고, p99/HWM/actual-rate soft warning 후보를 기록한다.
+  첫 soft warning threshold 는 session-01 max 기반 임시 envelope 로만 해석하고, warning 은 per-run 단위로 평가해 source path 를 남긴다.
   Markdown report, CI provider workflow, warning 을 실패로 승격하는 정책은 summary artifact 가 생긴 뒤 별도 단위로 다룬다.
   세부 설계는 `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`를 따른다.
 

@@ -61,6 +61,7 @@
   - D070으로 3개 baseline session 분포 분석 뒤 latency hard gate 보류와 summary/soft warning 우선 정책을 결정했다.
   - 반복 baseline summary artifact 구현 계획을 작성하고, 다음 실행 단위를 parser 계약 Task 1로 분리했다.
   - baseline summary artifact 계획의 Task 1로 `--summarize-baseline` parser 계약과 usage 를 구현했다.
+  - baseline summary policy review 권고를 반영해 warning granularity 와 summary 중심경향 필드를 확정했다.
 
 ## Deferred Backlog
 
@@ -95,10 +96,15 @@
     open-loop 3회는 p99 502.6~587.8us/TCP HWM 2~3이었고 모든 run 은 drop/leak/payload error 0으로 pass 했다.
   - 현재 상태: D070으로 hard latency gate 는 보류하고 summary JSON 과 soft warning 을 먼저 구현하기로 결정했다.
     첫 구현의 권장 CLI 는 `--summarize-baseline <input-dir> --summary <output-json>`이다.
-  - known blockers/open questions: summary JSON schema 의 최소 필드는 D070 설계에 정리됐다.
+  - 현재 상태: `.claude/review/2026-06-18-repeat-baseline-policy-review.md` 권고를 반영해
+    첫 soft warning threshold 는 session-01 max 기반 초기 임시 envelope 로만 해석하기로 했다.
+    warning 은 aggregate max 가 아니라 per-run 단위로 만들고, 각 warning 에 `source-path`를 포함한다.
+    `by-kind`에는 p50/p99 min/max 와 함께 median 도 포함한다.
+  - known blockers/open questions: summary JSON schema 의 최소 필드는 D070 설계와 review 권고 반영본에 정리됐다.
     Markdown report, CI provider workflow, warning-as-failure, hard latency gate 는 이 항목의 현재 구현 범위가 아니다.
   - next step: `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 2만 진행한다.
-    범위는 summary domain model 과 `BaselineSummaryGenerator` 계산이며, JSON reader/writer/Program execution wiring 은 후속 task 로 분리한다.
+    범위는 summary domain model 과 `BaselineSummaryGenerator` 계산이며, per-run warning/source-path 와 p50/p99 median 을 포함한다.
+    JSON reader/writer/Program execution wiring 은 후속 task 로 분리한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -119,6 +125,16 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] baseline summary policy review 권고를 구현 계획에 반영했다.
+  - 범위: `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`,
+    `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`,
+    `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결과: `.claude/review/2026-06-18-repeat-baseline-policy-review.md`의 권고 중
+    F1은 threshold provisional 표기로, F2는 `by-kind` p50/p99 median 추가로,
+    F3는 per-run warning + `source-path` 규칙으로 반영했다.
+  - 검증: 문서 전용 변경이므로 build/test 는 실행하지 않았다.
+    `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 
 - [x] baseline summary artifact Task 1로 summary CLI parser 계약을 구현했다.
   - 범위: `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`,

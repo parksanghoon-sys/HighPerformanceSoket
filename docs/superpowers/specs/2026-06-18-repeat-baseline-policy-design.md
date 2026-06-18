@@ -100,8 +100,16 @@ soft warning 은 exit code 를 실패로 바꾸지 않는다. warning 은 summar
 이 기준은 hard gate 가 아니다. 목적은 "바로 실패"가 아니라 review 대상 artifact 를 만드는 것이다.
 특히 p99는 OS scheduling 과 JIT/워밍업 영향을 크게 받으므로, warning 이 발생해도 raw JSON과 session context 를 같이 확인한다.
 
+또한 위 threshold 는 session-01 max 에 1.5배를 곱한 **초기 임시값**이다. session-01은 현재 데이터에서 가장 높은 p99를 가진
+outlier 후보이므로, 이 값은 hard SLO나 장기 기준선이 아니다. baseline session 이 더 쌓이거나 CI 전용 runner 기준선이 생기면
+max-anchor 대신 median-anchor 또는 percentile 기반 warning 으로 재산정한다.
+
 drop 이 1 이상이면 soft warning 이 아니라 기존 hard gate 실패다. TCP HWM 이 16에 도달하면 drop 이 아직 0이어도 queue capacity 포화 신호이므로
 warning 으로 기록한다.
+
+warning 평가는 aggregate max 1회가 아니라 **per-run 기준**으로 수행한다. 즉 각 per-run JSON이 threshold 를 넘는 metric 마다
+warning 항목 1개를 만들고, 항목에는 최소 `code`, `kind`, `metric`, `value`, `threshold`, `source-path`를 담는다.
+`warning-count`는 이 warning 배열의 길이다.
 
 ## Summary artifact 정책
 
@@ -128,7 +136,9 @@ warning 으로 기록한다.
 
 - run count
 - p50 min/max
+- p50 median
 - p99 min/max
+- p99 median
 - p99 growth ratio min/max
 - actual rate min/max
 - TCP HWM min/max

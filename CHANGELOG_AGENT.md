@@ -1,5 +1,27 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline summary policy review refinements)
+
+### 작업 단위
+- `.claude/review/2026-06-18-repeat-baseline-policy-review.md`의 권고를 구현 전에 검토했다.
+- 코드 변경 없이 D070 후속 spec/plan/decision/state 문서만 갱신했다.
+
+### 반영 내용
+- F1: 첫 soft warning threshold 가 session-01 max 기반의 초기 임시 envelope 이며 hard SLO가 아님을 명시했다.
+- F2: `by-kind` summary 에 p50/p99 median 을 추가해 min/max outlier 해석을 보강했다.
+- F3: warning 은 aggregate max 1건이 아니라 per-run metric 기준으로 만들고, 각 warning 에 `source-path`를 포함하도록 확정했다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`에 provisional threshold, per-run warning, median schema 를 반영했다.
+- `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 2/3 계획과 self-review 를 새 schema 에 맞췄다.
+- `DECISIONS.md` D070 영향에 review 반영 정책을 요약했다.
+- `CURRENT_PLAN.md`와 `TODOS.md`의 다음 실행 지점을 Task 2 summary model/generator 로 유지하되,
+  per-run warning/source-path 와 p50/p99 median 을 필수 조건으로 명시했다.
+
+### 검증
+- 문서 전용 변경이므로 build/test 는 실행하지 않았다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - baseline summary parser)
 
 ### 작업 단위
