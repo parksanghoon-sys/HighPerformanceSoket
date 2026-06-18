@@ -62,6 +62,7 @@
   - 반복 baseline summary artifact 구현 계획을 작성하고, 다음 실행 단위를 parser 계약 Task 1로 분리했다.
   - baseline summary artifact 계획의 Task 1로 `--summarize-baseline` parser 계약과 usage 를 구현했다.
   - baseline summary policy review 권고를 반영해 warning granularity 와 summary 중심경향 필드를 확정했다.
+  - baseline summary artifact 계획의 Task 2로 summary domain model 과 soft warning 계산을 구현했다.
 
 ## Deferred Backlog
 
@@ -100,11 +101,14 @@
     첫 soft warning threshold 는 session-01 max 기반 초기 임시 envelope 로만 해석하기로 했다.
     warning 은 aggregate max 가 아니라 per-run 단위로 만들고, 각 warning 에 `source-path`를 포함한다.
     `by-kind`에는 p50/p99 min/max 와 함께 median 도 포함한다.
+  - 현재 상태: Task 2로 `BaselineReport`, `BaselineKindSummary`, `BaselineWarning`, `BaselineSummary`,
+    `BaselineSummaryGenerator`와 generator 테스트를 추가했다. generator 는 in-memory `BaselineReport` 목록을 입력으로
+    hard gate 실패 수, kind별 p50/p99 min/max/median, per-run warning/source-path 를 계산한다.
+    JSON reader/writer 와 Program execution wiring 은 아직 없다.
   - known blockers/open questions: summary JSON schema 의 최소 필드는 D070 설계와 review 권고 반영본에 정리됐다.
     Markdown report, CI provider workflow, warning-as-failure, hard latency gate 는 이 항목의 현재 구현 범위가 아니다.
-  - next step: `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 2만 진행한다.
-    범위는 summary domain model 과 `BaselineSummaryGenerator` 계산이며, per-run warning/source-path 와 p50/p99 median 을 포함한다.
-    JSON reader/writer/Program execution wiring 은 후속 task 로 분리한다.
+  - next step: `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 3만 진행한다.
+    범위는 per-run JSON v1 directory reader 와 summary JSON writer 이며, Program execution wiring 은 Task 4로 분리한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -125,6 +129,24 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] baseline summary artifact Task 2로 summary model/generator 를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/BaselineReport.cs`,
+    `tests/Hps.Benchmarks/BaselineKindSummary.cs`,
+    `tests/Hps.Benchmarks/BaselineWarning.cs`,
+    `tests/Hps.Benchmarks/BaselineSummary.cs`,
+    `tests/Hps.Benchmarks/BaselineSummaryGenerator.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineSummaryGeneratorTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - Red 1: focused test 에서 `BaselineSummaryGenerator` 타입 부재로 1개 실패/0개 통과를 확인했다.
+  - Green 1: 최소 도메인 타입과 generator shell 을 추가해 bootstrap 테스트 1개 통과를 확인했다.
+  - Red 2: hard gate 집계, kind별 p50/p99 median 포함 집계, per-run warning/source-path 테스트 3개가
+    `NotImplementedException`으로 실패함을 확인했다.
+  - Green 2: `BaselineSummaryGenerator`가 in-memory report 목록에서 hard failure count,
+    `load`/`open-loop` summary, non-failing soft warning 을 계산하게 했다.
+  - 검증: focused generator tests 3개 통과, solution build 경고 0/오류 0,
+    benchmark tests 14개 통과/실패 0, solution tests 전체 150개 통과/실패 0,
+    `git diff --check` 통과.
 
 - [x] baseline summary policy review 권고를 구현 계획에 반영했다.
   - 범위: `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`,

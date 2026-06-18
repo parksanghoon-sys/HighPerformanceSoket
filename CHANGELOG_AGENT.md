@@ -1,5 +1,33 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline summary generator)
+
+### 작업 단위
+- `docs/superpowers/plans/2026-06-18-baseline-summary-artifact.md`의 Task 2만 구현했다.
+- per-run JSON reader/writer 나 Program execution wiring 없이 in-memory summary domain model 과 generator 계산만 추가했다.
+
+### Red/Green
+- Red 1: `BaselineSummaryGeneratorTests` bootstrap 을 추가했다.
+  `BaselineSummaryGenerator` 타입이 없어 `Assert.NotNull()` 실패 1개/통과 0개를 확인했다.
+- Green 1: `BaselineReport`, `BaselineKindSummary`, `BaselineWarning`, `BaselineSummary`,
+  `BaselineSummaryGenerator` shell 을 추가해 bootstrap 테스트 1개 통과를 확인했다.
+- Red 2: bootstrap 을 실제 동작 테스트 3개로 교체했다.
+  hard gate 집계, kind별 p50/p99 median 포함 집계, per-run warning/source-path 테스트가
+  `NotImplementedException`으로 실패함을 확인했다.
+- Green 2: `BaselineSummaryGenerator`가 hard failure count, `load`/`open-loop`별 min/max/median,
+  non-failing soft warning 을 계산하게 했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`의 다음 실행 지점을 Task 3 JSON reader/writer 로 갱신했다.
+- `TODOS.md`의 P1 backlog 에 Task 2 구현 상태와 Task 3 next step 을 반영하고, Completed 이력을 추가했다.
+
+### 검증
+- focused generator tests: 3개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore` 통과, 14개 통과/실패 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 150개 통과/실패 0.
+- `git diff --check` 통과.
+
 ## 2026-06-18 (Codex - baseline summary policy review refinements)
 
 ### 작업 단위
