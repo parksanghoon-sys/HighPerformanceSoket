@@ -57,6 +57,7 @@
   - 반복 baseline command 구현 완료 뒤, `TODOS.md`의 중복 P1 backlog 를 완료된 command 와 후속 정책 항목으로 분리 정리했다.
   - 남아 있던 사용자 설계 문서 변경을 검토하고, 현재 결정과 충돌하지 않도록 상태를 정리했다.
   - 반복 baseline artifact `session-02`를 수집해 closed-loop/open-loop 각 3회 raw JSON 을 추가했다.
+  - 반복 baseline artifact `session-03`를 수집해 D069의 최소 3개 baseline session 조건을 채웠다.
 
 ## Deferred Backlog
 
@@ -83,13 +84,14 @@
   - 현재 상태: `docs/benchmarks/baselines/2026-06-18/session-02/`에 `--baseline-suite --runs 3` 결과를 추가했다.
     closed-loop 3회는 p99 481.6~512.1us/TCP HWM 1,
     open-loop 3회는 p99 564.9~643.3us/TCP HWM 2~3이었고 모든 run 은 drop/leak/payload error 0으로 pass 했다.
-  - known blockers/open questions: baseline session 이 아직 충분히 축적되지 않았다. 기존 로컬 baseline 과 `session-02`까지
-    같은 장비 기준 2개 session 으로 볼 수 있으므로, D069의 최소 3개 session 기준에는 1개 session 이 더 필요하다.
-    summary JSON/Markdown report 를 만들지,
+  - 현재 상태: `docs/benchmarks/baselines/2026-06-18/session-03/`에 `--baseline-suite --runs 3` 결과를 추가했다.
+    closed-loop 3회는 p99 471.0~489.9us/TCP HWM 1,
+    open-loop 3회는 p99 502.6~587.8us/TCP HWM 2~3이었고 모든 run 은 drop/leak/payload error 0으로 pass 했다.
+  - known blockers/open questions: 같은 장비 기준 최소 3개 session 은 확보됐다. 다만 summary JSON/Markdown report 를 만들지,
     CI workflow 로 올릴지, hard threshold 대신 soft warning 부터 둘지는 별도 판단이 필요하다.
-  - next step: 사용자 리뷰 뒤 finding 이 없으면 동일 장비에서
-    `--baseline-suite docs\benchmarks\baselines\2026-06-18\session-03 --runs 3`을 실행해 최소 session 수를 채운다.
-    그 뒤 결과 분산을 보고 soft warning/hard failure 경계를 설계한다.
+    최초 baseline p99가 session-02/session-03보다 높아 session 간 편차 해석도 함께 필요하다.
+  - next step: 사용자 리뷰 뒤 finding 이 없으면 세 session 의 분포를 요약하고,
+    soft warning/hard failure 경계를 어떤 기준으로 둘지 설계한다. 구현은 그 설계 이후 별도 단일 작업으로 분리한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -110,6 +112,18 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] 반복 baseline artifact `session-03`를 수집했다.
+  - 범위: `docs/benchmarks/baselines/2026-06-18/session-03/*.json`,
+    `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결과: `--baseline-suite docs\benchmarks\baselines\2026-06-18\session-03 --runs 3`가 closed-loop 3회와
+    open-loop 3회를 모두 pass 로 끝냈다. 모든 run 은 sent/received 3000, dropped 0, payload-errors 0,
+    pool-rented 0이었다. closed-loop p99 범위는 471.0~489.9us, open-loop p99 범위는 502.6~587.8us였다.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+    baseline suite 실행은 exit code 0과 `baseline-suite-result: pass`를 확인했다.
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
+    `git diff --check`는 통과했고 CRLF 변환 경고만 있으며 whitespace 오류는 없었다.
 
 - [x] 반복 baseline artifact `session-02`를 수집했다.
   - 범위: `docs/benchmarks/baselines/2026-06-18/session-02/*.json`,

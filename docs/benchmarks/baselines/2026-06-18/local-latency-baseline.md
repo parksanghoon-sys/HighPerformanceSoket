@@ -90,13 +90,52 @@ latency, actual rate, queue high-watermark 는 회귀 판단을 돕는 관측값
 - TCP pending send queue HWM: 2~3
 - drop/leak/payload error: 0
 
+## Session 03 `--baseline-suite --runs 3`
+
+- 실행 시각: 2026-06-18 13:53~13:55 KST
+- 명령: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite docs\benchmarks\baselines\2026-06-18\session-03 --runs 3`
+- 결과 디렉터리: `docs/benchmarks/baselines/2026-06-18/session-03/`
+- suite 결과: pass
+
+### Closed-loop
+
+| run | report | sent/received | dropped | TCP HWM | actual Hz | p50 us | p99 us | p99 growth |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | `session-03/load-01.json` | 3000/3000 | 0 | 1 | 99.8 | 223.9 | 489.9 | 0.95 |
+| 2 | `session-03/load-02.json` | 3000/3000 | 0 | 1 | 99.9 | 240.0 | 473.6 | 0.95 |
+| 3 | `session-03/load-03.json` | 3000/3000 | 0 | 1 | 99.9 | 243.5 | 471.0 | 1.09 |
+
+관측 범위:
+
+- p50: 223.9~243.5 us
+- p99: 471.0~489.9 us
+- TCP pending send queue HWM: 1
+- drop/leak/payload error: 0
+
+### Open-loop
+
+| run | report | sent/received | dropped | TCP HWM | actual Hz | p50 us | p99 us | p99 growth |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | `session-03/open-loop-01.json` | 3000/3000 | 0 | 2 | 100.0 | 241.4 | 587.8 | 0.99 |
+| 2 | `session-03/open-loop-02.json` | 3000/3000 | 0 | 3 | 100.0 | 262.1 | 502.6 | 0.80 |
+| 3 | `session-03/open-loop-03.json` | 3000/3000 | 0 | 2 | 100.0 | 260.6 | 556.2 | 0.90 |
+
+관측 범위:
+
+- p50: 241.4~262.1 us
+- p99: 502.6~587.8 us
+- TCP pending send queue HWM: 2~3
+- drop/leak/payload error: 0
+
 ## 결론
 
 현재 로컬 기준선에서는 closed-loop 와 open-loop 모두 4096B x 100Hz x 30초 목표를 delivery/drop/leak 관점에서 통과했다.
 open-loop 에서 TCP HWM 이 closed-loop 보다 높지만 2에 머물렀고, drop 은 발생하지 않았다.
 
-Session 02에서도 delivery/drop/leak gate 는 모두 통과했다. p99 값은 최초 session 보다 낮게 관측됐지만,
-아직 같은 장비 기준 최소 3개 baseline session 이 모두 축적된 상태는 아니므로 hard latency threshold 로 승격하지 않는다.
+Session 02와 Session 03에서도 delivery/drop/leak gate 는 모두 통과했다. p99 값은 최초 session 보다 낮게 관측됐지만,
+이 차이는 같은 날짜/같은 장비에서도 session 간 편차가 의미 있게 존재함을 보여준다.
+이제 D069에서 요구한 최소 3개 baseline session 은 확보됐으나, 곧바로 hard latency threshold 를 고정하지 않고
+먼저 session 간 분산, closed/open-loop 차이, TCP HWM 범위를 정리해 soft warning 과 hard failure 경계를 별도 설계로 판단한다.
 
 hard latency SLO 는 아직 정하지 않는다. 최소한 같은 장비에서 날짜를 달리한 반복 측정이나 CI 전용 baseline 이 쌓인 뒤,
 절대 p99 threshold 대신 baseline 대비 상대 회귀율과 soft warning/hard failure 경계를 별도 결정으로 다루는 편이 안전하다.
