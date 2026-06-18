@@ -46,7 +46,11 @@
   closed-loop load 와 open-loop load 를 지정 run count 만큼 번갈아 실행하고,
   `load-01.json`/`open-loop-01.json` 형식의 per-run report path 를 만들며,
   모든 run 의 `Passed` 값이 true 일 때만 suite 성공을 반환하도록 테스트로 고정했다.
-  실제 Program execution wiring 은 아직 없다.
+  실제 Program execution wiring 은 다음 Task 4에서 연결됐다.
+- 반복 baseline collection 계획의 Task 4를 완료했다. `Program`이 `--baseline-suite <output-dir> [--runs <count>]`를
+  `BaselineSuiteRunner`에 연결하고, closed-loop `--load`와 open-loop `--load-open-loop` runner 의 raw JSON report 를
+  같은 output directory 에 남긴다. 1회 CLI smoke 로 `load-01.json`과 `open-loop-01.json` 생성,
+  `"schema-version": 1`, `"passed": true`, exit code 0 을 확인했다.
 - 아직 추적되지 않던 `.claude/review` snapshot 원문을 보존하고,
   `.claude/review/review-status-2026-06-18.md`로 과거 review snapshot 을 현재 HEAD 기준으로 정리했다.
   overlay 기준 HEAD `980721c`에서 build 0/0, test 136/0 green 이었고, 해당 정리는 `0628d20`으로 커밋됐다.
@@ -311,24 +315,23 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - D013 기준으로 이번 기능 단위 완료 후 다음 구현은 사용자 리뷰 뒤 진행한다.
 
 ## 다음 단일 작업 단위
-사용자가 남은 Task 전체 진행을 승인했으므로 반복 baseline collection 계획의 Task 4를 다음 단위로 진행한다.
+사용자 리뷰 대기.
 
-이번 단위에서 Task 3 `BaselineSuiteRunner`를 완료했다.
-production 동작은 아직 `Program`에서 `--baseline-suite`를 실행하지 않지만,
-runner 단위에서는 load/open-loop 반복 순서, per-run JSON path, run count 자리수 padding,
-실패 run 집계가 테스트로 고정됐다.
-다음 구현은 Task 4, 즉 `Program`에 baseline suite command 를 연결하고 실제 CLI smoke 로
-`load-01.json`과 `open-loop-01.json` 생성 및 schema/pass 값을 검증하는 것이다.
+반복 baseline collection 계획의 Task 1~4를 모두 완료했다.
+`--baseline-suite <output-dir> [--runs <count>]`는 이제 실제로 closed-loop load 와 open-loop load 를
+반복 실행하고, 같은 output directory 에 per-run raw JSON report 를 남긴다.
+다음 작업은 구현 확대가 아니라 사용자 리뷰를 받은 뒤, 필요하면 review finding 을 먼저 반영한다.
+latency hard threshold, summary JSON, Markdown report, CI workflow 는 D069 계획의 명시적 제외 범위로 유지한다.
 
 ## 이번 단위의 검증 경로
-- Red 1: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore --filter BaselineSuiteRunnerTests`
-  실패 1개/통과 0개. `BaselineSuiteRunner` 타입 부재로 `Assert.NotNull()` 실패를 확인했다.
-- Green 1: 같은 명령 통과, 1개 통과. 타입 seam 만 최소 구현했다.
-- Red 2: bootstrap 테스트를 실제 runner 동작 테스트 3개로 교체한 뒤 같은 명령을 실행해
-  `NotImplementedException` 실패 3개/통과 0개를 확인했다.
-- Focused Green: 같은 명령 통과, 3개 통과.
+- Red: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite artifacts\baseline-red --runs 1`
+  기준으로 exit code 2, `load-01.json` 미생성, `open-loop-01.json` 미생성을 확인했다.
+  parser 는 command 를 인식하지만 `Program` switch 에 execution wiring 이 아직 없던 상태다.
 - `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
 - `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
+- CLI smoke: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite <temp-output> --runs 1`
+  통과, exit code 0. `<temp-output>\load-01.json`과 `<temp-output>\open-loop-01.json`이 생성됐고,
+  두 JSON 모두 `"schema-version": 1`, `"passed": true`였다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화

@@ -1,5 +1,31 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline suite cli wiring)
+
+### 작업 단위
+- 반복 baseline collection 계획의 Task 4를 구현했다.
+- `Program`이 `BenchmarkCommand.BaselineSuite`를 `BaselineSuiteRunner`에 연결하게 했다.
+- 새 command 는 closed-loop `RunLoadAsync`와 open-loop `RunOpenLoopAsync`를 반복 실행하고,
+  `TcpLoopbackReportWriter.Write`로 per-run raw JSON report 를 남긴다.
+
+### Red/Green
+- Red: `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite artifacts\baseline-red --runs 1`
+  실행 결과 exit code 2, `load-01.json` 미생성, `open-loop-01.json` 미생성을 확인했다.
+  parser 는 command 를 인식했지만 `Program` switch 에 execution wiring 이 없었다.
+- Green: `Program` switch 에 `BenchmarkCommand.BaselineSuite` case 를 추가하고,
+  `CompleteBaselineSuite` helper 에서 기존 load/open-loop runner 와 report writer 를 조립했다.
+
+### 상태 갱신
+- `CURRENT_PLAN.md`와 `TODOS.md`를 반복 baseline collection Task 1~4 완료와 사용자 리뷰 대기 상태로 갱신했다.
+
+### 검증
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite <temp-output> --runs 1`
+  통과, exit code 0.
+- CLI smoke 결과 `<temp-output>\load-01.json`과 `<temp-output>\open-loop-01.json`이 생성됐고,
+  두 JSON 모두 `schema-version == 1`, `passed == true`였다.
+
 ## 2026-06-18 (Codex - baseline suite runner)
 
 ### 작업 단위

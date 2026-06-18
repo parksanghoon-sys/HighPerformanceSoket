@@ -52,7 +52,8 @@
   - 반복 baseline collection 계획의 Task 1로 benchmark CLI parser/test seam 을 구현했다.
   - 반복 baseline collection 계획의 Task 2로 `--baseline-suite` parser 확장을 구현했다.
   - 반복 baseline collection 계획의 Task 3으로 fake runner 기반 `BaselineSuiteRunner`를 구현했다.
-  - 다음 후보: 계획의 Task 4인 `Program` wiring 과 실제 CLI 검증을 진행한다.
+  - 반복 baseline collection 계획의 Task 4로 `Program` wiring 과 실제 CLI 검증을 완료했다.
+  - 다음 후보: 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
 
 ## Deferred Backlog
 
@@ -74,9 +75,10 @@
     `--load-open-loop` 3회는 p99 915.9~1005.5us/TCP HWM 2였으며 모든 run 은 drop/leak/payload error 0으로 pass 했다.
   - 현재 상태: `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`가 구현을 4개 task 로 쪼갰다.
     Task 1은 test project 와 기존 parser extraction 으로 완료됐다. Task 2는 `--baseline-suite` parsing 으로 완료됐다.
-    Task 3은 fake runner 기반 `BaselineSuiteRunner`로 완료됐다. Task 4는 Program wiring 과 CLI 검증이다.
+    Task 3은 fake runner 기반 `BaselineSuiteRunner`로 완료됐다. Task 4는 Program wiring 과 CLI 검증으로 완료됐다.
   - known blockers/open questions: summary JSON, Markdown report, CI provider workflow, p99 hard threshold 는 이번 계획에서 제외했다.
-  - next step: Task 4에서 `Program`에 baseline suite command 를 연결하고 실제 CLI smoke 로 per-run JSON 생성을 검증한다.
+  - next step: 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다. 반복 baseline artifact 축적은 command 로 가능해졌고,
+    summary JSON, Markdown report, CI provider workflow, p99 hard threshold 는 계획상 제외 범위로 남아 있다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -97,6 +99,18 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] 반복 baseline collection Task 4로 `Program` wiring 과 실제 CLI 검증을 완료했다.
+  - 범위: `tests/Hps.Benchmarks/Program.cs`, root state docs.
+  - Red: `--baseline-suite artifacts\baseline-red --runs 1` 실행 시 exit code 2,
+    `load-01.json` 미생성, `open-loop-01.json` 미생성을 확인했다.
+    parser 는 command 를 인식하지만 `Program` switch 에 execution wiring 이 없던 상태다.
+  - Green: `Program`이 `BenchmarkCommand.BaselineSuite`를 `BaselineSuiteRunner`로 연결하고,
+    `TcpLoopbackScenarioRunner.RunLoadAsync`, `RunOpenLoopAsync`, `TcpLoopbackReportWriter.Write`를 조립하게 했다.
+  - 검증: solution build 경고 0/오류 0, solution tests 통과 144/실패 0.
+    CLI smoke 로 `--baseline-suite <temp-output> --runs 1`을 실행해 exit code 0,
+    `load-01.json`과 `open-loop-01.json` 생성, 두 JSON 모두 `schema-version == 1`,
+    `passed == true`를 확인했다.
 
 - [x] 반복 baseline collection Task 3으로 fake runner 기반 `BaselineSuiteRunner`를 구현했다.
   - 범위: `tests/Hps.Benchmarks/BaselineRunKind.cs`,

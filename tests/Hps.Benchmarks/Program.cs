@@ -46,6 +46,9 @@ namespace Hps.Benchmarks
                 case BenchmarkCommand.LoadOpenLoop:
                     return CompleteRun(TcpLoopbackScenarioRunner.RunOpenLoopAsync().GetAwaiter().GetResult(), commandLine.ReportPath);
 
+                case BenchmarkCommand.BaselineSuite:
+                    return CompleteBaselineSuite(commandLine.BaselineOutputDirectory!, commandLine.BaselineRunCount);
+
                 case BenchmarkCommand.Help:
                     PrintUsage(Console.Out);
                     return SuccessExitCode;
@@ -73,6 +76,22 @@ namespace Hps.Benchmarks
             }
 
             return result.Passed ? SuccessExitCode : FailedRunExitCode;
+        }
+
+        private static int CompleteBaselineSuite(string outputDirectory, int runCount)
+        {
+            BaselineSuiteRunner runner = new BaselineSuiteRunner(
+                kind =>
+                {
+                    if (kind == BaselineRunKind.Load)
+                        return TcpLoopbackScenarioRunner.RunLoadAsync();
+
+                    return TcpLoopbackScenarioRunner.RunOpenLoopAsync();
+                },
+                TcpLoopbackReportWriter.Write);
+
+            bool passed = runner.RunAsync(outputDirectory, runCount, Console.Out).GetAwaiter().GetResult();
+            return passed ? SuccessExitCode : FailedRunExitCode;
         }
 
         private static void PrintUsage(TextWriter writer)
