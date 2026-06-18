@@ -44,6 +44,10 @@
   payload-errors 0, pool-rented 0이었다. closed-loop p99 범위는 471.0~489.9us, open-loop p99 범위는
   502.6~587.8us, TCP HWM 은 각각 1 / 2~3으로 관측됐다. 이로써 같은 장비 기준 baseline session 3개가 확보됐고,
   다음 판단은 추가 수집이 아니라 session 간 분산을 근거로 한 soft warning/hard failure 정책 설계다.
+- D070으로 3개 baseline session 확보 뒤에도 p50/p99 hard failure threshold 는 보류하기로 했다.
+  다음 구현 후보는 기존 per-run JSON을 입력으로 읽는 baseline summary artifact 와 non-failing soft warning 산출이다.
+  권장 command 는 `--summarize-baseline <input-dir> --summary <output-json>`이며,
+  Markdown report, CI workflow, warning-as-failure, hard latency gate 는 summary artifact 이후 별도 단위로 분리한다.
 - D069 후속 구현 계획을 `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`로 작성했다.
   구현은 세부 task 를 여러 커밋으로 나누며, 첫 단위는 `tests/Hps.Benchmarks.Tests` 추가와 benchmark CLI parser extraction 이다.
 - 반복 baseline collection 계획의 Task 1을 완료했다. `tests/Hps.Benchmarks.Tests`를 solution 에 추가하고,
@@ -334,18 +338,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 사용자 리뷰 대기.
 
-반복 baseline artifact `session-03`까지 수집했다. 현재 같은 장비 기준 baseline session 은 기존 로컬 baseline,
-`session-02`, `session-03`까지 3개로 볼 수 있으므로 D069의 최소 session 수는 채웠다.
-다음 작업은 사용자 리뷰를 받은 뒤, review finding 이 있으면 먼저 반영하고 없으면
-세 session 의 분포를 요약해 soft warning/hard failure 정책을 설계하는 것이다.
-summary JSON, Markdown report, CI workflow 구현은 그 정책 설계 이후 별도 단일 작업으로 분리한다.
+반복 baseline 분포 정책 설계는 D070으로 닫았다. 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영하고,
+없으면 baseline summary artifact 구현 계획을 작성하는 것이다.
+구현 후보는 `--summarize-baseline <input-dir> --summary <output-json>` CLI 와 summary JSON writer 이며,
+Markdown report, CI workflow, warning-as-failure, hard latency gate 는 제외한다.
 
 ## 이번 단위의 검증 경로
-- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --baseline-suite docs\benchmarks\baselines\2026-06-18\session-03 --runs 3`
-  통과, exit code 0. `session-03` 아래 closed-loop 3개와 open-loop 3개 raw JSON 이 생성됐고 suite 결과는 pass 였다.
-- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 144개 통과/실패 0.
-- 문서 정리 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없었다.
+- raw JSON 18개를 파싱해 D070 정책 설계의 baseline envelope 를 확인했다.
+- 문서 전용 변경이므로 build/test 는 실행하지 않는다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 
 ## 이번 작업에서 건드리지 않은 범위
 - 명시적인 SocketAsyncEventArgs 기반 payload send/recv 최적화

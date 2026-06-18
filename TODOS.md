@@ -58,24 +58,27 @@
   - 남아 있던 사용자 설계 문서 변경을 검토하고, 현재 결정과 충돌하지 않도록 상태를 정리했다.
   - 반복 baseline artifact `session-02`를 수집해 closed-loop/open-loop 각 3회 raw JSON 을 추가했다.
   - 반복 baseline artifact `session-03`를 수집해 D069의 최소 3개 baseline session 조건을 채웠다.
+  - D070으로 3개 baseline session 분포 분석 뒤 latency hard gate 보류와 summary/soft warning 우선 정책을 결정했다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` 반복 baseline artifact 축적 이후 latency/CI 정책을 재판단한다.
-  - 무엇이 남았는지: `--baseline-suite <output-dir> [--runs <count>]` command 는 구현 완료됐다.
-    아직 남은 것은 raw JSON artifact 를 여러 session 축적한 뒤, summary JSON, Markdown report,
-    CI provider workflow, soft warning, p50/p99 hard threshold 를 도입할지 판단하는 정책 작업이다.
-  - 왜 defer 되었는지: D069에 따라 hard latency gate 는 단일 로컬 실행값으로 고정하지 않는다.
-    같은 장비 또는 같은 CI runner 에서 최소 3개 baseline session 을 먼저 확보해야 false negative 위험을 줄일 수 있다.
-  - objective: 반복 수집된 raw JSON artifact 를 근거로 latency regression 판단 방식을 정한다.
-    필요하면 summary/Markdown/CI workflow 를 별도 구현 단위로 승격하되, 현재 delivery/drop/leak hard gate 는 유지한다.
-  - relevant context: DECISIONS D063/D069,
+- [ ] `P1_SOON` 반복 baseline summary artifact 와 soft warning 산출을 구현한다.
+  - 무엇이 남았는지: `--baseline-suite <output-dir> [--runs <count>]` command 와 3개 baseline session 수집은 완료됐다.
+    이제 남은 것은 기존 per-run JSON directory 를 읽어 전체 hard pass/fail 상태와 soft warning 후보를 요약하는
+    summary JSON artifact 를 만드는 것이다.
+  - 왜 defer 되었는지: D070에서 latency hard failure threshold 는 아직 보류하기로 결정했다.
+    다만 다음 구현은 코드 변경이 필요한 별도 단위이므로, 이번 문서 단위에서는 설계와 상태 기록까지만 닫는다.
+  - objective: 반복 수집된 raw JSON artifact 를 자동 요약해 리뷰와 CI artifact 소비 비용을 줄인다.
+    delivery/drop/leak hard gate 는 유지하고, p99/HWM/actual-rate 이상 징후는 non-failing soft warning 으로만 기록한다.
+  - relevant context: DECISIONS D063/D069/D070,
     `docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`,
+    `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`,
     `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`,
     `tests/Hps.Benchmarks/Program.cs`, `tests/Hps.Benchmarks/BaselineSuiteRunner.cs`,
     `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`,
     `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`.
-  - 관련 파일/범위: `tests/Hps.Benchmarks/`, `docs/benchmarks/baselines/`, 향후 CI script 또는 docs report 위치.
+  - 관련 파일/범위: `tests/Hps.Benchmarks/`, `tests/Hps.Benchmarks.Tests/`,
+    `docs/benchmarks/baselines/`, 향후 CI script 또는 docs report 위치.
   - 현재 상태: `--baseline-suite`는 closed-loop load 와 open-loop load 를 반복 실행하고
     `load-01.json`, `open-loop-01.json` 형식의 per-run raw JSON 을 생성한다.
     Task 4 CLI smoke 에서 exit code 0, 두 report 의 `schema-version == 1`, `passed == true`를 확인했다.
@@ -87,11 +90,12 @@
   - 현재 상태: `docs/benchmarks/baselines/2026-06-18/session-03/`에 `--baseline-suite --runs 3` 결과를 추가했다.
     closed-loop 3회는 p99 471.0~489.9us/TCP HWM 1,
     open-loop 3회는 p99 502.6~587.8us/TCP HWM 2~3이었고 모든 run 은 drop/leak/payload error 0으로 pass 했다.
-  - known blockers/open questions: 같은 장비 기준 최소 3개 session 은 확보됐다. 다만 summary JSON/Markdown report 를 만들지,
-    CI workflow 로 올릴지, hard threshold 대신 soft warning 부터 둘지는 별도 판단이 필요하다.
-    최초 baseline p99가 session-02/session-03보다 높아 session 간 편차 해석도 함께 필요하다.
-  - next step: 사용자 리뷰 뒤 finding 이 없으면 세 session 의 분포를 요약하고,
-    soft warning/hard failure 경계를 어떤 기준으로 둘지 설계한다. 구현은 그 설계 이후 별도 단일 작업으로 분리한다.
+  - 현재 상태: D070으로 hard latency gate 는 보류하고 summary JSON 과 soft warning 을 먼저 구현하기로 결정했다.
+    첫 구현의 권장 CLI 는 `--summarize-baseline <input-dir> --summary <output-json>`이다.
+  - known blockers/open questions: summary JSON schema 의 최소 필드는 D070 설계에 정리됐다.
+    Markdown report, CI provider workflow, warning-as-failure, hard latency gate 는 이 항목의 현재 구현 범위가 아니다.
+  - next step: `--summarize-baseline <input-dir> --summary <output-json>` 구현 계획을 작성한다.
+    계획은 fake JSON file set 기반 xUnit 테스트, summary generator, CLI wiring, JSON writer 검증으로 쪼갠다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -112,6 +116,16 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] 3개 반복 baseline session 기반 latency/CI 정책을 D070으로 정리했다.
+  - 범위: `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`,
+    `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결과: 18개 run 모두 delivery/drop/leak hard gate 를 통과했지만, session 간 p99 편차가 커서 p50/p99 hard threshold 는 보류했다.
+    다음 구현 후보는 per-run JSON directory 를 읽는 summary JSON artifact 와 non-failing soft warning 산출이다.
+    권장 CLI 는 `--summarize-baseline <input-dir> --summary <output-json>`이다.
+  - 검증: raw JSON 18개를 파싱해 closed-loop p99 471.0~924.1us, open-loop p99 502.6~1005.5us,
+    TCP HWM closed-loop 1/open-loop 2~3, dropped 0, pool-rented 0 범위를 확인했다.
+    `git diff --check`는 통과했고 CRLF 변환 경고만 있으며 whitespace 오류는 없었다.
 
 - [x] 반복 baseline artifact `session-03`를 수집했다.
   - 범위: `docs/benchmarks/baselines/2026-06-18/session-03/*.json`,

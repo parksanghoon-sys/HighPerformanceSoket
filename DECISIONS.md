@@ -1,5 +1,21 @@
 # DECISIONS.md
 
+## D070 — 3개 baseline session 확보 후에도 latency hard gate 는 보류하고 summary/soft warning 을 먼저 만든다
+
+- 날짜: 2026-06-18
+- 상태: Accepted
+- 결정: 같은 장비 기준 baseline session 3개가 확보됐지만, p50/p99 latency 기반 hard failure threshold 는 아직 추가하지 않는다.
+  기존 hard pass/fail 은 D063/D069처럼 planned/sent/received 일치, dropped 0, payload-errors 0, pool-rented 0으로 유지한다.
+  다음 구현 후보는 per-run JSON을 입력으로 읽는 baseline summary artifact 와 non-failing soft warning 산출이다.
+- 근거: 2026-06-18 baseline 3개 session 전체 18개 run 은 모두 delivery/drop/leak hard gate 를 통과했다.
+  closed-loop p99는 471.0~924.1us, open-loop p99는 502.6~1005.5us로 관측됐고, session-01 p99가 session-02/03보다 높았다.
+  같은 날짜와 같은 장비에서도 p99 편차가 크므로 지금 절대 threshold 를 hard failure 로 올리면 false negative 또는 지나치게 느슨한 gate 중 하나가 된다.
+  반면 TCP HWM 은 closed-loop 1, open-loop 2~3으로 capacity 16에 멀리 못 미쳤고 dropped count 는 계속 0이었다.
+- 영향: 다음 구현은 CI workflow 나 hard threshold 가 아니라 `--summarize-baseline <input-dir> --summary <output-json>` 같은
+  summary command 를 우선한다. summary 는 기존 per-run JSON schema v1을 대체하지 않고, p99/HWM/actual-rate soft warning 후보를 기록한다.
+  Markdown report, CI provider workflow, warning 을 실패로 승격하는 정책은 summary artifact 가 생긴 뒤 별도 단위로 다룬다.
+  세부 설계는 `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`를 따른다.
+
 ## D069 — latency hard gate 전에는 반복 baseline artifact 를 먼저 축적한다
 
 - 날짜: 2026-06-18

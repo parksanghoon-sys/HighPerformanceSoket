@@ -1,5 +1,35 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - repeat baseline policy decision)
+
+### 작업 단위
+- D069에서 요구한 3개 baseline session 확보 이후의 latency/CI 정책을 D070으로 정리했다.
+- 코드 변경 없이 반복 baseline 분포 설계 문서, 결정 로그, root 상태 문서를 갱신했다.
+
+### 확인한 데이터
+- 입력 범위: `docs/benchmarks/baselines/2026-06-18/` 아래 기존 로컬 baseline, `session-02`, `session-03`의 raw JSON 18개.
+- 전체 18개 run 은 sent/received 3000, dropped 0, payload-errors 0, pool-rented 0으로 hard gate 를 모두 통과했다.
+- closed-loop 9회는 p99 471.0~924.1us, TCP HWM 1이었다.
+- open-loop 9회는 p99 502.6~1005.5us, TCP HWM 2~3이었다.
+- 같은 장비 같은 날짜에서도 session-01 p99가 session-02/03보다 높아 p99 hard threshold 는 아직 false negative 위험이 크다.
+
+### 결정
+- D070으로 p50/p99 latency hard failure threshold 는 보류했다.
+- 다음 구현 후보는 기존 per-run JSON을 입력으로 읽는 baseline summary artifact 와 non-failing soft warning 산출이다.
+- 권장 CLI 는 `--summarize-baseline <input-dir> --summary <output-json>`이다.
+- Markdown report, CI workflow, warning-as-failure, hard latency gate 는 summary artifact 이후 별도 단위로 분리한다.
+
+### 상태 갱신
+- `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`를 추가했다.
+- `DECISIONS.md`에 D070을 추가했다.
+- `CURRENT_PLAN.md`의 다음 실행 지점을 summary artifact 구현 계획 대기로 갱신했다.
+- `TODOS.md`의 P1 backlog 를 summary JSON/soft warning 구현 후보로 재기술했다.
+
+### 검증
+- raw JSON 18개를 파싱해 설계 문서의 baseline envelope 와 warning 후보 수치를 확인했다.
+- 문서 전용 변경이므로 build/test 는 실행하지 않았다.
+- `git diff --check`는 통과했고 CRLF 변환 경고만 있으며 whitespace 오류는 없었다.
+
 ## 2026-06-18 (Codex - repeat baseline session 03)
 
 ### 작업 단위
