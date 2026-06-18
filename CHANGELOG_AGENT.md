@@ -1,5 +1,21 @@
 # CHANGELOG_AGENT.md
 
+## 2026-06-18 (Codex - baseline backlog state cleanup)
+
+### 작업 단위
+- 반복 baseline collection command 구현 완료 뒤 root 상태 문서를 정리했다.
+- `TODOS.md`의 P1 backlog 가 아직 command 가 없는 것처럼 설명하던 부분을 현재 상태에 맞게 고쳤다.
+- 완료된 command 와 아직 남은 summary/CI/hard threshold 정책 판단을 분리했다.
+
+### 정리 내용
+- `--baseline-suite <output-dir> [--runs <count>]` command 는 Task 1~4 완료 항목으로 유지한다.
+- Deferred Backlog 는 "command 구현"이 아니라 "artifact 축적 이후 latency/CI 정책 재판단"으로 재기술했다.
+- `CURRENT_PLAN.md`의 다음 실행 지점은 사용자 리뷰 대기 상태로 유지했다.
+
+### 검증
+- 문서 전용 변경이므로 build/test 는 실행하지 않는다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-18 (Codex - baseline suite cli wiring)
 
 ### 작업 단위

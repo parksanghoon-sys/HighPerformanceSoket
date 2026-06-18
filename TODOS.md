@@ -54,31 +54,34 @@
   - 반복 baseline collection 계획의 Task 3으로 fake runner 기반 `BaselineSuiteRunner`를 구현했다.
   - 반복 baseline collection 계획의 Task 4로 `Program` wiring 과 실제 CLI 검증을 완료했다.
   - 다음 후보: 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
+  - 반복 baseline command 구현 완료 뒤, `TODOS.md`의 중복 P1 backlog 를 완료된 command 와 후속 정책 항목으로 분리 정리했다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` 반복 baseline collection command 또는 절차를 설계/구현한다.
-  - 무엇이 남았는지: D069로 hard latency gate 전에는 raw JSON baseline artifact 를 먼저 축적하기로 했다.
-    아직 `--load`와 `--load-open-loop`를 여러 번 실행하고 per-run JSON과 summary 를 한 번에 남기는 command 또는 공식 절차는 없다.
-  - 왜 defer 되었는지: 이번 단위는 정책 결정과 문서화로 제한했다. 실제 command 를 추가하려면 CLI parser, 반복 실행 실패 처리,
-    출력 directory naming, summary 생성 여부를 별도 TDD 단위로 정해야 한다.
-  - objective: 같은 장비 또는 같은 CI runner 에서 baseline session 을 재현 가능하게 수집하고, raw JSON report 를 artifact 로 남긴다.
-    p50/p99 hard failure 는 만들지 않고 soft warning 후보 산출의 입력만 준비한다.
+- [ ] `P1_SOON` 반복 baseline artifact 축적 이후 latency/CI 정책을 재판단한다.
+  - 무엇이 남았는지: `--baseline-suite <output-dir> [--runs <count>]` command 는 구현 완료됐다.
+    아직 남은 것은 raw JSON artifact 를 여러 session 축적한 뒤, summary JSON, Markdown report,
+    CI provider workflow, soft warning, p50/p99 hard threshold 를 도입할지 판단하는 정책 작업이다.
+  - 왜 defer 되었는지: D069에 따라 hard latency gate 는 단일 로컬 실행값으로 고정하지 않는다.
+    같은 장비 또는 같은 CI runner 에서 최소 3개 baseline session 을 먼저 확보해야 false negative 위험을 줄일 수 있다.
+  - objective: 반복 수집된 raw JSON artifact 를 근거로 latency regression 판단 방식을 정한다.
+    필요하면 summary/Markdown/CI workflow 를 별도 구현 단위로 승격하되, 현재 delivery/drop/leak hard gate 는 유지한다.
   - relevant context: DECISIONS D063/D069,
     `docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`,
-    `tests/Hps.Benchmarks/Program.cs`, `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`,
-    `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`, `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`,
+    `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`,
+    `tests/Hps.Benchmarks/Program.cs`, `tests/Hps.Benchmarks/BaselineSuiteRunner.cs`,
+    `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`,
     `docs/benchmarks/baselines/2026-06-18/local-latency-baseline.md`.
-  - 관련 파일/범위: `tests/Hps.Benchmarks/`, benchmark output 저장 위치, 필요 시 CI script.
-  - 현재 상태: 기존 `--report`는 단일 runner 의 JSON 파일을 생성하고, 상위 directory 생성과 기존 파일 덮어쓰기를 지원한다.
-    2026-06-18 로컬 baseline 에서 `--load` 3회는 p99 879.7~924.1us/TCP HWM 1,
+  - 관련 파일/범위: `tests/Hps.Benchmarks/`, `docs/benchmarks/baselines/`, 향후 CI script 또는 docs report 위치.
+  - 현재 상태: `--baseline-suite`는 closed-loop load 와 open-loop load 를 반복 실행하고
+    `load-01.json`, `open-loop-01.json` 형식의 per-run raw JSON 을 생성한다.
+    Task 4 CLI smoke 에서 exit code 0, 두 report 의 `schema-version == 1`, `passed == true`를 확인했다.
+  - 현재 상태: 2026-06-18 로컬 baseline 에서 `--load` 3회는 p99 879.7~924.1us/TCP HWM 1,
     `--load-open-loop` 3회는 p99 915.9~1005.5us/TCP HWM 2였으며 모든 run 은 drop/leak/payload error 0으로 pass 했다.
-  - 현재 상태: `docs/superpowers/plans/2026-06-18-repeat-baseline-collection.md`가 구현을 4개 task 로 쪼갰다.
-    Task 1은 test project 와 기존 parser extraction 으로 완료됐다. Task 2는 `--baseline-suite` parsing 으로 완료됐다.
-    Task 3은 fake runner 기반 `BaselineSuiteRunner`로 완료됐다. Task 4는 Program wiring 과 CLI 검증으로 완료됐다.
-  - known blockers/open questions: summary JSON, Markdown report, CI provider workflow, p99 hard threshold 는 이번 계획에서 제외했다.
-  - next step: 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다. 반복 baseline artifact 축적은 command 로 가능해졌고,
-    summary JSON, Markdown report, CI provider workflow, p99 hard threshold 는 계획상 제외 범위로 남아 있다.
+  - known blockers/open questions: baseline session 이 아직 충분히 축적되지 않았다. summary JSON/Markdown report 를 만들지,
+    CI workflow 로 올릴지, hard threshold 대신 soft warning 부터 둘지는 별도 판단이 필요하다.
+  - next step: 동일 장비 또는 동일 CI runner 에서 `--baseline-suite <output-dir> --runs 3` session 을 최소 3개 확보한 뒤,
+    결과 분산을 보고 soft warning/hard failure 경계를 설계한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -99,6 +102,14 @@
   - next step: 실제 운영 host 표면이 생기거나 metrics/exporter 요구가 나오면 server-level diagnostics surface 를 별도 설계로 승격한다.
 
 ## Completed
+
+- [x] 반복 baseline command 구현 후 상태 문서 backlog 를 정리했다.
+  - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결과: `TODOS.md`의 기존 P1 항목이 command 미구현 상태를 계속 설명하던 문제를 정리했다.
+    완료된 `--baseline-suite` command 는 Completed 이력에 남기고,
+    남은 일은 "baseline artifact 축적 이후 summary/CI/latency threshold 정책 판단"으로 재기술했다.
+  - 검증: 문서 전용 변경이므로 build/test 는 실행하지 않았다. `git diff --check`는 통과했고,
+    CRLF 변환 경고만 있으며 whitespace 오류는 없었다.
 
 - [x] 반복 baseline collection Task 4로 `Program` wiring 과 실제 CLI 검증을 완료했다.
   - 범위: `tests/Hps.Benchmarks/Program.cs`, root state docs.
