@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D072 — UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 두고 기본 idle expiry 는 비활성화한다.
 - D071 — baseline report history 는 전역 index 를 두고 warning 은 계속 soft signal 로 유지한다.
 - D070 — 3개 baseline session 확보 후에도 latency hard gate 는 보류하고 summary/soft warning 을 먼저 만든다.
 - D069 — latency hard gate 전에는 반복 baseline artifact 를 먼저 축적한다.

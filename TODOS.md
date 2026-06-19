@@ -10,11 +10,21 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - 최신 완료 단위: 2026-06-18 baseline history index 작성.
+  - 최신 완료 단위: 2026-06-19 UDP stale remote idle expiry 설계.
   - 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
   - finding 이 없으면 아래 Deferred Backlog 중 하나만 Current TODO 로 승격한다.
 
 ## Deferred Backlog
+
+- [ ] `P1_SOON` UDP remote-wide unsubscribe primitive 를 구현한다.
+  - 무엇이 남았는지: `SubscriptionTable`에 `(IUdpEndpoint endpoint, EndPoint remoteEndPoint)` 조합을 모든 topic 에서 제거하는 API가 없다.
+  - 왜 defer 되었는지: D072에서 idle expiry timer 보다 remote cleanup primitive 를 먼저 추가하기로 했다. 이번 단위는 설계만 완료했다.
+  - objective: 추후 idle sweep 또는 host cleanup 이 특정 UDP remote subscription 만 제거할 수 있는 최소 API를 만든다.
+  - relevant context: D060, D072, `docs/superpowers/specs/2026-06-19-udp-stale-remote-idle-expiry-design.md`, `SubscriptionTable.UnsubscribeAll(IUdpEndpoint)`.
+  - 관련 파일/범위: `src/Hps.Broker/SubscriptionTable.cs`, `tests/Hps.Broker.Tests/`.
+  - 현재 상태: endpoint-wide UDP cleanup 은 존재하지만 remote-wide cleanup 은 없다. topic entry eager cleanup 은 하지 않는 정책(D008)을 유지해야 한다.
+  - known blockers/open questions: 없음. timer, default timeout, public configuration 은 아직 범위 밖이다.
+  - next step: Red-Green으로 같은 endpoint/특정 remote 만 제거하고 다른 remote/TCP subscriber 를 보존하는 테스트를 추가한다.
 
 - [ ] `P2_LATER` stable subscriber identity 와 reconnect rebinding 을 설계한다.
   - 무엇이 남았는지: v1 subscription 은 runtime endpoint 수명에 묶여 있고 reconnect 후 자동 rebinding 은 없다.
@@ -23,14 +33,6 @@
   - relevant context: D058, D059, D060, `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`.
   - 관련 파일/범위: `src/Hps.Broker/`, `src/Hps.Protocol/`, `src/Hps.Server/`, samples, 관련 tests.
   - next step: 요구가 확인되면 먼저 wire/control-plane 설계를 작성한다.
-
-- [ ] `P2_LATER` UDP stale remote idle expiry 를 설계한다.
-  - 무엇이 남았는지: UDP runtime subscriber target 은 `(IUdpEndpoint, EndPoint)` 조합이며 idle remote 자동 제거가 없다.
-  - 왜 defer 되었는지: v1은 datagram self-command 와 explicit `UNSUBSCRIBE`를 우선했다(D060).
-  - objective: UDP remote churn 환경에서 stale subscription 이 영구 보존되지 않도록 expiry 또는 host 정책을 정한다.
-  - relevant context: D060, `BrokerUdpDatagramHandler`, `SubscriptionTable`, `BrokerSubscriber`.
-  - 관련 파일/범위: `src/Hps.Broker/`, `src/Hps.Server/`, UDP transport tests.
-  - next step: idle 기준과 cleanup owner 를 설계한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -43,6 +45,11 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-19 UDP stale remote idle expiry 를 설계했다.
+  - 범위: `docs/superpowers/specs/2026-06-19-udp-stale-remote-idle-expiry-design.md`, root 상태 문서.
+  - 결과: cleanup owner 를 Broker/Server 로 두고 기본 idle expiry 는 비활성화하며, 다음 구현을 remote-wide unsubscribe primitive 로 좁혔다(D072).
+  - 검증: `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 156개 통과.
 
 - [x] 2026-06-18 baseline history index 를 추가했다.
   - 범위: `docs/benchmarks/baselines/index.md`, `docs/superpowers/specs/2026-06-18-baseline-report-history-warning-policy-design.md`, root 상태 문서.

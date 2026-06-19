@@ -35,9 +35,13 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - baseline summary 이후 report history 와 warning 승격 정책은
   `docs/superpowers/specs/2026-06-18-baseline-report-history-warning-policy-design.md`로 정리했다(D071).
 - 반복 baseline session 을 빠르게 찾기 위한 전역 index 는 `docs/benchmarks/baselines/index.md`에 둔다(D071).
+- UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 
 ## 최근 완료 단위
 
+- 이번 단위 — UDP stale remote idle expiry 설계
+  - UDP remote cleanup owner, key, activity 갱신 규칙, sweep 범위, 다음 최소 구현 단위를 정리했다.
+  - 검증: `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 156개 통과.
 - 이번 단위 — baseline history index 추가
   - 2026-06-18 baseline root/session-02/session-03 summary artifact 를 전역 index 에 연결했다.
   - report history 와 warning soft-signal 정책을 D071로 확정했다.
@@ -58,15 +62,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 사용자 리뷰 대기.
 
-`docs/benchmarks/baselines/index.md` 검토가 다음 게이트다.
-리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 하나만 Current TODO 로 승격한다.
+`docs/superpowers/specs/2026-06-19-udp-stale-remote-idle-expiry-design.md` 검토가 다음 게이트다.
+리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 `P1_SOON` UDP remote-wide unsubscribe primitive 를 Current TODO 로 승격한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 baseline history index 문서화다.
+이번 단위는 UDP stale remote idle expiry 설계 문서화다.
 
-- 확인: 2026-06-18 root/session-02/session-03 에 `summary.json`과 `summary.md`가 존재하고 모두 hard-passed true, warning-count 0임을 확인했다.
-- Green: CI workflow 나 code path 를 바꾸지 않고 `docs/benchmarks/baselines/index.md`와 상태 문서만 갱신한다.
+- 확인: `BrokerUdpDatagramHandler`, `SubscriptionTable`, `BrokerSubscriber`의 현재 UDP runtime target/cleanup 구조를 확인했다.
+- Green: 코드 동작을 바꾸지 않고 D072 설계 문서와 상태 문서만 갱신한다.
 - 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
 - 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 156개 통과/실패 0.
