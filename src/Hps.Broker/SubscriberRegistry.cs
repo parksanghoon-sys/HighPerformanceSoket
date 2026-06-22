@@ -63,7 +63,8 @@ namespace Hps.Broker
             lock (_gate)
             {
                 SubscriberIdentity existingIdentity;
-                if (_targetToIdentity.TryGetValue(target, out existingIdentity) && !existingIdentity.Equals(identity))
+                bool targetAlreadyMapped = _targetToIdentity.TryGetValue(target, out existingIdentity);
+                if (targetAlreadyMapped && !existingIdentity.Equals(identity))
                     return SubscriberRegistrationResult.TargetAlreadyRegisteredWithDifferentIdentity;
 
                 Entry? entry;
@@ -85,6 +86,13 @@ namespace Hps.Broker
                     replacedTarget = oldTarget;
                     RemoveCurrentTargetFromTopics(entry, oldTarget);
                     _targetToIdentity.Remove(oldTarget);
+                }
+
+                if (!targetAlreadyMapped)
+                {
+                    // REGISTER 는 runtime-target subscription 에서 stable-identity subscription 으로 넘어가는 경계다.
+                    // REGISTER 전에 만든 구독은 identity topic metadata 에 없으므로 여기서 제거하지 않으면 close cleanup 이 놓친다.
+                    RemoveRuntimeTarget(target);
                 }
 
                 entry.CurrentTarget = target;

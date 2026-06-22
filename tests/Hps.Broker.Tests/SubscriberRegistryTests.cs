@@ -103,6 +103,25 @@ namespace Hps.Broker.Tests
             Assert.Equal(SubscriberRegistrationResult.TargetAlreadyRegisteredWithDifferentIdentity, result);
         }
 
+        // late REGISTER 정리 테스트: target 이 REGISTER 전에 runtime 구독을 만든 뒤 stable identity 로 전환되면,
+        // 그 기존 구독은 identity metadata 에 없으므로 REGISTER 시점에 제거해야 이후 close cleanup 에서 stale target 이 남지 않는다.
+        [Fact]
+        public void Register_WhenTargetHadRuntimeSubscriptionsBeforeRegister_ClearsUntrackedRuntimeSubscriptions()
+        {
+            SubscriptionTable table = new SubscriptionTable();
+            SubscriberRegistry registry = new SubscriberRegistry(table);
+            FakeConnection connection = new FakeConnection();
+            BrokerSubscriber target = BrokerSubscriber.ForTcp(connection);
+
+            registry.Subscribe("alpha", target);
+            SubscriberRegistrationResult result = registry.Register(SubscriberIdentity.Create("device-a"), target, out _, out _);
+            int removed = registry.RemoveTarget(target, DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+
+            Assert.Equal(SubscriberRegistrationResult.Registered, result);
+            Assert.False(table.IsSubscribed("alpha", connection));
+            Assert.Equal(0, removed);
+        }
+
         // unregister 테스트: explicit UNREGISTER 는 identity metadata 와 현재 routing target 을 함께 제거해야 한다.
         // 이것이 없으면 disconnected identity retention 만료 전까지 원치 않는 재바인딩이 남는다.
         [Fact]

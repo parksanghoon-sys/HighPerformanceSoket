@@ -122,6 +122,11 @@ publish 시 `SubscriptionTable`에는 현재 online target 만 들어가므로 d
 등록된 target 에서 들어온 `SUBSCRIBE <topic>`은 해당 target 이 아니라 registered identity 의 topic set 에 기록한다.
 등록되지 않은 target 의 `SUBSCRIBE <topic>`은 기존 runtime subscription 으로 처리한다.
 
+`SUBSCRIBE`를 먼저 보내고 나중에 `REGISTER`하는 late registration 은 기존 runtime target 구독을 stable identity metadata 로
+자동 이관하지 않는다. `REGISTER`는 runtime-target 구독 모드에서 stable-identity 구독 모드로 넘어가는 경계이므로,
+이미 같은 target 에 걸려 있던 runtime 구독은 `REGISTER` 시점에 제거한다. 그래야 identity metadata 에 없는 topic 이
+connection/endpoint close 뒤 routing table 에 stale target 으로 남지 않는다.
+
 등록된 target 에서 들어온 `UNSUBSCRIBE <topic>`은 identity topic set 에서 제거하고, 현재 online target 도 routing table 에서 제거한다.
 `UNREGISTER <subscriber-id>`는 identity 의 모든 topic subscription 을 제거하고 current target binding 을 해제한다.
 
