@@ -26,6 +26,14 @@
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
 
+- [x] 2026-06-22 Stable subscriber identity TCP loopback coverage 를 추가했다.
+  - 범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, root 상태 문서.
+  - 결과: 실제 `BrokerServer` + `SaeaTransport` TCP loopback 에서 stable identity reconnect/rebind 가 동작함을 검증한다.
+    새 socket 은 `REGISTER`만 보내고 `SUBSCRIBE`를 반복하지 않아 retained topic set 복구까지 확인한다.
+  - 비고: old TCP target close 는 Windows loopback 에서 FIN 또는 reset 으로 관측될 수 있어 두 경우를 모두 close 완료로 본다.
+  - 검증: focused stable TCP loopback test 1개 통과.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 217개 통과.
+
 - [x] 2026-06-22 Stable subscriber identity UDP late REGISTER lease cleanup 을 구현했다.
   - 범위: `src/Hps.Broker/UdpRemoteLeaseTracker.cs`, `src/Hps.Broker/BrokerUdpDatagramHandler.cs`,
     `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`, stable identity 설계 문서, root 상태 문서.

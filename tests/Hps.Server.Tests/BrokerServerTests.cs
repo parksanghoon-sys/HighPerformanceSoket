@@ -332,6 +332,57 @@ namespace Hps.Server.Tests
             }
         }
 
+        // stable identity 실제 TCP loopback 테스트: fake handler 단위 검증만으로는 BrokerServer options, SAEA accept/receive pump,
+        // old TCP target close, topic metadata rebind 가 실제 socket 경로에서 함께 동작하는지 보장할 수 없다.
+        // 새 connection 은 REGISTER 만 보내고 SUBSCRIBE 를 다시 보내지 않으므로, 이 테스트는 retained topic set 복구까지 검증한다.
+        [Fact]
+        public async Task TcpCommandLoopback_WhenStableSubscriberReconnects_RebindsTopicToNewSocket()
+        {
+            const string Topic = "alpha";
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            byte[] expectedPayload = new byte[] { 71, 72, 73, 74, 75 };
+            BrokerServerOptions options = BrokerServerOptions.CreateWithStableSubscriberIdentity(
+                TimeSpan.FromMinutes(5),
+                TimeProvider.System);
+
+            using (SaeaTransport transport = new SaeaTransport())
+            using (BrokerServer server = new BrokerServer(transport, pool, 128, options))
+            {
+                Socket? oldSubscriber = null;
+                Socket? newSubscriber = null;
+                Socket? publisher = null;
+
+                try
+                {
+                    await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(server.LocalEndPoint);
+
+                    oldSubscriber = CreateConnectedTcpClient(boundEndPoint);
+                    newSubscriber = CreateConnectedTcpClient(boundEndPoint);
+                    publisher = CreateConnectedTcpClient(boundEndPoint);
+
+                    await SendFrameAsync(oldSubscriber, Encoding.ASCII.GetBytes("REGISTER device-a"));
+                    await SendFrameAsync(oldSubscriber, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
+                    await WaitForSubscriberCountAsync(server, Topic, 1);
+
+                    await SendFrameAsync(newSubscriber, Encoding.ASCII.GetBytes("REGISTER device-a"));
+                    await WaitForSocketClosedAsync(oldSubscriber);
+
+                    await SendFrameAsync(publisher, CreatePublishCommand(Topic, expectedPayload));
+
+                    Assert.Equal(expectedPayload, await ReceiveFrameAsync(newSubscriber));
+                    await WaitForRentedCountAsync(pool, 0);
+                }
+                finally
+                {
+                    oldSubscriber?.Dispose();
+                    newSubscriber?.Dispose();
+                    publisher?.Dispose();
+                    await server.StopAsync();
+                }
+            }
+        }
+
         // 실제 TCP 다중 subscriber fan-out 테스트: BrokerPublisher 단위 테스트만으로는 Server/Transport/Protocol 결선 뒤에도
         // 같은 topic 의 모든 raw socket subscriber 가 payload 를 받는지 알 수 없다. 이 테스트는 공유 RefCountedBuffer fan-out 이
         // subscriber 2명에게 각각 도착하고, 송신 완료 뒤 server pool 이 0으로 돌아오는 end-to-end 경계를 고정한다.
@@ -700,6 +751,27 @@ namespace Hps.Server.Tests
             }
 
             return buffer;
+        }
+
+        private static async Task WaitForSocketClosedAsync(Socket socket)
+        {
+            // stable identity rebind 는 old TCP target 을 server 쪽에서 닫아야 split-brain fan-out 을 막을 수 있다.
+            // protocol ack 가 없으므로 client socket 에서 FIN 을 관측해 REGISTER rebind 처리가 완료됐음을 확인한다.
+            byte[] buffer = new byte[1];
+            Task<int> receiveTask = socket.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(receiveTask, timeoutTask);
+
+            Assert.Same(receiveTask, completedTask);
+            try
+            {
+                Assert.Equal(0, await receiveTask);
+            }
+            catch (SocketException exception) when (exception.SocketErrorCode == SocketError.ConnectionReset)
+            {
+                // Windows loopback 에서는 server-side Close 가 FIN 대신 reset 으로 관측될 수 있다.
+                // 이 테스트에서 필요한 신호는 old target 이 더 이상 열린 fan-out 대상이 아니라는 점이므로 reset 도 close 완료로 본다.
+            }
         }
 
         private static async Task<ReceivedUdpDatagram> ReceiveUdpDatagramAsync(Socket socket, int maxLength)

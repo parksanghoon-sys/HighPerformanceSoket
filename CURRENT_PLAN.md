@@ -76,9 +76,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   stable identity client 는 `REGISTER` 후 필요한 topic 을 다시 `SUBSCRIBE`해야 한다.
 - UDP lease sweep 이 활성화된 경우에도 late `REGISTER` 성공 후 같은 remote 의 기존 runtime lease metadata 를 제거하거나
   stable identity topic set 으로 교체한다(D076).
+- stable subscriber identity TCP reconnect/rebind 는 실제 `SaeaTransport` TCP loopback 에서도 검증됐다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — Stable subscriber identity TCP loopback coverage
+  - stable identity 가 fake handler 단위뿐 아니라 실제 `BrokerServer` + `SaeaTransport` TCP accept/receive/send pump 에서도
+    동작하는지 검증하는 loopback 테스트를 추가했다.
+  - old subscriber 가 `REGISTER device-a` 후 `SUBSCRIBE alpha`를 보내고, new subscriber 가 같은 id 로 `REGISTER`만 하면
+    old socket 이 닫히고 retained topic set 이 new socket 으로 재바인딩되어 이후 publish payload 를 받는지 확인한다.
+  - 검증: focused stable TCP loopback test 1개 통과.
 - 이번 단위 — Stable subscriber identity UDP late REGISTER lease cleanup
   - stable identity self-review 중 UDP remote 가 `SUBSCRIBE` 후 `REGISTER`하는 순서에서 routing 구독은 제거되지만,
     optional lease tracker 에 pre-register topic metadata 가 남을 수 있음을 확인했다.
@@ -201,13 +208,12 @@ Stable subscriber identity 구현 계획 Task 1~5와 late REGISTER routing/UDP l
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 Stable subscriber identity UDP late REGISTER lease cleanup 이다.
+이번 단위는 Stable subscriber identity TCP loopback coverage 이다.
 
-- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter FullyQualifiedName~BrokerUdpDatagramHandlerTests`
-  에서 late REGISTER 이후 pre-register runtime lease 가 남는 assertion failure 1개를 확인했다.
-- Green/Refactor: 같은 focused UDP handler tests 13개가 통과했다.
+- Focused: `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter FullyQualifiedName~TcpCommandLoopback_WhenStableSubscriberReconnects_RebindsTopicToNewSocket`
+  통과.
 - 최종 검증: `git diff --check` 통과, `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0/오류 0,
-  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 216개 통과.
+  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 217개 통과.
 
 ## 이번 작업에서 건드리지 않는 범위
 
