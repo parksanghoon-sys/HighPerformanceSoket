@@ -61,9 +61,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - Stable subscriber identity 구현 계획은
   `docs/superpowers/plans/2026-06-22-stable-subscriber-identity.md`에 있다.
   계획은 protocol decode, pure registry, TCP handler, UDP handler, Server opt-in wiring 의 5개 커밋 단위로 나뉜다.
+- Protocol 계층은 `REGISTER <subscriber-id>`와 `UNREGISTER <subscriber-id>`를 token-only command 로 decode 한다.
+  stable identity token 은 다음 Broker 단계에서 `TcpCommand.Topic` span view 를 해석해 사용한다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — Stable subscriber identity protocol decode
+  - Task 1로 `TcpCommandKind.Register/Unregister`와 decoder 분기를 추가했다.
+  - `REGISTER`/`UNREGISTER`는 기존 `SUBSCRIBE`/`UNSUBSCRIBE`와 같은 단일 token 문법을 사용한다.
+  - 검증: Red assertion failure 9개 확인, focused protocol tests 24개 통과.
 - 이번 단위 — Stable subscriber identity 구현 계획
   - D075 설계를 구현 가능한 5개 Task 로 분해했다.
   - 각 Task 는 Red-Green-Refactor, touched files, produced interfaces, 검증 명령, 커밋 경계를 포함한다.
@@ -140,20 +146,20 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-사용자 리뷰 대기.
+Stable subscriber identity 구현 계획 Task 2를 진행한다.
 
-이번 구현 계획 리뷰가 다음 게이트다.
-리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 계획의 Task 1인 protocol `REGISTER`/`UNREGISTER` decode 부터 구현한다.
+다음 단위는 `SubscriberIdentity`와 `SubscriberRegistry` pure model 이다.
+Broker handler wiring 전에 identity token 검증, identity별 topic set, target rebind, disconnect retention,
+explicit unregister, retention sweep 동작을 focused unit test 로 먼저 고정한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 Stable subscriber identity 구현 계획 작성이다.
+이번 단위는 Stable subscriber identity protocol decode 구현이다.
 
-- `docs/superpowers/specs/2026-06-22-stable-subscriber-identity-reconnect-policy-design.md`의 요구를 Task 1~5로 분해했다.
-- 기존 protocol/broker/server 테스트 구조와 생성할 타입/메서드 이름이 이어지는지 self-review 했다.
-- 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
-- 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 175개 통과/실패 0.
+- Red: `dotnet test tests\Hps.Protocol.Tests\Hps.Protocol.Tests.csproj --filter FullyQualifiedName~TcpCommandDecoderTests`
+  에서 enum 부재와 decode 실패로 assertion failure 9개를 확인했다.
+- Green/Refactor: 같은 focused protocol tests 24개가 통과했다.
+- 최종 검증은 커밋 전 `git diff --check`, solution build/test 로 확인한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -161,4 +167,4 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - CI workflow 또는 warning-as-failure 정책 구현
 - latency hard gate 확정
 - RIO/io_uring backend 구현
-- stable subscriber identity 구현
+- Broker `SubscriberRegistry` 모델과 handler/server wiring

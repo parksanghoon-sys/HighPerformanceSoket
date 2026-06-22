@@ -18,6 +18,16 @@ namespace Hps.Protocol
         /// <summary>
         /// 지정 topic 구독을 해제한다.
         /// </summary>
-        Unsubscribe = 3
+        Unsubscribe = 3,
+
+        /// <summary>
+        /// stable subscriber identity를 현재 runtime target에 등록한다.
+        /// </summary>
+        Register = 4,
+
+        /// <summary>
+        /// stable subscriber identity 등록과 보존된 subscription metadata를 제거한다.
+        /// </summary>
+        Unregister = 5
     }
 }

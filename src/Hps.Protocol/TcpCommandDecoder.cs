@@ -29,7 +29,11 @@ namespace Hps.Protocol
             int commandSeparator = IndexOfSpace(frame);
             if (commandSeparator < 0)
             {
-                if (IsSubscribeCommand(frame) || IsUnsubscribeCommand(frame) || IsPublishCommand(frame))
+                if (IsSubscribeCommand(frame)
+                    || IsUnsubscribeCommand(frame)
+                    || IsRegisterCommand(frame)
+                    || IsUnregisterCommand(frame)
+                    || IsPublishCommand(frame))
                     error = TcpCommandDecodeError.MissingTopic;
                 else
                     error = TcpCommandDecodeError.UnknownCommand;
@@ -52,6 +56,12 @@ namespace Hps.Protocol
 
             if (IsUnsubscribeCommand(commandName))
                 return TryDecodeTopicOnlyCommand(commandBody, TcpCommandKind.Unsubscribe, out command, out error);
+
+            if (IsRegisterCommand(commandName))
+                return TryDecodeTopicOnlyCommand(commandBody, TcpCommandKind.Register, out command, out error);
+
+            if (IsUnregisterCommand(commandName))
+                return TryDecodeTopicOnlyCommand(commandBody, TcpCommandKind.Unregister, out command, out error);
 
             if (IsPublishCommand(commandName))
                 return TryDecodePublish(commandBody, commandBodyOffset, out command, out error);
@@ -154,6 +164,34 @@ namespace Hps.Protocol
 
         // command name 비교는 frame span 위에서 직접 수행한다.
         // 여기서 string 으로 변환하면 모든 수신 command 마다 관리힙 할당이 생기므로 byte 비교로 고정한다.
+        private static bool IsRegisterCommand(ReadOnlySpan<byte> commandName)
+        {
+            return commandName.Length == 8
+                && commandName[0] == (byte)'R'
+                && commandName[1] == (byte)'E'
+                && commandName[2] == (byte)'G'
+                && commandName[3] == (byte)'I'
+                && commandName[4] == (byte)'S'
+                && commandName[5] == (byte)'T'
+                && commandName[6] == (byte)'E'
+                && commandName[7] == (byte)'R';
+        }
+
+        private static bool IsUnregisterCommand(ReadOnlySpan<byte> commandName)
+        {
+            return commandName.Length == 10
+                && commandName[0] == (byte)'U'
+                && commandName[1] == (byte)'N'
+                && commandName[2] == (byte)'R'
+                && commandName[3] == (byte)'E'
+                && commandName[4] == (byte)'G'
+                && commandName[5] == (byte)'I'
+                && commandName[6] == (byte)'S'
+                && commandName[7] == (byte)'T'
+                && commandName[8] == (byte)'E'
+                && commandName[9] == (byte)'R';
+        }
+
         private static bool IsUnsubscribeCommand(ReadOnlySpan<byte> commandName)
         {
             return commandName.Length == 11

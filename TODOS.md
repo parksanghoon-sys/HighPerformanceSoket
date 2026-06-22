@@ -9,10 +9,10 @@
 
 ## Current TODOs
 
-- Stable subscriber identity 구현 계획 리뷰 대기.
+- Stable subscriber identity 구현 계획 Task 2 — `SubscriberIdentity` / `SubscriberRegistry` pure model 구현.
   - 계획 문서: `docs/superpowers/plans/2026-06-22-stable-subscriber-identity.md`.
-  - 리뷰 finding 이 있으면 먼저 반영한다.
-  - 승인되면 다음 단위는 Task 1 protocol `REGISTER`/`UNREGISTER` decode 구현이다.
+  - 범위: Broker 내부 pure model, identity token validation, topic set retention, rebind, unregister, disconnected sweep.
+  - handler/server wiring 은 Task 3~5에서 별도 커밋으로 진행한다.
 
 ## Deferred Backlog
 
@@ -27,6 +27,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 Stable subscriber identity protocol decode 를 구현했다.
+  - 범위: `src/Hps.Protocol/TcpCommandKind.cs`, `src/Hps.Protocol/TcpCommandDecoder.cs`,
+    `tests/Hps.Protocol.Tests/TcpCommandDecoderTests.cs`, root 상태 문서.
+  - 결과: `REGISTER <subscriber-id>`와 `UNREGISTER <subscriber-id>`를 token-only command 로 decode 한다.
+  - 검증: Red assertion failure 9개 확인, focused protocol tests 24개 통과.
 
 - [x] 2026-06-22 Stable subscriber identity 구현 계획을 작성했다.
   - 범위: `docs/superpowers/plans/2026-06-22-stable-subscriber-identity.md`, root 상태 문서.
