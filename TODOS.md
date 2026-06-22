@@ -10,7 +10,7 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - 최신 완료 단위: 2026-06-22 UDP optional lease tracker / sweep owner 설계(D073).
+  - 최신 완료 단위: 2026-06-22 UDP optional lease sweep 구현 계획.
   - 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
   - finding 이 없으면 아래 Deferred Backlog 중 하나만 Current TODO 로 승격한다.
 
@@ -20,12 +20,12 @@
   - 무엇이 남았는지: remote-wide unsubscribe primitive 와 owner/key/설정/clock 설계(D073)는 있지만 실제 lease table, activity 갱신, sweep 메서드, host timer 트리거는 없다.
   - 왜 defer 되었는지: D072에서 기본 idle expiry 는 비활성으로 두고, 설계와 구현을 작은 단위로 분리하기로 했다.
   - objective: 운영자가 명시적으로 idle expiry 를 켰을 때 특정 UDP remote subscription 을 주기적으로 정리하는 선택적 cleanup 경로를 만든다.
-  - relevant context: D060, D072, D073, `docs/superpowers/specs/2026-06-22-udp-optional-lease-sweep-design.md`, `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`.
+  - relevant context: D060, D072, D073, `docs/superpowers/specs/2026-06-22-udp-optional-lease-sweep-design.md`, `docs/superpowers/plans/2026-06-22-udp-optional-lease-sweep.md`, `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`.
   - 관련 파일/범위: `src/Hps.Broker/`, `src/Hps.Server/`, 관련 tests.
   - 현재 상태: lease/sweep owner(Broker 소유·Server 트리거), key, 내부 options(기본 비활성), `TimeProvider` 시간 추상화가 D073으로 확정됐다.
   - resolved: owner 계층, 설정 표면(내부 options, 기본 비활성), clock abstraction(`TimeProvider`)은 D073에서 결정됐다.
   - open questions: 기본 idle timeout/sweep interval 값, 운영자용 public 설정 표면은 여전히 별도 단위로 남는다.
-  - next step: D073 "다음 최소 구현 단위" 순서대로 (1) 내부 `UdpLeaseOptions`, (2) `TimeProvider` 주입 lease tracker, (3) 순수 sweep 메서드를 먼저 구현한다. host timer 는 그 다음 단위.
+  - next step: 구현 계획 Task 1부터 진행한다. 순서는 (1) 내부 `UdpLeaseOptions`, (2) lease tracker activity, (3) 순수 sweep, (4) `BrokerUdpDatagramHandler` wiring 이다. host timer 는 그 다음 단위다.
 
 - [ ] `P2_LATER` stable subscriber identity 와 reconnect rebinding 을 설계한다.
   - 무엇이 남았는지: v1 subscription 은 runtime endpoint 수명에 묶여 있고 reconnect 후 자동 rebinding 은 없다.
@@ -46,6 +46,11 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 UDP optional lease sweep 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-22-udp-optional-lease-sweep.md`, root 상태 문서.
+  - 결과: D073 설계를 4개 커밋 단위로 나누고 각 단위의 Red-Green 검증 경로, touched files, produced interfaces 를 명시했다.
+  - 검증: 계획 self-review 완료, `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 157개 통과.
 
 - [x] 2026-06-22 UDP optional lease tracker / sweep owner 를 설계했다.
   - 범위: `docs/superpowers/specs/2026-06-22-udp-optional-lease-sweep-design.md`, root 상태 문서.

@@ -39,9 +39,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
   설계했다(D073). 설계는 `docs/superpowers/specs/2026-06-22-udp-optional-lease-sweep-design.md`에 있다.
+- UDP optional lease sweep 구현 계획은 `docs/superpowers/plans/2026-06-22-udp-optional-lease-sweep.md`에 있다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — UDP optional lease sweep 구현 계획
+  - D073 설계를 내부 options, lease tracker activity, 순수 sweep, handler wiring 의 4개 커밋 단위로 쪼갰다.
+  - host timer, public settings, 기본 timeout 값 확정은 별도 후속 범위로 남겼다.
+  - 검증: 계획 self-review 완료, `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 157개 통과.
 - 이번 단위 — UDP optional lease tracker / sweep owner 설계
   - lease/sweep owner(Broker 소유·Server 트리거), key, 내부 options 설정 표면(기본 비활성), `TimeProvider` 시간 추상화,
     sweep 의 `UnsubscribeAll(IUdpEndpoint, EndPoint)` 사용 방식을 D073으로 확정했다.
@@ -72,15 +77,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 사용자 리뷰 대기.
 
-이번 구현 단위 리뷰가 다음 게이트다.
-리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 하나만 Current TODO 로 승격한다.
+이번 구현 계획 리뷰가 다음 게이트다.
+리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 UDP optional lease sweep 구현을 Task 1부터 진행한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 UDP optional lease tracker / sweep owner 설계 문서 작성이며 코드 변경은 없다.
+이번 단위는 UDP optional lease sweep 구현 계획 문서 작성이며 코드 변경은 없다.
 
-- 실제 `BrokerUdpDatagramHandler`, `SubscriptionTable`, `BrokerServer`, `BrokerSubscriber` 구조와 설계가 충돌하지 않음을 확인했다.
-- D061/D067/D068/D072 와의 정합성(소유 계층, public config 보류, 기본 비활성)을 확인했다.
+- 실제 `BrokerUdpDatagramHandler`, `SubscriptionTable`, `BrokerServer`, `BrokerSubscriber` 구조와 계획의 touched files/signatures 를 대조한다.
+- D073의 next minimum implementation scope 를 4개 작은 Task 로 분해하고, host timer/public settings/default timeout 은 범위 밖으로 유지한다.
 - 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
 - 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 157개 통과/실패 0.
