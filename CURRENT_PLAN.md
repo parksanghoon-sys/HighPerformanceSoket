@@ -58,9 +58,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - Stable subscriber identity / reconnect rebinding 정책은 D075로 정리했다.
   기본 v1 runtime target subscription 은 유지하고, 후속 stable identity 는 `REGISTER <subscriber-id>` 기반 opt-in Broker registry 로 설계한다.
   같은 id 재등록은 새 runtime target 이 이기며, disconnected 동안 payload 는 저장하지 않는다.
+- Stable subscriber identity 구현 계획은
+  `docs/superpowers/plans/2026-06-22-stable-subscriber-identity.md`에 있다.
+  계획은 protocol decode, pure registry, TCP handler, UDP handler, Server opt-in wiring 의 5개 커밋 단위로 나뉜다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — Stable subscriber identity 구현 계획
+  - D075 설계를 구현 가능한 5개 Task 로 분해했다.
+  - 각 Task 는 Red-Green-Refactor, touched files, produced interfaces, 검증 명령, 커밋 경계를 포함한다.
+  - 검증: 계획 self-review 로 spec coverage, placeholder, type consistency 를 확인했고,
+    `git diff --check`, solution build/test 로 문서 변경이 빌드 상태를 깨지 않음을 확인한다.
 - 이번 단위 — Stable subscriber identity / reconnect rebinding 정책 설계
   - D058/D059/D060 이후 남아 있던 stable subscriber identity 후속 방향을 D075로 정리했다.
   - 기본 runtime target 모델을 유지하고, 후속 opt-in `REGISTER` identity registry, duplicate/rebind, disconnect retention, 테스트 순서를 설계했다.
@@ -134,15 +142,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 사용자 리뷰 대기.
 
-이번 설계 단위 리뷰가 다음 게이트다.
-리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 stable subscriber identity 구현 계획을 별도 문서로 작성한다.
+이번 구현 계획 리뷰가 다음 게이트다.
+리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 계획의 Task 1인 protocol `REGISTER`/`UNREGISTER` decode 부터 구현한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 Stable subscriber identity / reconnect rebinding 정책 설계다.
+이번 단위는 Stable subscriber identity 구현 계획 작성이다.
 
-- 현재 `BrokerSubscriber`, `SubscriptionTable`, `BrokerTcpFrameHandler`, `BrokerUdpDatagramHandler`, `TcpCommandDecoder`를 확인해 runtime target subscription 구조와 command grammar 를 재검증했다.
-- `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`와 D058/D059/D060을 기준으로 `EndpointId`를 stable routing key 로 쓰지 않는 정책을 유지했다.
+- `docs/superpowers/specs/2026-06-22-stable-subscriber-identity-reconnect-policy-design.md`의 요구를 Task 1~5로 분해했다.
+- 기존 protocol/broker/server 테스트 구조와 생성할 타입/메서드 이름이 이어지는지 self-review 했다.
 - 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
 - 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 175개 통과/실패 0.
@@ -154,4 +162,3 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - latency hard gate 확정
 - RIO/io_uring backend 구현
 - stable subscriber identity 구현
-- stable identity 구현 계획 작성

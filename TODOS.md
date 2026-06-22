@@ -9,10 +9,10 @@
 
 ## Current TODOs
 
-- Stable subscriber identity / reconnect rebinding 정책 설계 리뷰 대기.
-  - 설계 문서: `docs/superpowers/specs/2026-06-22-stable-subscriber-identity-reconnect-policy-design.md`.
+- Stable subscriber identity 구현 계획 리뷰 대기.
+  - 계획 문서: `docs/superpowers/plans/2026-06-22-stable-subscriber-identity.md`.
   - 리뷰 finding 이 있으면 먼저 반영한다.
-  - 승인되면 다음 단위는 stable subscriber identity 구현 계획 작성이다.
+  - 승인되면 다음 단위는 Task 1 protocol `REGISTER`/`UNREGISTER` decode 구현이다.
 
 ## Deferred Backlog
 
@@ -27,6 +27,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 Stable subscriber identity 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-22-stable-subscriber-identity.md`, root 상태 문서.
+  - 결과: D075 설계를 protocol decode, pure registry, TCP handler, UDP handler, Server opt-in wiring 의 5개 커밋 단위로 나눴다.
+  - 검증: 계획 self-review 로 spec coverage, placeholder, type consistency 를 확인했다.
+    `git diff --check`, solution build/test 로 문서 변경이 빌드 상태를 깨지 않음을 확인한다.
 
 - [x] 2026-06-22 Stable subscriber identity / reconnect rebinding 정책을 설계했다.
   - 범위: `docs/superpowers/specs/2026-06-22-stable-subscriber-identity-reconnect-policy-design.md`,

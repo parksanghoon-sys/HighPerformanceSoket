@@ -5,6 +5,24 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-22 (Codex - Stable subscriber identity implementation plan)
+
+### 작업 단위
+- D075 stable subscriber identity / reconnect rebinding 정책을 구현 가능한 Task 단위로 분해했다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-06-22-stable-subscriber-identity.md`: protocol decode, pure registry, TCP handler,
+  UDP handler, Server opt-in wiring 의 5개 작업 단위와 각 Red-Green-Refactor 검증/커밋 경계를 작성했다.
+- `CURRENT_PLAN.md`: 다음 실행 지점을 구현 계획 리뷰로 갱신했다.
+- `TODOS.md`: 구현 계획 작성 완료와 다음 Task 1 후보를 반영했다.
+
+### 검증
+- 계획 self-review: D075 spec coverage, placeholder, type consistency 를 확인했다.
+- 기존 `TcpCommandDecoderTests`, `BrokerTcpFrameHandlerTests`, `BrokerUdpDatagramHandlerTests`, `BrokerServerTests` 구조를 기준으로 Task 경계를 맞췄다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 175개 통과/실패 0.
+
 ## 2026-06-22 (Codex - Stable subscriber identity policy)
 
 ### 작업 단위
