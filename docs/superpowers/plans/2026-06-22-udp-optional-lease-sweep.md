@@ -55,7 +55,7 @@
 - Produces:
   - `internal sealed class UdpLeaseOptions`
   - `internal static UdpLeaseOptions Disabled { get; }`
-  - `internal static UdpLeaseOptions Enabled(TimeSpan idleTimeout, TimeSpan sweepInterval)`
+  - `internal static UdpLeaseOptions CreateEnabled(TimeSpan idleTimeout, TimeSpan sweepInterval)`
   - `internal bool Enabled { get; }`
   - `internal TimeSpan IdleTimeout { get; }`
   - `internal TimeSpan SweepInterval { get; }`
@@ -90,9 +90,9 @@ namespace Hps.Broker.Tests
         public void Enabled_WhenNonPositiveIntervalsAreUsed_Throws()
         {
             Assert.Throws<ArgumentOutOfRangeException>(
-                delegate { UdpLeaseOptions.Enabled(TimeSpan.Zero, TimeSpan.FromSeconds(1)); });
+                delegate { UdpLeaseOptions.CreateEnabled(TimeSpan.Zero, TimeSpan.FromSeconds(1)); });
             Assert.Throws<ArgumentOutOfRangeException>(
-                delegate { UdpLeaseOptions.Enabled(TimeSpan.FromSeconds(1), TimeSpan.Zero); });
+                delegate { UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(1), TimeSpan.Zero); });
         }
 
         // enabled 옵션 생성 테스트: 이번 단계는 운영자용 public 설정을 열지 않고 내부 options 값만 확정한다.
@@ -100,7 +100,7 @@ namespace Hps.Broker.Tests
         [Fact]
         public void Enabled_WhenPositiveIntervalsAreUsed_StoresValues()
         {
-            UdpLeaseOptions options = UdpLeaseOptions.Enabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5));
+            UdpLeaseOptions options = UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5));
 
             Assert.True(options.Enabled);
             Assert.Equal(TimeSpan.FromSeconds(30), options.IdleTimeout);
@@ -165,7 +165,7 @@ namespace Hps.Broker
 
         internal TimeSpan SweepInterval { get; }
 
-        internal static UdpLeaseOptions Enabled(TimeSpan idleTimeout, TimeSpan sweepInterval)
+        internal static UdpLeaseOptions CreateEnabled(TimeSpan idleTimeout, TimeSpan sweepInterval)
         {
             if (idleTimeout <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(idleTimeout));
@@ -217,7 +217,7 @@ Expected: build warning 0/error 0, all tests pass, whitespace check passes.
 **Interfaces:**
 - Consumes:
   - `UdpLeaseOptions.Disabled`
-  - `UdpLeaseOptions.Enabled(TimeSpan idleTimeout, TimeSpan sweepInterval)`
+  - `UdpLeaseOptions.CreateEnabled(TimeSpan idleTimeout, TimeSpan sweepInterval)`
   - `SubscriptionTable.Subscribe(string, BrokerSubscriber)`
   - `SubscriptionTable.Unsubscribe(string, BrokerSubscriber)`
   - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint)`
@@ -270,7 +270,7 @@ namespace Hps.Broker.Tests
             ManualTimeProvider time = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
             UdpRemoteLeaseTracker tracker = new UdpRemoteLeaseTracker(
                 table,
-                UdpLeaseOptions.Enabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
+                UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
                 time);
             FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
             EndPoint remote = new IPEndPoint(IPAddress.Loopback, 20000);
@@ -293,7 +293,7 @@ namespace Hps.Broker.Tests
             ManualTimeProvider time = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
             UdpRemoteLeaseTracker tracker = new UdpRemoteLeaseTracker(
                 table,
-                UdpLeaseOptions.Enabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
+                UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
                 time);
             FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
             EndPoint remote = new IPEndPoint(IPAddress.Loopback, 20000);
@@ -317,7 +317,7 @@ namespace Hps.Broker.Tests
             ManualTimeProvider time = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
             UdpRemoteLeaseTracker tracker = new UdpRemoteLeaseTracker(
                 table,
-                UdpLeaseOptions.Enabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
+                UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
                 time);
             FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
             FakeUdpEndpoint survivorEndpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10001));
@@ -665,7 +665,7 @@ Append these tests to `tests/Hps.Broker.Tests/UdpRemoteLeaseTrackerTests.cs`:
             ManualTimeProvider time = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
             UdpRemoteLeaseTracker tracker = new UdpRemoteLeaseTracker(
                 table,
-                UdpLeaseOptions.Enabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
+                UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
                 time);
             FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
             EndPoint expiredRemote = new IPEndPoint(IPAddress.Loopback, 20000);
@@ -694,7 +694,7 @@ Append these tests to `tests/Hps.Broker.Tests/UdpRemoteLeaseTrackerTests.cs`:
             ManualTimeProvider time = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
             UdpRemoteLeaseTracker tracker = new UdpRemoteLeaseTracker(
                 table,
-                UdpLeaseOptions.Enabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
+                UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
                 time);
             FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
             EndPoint remote = new IPEndPoint(IPAddress.Loopback, 20000);
@@ -844,7 +844,7 @@ Append these tests to `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`:
             BrokerUdpDatagramHandler handler = CreateHandler(
                 subscriptions,
                 new FakeTransport(),
-                UdpLeaseOptions.Enabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
+                UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
                 time);
 
             handler.OnDatagramReceived(endpoint, remoteEndPoint, datagram);
@@ -871,7 +871,7 @@ Append these tests to `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`:
             BrokerUdpDatagramHandler handler = CreateHandler(
                 subscriptions,
                 transport,
-                UdpLeaseOptions.Enabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
+                UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
                 time);
 
             handler.OnDatagramReceived(endpoint, remoteEndPoint, RentDatagram(pool, "SUBSCRIBE alpha"));

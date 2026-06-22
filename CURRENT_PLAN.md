@@ -40,9 +40,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
   설계했다(D073). 설계는 `docs/superpowers/specs/2026-06-22-udp-optional-lease-sweep-design.md`에 있다.
 - UDP optional lease sweep 구현 계획은 `docs/superpowers/plans/2026-06-22-udp-optional-lease-sweep.md`에 있다.
+- 내부 `UdpLeaseOptions` 타입과 `Hps.Broker.Tests` internal 접근 경계가 생겼다. 활성 옵션 factory 는 C# 멤버 이름 충돌을 피하기 위해
+  `CreateEnabled(TimeSpan, TimeSpan)` 이름을 사용한다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — UDP lease options
+  - D073 구현 Task 1로 내부 `UdpLeaseOptions`와 테스트 assembly internal 접근 경계를 추가했다.
+  - 계획서의 `Enabled(...)` factory 이름은 `Enabled` property 와 C# 멤버 이름이 충돌하므로 `CreateEnabled(...)`로 보정했다.
+  - 검증: Red assertion failure 확인, focused tests 3개 통과, solution build 경고 0/오류 0, solution tests 160개 통과.
 - 이번 단위 — UDP optional lease sweep 구현 계획
   - D073 설계를 내부 options, lease tracker activity, 순수 sweep, handler wiring 의 4개 커밋 단위로 쪼갰다.
   - host timer, public settings, 기본 timeout 값 확정은 별도 후속 범위로 남겼다.
@@ -77,25 +83,29 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 사용자 리뷰 대기.
 
-이번 구현 계획 리뷰가 다음 게이트다.
-리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 UDP optional lease sweep 구현을 Task 1부터 진행한다.
+이번 구현 단위 리뷰가 다음 게이트다.
+리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 UDP optional lease sweep 구현을 Task 2부터 진행한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 UDP optional lease sweep 구현 계획 문서 작성이며 코드 변경은 없다.
+이번 단위는 UDP optional lease sweep 구현 계획 Task 1, 내부 options 타입 추가다.
 
-- 실제 `BrokerUdpDatagramHandler`, `SubscriptionTable`, `BrokerServer`, `BrokerSubscriber` 구조와 계획의 touched files/signatures 를 대조한다.
-- D073의 next minimum implementation scope 를 4개 작은 Task 로 분해하고, host timer/public settings/default timeout 은 범위 밖으로 유지한다.
+- Red: `UdpLeaseOptionsTests`를 reflection 기반으로 먼저 추가해 `UdpLeaseOptions` 타입 부재에 따른 `Assert.NotNull` 실패 3개를 확인했다.
+- Green: `UdpLeaseOptions`, `AssemblyInfo.cs`의 `InternalsVisibleTo("Hps.Broker.Tests")`를 추가했다.
+- Refactor: reflection 기반 Red 테스트를 direct internal API 호출 테스트로 정리하고 focused tests 3개 통과를 확인했다.
+- 계획 보정: C#에서는 `Enabled` property 와 `Enabled(...)` factory 가 같은 타입에 공존할 수 없어 factory 이름을 `CreateEnabled(...)`로 정정했다.
 - 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 157개 통과/실패 0.
+- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 160개 통과/실패 0.
 
 ## 이번 작업에서 건드리지 않는 범위
 
-- 코드 동작 변경
 - benchmark schema 변경
 - CI workflow 또는 warning-as-failure 정책 구현
 - latency hard gate 확정
 - RIO/io_uring backend 구현
 - stable subscriber identity 구현
-- UDP stale remote idle expiry 구현
+- UDP lease tracker activity 구현
+- UDP sweep 구현
+- BrokerUdpDatagramHandler lease wiring
+- BrokerServer host timer/public settings 구현
