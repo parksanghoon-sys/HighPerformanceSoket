@@ -10,21 +10,22 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - 최신 완료 단위: 2026-06-22 UDP remote-wide unsubscribe primitive 구현.
+  - 최신 완료 단위: 2026-06-22 UDP optional lease tracker / sweep owner 설계(D073).
   - 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
   - finding 이 없으면 아래 Deferred Backlog 중 하나만 Current TODO 로 승격한다.
 
 ## Deferred Backlog
 
-- [ ] `P2_LATER` UDP optional lease tracker 와 sweep owner 를 설계/구현한다.
-  - 무엇이 남았는지: remote-wide unsubscribe primitive 는 생겼지만 last-seen lease table, sweep timer, idle timeout 설정, BrokerServer public configuration 은 없다.
-  - 왜 defer 되었는지: D072에서 기본 idle expiry 는 비활성으로 두고, timer 보다 cleanup primitive 를 먼저 구현하기로 했다.
+- [ ] `P2_LATER` UDP optional lease tracker 와 sweep 을 구현한다.
+  - 무엇이 남았는지: remote-wide unsubscribe primitive 와 owner/key/설정/clock 설계(D073)는 있지만 실제 lease table, activity 갱신, sweep 메서드, host timer 트리거는 없다.
+  - 왜 defer 되었는지: D072에서 기본 idle expiry 는 비활성으로 두고, 설계와 구현을 작은 단위로 분리하기로 했다.
   - objective: 운영자가 명시적으로 idle expiry 를 켰을 때 특정 UDP remote subscription 을 주기적으로 정리하는 선택적 cleanup 경로를 만든다.
-  - relevant context: D060, D072, `docs/superpowers/specs/2026-06-19-udp-stale-remote-idle-expiry-design.md`, `SubscriptionTable.UnsubscribeAll(IUdpEndpoint)`.
+  - relevant context: D060, D072, D073, `docs/superpowers/specs/2026-06-22-udp-optional-lease-sweep-design.md`, `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`.
   - 관련 파일/범위: `src/Hps.Broker/`, `src/Hps.Server/`, 관련 tests.
-  - 현재 상태: `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`가 특정 remote target 을 모든 topic 에서 제거할 수 있다.
-  - known blockers/open questions: 기본 timeout 값, public configuration 표면, clock abstraction 이 아직 결정되지 않았다.
-  - next step: 먼저 lease tracker owner 와 설정 표면을 설계한다. 기본 enabled 동작을 만들지 않는다.
+  - 현재 상태: lease/sweep owner(Broker 소유·Server 트리거), key, 내부 options(기본 비활성), `TimeProvider` 시간 추상화가 D073으로 확정됐다.
+  - resolved: owner 계층, 설정 표면(내부 options, 기본 비활성), clock abstraction(`TimeProvider`)은 D073에서 결정됐다.
+  - open questions: 기본 idle timeout/sweep interval 값, 운영자용 public 설정 표면은 여전히 별도 단위로 남는다.
+  - next step: D073 "다음 최소 구현 단위" 순서대로 (1) 내부 `UdpLeaseOptions`, (2) `TimeProvider` 주입 lease tracker, (3) 순수 sweep 메서드를 먼저 구현한다. host timer 는 그 다음 단위.
 
 - [ ] `P2_LATER` stable subscriber identity 와 reconnect rebinding 을 설계한다.
   - 무엇이 남았는지: v1 subscription 은 runtime endpoint 수명에 묶여 있고 reconnect 후 자동 rebinding 은 없다.
@@ -45,6 +46,11 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 UDP optional lease tracker / sweep owner 를 설계했다.
+  - 범위: `docs/superpowers/specs/2026-06-22-udp-optional-lease-sweep-design.md`, root 상태 문서.
+  - 결과: lease/sweep owner 를 Broker 소유·Server 트리거로, 설정을 내부 options(기본 비활성)로, 시간 소스를 `TimeProvider` 로 확정하고 sweep 의 `UnsubscribeAll(IUdpEndpoint, EndPoint)` 사용 방식을 D073으로 못 박았다.
+  - 검증: `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 157개 통과.
 
 - [x] 2026-06-22 UDP remote-wide unsubscribe primitive 를 구현했다.
   - 범위: `src/Hps.Broker/SubscriptionTable.cs`, `tests/Hps.Broker.Tests/BrokerRoutingTests.cs`, root 상태 문서.

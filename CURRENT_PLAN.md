@@ -37,9 +37,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - 반복 baseline session 을 빠르게 찾기 위한 전역 index 는 `docs/benchmarks/baselines/index.md`에 둔다(D071).
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
+- UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
+  설계했다(D073). 설계는 `docs/superpowers/specs/2026-06-22-udp-optional-lease-sweep-design.md`에 있다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — UDP optional lease tracker / sweep owner 설계
+  - lease/sweep owner(Broker 소유·Server 트리거), key, 내부 options 설정 표면(기본 비활성), `TimeProvider` 시간 추상화,
+    sweep 의 `UnsubscribeAll(IUdpEndpoint, EndPoint)` 사용 방식을 D073으로 확정했다.
+  - 검증: `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 157개 통과.
 - 이번 단위 — UDP remote-wide unsubscribe primitive
   - D072 idle sweep 선행 API로 `(IUdpEndpoint, EndPoint)` 조합을 모든 topic 에서 제거하는 `SubscriptionTable` overload 를 추가했다.
   - 검증: focused Red/Green/Refactor 완료, solution build 경고 0/오류 0, solution tests 157개 통과.
@@ -71,11 +77,10 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 UDP remote-wide unsubscribe primitive 구현이다.
+이번 단위는 UDP optional lease tracker / sweep owner 설계 문서 작성이며 코드 변경은 없다.
 
-- Red: `UnsubscribeAll_WhenUdpRemoteExpires_RemovesOnlyThatEndpointRemoteFromEveryTopic`가 API 부재로 `Assert.NotNull` 실패함을 확인했다.
-- Green: `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`와 topic set 내부 제거 helper 를 추가했다.
-- Refactor: Red용 reflection 호출을 직접 API 호출로 정리하고 focused test green 을 확인했다.
+- 실제 `BrokerUdpDatagramHandler`, `SubscriptionTable`, `BrokerServer`, `BrokerSubscriber` 구조와 설계가 충돌하지 않음을 확인했다.
+- D061/D067/D068/D072 와의 정합성(소유 계층, public config 보류, 기본 비활성)을 확인했다.
 - 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
 - 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 157개 통과/실패 0.

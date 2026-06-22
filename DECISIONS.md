@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D073 — UDP idle lease tracker/sweep 은 Broker 가 소유하고 Server 가 timer 로 트리거하며, 설정은 내부 options(기본 비활성)·시간은 `TimeProvider` 로 둔다.
 - D072 — UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 두고 기본 idle expiry 는 비활성화한다.
 - D071 — baseline report history 는 전역 index 를 두고 warning 은 계속 soft signal 로 유지한다.
 - D070 — 3개 baseline session 확보 후에도 latency hard gate 는 보류하고 summary/soft warning 을 먼저 만든다.
