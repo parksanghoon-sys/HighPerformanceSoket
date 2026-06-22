@@ -1,6 +1,5 @@
 using System;
 using System.Net;
-using System.Reflection;
 using System.Text;
 using Hps.Buffers;
 using Hps.Transport;
@@ -147,10 +146,77 @@ namespace Hps.Broker.Tests
             Assert.Equal(0, subscriptions.CountSubscribers("beta"));
         }
 
+        // handler sweep wiring 테스트는 UDP SUBSCRIBE command 로 생성된 lease 가 만료되면
+        // BrokerUdpDatagramHandler 의 sweep entry point 가 해당 remote subscription 을 제거하는지 검증한다.
+        [Fact]
+        public void SweepExpiredUdpLeases_WhenSubscribedRemoteExpires_RemovesRemoteSubscription()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+            RefCountedBuffer datagram = RentDatagram(pool, "SUBSCRIBE alpha");
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, 20000);
+            ManualTimeProvider time = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+            BrokerUdpDatagramHandler handler = CreateHandler(
+                subscriptions,
+                new FakeTransport(),
+                UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
+                time);
+
+            handler.OnDatagramReceived(endpoint, remoteEndPoint, datagram);
+            time.Advance(TimeSpan.FromSeconds(31));
+
+            int removed = handler.SweepExpiredUdpLeases(time.GetUtcNow());
+
+            Assert.Equal(1, removed);
+            Assert.False(subscriptions.IsSubscribed("alpha", BrokerSubscriber.ForUdp(endpoint, remoteEndPoint)));
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // handler publish activity 테스트는 lease 가 있는 UDP subscriber remote 가 PUBLISH 를 보내면
+        // last-seen 이 갱신되어 같은 timeout 창 안의 sweep 에서 제거되지 않는지 검증한다.
+        [Fact]
+        public void SweepExpiredUdpLeases_WhenSubscribedRemotePublishesBeforeTimeout_KeepsRemoteSubscription()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, 20000);
+            ManualTimeProvider time = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+            FakeTransport transport = new FakeTransport();
+            BrokerUdpDatagramHandler handler = CreateHandler(
+                subscriptions,
+                transport,
+                UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
+                time);
+
+            handler.OnDatagramReceived(endpoint, remoteEndPoint, RentDatagram(pool, "SUBSCRIBE alpha"));
+            time.Advance(TimeSpan.FromSeconds(20));
+            handler.OnDatagramReceived(endpoint, remoteEndPoint, RentDatagram(pool, "PUBLISH alpha PAYLOAD"));
+            time.Advance(TimeSpan.FromSeconds(20));
+
+            int removed = handler.SweepExpiredUdpLeases(time.GetUtcNow());
+
+            transport.ReleaseAcceptedBuffers();
+            Assert.Equal(0, removed);
+            Assert.True(subscriptions.IsSubscribed("alpha", BrokerSubscriber.ForUdp(endpoint, remoteEndPoint)));
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         private static BrokerUdpDatagramHandler CreateHandler(SubscriptionTable subscriptions, FakeTransport transport)
         {
             BrokerPublisher publisher = new BrokerPublisher(subscriptions, transport);
             return new BrokerUdpDatagramHandler(subscriptions, publisher);
+        }
+
+        private static BrokerUdpDatagramHandler CreateHandler(
+            SubscriptionTable subscriptions,
+            FakeTransport transport,
+            UdpLeaseOptions leaseOptions,
+            TimeProvider timeProvider)
+        {
+            BrokerPublisher publisher = new BrokerPublisher(subscriptions, transport);
+            return new BrokerUdpDatagramHandler(subscriptions, publisher, leaseOptions, timeProvider);
         }
 
         private static RefCountedBuffer RentDatagram(PinnedBlockMemoryPool pool, string text)
@@ -160,6 +226,26 @@ namespace Hps.Broker.Tests
             bytes.CopyTo(datagram.Span);
             datagram.SetLength(bytes.Length);
             return datagram;
+        }
+
+        private sealed class ManualTimeProvider : TimeProvider
+        {
+            private DateTimeOffset _utcNow;
+
+            internal ManualTimeProvider(DateTimeOffset utcNow)
+            {
+                _utcNow = utcNow;
+            }
+
+            public override DateTimeOffset GetUtcNow()
+            {
+                return _utcNow;
+            }
+
+            internal void Advance(TimeSpan delta)
+            {
+                _utcNow = _utcNow.Add(delta);
+            }
         }
     }
 }

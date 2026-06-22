@@ -14,19 +14,34 @@ namespace Hps.Broker
     {
         private readonly SubscriptionTable _subscriptions;
         private readonly BrokerPublisher _publisher;
+        private readonly UdpRemoteLeaseTracker _udpLeases;
 
         /// <summary>
         /// UDP command 처리를 위한 routing table 과 publisher 를 지정한다.
         /// </summary>
         public BrokerUdpDatagramHandler(SubscriptionTable subscriptions, BrokerPublisher publisher)
+            : this(subscriptions, publisher, UdpLeaseOptions.Disabled, TimeProvider.System)
+        {
+        }
+
+        internal BrokerUdpDatagramHandler(
+            SubscriptionTable subscriptions,
+            BrokerPublisher publisher,
+            UdpLeaseOptions leaseOptions,
+            TimeProvider timeProvider)
         {
             if (subscriptions == null)
                 throw new ArgumentNullException(nameof(subscriptions));
             if (publisher == null)
                 throw new ArgumentNullException(nameof(publisher));
+            if (leaseOptions == null)
+                throw new ArgumentNullException(nameof(leaseOptions));
+            if (timeProvider == null)
+                throw new ArgumentNullException(nameof(timeProvider));
 
             _subscriptions = subscriptions;
             _publisher = publisher;
+            _udpLeases = new UdpRemoteLeaseTracker(subscriptions, leaseOptions, timeProvider);
         }
 
         /// <summary>
@@ -52,25 +67,24 @@ namespace Hps.Broker
                     return;
                 }
 
-                BrokerSubscriber subscriber = BrokerSubscriber.ForUdp(endpoint, remoteEndPoint);
-
                 if (command.Kind == TcpCommandKind.Subscribe)
                 {
                     string topic = DecodeTopic(command.Topic);
-                    _subscriptions.Subscribe(topic, subscriber);
+                    _udpLeases.Subscribe(topic, endpoint, remoteEndPoint);
                     return;
                 }
 
                 if (command.Kind == TcpCommandKind.Unsubscribe)
                 {
                     string topic = DecodeTopic(command.Topic);
-                    _subscriptions.Unsubscribe(topic, subscriber);
+                    _udpLeases.Unsubscribe(topic, endpoint, remoteEndPoint);
                     return;
                 }
 
                 if (command.Kind == TcpCommandKind.Publish)
                 {
                     string topic = DecodeTopic(command.Topic);
+                    _udpLeases.MarkPublishActivity(endpoint, remoteEndPoint);
                     _publisher.Publish(topic, datagram, command.PayloadOffset, command.Payload.Length);
                     return;
                 }
@@ -89,7 +103,12 @@ namespace Hps.Broker
             if (endpoint == null)
                 throw new ArgumentNullException(nameof(endpoint));
 
-            _subscriptions.UnsubscribeAll(endpoint);
+            _udpLeases.RemoveEndpoint(endpoint);
+        }
+
+        internal int SweepExpiredUdpLeases(DateTimeOffset now)
+        {
+            return _udpLeases.SweepExpired(now);
         }
 
         private static string DecodeTopic(ReadOnlySpan<byte> topic)

@@ -45,10 +45,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - 내부 `UdpRemoteLeaseTracker`가 생겼고, UDP remote subscribe/unsubscribe/publish activity 와 endpoint close cleanup 을
   lease table 과 `SubscriptionTable`에 같은 lock 경계로 반영한다.
 - `UdpRemoteLeaseTracker.SweepExpired(DateTimeOffset)`가 생겼고, 만료된 remote target 을
-  `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 모든 topic 에서 제거한다. 아직 handler wiring 은 없다.
+  `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 모든 topic 에서 제거한다.
+- `BrokerUdpDatagramHandler`가 SUBSCRIBE/UNSUBSCRIBE/PUBLISH/endpoint-close activity 를 tracker 로 위임하고,
+  `SweepExpiredUdpLeases(DateTimeOffset)` 내부 entry point 를 제공한다. host timer/public settings 는 아직 없다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — UDP lease tracker handler wiring
+  - D073 구현 Task 4로 `BrokerUdpDatagramHandler`를 `UdpRemoteLeaseTracker`에 연결했다.
+  - public constructor 는 기존처럼 disabled lease options 를 사용해 기본 동작을 보존하고, internal constructor 로 테스트/후속 host wiring 이 options/time provider 를 주입한다.
+  - 검증: Red assertion failure 2개 확인, focused handler tests 8개 통과, reflection 제거 후 focused handler tests 8개 통과,
+    solution build 경고 0/오류 0, solution tests 170개 통과.
 - 이번 단위 — UDP remote lease pure sweep
   - D073 구현 Task 3으로 `UdpRemoteLeaseTracker.SweepExpired(DateTimeOffset)`를 추가했다.
   - plan 예시의 survivor remote setup 은 같은 시점 구독이면 함께 만료되므로, survivor를 늦게 구독하도록 테스트를 보정했다.
@@ -99,19 +106,18 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 사용자 리뷰 대기.
 
 이번 구현 단위 리뷰가 다음 게이트다.
-리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 UDP optional lease sweep 구현을 Task 4부터 진행한다.
+리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 BrokerServer host timer/public settings 설계를 다음 후보로 본다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 UDP optional lease sweep 구현 계획 Task 3, UDP remote lease pure sweep 추가다.
+이번 단위는 UDP optional lease sweep 구현 계획 Task 4, `BrokerUdpDatagramHandler` wiring 추가다.
 
-- Red: `UdpRemoteLeaseTrackerTests`에 sweep tests 를 reflection 기반으로 먼저 추가해 `SweepExpired` 메서드 부재에 따른 `Assert.NotNull` 실패 3개를 확인했다.
-- Green: `SweepExpired(DateTimeOffset)`를 추가해 idle timeout 초과 remote target 을 모든 topic 에서 제거한다.
-- Refactor: reflection 기반 Red helper 를 direct internal API 호출로 정리하고 focused tests 8개 통과를 확인했다.
-- 계획 보정: plan 예시의 survivor remote 는 expired remote 와 같은 시점에 구독하면 함께 만료되므로, survivor를 늦게 구독하도록 테스트 setup 을 보정했다.
+- Red: `BrokerUdpDatagramHandlerTests`에 sweep wiring tests 를 reflection 기반으로 먼저 추가해 internal constructor 부재에 따른 `Assert.NotNull` 실패 2개를 확인했다.
+- Green: `BrokerUdpDatagramHandler`가 tracker 를 생성하고 UDP command activity 와 endpoint close cleanup 을 tracker 로 위임하게 했다.
+- Refactor: reflection 기반 Red helper 를 direct internal API 호출로 정리하고 focused handler tests 8개 통과를 확인했다.
 - 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 168개 통과/실패 0.
+- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 170개 통과/실패 0.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -120,5 +126,4 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - latency hard gate 확정
 - RIO/io_uring backend 구현
 - stable subscriber identity 구현
-- BrokerUdpDatagramHandler lease wiring
 - BrokerServer host timer/public settings 구현

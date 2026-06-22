@@ -10,22 +10,22 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - 최신 완료 단위: 2026-06-22 UDP remote lease pure sweep 구현.
+  - 최신 완료 단위: 2026-06-22 UDP lease tracker handler wiring 구현.
   - 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
   - finding 이 없으면 아래 Deferred Backlog 중 하나만 Current TODO 로 승격한다.
 
 ## Deferred Backlog
 
-- [ ] `P2_LATER` UDP optional lease tracker 와 sweep 을 구현한다.
-  - 무엇이 남았는지: remote-wide unsubscribe primitive, owner/key/설정/clock 설계(D073), 내부 options, lease table/activity 모델, 순수 sweep 메서드는 있지만 handler wiring, host timer 트리거는 없다.
-  - 왜 defer 되었는지: D072에서 기본 idle expiry 는 비활성으로 두고, 설계와 구현을 작은 단위로 분리하기로 했다.
-  - objective: 운영자가 명시적으로 idle expiry 를 켰을 때 특정 UDP remote subscription 을 주기적으로 정리하는 선택적 cleanup 경로를 만든다.
-  - relevant context: D060, D072, D073, `docs/superpowers/specs/2026-06-22-udp-optional-lease-sweep-design.md`, `docs/superpowers/plans/2026-06-22-udp-optional-lease-sweep.md`, `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`.
-  - 관련 파일/범위: `src/Hps.Broker/`, `src/Hps.Server/`, 관련 tests.
-  - 현재 상태: lease/sweep owner(Broker 소유·Server 트리거), key, 내부 options(기본 비활성), `TimeProvider` 시간 추상화가 D073으로 확정됐다. 내부 `UdpLeaseOptions`, `UdpRemoteLeaseTracker` activity 모델, `SweepExpired(DateTimeOffset)` 순수 sweep 은 구현됐다.
+- [ ] `P2_LATER` BrokerServer UDP lease sweep host timer 와 public settings 를 설계/구현한다.
+  - 무엇이 남았는지: broker 내부 tracker/options/sweep/handler entry point 는 있지만 `BrokerServer`가 timer 로 `SweepExpiredUdpLeases(DateTimeOffset)`를 주기 호출하는 host wiring 과 운영자용 설정 표면은 없다.
+  - 왜 defer 되었는지: D073 구현 계획은 내부 broker core 를 Task 1~4로 제한했고, host timer/public settings 는 명시적으로 plan 밖 후속 범위로 분리했다.
+  - objective: 운영자가 명시적으로 idle expiry 를 켰을 때 server host 수명과 함께 UDP remote lease sweep 을 주기 실행하게 한다.
+  - relevant context: D060, D072, D073, `docs/superpowers/specs/2026-06-22-udp-optional-lease-sweep-design.md`, `docs/superpowers/plans/2026-06-22-udp-optional-lease-sweep.md`, `BrokerUdpDatagramHandler.SweepExpiredUdpLeases(DateTimeOffset)`.
+  - 관련 파일/범위: `src/Hps.Server/`, `src/Hps.Broker/`, server/broker 관련 tests.
+  - 현재 상태: `UdpLeaseOptions`, `UdpRemoteLeaseTracker`, `SweepExpired(DateTimeOffset)`, `BrokerUdpDatagramHandler` 내부 wiring 이 구현됐다. public constructor 는 disabled options 를 사용해 기존 기본 동작을 보존한다.
   - resolved: owner 계층, 설정 표면(내부 options, 기본 비활성), clock abstraction(`TimeProvider`)은 D073에서 결정됐다. C# 이름 충돌 때문에 활성 factory 는 `CreateEnabled(...)`로 확정했다. tracker는 `(IUdpEndpoint, EndPoint)`당 lease 1개를 유지하고 endpoint close 시 해당 endpoint lease와 subscription을 제거한다. sweep 은 timeout 을 초과한 remote target 을 모든 topic 에서 제거한다.
   - open questions: 기본 idle timeout/sweep interval 값, 운영자용 public 설정 표면은 여전히 별도 단위로 남는다.
-  - next step: 구현 계획 Task 4, `BrokerUdpDatagramHandler`가 subscribe/unsubscribe/publish/endpoint-close activity 를 tracker 로 위임하고 `SweepExpiredUdpLeases(DateTimeOffset)` entry point 를 노출하게 한다. host timer 는 그 다음 단위다.
+  - next step: 먼저 `BrokerServer` 생성/옵션 모델을 읽고, public 설정 표면을 설계한 뒤 별도 TDD 단위로 host timer 를 연결한다.
 
 - [ ] `P2_LATER` stable subscriber identity 와 reconnect rebinding 을 설계한다.
   - 무엇이 남았는지: v1 subscription 은 runtime endpoint 수명에 묶여 있고 reconnect 후 자동 rebinding 은 없다.
@@ -46,6 +46,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 UDP lease tracker handler wiring 을 구현했다.
+  - 범위: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`, root 상태 문서.
+  - 결과: UDP SUBSCRIBE/UNSUBSCRIBE/PUBLISH/endpoint-close activity 가 `UdpRemoteLeaseTracker`로 연결되고, handler 내부 sweep entry point 가 생겼다.
+  - 비고: public constructor 는 disabled options 를 사용해 기존 기본 동작을 보존하고, internal constructor 로 후속 host/test wiring 이 options/time provider 를 주입한다.
+  - 검증: Red assertion failure 2개 확인, focused handler tests 8개 통과, reflection 제거 후 focused handler tests 8개 통과, solution build 경고 0/오류 0, solution tests 170개 통과.
 
 - [x] 2026-06-22 UDP remote lease pure sweep 을 구현했다.
   - 범위: `src/Hps.Broker/UdpRemoteLeaseTracker.cs`, `tests/Hps.Broker.Tests/UdpRemoteLeaseTrackerTests.cs`, root 상태 문서.
