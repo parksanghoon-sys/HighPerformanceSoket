@@ -48,9 +48,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 모든 topic 에서 제거한다.
 - `BrokerUdpDatagramHandler`가 SUBSCRIBE/UNSUBSCRIBE/PUBLISH/endpoint-close activity 를 tracker 로 위임하고,
   `SweepExpiredUdpLeases(DateTimeOffset)` 내부 entry point 를 제공한다. host timer/public settings 는 아직 없다.
+- BrokerServer UDP lease host timer/public settings 설계는
+  `docs/superpowers/specs/2026-06-22-broker-server-udp-lease-host-timer-design.md`에 있다(D074).
+  기본은 disabled 이고, 활성화 시 idle timeout/sweep interval 은 명시 입력으로만 받는다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — BrokerServer UDP lease host timer 설계
+  - D074로 `BrokerServerOptions` public 설정 표면, 기본 disabled 정책, 명시 timeout/interval 입력, `TimeProvider` timer 수명,
+    Broker friend assembly 경계를 확정했다.
+  - 검증: 설계 self-review, `git diff --check`, solution build/test.
 - 이번 단위 — UDP lease tracker handler wiring
   - D073 구현 Task 4로 `BrokerUdpDatagramHandler`를 `UdpRemoteLeaseTracker`에 연결했다.
   - public constructor 는 기존처럼 disabled lease options 를 사용해 기본 동작을 보존하고, internal constructor 로 테스트/후속 host wiring 이 options/time provider 를 주입한다.
@@ -106,18 +113,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 사용자 리뷰 대기.
 
 이번 구현 단위 리뷰가 다음 게이트다.
-리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 BrokerServer host timer/public settings 설계를 다음 후보로 본다.
+리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 BrokerServer host timer/public settings 구현을 다음 후보로 본다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 UDP optional lease sweep 구현 계획 Task 4, `BrokerUdpDatagramHandler` wiring 추가다.
+이번 단위는 BrokerServer UDP lease host timer/public settings 설계다.
 
-- Red: `BrokerUdpDatagramHandlerTests`에 sweep wiring tests 를 reflection 기반으로 먼저 추가해 internal constructor 부재에 따른 `Assert.NotNull` 실패 2개를 확인했다.
-- Green: `BrokerUdpDatagramHandler`가 tracker 를 생성하고 UDP command activity 와 endpoint close cleanup 을 tracker 로 위임하게 했다.
-- Refactor: reflection 기반 Red helper 를 direct internal API 호출로 정리하고 focused handler tests 8개 통과를 확인했다.
-- 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
-- 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 170개 통과/실패 0.
+- 설계: `BrokerServerOptions.Default`는 disabled 이며, enabled 는 `CreateWithUdpLeaseSweep(...)`로 명시 timeout/interval 을 받는다.
+- 설계: Broker public lease options 를 늘리지 않고 `Hps.Broker`가 `Hps.Server`를 friend assembly 로 허용한다.
+- 검증 예정: `git diff --check`, `dotnet build HighPerformanceSocket.slnx --no-restore`,
+  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -126,4 +131,4 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - latency hard gate 확정
 - RIO/io_uring backend 구현
 - stable subscriber identity 구현
-- BrokerServer host timer/public settings 구현
+- BrokerServer host timer/public settings 구현은 다음 단위
