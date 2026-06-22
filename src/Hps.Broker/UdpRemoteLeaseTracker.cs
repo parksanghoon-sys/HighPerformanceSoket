@@ -108,6 +108,35 @@ namespace Hps.Broker
             }
         }
 
+        internal int SweepExpired(DateTimeOffset now)
+        {
+            if (!_options.Enabled)
+                return 0;
+
+            lock (_gate)
+            {
+                int removed = 0;
+                List<UdpRemoteLeaseKey> expiredKeys = new List<UdpRemoteLeaseKey>();
+
+                // sweep 은 SUBSCRIBE/UNSUBSCRIBE 와 같은 gate 안에서 실행한다. 이렇게 해야 key 를 골라낸 뒤
+                // routing table cleanup 사이에 같은 remote 의 새 구독이 끼어들어 함께 제거되는 경합을 막을 수 있다.
+                foreach (KeyValuePair<UdpRemoteLeaseKey, UdpRemoteLease> pair in _leases)
+                {
+                    if (now - pair.Value.LastSeen > _options.IdleTimeout)
+                        expiredKeys.Add(pair.Key);
+                }
+
+                for (int index = 0; index < expiredKeys.Count; index++)
+                {
+                    UdpRemoteLeaseKey key = expiredKeys[index];
+                    removed += _subscriptions.UnsubscribeAll(key.Endpoint, key.RemoteEndPoint);
+                    _leases.Remove(key);
+                }
+
+                return removed;
+            }
+        }
+
         private UdpRemoteLease GetOrCreateLease(IUdpEndpoint endpoint, EndPoint remoteEndPoint)
         {
             UdpRemoteLeaseKey key = new UdpRemoteLeaseKey(endpoint, remoteEndPoint);

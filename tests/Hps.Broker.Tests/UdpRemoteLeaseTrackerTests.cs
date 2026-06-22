@@ -106,6 +106,77 @@ namespace Hps.Broker.Tests
             Assert.Equal(1, tracker.LeaseCount);
         }
 
+        // sweep 만료 테스트는 idle timeout 을 넘긴 remote target 만 모든 topic 에서 제거하는지 검증한다.
+        // survivor remote 는 더 늦게 구독시켜 같은 sweep 시점에서도 아직 유효한 lease 로 남아야 한다.
+        [Fact]
+        public void SweepExpired_WhenLeaseIsOlderThanTimeout_RemovesRemoteFromEveryTopic()
+        {
+            SubscriptionTable table = new SubscriptionTable();
+            ManualTimeProvider time = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+            FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            EndPoint expiredRemote = new IPEndPoint(IPAddress.Loopback, 20000);
+            EndPoint survivorRemote = new IPEndPoint(IPAddress.Loopback, 20001);
+            UdpRemoteLeaseTracker tracker = new UdpRemoteLeaseTracker(table, UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)), time);
+
+            tracker.Subscribe("alpha", endpoint, expiredRemote);
+            tracker.Subscribe("beta", endpoint, expiredRemote);
+            time.Advance(TimeSpan.FromSeconds(20));
+            tracker.Subscribe("alpha", endpoint, survivorRemote);
+            time.Advance(TimeSpan.FromSeconds(11));
+
+            int removed = tracker.SweepExpired(time.GetUtcNow());
+
+            Assert.Equal(2, removed);
+            Assert.False(table.IsSubscribed("alpha", BrokerSubscriber.ForUdp(endpoint, expiredRemote)));
+            Assert.False(table.IsSubscribed("beta", BrokerSubscriber.ForUdp(endpoint, expiredRemote)));
+            Assert.True(table.IsSubscribed("alpha", BrokerSubscriber.ForUdp(endpoint, survivorRemote)));
+            Assert.Equal(1, tracker.LeaseCount);
+        }
+
+        // publish activity 갱신 테스트는 이미 lease 가 있는 remote 의 PUBLISH 가 last-seen 을 갱신하는지 검증한다.
+        // publisher-only remote lease 는 만들지 않지만, 기존 subscriber remote activity 는 idle cleanup 에서 보존 신호로 사용한다.
+        [Fact]
+        public void SweepExpired_WhenPublishRefreshesExistingLease_KeepsRemote()
+        {
+            SubscriptionTable table = new SubscriptionTable();
+            ManualTimeProvider time = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+            FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            EndPoint remote = new IPEndPoint(IPAddress.Loopback, 20000);
+            UdpRemoteLeaseTracker tracker = new UdpRemoteLeaseTracker(table, UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)), time);
+
+            tracker.Subscribe("alpha", endpoint, remote);
+            time.Advance(TimeSpan.FromSeconds(20));
+            tracker.MarkPublishActivity(endpoint, remote);
+            time.Advance(TimeSpan.FromSeconds(20));
+
+            int removed = tracker.SweepExpired(time.GetUtcNow());
+
+            Assert.Equal(0, removed);
+            Assert.True(table.IsSubscribed("alpha", BrokerSubscriber.ForUdp(endpoint, remote)));
+            Assert.Equal(1, tracker.LeaseCount);
+        }
+
+        // disabled sweep 테스트는 기본 비활성 options 에서는 sweep 호출이 subscription 을 건드리지 않는지 검증한다.
+        // D073의 기본 동작 보존 계약을 sweep entry point 에서도 고정한다.
+        [Fact]
+        public void SweepExpired_WhenOptionsAreDisabled_DoesNothing()
+        {
+            SubscriptionTable table = new SubscriptionTable();
+            ManualTimeProvider time = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+            FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            EndPoint remote = new IPEndPoint(IPAddress.Loopback, 20000);
+            UdpRemoteLeaseTracker tracker = new UdpRemoteLeaseTracker(table, UdpLeaseOptions.Disabled, time);
+
+            tracker.Subscribe("alpha", endpoint, remote);
+            time.Advance(TimeSpan.FromHours(1));
+
+            int removed = tracker.SweepExpired(time.GetUtcNow());
+
+            Assert.Equal(0, removed);
+            Assert.True(table.IsSubscribed("alpha", BrokerSubscriber.ForUdp(endpoint, remote)));
+            Assert.Equal(0, tracker.LeaseCount);
+        }
+
         private sealed class ManualTimeProvider : TimeProvider
         {
             private DateTimeOffset _utcNow;

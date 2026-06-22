@@ -43,10 +43,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - 내부 `UdpLeaseOptions` 타입과 `Hps.Broker.Tests` internal 접근 경계가 생겼다. 활성 옵션 factory 는 C# 멤버 이름 충돌을 피하기 위해
   `CreateEnabled(TimeSpan, TimeSpan)` 이름을 사용한다.
 - 내부 `UdpRemoteLeaseTracker`가 생겼고, UDP remote subscribe/unsubscribe/publish activity 와 endpoint close cleanup 을
-  lease table 과 `SubscriptionTable`에 같은 lock 경계로 반영한다. 아직 순수 sweep 메서드와 handler wiring 은 없다.
+  lease table 과 `SubscriptionTable`에 같은 lock 경계로 반영한다.
+- `UdpRemoteLeaseTracker.SweepExpired(DateTimeOffset)`가 생겼고, 만료된 remote target 을
+  `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 모든 topic 에서 제거한다. 아직 handler wiring 은 없다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — UDP remote lease pure sweep
+  - D073 구현 Task 3으로 `UdpRemoteLeaseTracker.SweepExpired(DateTimeOffset)`를 추가했다.
+  - plan 예시의 survivor remote setup 은 같은 시점 구독이면 함께 만료되므로, survivor를 늦게 구독하도록 테스트를 보정했다.
+  - 검증: Red assertion failure 3개 확인, focused tests 8개 통과, reflection 제거 후 focused tests 8개 통과,
+    solution build 경고 0/오류 0, solution tests 168개 통과.
 - 이번 단위 — UDP remote lease tracker activity
   - D073 구현 Task 2로 내부 `UdpRemoteLeaseTracker`와 focused 테스트를 추가했다.
   - 계획서의 compile-failure Red는 AGENTS의 assertion-failure Red 규칙에 맞춰 reflection 기반 타입 부재 assertion 실패로 보정했다.
@@ -92,19 +99,19 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 사용자 리뷰 대기.
 
 이번 구현 단위 리뷰가 다음 게이트다.
-리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 UDP optional lease sweep 구현을 Task 3부터 진행한다.
+리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 UDP optional lease sweep 구현을 Task 4부터 진행한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 UDP optional lease sweep 구현 계획 Task 2, UDP remote lease tracker activity 모델 추가다.
+이번 단위는 UDP optional lease sweep 구현 계획 Task 3, UDP remote lease pure sweep 추가다.
 
-- Red: `UdpRemoteLeaseTrackerTests`를 reflection 기반으로 먼저 추가해 `UdpRemoteLeaseTracker` 타입 부재에 따른 `Assert.NotNull` 실패 5개를 확인했다.
-- Green: `UdpRemoteLeaseTracker`를 추가해 subscribe/unsubscribe/publish activity 와 endpoint cleanup lease state 를 구현했다.
-- Refactor: reflection 기반 Red 테스트를 direct internal API 호출 테스트로 정리하고 focused tests 5개 통과를 확인했다.
-- 계획 보정: 계획서의 compile-failure Red는 AGENTS의 assertion-failure Red 규칙과 충돌하므로 reflection assertion failure Red로 수행했다.
+- Red: `UdpRemoteLeaseTrackerTests`에 sweep tests 를 reflection 기반으로 먼저 추가해 `SweepExpired` 메서드 부재에 따른 `Assert.NotNull` 실패 3개를 확인했다.
+- Green: `SweepExpired(DateTimeOffset)`를 추가해 idle timeout 초과 remote target 을 모든 topic 에서 제거한다.
+- Refactor: reflection 기반 Red helper 를 direct internal API 호출로 정리하고 focused tests 8개 통과를 확인했다.
+- 계획 보정: plan 예시의 survivor remote 는 expired remote 와 같은 시점에 구독하면 함께 만료되므로, survivor를 늦게 구독하도록 테스트 setup 을 보정했다.
 - 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 165개 통과/실패 0.
+- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 168개 통과/실패 0.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -113,6 +120,5 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - latency hard gate 확정
 - RIO/io_uring backend 구현
 - stable subscriber identity 구현
-- UDP sweep 구현
 - BrokerUdpDatagramHandler lease wiring
 - BrokerServer host timer/public settings 구현
