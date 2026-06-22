@@ -9,10 +9,11 @@
 
 ## Current TODOs
 
-- Stable subscriber identity 구현 계획 Task 2 — `SubscriberIdentity` / `SubscriberRegistry` pure model 구현.
+- Stable subscriber identity 구현 계획 Task 3 — TCP `BrokerTcpFrameHandler` stable identity wiring.
   - 계획 문서: `docs/superpowers/plans/2026-06-22-stable-subscriber-identity.md`.
-  - 범위: Broker 내부 pure model, identity token validation, topic set retention, rebind, unregister, disconnected sweep.
-  - handler/server wiring 은 Task 3~5에서 별도 커밋으로 진행한다.
+  - 범위: TCP `REGISTER`/`UNREGISTER`, registered target subscribe/unsubscribe, reconnect rebind, duplicate target reject/close,
+    connection close cleanup 을 `SubscriberRegistry`에 연결한다.
+  - UDP handler/server options 는 Task 4~5에서 별도 커밋으로 진행한다.
 
 ## Deferred Backlog
 
@@ -27,6 +28,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 Stable subscriber identity pure registry 를 구현했다.
+  - 범위: `src/Hps.Broker/SubscriberIdentity.cs`, `src/Hps.Broker/SubscriberRegistrationResult.cs`,
+    `src/Hps.Broker/SubscriberRegistry.cs`, `tests/Hps.Broker.Tests/SubscriberIdentityTests.cs`,
+    `tests/Hps.Broker.Tests/SubscriberRegistryTests.cs`, root 상태 문서.
+  - 결과: identity token validation, identity별 topic metadata, same-id rebind, duplicate target conflict,
+    disconnect retention, explicit unregister, disconnected sweep, UDP endpoint cleanup 을 pure model 로 추가했다.
+  - 검증: reflection contract Red assertion failure 2개, behavior Red assertion failure 10개 확인,
+    focused broker identity/registry tests 15개 통과.
 
 - [x] 2026-06-22 Stable subscriber identity protocol decode 를 구현했다.
   - 범위: `src/Hps.Protocol/TcpCommandKind.cs`, `src/Hps.Protocol/TcpCommandDecoder.cs`,
