@@ -55,9 +55,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   `CreateWithUdpLeaseSweep(...)`는 explicit timeout/interval 과 `TimeProvider`를 저장한다.
 - `BrokerServer`가 UDP lease sweep enabled options 를 받으면 `StartUdpAsync` 성공 후 `TimeProvider.CreateTimer`로 sweep timer 를 만들고,
   `StopAsync`와 start 실패 cleanup 에서 timer 를 dispose 한다. timer callback 은 `BrokerUdpDatagramHandler.SweepExpiredUdpLeases(...)`를 호출한다.
+- Stable subscriber identity / reconnect rebinding 정책은 D075로 정리했다.
+  기본 v1 runtime target subscription 은 유지하고, 후속 stable identity 는 `REGISTER <subscriber-id>` 기반 opt-in Broker registry 로 설계한다.
+  같은 id 재등록은 새 runtime target 이 이기며, disconnected 동안 payload 는 저장하지 않는다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — Stable subscriber identity / reconnect rebinding 정책 설계
+  - D058/D059/D060 이후 남아 있던 stable subscriber identity 후속 방향을 D075로 정리했다.
+  - 기본 runtime target 모델을 유지하고, 후속 opt-in `REGISTER` identity registry, duplicate/rebind, disconnect retention, 테스트 순서를 설계했다.
+  - 검증: 실제 `BrokerSubscriber`, `SubscriptionTable`, TCP/UDP handler, 기존 identity policy 문서와 대조했고,
+    `git diff --check`, solution build/test 로 문서 변경이 빌드 상태를 깨지 않음을 확인한다.
 - 이번 단위 — BrokerServer UDP lease host timer wiring
   - D074 구현 두 번째 단위로 `BrokerServerOptions`를 `BrokerServer`와 `BrokerUdpDatagramHandler`에 연결했다.
   - UDP start 성공 시 sweep timer 를 만들고, Stop/start 실패 시 timer 수명을 정리한다.
@@ -126,16 +134,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 사용자 리뷰 대기.
 
-이번 구현 단위 리뷰가 다음 게이트다.
-리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 를 재평가해 다음 reviewable 단위를 고른다.
+이번 설계 단위 리뷰가 다음 게이트다.
+리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 stable subscriber identity 구현 계획을 별도 문서로 작성한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 BrokerServer UDP lease host timer wiring 이다.
+이번 단위는 Stable subscriber identity / reconnect rebinding 정책 설계다.
 
-- Red: `BrokerServerTests`에 UDP lease sweep enabled 경로 테스트 2개를 reflection 기반으로 먼저 추가해 생성자 부재에 따른 `Assert.NotNull` 실패 2개를 확인했다.
-- Green: `BrokerServer` options 생성자, `Hps.Broker` friend assembly, UDP start/stop timer 수명 wiring 을 추가했다.
-- Refactor: 기본 생성자를 options 생성자에 위임하고, reflection 기반 Red helper 를 direct public API 호출로 정리했다.
+- 현재 `BrokerSubscriber`, `SubscriptionTable`, `BrokerTcpFrameHandler`, `BrokerUdpDatagramHandler`, `TcpCommandDecoder`를 확인해 runtime target subscription 구조와 command grammar 를 재검증했다.
+- `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`와 D058/D059/D060을 기준으로 `EndpointId`를 stable routing key 로 쓰지 않는 정책을 유지했다.
 - 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
 - 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 175개 통과/실패 0.
@@ -147,3 +154,4 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - latency hard gate 확정
 - RIO/io_uring backend 구현
 - stable subscriber identity 구현
+- stable identity 구현 계획 작성

@@ -9,19 +9,12 @@
 
 ## Current TODOs
 
-- 현재 실행 중인 코드 작업 없음.
-  - BrokerServer UDP lease sweep host timer/public settings 구현 단위는 완료됐다.
-  - 이번 단위 리뷰 후 finding 이 있으면 우선 반영하고, 없으면 Deferred Backlog 를 재평가해 다음 reviewable 단위를 고른다.
+- Stable subscriber identity / reconnect rebinding 정책 설계 리뷰 대기.
+  - 설계 문서: `docs/superpowers/specs/2026-06-22-stable-subscriber-identity-reconnect-policy-design.md`.
+  - 리뷰 finding 이 있으면 먼저 반영한다.
+  - 승인되면 다음 단위는 stable subscriber identity 구현 계획 작성이다.
 
 ## Deferred Backlog
-
-- [ ] `P2_LATER` stable subscriber identity 와 reconnect rebinding 을 설계한다.
-  - 무엇이 남았는지: v1 subscription 은 runtime endpoint 수명에 묶여 있고 reconnect 후 자동 rebinding 은 없다.
-  - 왜 defer 되었는지: D058/D059에서 stable identity 는 handshake/configuration/control-plane 결정을 동반하므로 v1 밖으로 뺐다.
-  - objective: 실제 요구가 생기면 TCP/UDP 공통 subscriber identity, duplicate 처리, reconnect semantics 를 정한다.
-  - relevant context: D058, D059, D060, `docs/superpowers/specs/2026-06-16-endpoint-identity-policy.md`.
-  - 관련 파일/범위: `src/Hps.Broker/`, `src/Hps.Protocol/`, `src/Hps.Server/`, samples, 관련 tests.
-  - next step: 요구가 확인되면 먼저 wire/control-plane 설계를 작성한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -34,6 +27,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 Stable subscriber identity / reconnect rebinding 정책을 설계했다.
+  - 범위: `docs/superpowers/specs/2026-06-22-stable-subscriber-identity-reconnect-policy-design.md`,
+    `DECISIONS.md`, root 상태 문서.
+  - 결과: 기본 runtime target subscription 은 유지하고, 후속 stable identity 는 opt-in `REGISTER <subscriber-id>` 기반 Broker registry 로 설계했다.
+  - 결정: 같은 id 재등록은 새 runtime target 이 이기며, disconnected 동안 payload 는 저장하지 않는다. `EndpointId`는 계속 diagnostics id 로 둔다.
+  - 검증: 기존 endpoint identity policy, D058/D059/D060, 실제 Broker routing/handler/decoder 구조와 대조했다.
+    `git diff --check`, solution build/test 로 문서 변경이 빌드 상태를 깨지 않음을 확인한다.
 
 - [x] 2026-06-22 BrokerServer UDP lease sweep host timer/public settings 를 구현했다.
   - 범위: `src/Hps.Server/BrokerServer.cs`, `src/Hps.Broker/Properties/AssemblyInfo.cs`,
