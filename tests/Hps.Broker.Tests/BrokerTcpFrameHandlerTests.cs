@@ -115,6 +115,93 @@ namespace Hps.Broker.Tests
             Assert.Equal(0, subscriptions.CountSubscribers("beta"));
         }
 
+        // TCP stable identity reconnect 테스트: 같은 subscriber-id 로 새 connection 이 REGISTER 하면
+        // 기존 topic subscription 이 새 runtime target 으로 이동해야 한다.
+        [Fact]
+        public void OnFrame_WhenRegisteredTcpSubscriberReconnects_RebindsSubscriptionsToNewConnection()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            SubscriberRegistry registry = new SubscriberRegistry(subscriptions);
+            BrokerTcpFrameHandler handler = CreateHandler(subscriptions, new FakeTransport(), registry);
+            FakeConnection oldConnection = new FakeConnection();
+            FakeConnection newConnection = new FakeConnection();
+
+            handler.OnFrame(oldConnection, RentFrame(pool, "REGISTER device-a"));
+            handler.OnFrame(oldConnection, RentFrame(pool, "SUBSCRIBE alpha"));
+            handler.OnFrame(newConnection, RentFrame(pool, "REGISTER device-a"));
+
+            Assert.False(subscriptions.IsSubscribed("alpha", oldConnection));
+            Assert.True(subscriptions.IsSubscribed("alpha", newConnection));
+            Assert.Equal(1, oldConnection.CloseCallCount);
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // TCP invalid duplicate registration 테스트: 같은 connection 이 다른 id 로 REGISTER 하면
+        // cleanup 기준이 모호해지므로 protocol error 로 닫고 기존 subscription 을 제거해야 한다.
+        [Fact]
+        public void OnFrame_WhenRegisteredTcpTargetUsesDifferentIdentity_ClosesConnectionAndCleansSubscriptions()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            SubscriberRegistry registry = new SubscriberRegistry(subscriptions);
+            BrokerTcpFrameHandler handler = CreateHandler(subscriptions, new FakeTransport(), registry);
+            FakeConnection connection = new FakeConnection();
+
+            handler.OnFrame(connection, RentFrame(pool, "REGISTER device-a"));
+            handler.OnFrame(connection, RentFrame(pool, "SUBSCRIBE alpha"));
+            handler.OnFrame(connection, RentFrame(pool, "REGISTER device-b"));
+
+            Assert.Equal(1, connection.CloseCallCount);
+            Assert.False(subscriptions.IsSubscribed("alpha", connection));
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // TCP disconnect 보존 테스트: registered connection 이 닫히면 runtime target 은 제거되지만
+        // 같은 id 로 새 connection 이 REGISTER 했을 때 이전 topic set 이 복구되어야 한다.
+        [Fact]
+        public void OnConnectionClosed_WhenRegisteredTcpSubscriberReconnectsLater_RestoresTopicSet()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            SubscriberRegistry registry = new SubscriberRegistry(subscriptions);
+            BrokerTcpFrameHandler handler = CreateHandler(subscriptions, new FakeTransport(), registry);
+            FakeConnection oldConnection = new FakeConnection();
+            FakeConnection newConnection = new FakeConnection();
+
+            handler.OnFrame(oldConnection, RentFrame(pool, "REGISTER device-a"));
+            handler.OnFrame(oldConnection, RentFrame(pool, "SUBSCRIBE alpha"));
+            handler.OnConnectionClosed(oldConnection);
+            handler.OnFrame(newConnection, RentFrame(pool, "REGISTER device-a"));
+
+            Assert.False(subscriptions.IsSubscribed("alpha", oldConnection));
+            Assert.True(subscriptions.IsSubscribed("alpha", newConnection));
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        // TCP explicit UNREGISTER 테스트: client 가 명시적으로 identity 등록을 해제하면 현재 subscription 과 metadata 를 함께 제거해야 한다.
+        // 그렇지 않으면 같은 id 의 다음 REGISTER 때 사용자가 버린 topic set 이 되살아난다.
+        [Fact]
+        public void OnFrame_WhenRegisteredTcpSubscriberUnregisters_RemovesIdentityAndSubscriptions()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            SubscriberRegistry registry = new SubscriberRegistry(subscriptions);
+            BrokerTcpFrameHandler handler = CreateHandler(subscriptions, new FakeTransport(), registry);
+            FakeConnection oldConnection = new FakeConnection();
+            FakeConnection newConnection = new FakeConnection();
+
+            handler.OnFrame(oldConnection, RentFrame(pool, "REGISTER device-a"));
+            handler.OnFrame(oldConnection, RentFrame(pool, "SUBSCRIBE alpha"));
+            handler.OnFrame(oldConnection, RentFrame(pool, "UNREGISTER device-a"));
+            handler.OnFrame(newConnection, RentFrame(pool, "REGISTER device-a"));
+
+            Assert.False(subscriptions.IsSubscribed("alpha", oldConnection));
+            Assert.False(subscriptions.IsSubscribed("alpha", newConnection));
+            Assert.Equal(1, registry.IdentityCount);
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         // malformed frame 처리 테스트: command decode 실패는 정상 흐름 오류이므로 handler 밖으로 예외를 던지지 않는다.
         // 대신 frame 을 Release 하고 connection 을 닫아 이후 같은 TCP stream 에서 모호한 protocol 상태가 이어지지 않게 한다.
         [Fact]
@@ -162,6 +249,15 @@ namespace Hps.Broker.Tests
         {
             BrokerPublisher publisher = new BrokerPublisher(subscriptions, transport);
             return new BrokerTcpFrameHandler(subscriptions, publisher);
+        }
+
+        private static BrokerTcpFrameHandler CreateHandler(
+            SubscriptionTable subscriptions,
+            FakeTransport transport,
+            SubscriberRegistry registry)
+        {
+            BrokerPublisher publisher = new BrokerPublisher(subscriptions, transport);
+            return new BrokerTcpFrameHandler(subscriptions, publisher, registry, TimeProvider.System);
         }
 
         private static RefCountedBuffer RentFrame(PinnedBlockMemoryPool pool, string text)

@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- Stable subscriber identity 구현 계획 Task 3 — TCP `BrokerTcpFrameHandler` stable identity wiring.
+- Stable subscriber identity 구현 계획 Task 4 — UDP `BrokerUdpDatagramHandler` stable identity wiring.
   - 계획 문서: `docs/superpowers/plans/2026-06-22-stable-subscriber-identity.md`.
-  - 범위: TCP `REGISTER`/`UNREGISTER`, registered target subscribe/unsubscribe, reconnect rebind, duplicate target reject/close,
-    connection close cleanup 을 `SubscriberRegistry`에 연결한다.
-  - UDP handler/server options 는 Task 4~5에서 별도 커밋으로 진행한다.
+  - 범위: UDP `REGISTER`/`UNREGISTER`, registered remote subscribe/unsubscribe, same-id remote rebind,
+    endpoint close cleanup 을 `SubscriberRegistry`와 `UdpRemoteLeaseTracker`에 연결한다.
+  - BrokerServer options/timer wiring 은 Task 5에서 별도 커밋으로 진행한다.
 
 ## Deferred Backlog
 
@@ -28,6 +28,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 Stable subscriber identity TCP handler wiring 을 구현했다.
+  - 범위: `src/Hps.Broker/BrokerTcpFrameHandler.cs`, `tests/Hps.Broker.Tests/BrokerTcpFrameHandlerTests.cs`, root 상태 문서.
+  - 결과: optional registry/time provider internal constructor, TCP `REGISTER`/`UNREGISTER`, registered target subscribe/unsubscribe,
+    same-id reconnect rebind, duplicate target reject/close, connection close cleanup 을 연결했다.
+  - 검증: internal constructor 부재 Red assertion failure 4개 확인, focused TCP handler tests 11개 통과.
 
 - [x] 2026-06-22 Stable subscriber identity pure registry 를 구현했다.
   - 범위: `src/Hps.Broker/SubscriberIdentity.cs`, `src/Hps.Broker/SubscriberRegistrationResult.cs`,

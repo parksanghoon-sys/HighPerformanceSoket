@@ -65,9 +65,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   stable identity token 은 다음 Broker 단계에서 `TcpCommand.Topic` span view 를 해석해 사용한다.
 - Broker 계층에는 내부 `SubscriberIdentity`, `SubscriberRegistrationResult`, `SubscriberRegistry` pure model 이 있다.
   registry 는 identity별 topic metadata 와 현재 online `BrokerSubscriber` target 을 연결하며 payload 는 저장하지 않는다.
+- TCP `BrokerTcpFrameHandler`는 선택적 `SubscriberRegistry`가 주입되면 `REGISTER`/`UNREGISTER`와 registered
+  target 의 subscribe/unsubscribe/close cleanup 을 registry 로 연결한다. 기본 public constructor 는 기존 runtime target 동작을 유지한다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — Stable subscriber identity TCP handler wiring
+  - Task 3으로 `BrokerTcpFrameHandler`에 optional `SubscriberRegistry`와 `TimeProvider` internal constructor 를 추가했다.
+  - TCP `REGISTER`/`UNREGISTER`, registered target subscribe/unsubscribe, same-id reconnect rebind,
+    same-target different-id reject/close, connection close cleanup 을 registry 경로로 연결했다.
+  - 검증: internal constructor 부재 Red assertion failure 4개 확인, focused TCP handler tests 11개 통과.
 - 이번 단위 — Stable subscriber identity pure registry
   - Task 2로 `SubscriberIdentity`, `SubscriberRegistrationResult`, `SubscriberRegistry`를 추가했다.
   - registry 는 registered target 의 subscribe/unsubscribe metadata, same-id rebind, duplicate target conflict,
@@ -154,20 +161,19 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Stable subscriber identity 구현 계획 Task 3을 진행한다.
+Stable subscriber identity 구현 계획 Task 4를 진행한다.
 
-다음 단위는 TCP `BrokerTcpFrameHandler` stable identity wiring 이다.
-enabled registry 가 주입된 handler 에서 `REGISTER`/`UNREGISTER`, registered target 의 subscribe/unsubscribe,
-same-id reconnect rebind, same-target different-id reject/close, connection close cleanup 을 연결한다.
+다음 단위는 UDP `BrokerUdpDatagramHandler` stable identity wiring 이다.
+enabled registry 가 주입된 handler 에서 UDP `REGISTER`/`UNREGISTER`, registered remote 의 subscribe/unsubscribe,
+same-id remote rebind, endpoint close cleanup 을 `SubscriberRegistry`와 `UdpRemoteLeaseTracker`에 함께 연결한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 Stable subscriber identity pure registry 구현이다.
+이번 단위는 Stable subscriber identity TCP handler wiring 구현이다.
 
-- Red 1: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter "FullyQualifiedName~SubscriberIdentityTests|FullyQualifiedName~SubscriberRegistryTests"`
-  에서 타입 부재로 reflection contract assertion failure 2개를 확인했다.
-- Red 2: 스텁 추가 뒤 같은 focused tests 에서 validation/rebind/retention 동작 부재로 assertion failure 10개를 확인했다.
-- Green/Refactor: 같은 focused broker identity/registry tests 15개가 통과했다.
+- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter FullyQualifiedName~BrokerTcpFrameHandlerTests`
+  에서 registry 주입 internal constructor 부재로 assertion failure 4개를 확인했다.
+- Green/Refactor: 같은 focused TCP handler tests 11개가 통과했다.
 - 최종 검증은 커밋 전 `git diff --check`, solution build/test 로 확인한다.
 
 ## 이번 작업에서 건드리지 않는 범위
@@ -176,4 +182,4 @@ same-id reconnect rebind, same-target different-id reject/close, connection clos
 - CI workflow 또는 warning-as-failure 정책 구현
 - latency hard gate 확정
 - RIO/io_uring backend 구현
-- TCP/UDP handler wiring 과 BrokerServer opt-in timer wiring
+- UDP handler wiring 과 BrokerServer opt-in timer wiring
