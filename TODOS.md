@@ -9,10 +9,7 @@
 
 ## Current TODOs
 
-- Stable subscriber identity 구현 계획 Task 5 — `BrokerServerOptions` opt-in 설정과 `BrokerServer` retention timer wiring.
-  - 계획 문서: `docs/superpowers/plans/2026-06-22-stable-subscriber-identity.md`.
-  - 범위: stable identity enabled options, shared `SubscriberRegistry` TCP/UDP handler 주입,
-    disconnected identity retention sweep timer 수명 관리를 연결한다.
+- 없음. Stable subscriber identity 구현 계획 Task 1~5는 완료됐고, 다음 단계는 `.claude/review/` 구현 검토 대기다.
 
 ## Deferred Backlog
 
@@ -27,6 +24,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 Stable subscriber identity BrokerServer opt-in wiring 을 구현했다.
+  - 범위: `src/Hps.Server/BrokerServerOptions.cs`, `src/Hps.Server/BrokerServer.cs`,
+    `tests/Hps.Server.Tests/BrokerServerOptionsTests.cs`, `tests/Hps.Server.Tests/BrokerServerTests.cs`, root 상태 문서.
+  - 결과: stable identity public options/factory/with method, shared `SubscriberRegistry` TCP/UDP handler 주입,
+    retention sweep timer 생성/중복 방지/StopAsync dispose 를 연결했다.
+  - 검증: stable identity Server/Options Red assertion failure 7개 확인, focused tests 7개 통과.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 214개 통과.
 
 - [x] 2026-06-22 Stable subscriber identity UDP handler wiring 을 구현했다.
   - 범위: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `src/Hps.Broker/UdpRemoteLeaseTracker.cs`,

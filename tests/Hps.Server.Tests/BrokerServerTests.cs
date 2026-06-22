@@ -208,6 +208,88 @@ namespace Hps.Server.Tests
             }
         }
 
+        // stable identity Server wiring 테스트는 Server 가 TCP handler 에 shared SubscriberRegistry 를 실제로 주입하는지 검증한다.
+        // REGISTER 뒤 연결이 끊겨도 topic metadata 가 registry 에 남아야 같은 subscriber-id 재접속 때 구독을 복구할 수 있다.
+        [Fact]
+        public async Task StartTcpAsync_WhenStableSubscriberIdentityEnabled_WiresRegistryIntoTcpHandler()
+        {
+            FakeTransport transport = new FakeTransport();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            ManualTimeProvider timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+            BrokerServerOptions options = BrokerServerOptions.CreateWithStableSubscriberIdentity(TimeSpan.FromMinutes(5), timeProvider);
+            using (BrokerServer server = new BrokerServer(transport, pool, 128, options))
+            {
+                await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                BrokerTcpFrameHandler handler = ReadBrokerFrameHandler(server);
+                FakeConnection oldConnection = new FakeConnection();
+                FakeConnection newConnection = new FakeConnection();
+
+                handler.OnFrame(oldConnection, RentFrame(pool, "REGISTER device-a"));
+                handler.OnFrame(oldConnection, RentFrame(pool, "SUBSCRIBE alpha"));
+                Assert.True(ReadSubscriptionTable(server).IsSubscribed("alpha", BrokerSubscriber.ForTcp(oldConnection)));
+
+                handler.OnConnectionClosed(oldConnection);
+                Assert.False(ReadSubscriptionTable(server).IsSubscribed("alpha", BrokerSubscriber.ForTcp(oldConnection)));
+
+                handler.OnFrame(newConnection, RentFrame(pool, "REGISTER device-a"));
+
+                Assert.True(ReadSubscriptionTable(server).IsSubscribed("alpha", BrokerSubscriber.ForTcp(newConnection)));
+                Assert.Equal(0, pool.RentedCount);
+            }
+        }
+
+        // retention sweep 테스트는 disconnected identity metadata 가 retention timeout 을 지나면 제거되는지 검증한다.
+        // payload replay 를 하지 않는 정책이므로 timer 는 오래된 topic metadata 만 정리하고, 이후 같은 id 재등록은 빈 상태에서 시작해야 한다.
+        [Fact]
+        public async Task RetentionTimer_WhenStableSubscriberIdentityEnabled_SweepsExpiredDisconnectedIdentity()
+        {
+            FakeTransport transport = new FakeTransport();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            ManualTimeProvider timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+            BrokerServerOptions options = BrokerServerOptions.CreateWithStableSubscriberIdentity(TimeSpan.FromMinutes(5), timeProvider);
+            using (BrokerServer server = new BrokerServer(transport, pool, 128, options))
+            {
+                await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                ManualTimer timer = Assert.Single(timeProvider.Timers);
+                BrokerTcpFrameHandler handler = ReadBrokerFrameHandler(server);
+                FakeConnection oldConnection = new FakeConnection();
+                FakeConnection newConnection = new FakeConnection();
+
+                handler.OnFrame(oldConnection, RentFrame(pool, "REGISTER device-a"));
+                handler.OnFrame(oldConnection, RentFrame(pool, "SUBSCRIBE alpha"));
+                handler.OnConnectionClosed(oldConnection);
+
+                timeProvider.Advance(TimeSpan.FromMinutes(6));
+                timer.Fire();
+                handler.OnFrame(newConnection, RentFrame(pool, "REGISTER device-a"));
+
+                Assert.False(ReadSubscriptionTable(server).IsSubscribed("alpha", BrokerSubscriber.ForTcp(newConnection)));
+                Assert.Equal(0, pool.RentedCount);
+            }
+        }
+
+        // retention timer stop 테스트는 stable identity timer 가 Server host 수명에 묶여 StopAsync 에서 dispose 되는지 확인한다.
+        // timer 가 남으면 stop 이후 registry sweep callback 이 들어와 이미 종료된 host 의 내부 상태를 건드릴 수 있다.
+        [Fact]
+        public async Task StopAsync_WhenStableSubscriberIdentityEnabled_DisposesRetentionTimer()
+        {
+            FakeTransport transport = new FakeTransport();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            ManualTimeProvider timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+            BrokerServerOptions options = BrokerServerOptions.CreateWithStableSubscriberIdentity(TimeSpan.FromMinutes(5), timeProvider);
+            using (BrokerServer server = new BrokerServer(transport, pool, 128, options))
+            {
+                await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                ManualTimer timer = Assert.Single(timeProvider.Timers);
+                Assert.Equal(TimeSpan.FromMinutes(5), timer.DueTime);
+                Assert.Equal(TimeSpan.FromMinutes(5), timer.Period);
+
+                await server.StopAsync();
+
+                Assert.Equal(1, timer.DisposeCallCount);
+            }
+        }
+
         // 실제 TCP command loopback 테스트: 서버 wiring 이 단순히 handler 를 등록하는 데 그치지 않고,
         // SaeaTransport 의 accept/receive/send pump 를 통해 SUBSCRIBE 와 PUBLISH command 를 연결해 subscriber 로 payload 를 보내야 한다.
         [Fact]
@@ -653,6 +735,15 @@ namespace Hps.Server.Tests
             return datagram;
         }
 
+        private static RefCountedBuffer RentFrame(PinnedBlockMemoryPool pool, string text)
+        {
+            byte[] bytes = Encoding.ASCII.GetBytes(text);
+            RefCountedBuffer frame = pool.RentCounted();
+            bytes.CopyTo(frame.Span);
+            frame.SetLength(bytes.Length);
+            return frame;
+        }
+
         private static async Task WaitForSubscriberCountAsync(BrokerServer server, string topic, int expected)
         {
             SubscriptionTable subscriptions = ReadSubscriptionTable(server);
@@ -678,6 +769,17 @@ namespace Hps.Server.Tests
 
             object? value = field!.GetValue(server);
             return Assert.IsType<SubscriptionTable>(value);
+        }
+
+        private static BrokerTcpFrameHandler ReadBrokerFrameHandler(BrokerServer server)
+        {
+            // Server 생성자가 TCP handler 에 shared registry 를 주입했는지 검증하기 위한 white-box 경계다.
+            // public surface 에 handler accessor 를 추가하지 않기 위해 기존 reflection 테스트 패턴을 재사용한다.
+            FieldInfo? field = typeof(BrokerServer).GetField("_brokerFrameHandler", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(field);
+
+            object? value = field!.GetValue(server);
+            return Assert.IsType<BrokerTcpFrameHandler>(value);
         }
 
         private static async Task WaitForRentedCountAsync(PinnedBlockMemoryPool pool, int expected)
@@ -865,6 +967,20 @@ namespace Hps.Server.Tests
             {
                 StopCallCount++;
                 return default;
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+
+        private sealed class FakeConnection : IConnection
+        {
+            internal int CloseCallCount { get; private set; }
+
+            public void Close()
+            {
+                CloseCallCount++;
             }
 
             public void Dispose()

@@ -8,17 +8,21 @@ namespace Hps.Server
     public sealed class BrokerServerOptions
     {
         private static readonly BrokerServerOptions DefaultInstance =
-            new BrokerServerOptions(false, TimeSpan.Zero, TimeSpan.Zero, TimeProvider.System);
+            new BrokerServerOptions(false, TimeSpan.Zero, TimeSpan.Zero, false, TimeSpan.Zero, TimeProvider.System);
 
         private BrokerServerOptions(
             bool udpLeaseSweepEnabled,
             TimeSpan udpLeaseIdleTimeout,
             TimeSpan udpLeaseSweepInterval,
+            bool stableSubscriberIdentityEnabled,
+            TimeSpan stableSubscriberRetentionTimeout,
             TimeProvider timeProvider)
         {
             UdpLeaseSweepEnabled = udpLeaseSweepEnabled;
             UdpLeaseIdleTimeout = udpLeaseIdleTimeout;
             UdpLeaseSweepInterval = udpLeaseSweepInterval;
+            StableSubscriberIdentityEnabled = stableSubscriberIdentityEnabled;
+            StableSubscriberRetentionTimeout = stableSubscriberRetentionTimeout;
             TimeProvider = timeProvider;
         }
 
@@ -46,6 +50,16 @@ namespace Hps.Server
         public TimeSpan UdpLeaseSweepInterval { get; }
 
         /// <summary>
+        /// REGISTER 기반 stable subscriber identity registry 를 사용할지 여부다.
+        /// </summary>
+        public bool StableSubscriberIdentityEnabled { get; }
+
+        /// <summary>
+        /// disconnected stable identity 의 topic metadata 를 보존할 최대 시간이다.
+        /// </summary>
+        public TimeSpan StableSubscriberRetentionTimeout { get; }
+
+        /// <summary>
         /// lease activity 와 host timer 에 사용할 시간 소스다.
         /// </summary>
         public TimeProvider TimeProvider { get; }
@@ -67,7 +81,47 @@ namespace Hps.Server
                 true,
                 idleTimeout,
                 sweepInterval,
+                false,
+                TimeSpan.Zero,
                 timeProvider ?? TimeProvider.System);
+        }
+
+        /// <summary>
+        /// stable subscriber identity 를 명시적으로 활성화하는 설정을 만든다.
+        /// UDP lease sweep 은 이 factory 에서 켜지지 않으므로, 두 기능을 함께 쓰려면
+        /// <see cref="WithStableSubscriberIdentity(TimeSpan)"/> 를 기존 options 에 적용한다.
+        /// </summary>
+        public static BrokerServerOptions CreateWithStableSubscriberIdentity(
+            TimeSpan retentionTimeout,
+            TimeProvider? timeProvider)
+        {
+            if (retentionTimeout <= TimeSpan.Zero)
+                throw new ArgumentOutOfRangeException(nameof(retentionTimeout));
+
+            return new BrokerServerOptions(
+                false,
+                TimeSpan.Zero,
+                TimeSpan.Zero,
+                true,
+                retentionTimeout,
+                timeProvider ?? TimeProvider.System);
+        }
+
+        /// <summary>
+        /// 현재 options 의 다른 host 설정은 유지하면서 stable subscriber identity 만 활성화한다.
+        /// </summary>
+        public BrokerServerOptions WithStableSubscriberIdentity(TimeSpan retentionTimeout)
+        {
+            if (retentionTimeout <= TimeSpan.Zero)
+                throw new ArgumentOutOfRangeException(nameof(retentionTimeout));
+
+            return new BrokerServerOptions(
+                UdpLeaseSweepEnabled,
+                UdpLeaseIdleTimeout,
+                UdpLeaseSweepInterval,
+                true,
+                retentionTimeout,
+                TimeProvider);
         }
     }
 }

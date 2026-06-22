@@ -23,6 +23,7 @@ namespace Hps.Server
         private readonly int _maxPayloadLength;
         private readonly BrokerServerOptions _options;
         private readonly SubscriptionTable _subscriptions;
+        private readonly SubscriberRegistry? _subscriberRegistry;
         private readonly BrokerPublisher _publisher;
         private readonly BrokerTcpFrameHandler _brokerFrameHandler;
         private readonly BrokerUdpDatagramHandler _brokerDatagramHandler;
@@ -30,6 +31,7 @@ namespace Hps.Server
         private IConnectionListener? _tcpListener;
         private IUdpEndpoint? _udpEndpoint;
         private ITimer? _udpLeaseSweepTimer;
+        private ITimer? _subscriberRetentionTimer;
         private CancellationTokenSource? _acceptLoopCancellation;
         private Task? _acceptLoopTask;
         private bool _transportStarted;
@@ -77,13 +79,17 @@ namespace Hps.Server
             _options = options;
             _gate = new object();
             _subscriptions = new SubscriptionTable();
+            _subscriberRegistry = _options.StableSubscriberIdentityEnabled
+                ? new SubscriberRegistry(_subscriptions)
+                : null;
             _publisher = new BrokerPublisher(_subscriptions, _transport);
-            _brokerFrameHandler = new BrokerTcpFrameHandler(_subscriptions, _publisher);
+            _brokerFrameHandler = new BrokerTcpFrameHandler(_subscriptions, _publisher, _subscriberRegistry, _options.TimeProvider);
             _brokerDatagramHandler = new BrokerUdpDatagramHandler(
                 _subscriptions,
                 _publisher,
                 CreateUdpLeaseOptions(_options),
-                _options.TimeProvider);
+                _options.TimeProvider,
+                _subscriberRegistry);
             _receiveHandler = new TcpFrameReceiveHandler(_pool, _maxPayloadLength, _brokerFrameHandler);
         }
 
@@ -138,6 +144,7 @@ namespace Hps.Server
                     _acceptLoopCancellation = acceptLoopCancellation;
                     _acceptLoopTask = acceptLoopTask;
                     LocalEndPoint = listener.LocalEndPoint;
+                    EnsureSubscriberRetentionTimerStarted();
                 }
             }
             catch
@@ -205,6 +212,7 @@ namespace Hps.Server
                     _udpEndpoint = endpoint;
                     _udpLeaseSweepTimer = udpLeaseSweepTimer;
                     UdpLocalEndPoint = endpoint.LocalEndPoint;
+                    EnsureSubscriberRetentionTimerStarted();
                 }
             }
             catch
@@ -240,6 +248,7 @@ namespace Hps.Server
             IConnectionListener? listener;
             IUdpEndpoint? udpEndpoint;
             ITimer? udpLeaseSweepTimer;
+            ITimer? subscriberRetentionTimer;
             CancellationTokenSource? acceptLoopCancellation;
             Task? acceptLoopTask;
             bool shouldStopTransport;
@@ -249,6 +258,7 @@ namespace Hps.Server
                 listener = _tcpListener;
                 udpEndpoint = _udpEndpoint;
                 udpLeaseSweepTimer = _udpLeaseSweepTimer;
+                subscriberRetentionTimer = _subscriberRetentionTimer;
                 acceptLoopCancellation = _acceptLoopCancellation;
                 acceptLoopTask = _acceptLoopTask;
                 shouldStopTransport = _transportStarted;
@@ -256,6 +266,7 @@ namespace Hps.Server
                 _tcpListener = null;
                 _udpEndpoint = null;
                 _udpLeaseSweepTimer = null;
+                _subscriberRetentionTimer = null;
                 _acceptLoopCancellation = null;
                 _acceptLoopTask = null;
                 LocalEndPoint = null;
@@ -266,6 +277,7 @@ namespace Hps.Server
             }
 
             udpLeaseSweepTimer?.Dispose();
+            subscriberRetentionTimer?.Dispose();
 
             if (!shouldStopTransport)
                 return;
@@ -378,6 +390,42 @@ namespace Hps.Server
         private void OnUdpLeaseSweepTimer(object? state)
         {
             _brokerDatagramHandler.SweepExpiredUdpLeases(_options.TimeProvider.GetUtcNow());
+        }
+
+        private ITimer? CreateSubscriberRetentionTimer()
+        {
+            if (!_options.StableSubscriberIdentityEnabled || _subscriberRegistry == null)
+                return null;
+
+            // stable identity 는 disconnected topic metadata 만 보존하므로 별도 payload drain 이 없다.
+            // retention timeout 과 sweep period 를 같은 값으로 두어, 설정된 보존 시간을 지난 항목만 주기적으로 정리한다.
+            return _options.TimeProvider.CreateTimer(
+                OnSubscriberRetentionTimer,
+                null,
+                _options.StableSubscriberRetentionTimeout,
+                _options.StableSubscriberRetentionTimeout);
+        }
+
+        private void EnsureSubscriberRetentionTimerStarted()
+        {
+            // TCP와 UDP ingress 를 독립적으로 시작할 수 있으므로 양쪽 start 성공 경로에서 호출된다.
+            // host 전체에 shared registry 는 하나뿐이라 timer 도 하나만 만들어야 한다.
+            if (_subscriberRetentionTimer != null)
+                return;
+
+            _subscriberRetentionTimer = CreateSubscriberRetentionTimer();
+        }
+
+        private void OnSubscriberRetentionTimer(object? state)
+        {
+            if (_subscriberRegistry == null)
+                return;
+
+            // timer callback 은 transport thread 와 별개로 들어올 수 있다.
+            // SubscriberRegistry 내부 lock 이 entry 제거와 routing cleanup 을 직렬화하므로 여기서는 현재 시간만 전달한다.
+            _subscriberRegistry.SweepDisconnected(
+                _options.TimeProvider.GetUtcNow(),
+                _options.StableSubscriberRetentionTimeout);
         }
 
         private void ThrowIfDisposed()
