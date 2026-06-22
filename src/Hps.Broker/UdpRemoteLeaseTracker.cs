@@ -95,7 +95,7 @@ namespace Hps.Broker
             }
         }
 
-        internal void MarkSubscribedTopics(IUdpEndpoint endpoint, EndPoint remoteEndPoint, string[] topics)
+        internal void ReplaceSubscribedTopics(IUdpEndpoint endpoint, EndPoint remoteEndPoint, string[] topics)
         {
             ValidateEndpoint(endpoint);
             ValidateRemoteEndPoint(remoteEndPoint);
@@ -106,10 +106,23 @@ namespace Hps.Broker
 
             lock (_gate)
             {
-                UdpRemoteLease lease = GetOrCreateLease(endpoint, remoteEndPoint);
+                // REGISTER 는 runtime remote lease 에서 stable identity lease 로 넘어가는 경계다.
+                // 기존 lease 를 보존한 채 topic 만 추가하면 REGISTER 전에 만든 runtime topic 이 계속 살아남을 수 있으므로
+                // routing table 은 건드리지 않고 lease metadata 만 registry 가 돌려준 topic set 으로 완전히 교체한다.
+                UdpRemoteLeaseKey key = new UdpRemoteLeaseKey(endpoint, remoteEndPoint);
+                _leases.Remove(key);
+
+                if (topics.Length == 0)
+                    return;
+
+                UdpRemoteLease lease = new UdpRemoteLease();
+                _leases.Add(key, lease);
                 DateTimeOffset now = _timeProvider.GetUtcNow();
                 for (int index = 0; index < topics.Length; index++)
+                {
+                    ValidateTopic(topics[index]);
                     lease.MarkSubscribed(topics[index], now);
+                }
             }
         }
 

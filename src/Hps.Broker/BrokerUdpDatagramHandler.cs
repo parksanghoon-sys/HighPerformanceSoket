@@ -58,6 +58,13 @@ namespace Hps.Broker
             _udpLeases = new UdpRemoteLeaseTracker(subscriptions, leaseOptions, timeProvider);
         }
 
+        internal int UdpLeaseCount
+        {
+            // optional lease tracker 는 routing table 과 별개 수명 상태를 가진다.
+            // internal 테스트는 이 값을 통해 REGISTER/rebind/endpoint-close 가 lease metadata 까지 정리하는지 확인한다.
+            get { return _udpLeases.LeaseCount; }
+        }
+
         /// <summary>
         /// UDP datagram command 를 처리한다.
         /// </summary>
@@ -165,8 +172,7 @@ namespace Hps.Broker
             if (replacedTarget.HasValue && replacedTarget.Value.TransportKind == EndpointTransportKind.Udp)
                 _udpLeases.RemoveRemote(replacedTarget.Value.UdpEndpoint, replacedTarget.Value.UdpRemoteEndPoint);
 
-            if (reboundTopics.Length > 0)
-                _udpLeases.MarkSubscribedTopics(target.UdpEndpoint, target.UdpRemoteEndPoint, reboundTopics);
+            _udpLeases.ReplaceSubscribedTopics(target.UdpEndpoint, target.UdpRemoteEndPoint, reboundTopics);
         }
 
         private static string DecodeTopic(ReadOnlySpan<byte> topic)

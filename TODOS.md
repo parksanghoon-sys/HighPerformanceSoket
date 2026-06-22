@@ -9,7 +9,7 @@
 
 ## Current TODOs
 
-- 없음. Stable subscriber identity 구현 계획 Task 1~5와 late REGISTER cleanup 보강은 완료됐고,
+- 없음. Stable subscriber identity 구현 계획 Task 1~5와 late REGISTER routing/UDP lease cleanup 보강은 완료됐고,
   다음 단계는 `.claude/review/` 구현 검토 대기다.
 
 ## Deferred Backlog
@@ -25,6 +25,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 Stable subscriber identity UDP late REGISTER lease cleanup 을 구현했다.
+  - 범위: `src/Hps.Broker/UdpRemoteLeaseTracker.cs`, `src/Hps.Broker/BrokerUdpDatagramHandler.cs`,
+    `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`, stable identity 설계 문서, root 상태 문서.
+  - 결과: UDP remote 가 `SUBSCRIBE` 후 `REGISTER`하면 routing table 뿐 아니라 optional lease tracker 의 pre-register
+    runtime topic metadata 도 제거된다.
+  - 비고: `REGISTER` 성공 후 같은 remote 의 lease metadata 는 registry rebound topic set 으로 교체하고,
+    stable topic 이 없으면 lease 를 남기지 않는다.
+  - 검증: focused UDP handler Red assertion failure 1개 확인, focused tests 13개 통과.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 216개 통과.
 
 - [x] 2026-06-22 Stable subscriber identity late REGISTER cleanup 을 구현했다.
   - 범위: `src/Hps.Broker/SubscriberRegistry.cs`, `tests/Hps.Broker.Tests/SubscriberRegistryTests.cs`,

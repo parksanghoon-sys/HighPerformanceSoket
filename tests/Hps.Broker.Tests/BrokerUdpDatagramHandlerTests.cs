@@ -199,6 +199,33 @@ namespace Hps.Broker.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // UDP late REGISTER lease cleanup 테스트: REGISTER 전에 만든 runtime 구독은 routing table 뿐 아니라
+        // optional lease tracker 에서도 제거되어야 한다. 그렇지 않으면 active remote 가 PUBLISH 로 lease 를 계속 갱신해
+        // 실제 구독이 없어도 lease metadata 가 남을 수 있다.
+        [Fact]
+        public void OnDatagramReceived_WhenUdpRemoteRegistersAfterRuntimeSubscribe_ClearsPreRegisterLease()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            SubscriberRegistry registry = new SubscriberRegistry(subscriptions);
+            FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            EndPoint remote = new IPEndPoint(IPAddress.Loopback, 20000);
+            BrokerSubscriber subscriber = BrokerSubscriber.ForUdp(endpoint, remote);
+            BrokerUdpDatagramHandler handler = CreateHandler(
+                subscriptions,
+                new FakeTransport(),
+                UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
+                TimeProvider.System,
+                registry);
+
+            handler.OnDatagramReceived(endpoint, remote, RentDatagram(pool, "SUBSCRIBE alpha"));
+            handler.OnDatagramReceived(endpoint, remote, RentDatagram(pool, "REGISTER device-a"));
+
+            Assert.False(subscriptions.IsSubscribed("alpha", subscriber));
+            Assert.Equal(0, handler.UdpLeaseCount);
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         // UDP explicit UNREGISTER 테스트: remote 가 identity 등록을 해제하면 현재 subscription 과 metadata 를 함께 제거해야 한다.
         // 같은 id 의 다음 REGISTER 때 사용자가 버린 topic 이 새 remote 로 복구되면 안 된다.
         [Fact]

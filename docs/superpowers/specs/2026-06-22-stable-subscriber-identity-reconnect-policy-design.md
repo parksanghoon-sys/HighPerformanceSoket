@@ -2,7 +2,7 @@
 
 - 날짜: 2026-06-22
 - 상태: 구현 전 리뷰 대상
-- 관련 결정: D053, D058, D059, D060, D067, D075
+- 관련 결정: D053, D058, D059, D060, D067, D075, D076
 - 범위: 설계 문서. 코드 구현은 포함하지 않는다.
 
 ## 목표
@@ -126,6 +126,8 @@ publish 시 `SubscriptionTable`에는 현재 online target 만 들어가므로 d
 자동 이관하지 않는다. `REGISTER`는 runtime-target 구독 모드에서 stable-identity 구독 모드로 넘어가는 경계이므로,
 이미 같은 target 에 걸려 있던 runtime 구독은 `REGISTER` 시점에 제거한다. 그래야 identity metadata 에 없는 topic 이
 connection/endpoint close 뒤 routing table 에 stale target 으로 남지 않는다.
+UDP remote lease sweep 이 활성화된 경우에도 같은 원칙을 적용한다. `REGISTER` 성공 후 같은 remote 의 lease metadata 는
+registry 가 돌려준 stable topic set 으로 교체하고, stable topic 이 없으면 기존 runtime lease 를 제거한다.
 
 등록된 target 에서 들어온 `UNSUBSCRIBE <topic>`은 identity topic set 에서 제거하고, 현재 online target 도 routing table 에서 제거한다.
 `UNREGISTER <subscriber-id>`는 identity 의 모든 topic subscription 을 제거하고 current target binding 을 해제한다.
