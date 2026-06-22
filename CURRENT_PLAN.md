@@ -36,9 +36,13 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   `docs/superpowers/specs/2026-06-18-baseline-report-history-warning-policy-design.md`로 정리했다(D071).
 - 반복 baseline session 을 빠르게 찾기 위한 전역 index 는 `docs/benchmarks/baselines/index.md`에 둔다(D071).
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
+- `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 
 ## 최근 완료 단위
 
+- 이번 단위 — UDP remote-wide unsubscribe primitive
+  - D072 idle sweep 선행 API로 `(IUdpEndpoint, EndPoint)` 조합을 모든 topic 에서 제거하는 `SubscriptionTable` overload 를 추가했다.
+  - 검증: focused Red/Green/Refactor 완료, solution build 경고 0/오류 0, solution tests 157개 통과.
 - 이번 단위 — UDP stale remote idle expiry 설계
   - UDP remote cleanup owner, key, activity 갱신 규칙, sweep 범위, 다음 최소 구현 단위를 정리했다.
   - 검증: `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 156개 통과.
@@ -62,18 +66,19 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 사용자 리뷰 대기.
 
-`docs/superpowers/specs/2026-06-19-udp-stale-remote-idle-expiry-design.md` 검토가 다음 게이트다.
-리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 `P1_SOON` UDP remote-wide unsubscribe primitive 를 Current TODO 로 승격한다.
+이번 구현 단위 리뷰가 다음 게이트다.
+리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 하나만 Current TODO 로 승격한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 UDP stale remote idle expiry 설계 문서화다.
+이번 단위는 UDP remote-wide unsubscribe primitive 구현이다.
 
-- 확인: `BrokerUdpDatagramHandler`, `SubscriptionTable`, `BrokerSubscriber`의 현재 UDP runtime target/cleanup 구조를 확인했다.
-- Green: 코드 동작을 바꾸지 않고 D072 설계 문서와 상태 문서만 갱신한다.
+- Red: `UnsubscribeAll_WhenUdpRemoteExpires_RemovesOnlyThatEndpointRemoteFromEveryTopic`가 API 부재로 `Assert.NotNull` 실패함을 확인했다.
+- Green: `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`와 topic set 내부 제거 helper 를 추가했다.
+- Refactor: Red용 reflection 호출을 직접 API 호출로 정리하고 focused test green 을 확인했다.
 - 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 156개 통과/실패 0.
+- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 157개 통과/실패 0.
 
 ## 이번 작업에서 건드리지 않는 범위
 

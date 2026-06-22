@@ -192,6 +192,41 @@ namespace Hps.Broker.Tests
             Assert.Equal(0, table.CountSubscribers("beta"));
         }
 
+        // UDP remote 만료 정리 테스트: D072의 idle sweep 은 특정 local endpoint/remote 조합만 모든 topic 에서 제거해야 한다.
+        // 같은 UDP endpoint 의 다른 remote, 다른 endpoint 의 같은 remote, TCP subscriber 는 유지해야 sweep 이 과도한 cleanup 이 되지 않는다.
+        [Fact]
+        public void UnsubscribeAll_WhenUdpRemoteExpires_RemovesOnlyThatEndpointRemoteFromEveryTopic()
+        {
+            SubscriptionTable table = new SubscriptionTable();
+            FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            FakeUdpEndpoint otherEndpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10001));
+            EndPoint expiredRemote = new IPEndPoint(IPAddress.Loopback, 20000);
+            EndPoint otherRemote = new IPEndPoint(IPAddress.Loopback, 20001);
+            FakeConnection tcpSurvivor = new FakeConnection();
+            BrokerSubscriber expiredAlpha = BrokerSubscriber.ForUdp(endpoint, expiredRemote);
+            BrokerSubscriber expiredBeta = BrokerSubscriber.ForUdp(endpoint, expiredRemote);
+            BrokerSubscriber sameEndpointOtherRemote = BrokerSubscriber.ForUdp(endpoint, otherRemote);
+            BrokerSubscriber otherEndpointSameRemote = BrokerSubscriber.ForUdp(otherEndpoint, expiredRemote);
+            table.Subscribe("alpha", expiredAlpha);
+            table.Subscribe("beta", expiredBeta);
+            table.Subscribe("alpha", sameEndpointOtherRemote);
+            table.Subscribe("alpha", otherEndpointSameRemote);
+            table.Subscribe("alpha", tcpSurvivor);
+
+            int removed = table.UnsubscribeAll(endpoint, expiredRemote);
+            int removedAgain = table.UnsubscribeAll(endpoint, expiredRemote);
+
+            Assert.Equal(2, removed);
+            Assert.Equal(0, removedAgain);
+            Assert.False(table.IsSubscribed("alpha", expiredAlpha));
+            Assert.False(table.IsSubscribed("beta", expiredBeta));
+            Assert.True(table.IsSubscribed("alpha", sameEndpointOtherRemote));
+            Assert.True(table.IsSubscribed("alpha", otherEndpointSameRemote));
+            Assert.True(table.IsSubscribed("alpha", tcpSurvivor));
+            Assert.Equal(3, table.CountSubscribers("alpha"));
+            Assert.Equal(0, table.CountSubscribers("beta"));
+        }
+
         // snapshot 복사 테스트: publish fan-out 은 caller 가 준비한 배열에 현재 구독자를 복사해 사용할 수 있어야 한다.
         // 반환값은 전체 구독자 수이고, destination 이 작으면 복사 가능한 앞부분만 채워 재시도 크기를 판단할 수 있게 한다.
         [Fact]

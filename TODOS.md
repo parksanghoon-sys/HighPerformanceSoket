@@ -10,21 +10,21 @@
 ## Current TODOs
 
 - 현재 Codex가 자동으로 이어서 실행할 항목은 없다.
-  - 최신 완료 단위: 2026-06-19 UDP stale remote idle expiry 설계.
+  - 최신 완료 단위: 2026-06-22 UDP remote-wide unsubscribe primitive 구현.
   - 다음 작업은 사용자 리뷰 뒤 finding 이 있으면 먼저 반영한다.
   - finding 이 없으면 아래 Deferred Backlog 중 하나만 Current TODO 로 승격한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` UDP remote-wide unsubscribe primitive 를 구현한다.
-  - 무엇이 남았는지: `SubscriptionTable`에 `(IUdpEndpoint endpoint, EndPoint remoteEndPoint)` 조합을 모든 topic 에서 제거하는 API가 없다.
-  - 왜 defer 되었는지: D072에서 idle expiry timer 보다 remote cleanup primitive 를 먼저 추가하기로 했다. 이번 단위는 설계만 완료했다.
-  - objective: 추후 idle sweep 또는 host cleanup 이 특정 UDP remote subscription 만 제거할 수 있는 최소 API를 만든다.
+- [ ] `P2_LATER` UDP optional lease tracker 와 sweep owner 를 설계/구현한다.
+  - 무엇이 남았는지: remote-wide unsubscribe primitive 는 생겼지만 last-seen lease table, sweep timer, idle timeout 설정, BrokerServer public configuration 은 없다.
+  - 왜 defer 되었는지: D072에서 기본 idle expiry 는 비활성으로 두고, timer 보다 cleanup primitive 를 먼저 구현하기로 했다.
+  - objective: 운영자가 명시적으로 idle expiry 를 켰을 때 특정 UDP remote subscription 을 주기적으로 정리하는 선택적 cleanup 경로를 만든다.
   - relevant context: D060, D072, `docs/superpowers/specs/2026-06-19-udp-stale-remote-idle-expiry-design.md`, `SubscriptionTable.UnsubscribeAll(IUdpEndpoint)`.
-  - 관련 파일/범위: `src/Hps.Broker/SubscriptionTable.cs`, `tests/Hps.Broker.Tests/`.
-  - 현재 상태: endpoint-wide UDP cleanup 은 존재하지만 remote-wide cleanup 은 없다. topic entry eager cleanup 은 하지 않는 정책(D008)을 유지해야 한다.
-  - known blockers/open questions: 없음. timer, default timeout, public configuration 은 아직 범위 밖이다.
-  - next step: Red-Green으로 같은 endpoint/특정 remote 만 제거하고 다른 remote/TCP subscriber 를 보존하는 테스트를 추가한다.
+  - 관련 파일/범위: `src/Hps.Broker/`, `src/Hps.Server/`, 관련 tests.
+  - 현재 상태: `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`가 특정 remote target 을 모든 topic 에서 제거할 수 있다.
+  - known blockers/open questions: 기본 timeout 값, public configuration 표면, clock abstraction 이 아직 결정되지 않았다.
+  - next step: 먼저 lease tracker owner 와 설정 표면을 설계한다. 기본 enabled 동작을 만들지 않는다.
 
 - [ ] `P2_LATER` stable subscriber identity 와 reconnect rebinding 을 설계한다.
   - 무엇이 남았는지: v1 subscription 은 runtime endpoint 수명에 묶여 있고 reconnect 후 자동 rebinding 은 없다.
@@ -45,6 +45,11 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 UDP remote-wide unsubscribe primitive 를 구현했다.
+  - 범위: `src/Hps.Broker/SubscriptionTable.cs`, `tests/Hps.Broker.Tests/BrokerRoutingTests.cs`, root 상태 문서.
+  - 결과: `(IUdpEndpoint, EndPoint)` 조합을 모든 topic 에서 제거하면서 같은 endpoint 의 다른 remote, 다른 endpoint 의 같은 remote, TCP subscriber 를 보존한다.
+  - 검증: focused Red/Green/Refactor 완료, solution build 경고 0/오류 0, solution tests 157개 통과.
 
 - [x] 2026-06-19 UDP stale remote idle expiry 를 설계했다.
   - 범위: `docs/superpowers/specs/2026-06-19-udp-stale-remote-idle-expiry-design.md`, root 상태 문서.

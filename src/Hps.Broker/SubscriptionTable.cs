@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net;
 using Hps.Transport;
 
 namespace Hps.Broker
@@ -125,6 +126,29 @@ namespace Hps.Broker
         }
 
         /// <summary>
+        /// 지정한 UDP local endpoint 와 remote endpoint 조합을 모든 topic set 에서 제거하고 실제 제거된 구독 수를 반환한다.
+        ///
+        /// D072 idle sweep 은 endpoint 전체가 아니라 조용해진 remote 하나만 정리해야 하므로 endpoint close cleanup 보다 좁은
+        /// 경계가 필요하다. D008 NoCleanup 정책에 따라 topic entry 자체는 제거하지 않는다.
+        /// </summary>
+        public int UnsubscribeAll(IUdpEndpoint endpoint, EndPoint remoteEndPoint)
+        {
+            ValidateUdpEndpoint(endpoint);
+            ValidateRemoteEndPoint(remoteEndPoint);
+
+            int removed = 0;
+
+            // Sweep/host cleanup 은 hot publish 경로가 아니므로 전체 topic 순회 비용을 받아들인다.
+            // ConcurrentDictionary 열거는 mutation 과 동시에 안전하며, 각 topic set 에서 정확히 해당 UDP target 만 제거한다.
+            foreach (KeyValuePair<string, TopicSubscriptions> pair in _topics)
+            {
+                removed += pair.Value.RemoveUdpEndpoint(endpoint, remoteEndPoint);
+            }
+
+            return removed;
+        }
+
+        /// <summary>
         /// 지정 TCP connection 이 topic 에 현재 구독되어 있는지 확인한다.
         /// </summary>
         public bool IsSubscribed(string topic, IConnection connection)
@@ -224,6 +248,12 @@ namespace Hps.Broker
                 throw new ArgumentNullException(nameof(endpoint));
         }
 
+        private static void ValidateRemoteEndPoint(EndPoint remoteEndPoint)
+        {
+            if (remoteEndPoint == null)
+                throw new ArgumentNullException(nameof(remoteEndPoint));
+        }
+
         private static void ValidateSubscriber(BrokerSubscriber subscriber)
         {
             if (!subscriber.IsValid)
@@ -275,6 +305,27 @@ namespace Hps.Broker
             internal bool Contains(BrokerSubscriber subscriber)
             {
                 return _subscribers.ContainsKey(subscriber);
+            }
+
+            internal int RemoveUdpEndpoint(IUdpEndpoint endpoint, EndPoint remoteEndPoint)
+            {
+                int removed = 0;
+
+                // Idle sweep 은 같은 local UDP endpoint 의 특정 remote 만 제거한다.
+                // 같은 socket 을 공유하는 다른 remote subscriber 와 TCP subscriber 는 fan-out 대상으로 남겨야 한다.
+                foreach (KeyValuePair<BrokerSubscriber, byte> pair in _subscribers)
+                {
+                    BrokerSubscriber subscriber = pair.Key;
+                    if (subscriber.TransportKind == EndpointTransportKind.Udp
+                        && object.ReferenceEquals(subscriber.UdpEndpoint, endpoint)
+                        && object.Equals(subscriber.UdpRemoteEndPoint, remoteEndPoint)
+                        && Remove(subscriber))
+                    {
+                        removed++;
+                    }
+                }
+
+                return removed;
             }
 
             internal int CopyTo(BrokerSubscriber[] destination)
