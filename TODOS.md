@@ -11,8 +11,10 @@
 
 - BrokerServer UDP lease sweep host timer/public settings 를 구현한다.
   - 기준 설계: `docs/superpowers/specs/2026-06-22-broker-server-udp-lease-host-timer-design.md` (D074).
-  - 예상 범위: `src/Hps.Server/BrokerServerOptions.cs`, `src/Hps.Server/BrokerServer.cs`,
-    `src/Hps.Broker/Properties/AssemblyInfo.cs`, server tests, root 상태 문서.
+  - 예상 범위: `src/Hps.Server/BrokerServer.cs`, `src/Hps.Broker/Properties/AssemblyInfo.cs`,
+    server tests, root 상태 문서.
+  - 현재 상태: public `BrokerServerOptions` 타입은 구현됐다. 남은 작업은 options 를 `BrokerUdpDatagramHandler`에 연결하고
+    UDP start/stop 수명에 `TimeProvider.CreateTimer`를 붙이는 것이다.
   - 검증: Red-Green-Refactor, `git diff --check`, solution build/test.
 
 ## Deferred Backlog
@@ -36,6 +38,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 BrokerServerOptions public 설정 타입을 구현했다.
+  - 범위: `src/Hps.Server/BrokerServerOptions.cs`, `tests/Hps.Server.Tests/BrokerServerOptionsTests.cs`, root 상태 문서.
+  - 결과: 기본 disabled options, 양수 timeout/interval 검증, explicit time provider 저장을 추가했다.
+  - 검증: Red assertion failure 3개 확인, focused tests 3개 통과, reflection 제거 후 focused tests 3개 통과,
+    solution build 경고 0/오류 0, solution tests 173개 통과.
 
 - [x] 2026-06-22 BrokerServer UDP lease host timer 설계를 작성했다.
   - 범위: `docs/superpowers/specs/2026-06-22-broker-server-udp-lease-host-timer-design.md`, `DECISIONS.md`, root 상태 문서.

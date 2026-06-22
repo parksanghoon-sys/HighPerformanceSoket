@@ -51,9 +51,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - BrokerServer UDP lease host timer/public settings 설계는
   `docs/superpowers/specs/2026-06-22-broker-server-udp-lease-host-timer-design.md`에 있다(D074).
   기본은 disabled 이고, 활성화 시 idle timeout/sweep interval 은 명시 입력으로만 받는다.
+- `BrokerServerOptions` public 설정 타입이 생겼다. `Default`는 UDP lease sweep disabled 이고,
+  `CreateWithUdpLeaseSweep(...)`는 explicit timeout/interval 과 `TimeProvider`를 저장한다. 아직 timer wiring 은 없다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — BrokerServerOptions public 설정 타입
+  - D074 구현 첫 단위로 `BrokerServerOptions`를 추가했다.
+  - 기본 disabled, 0 이하 timeout/interval 거부, explicit 값과 `TimeProvider` 보존을 테스트했다.
+  - 검증: Red assertion failure 3개 확인, focused tests 3개 통과, reflection 제거 후 focused tests 3개 통과,
+    solution build 경고 0/오류 0, solution tests 173개 통과.
 - 이번 단위 — BrokerServer UDP lease host timer 설계
   - D074로 `BrokerServerOptions` public 설정 표면, 기본 disabled 정책, 명시 timeout/interval 입력, `TimeProvider` timer 수명,
     Broker friend assembly 경계를 확정했다.
@@ -117,12 +124,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 BrokerServer UDP lease host timer/public settings 설계다.
+이번 단위는 BrokerServerOptions public 설정 타입 추가다.
 
-- 설계: `BrokerServerOptions.Default`는 disabled 이며, enabled 는 `CreateWithUdpLeaseSweep(...)`로 명시 timeout/interval 을 받는다.
-- 설계: Broker public lease options 를 늘리지 않고 `Hps.Broker`가 `Hps.Server`를 friend assembly 로 허용한다.
-- 검증 예정: `git diff --check`, `dotnet build HighPerformanceSocket.slnx --no-restore`,
-  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`.
+- Red: `BrokerServerOptionsTests`를 reflection 기반으로 먼저 추가해 `BrokerServerOptions` 타입 부재에 따른 `Assert.NotNull` 실패 3개를 확인했다.
+- Green: `BrokerServerOptions`를 추가해 기본 disabled 와 enabled explicit 값 저장을 구현했다.
+- Refactor: reflection 기반 Red helper 를 direct public API 호출로 정리하고 focused tests 3개 통과를 확인했다.
+- 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 173개 통과/실패 0.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -131,4 +140,4 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - latency hard gate 확정
 - RIO/io_uring backend 구현
 - stable subscriber identity 구현
-- BrokerServer host timer/public settings 구현은 다음 단위
+- BrokerServer host timer wiring 은 다음 단위
