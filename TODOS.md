@@ -26,6 +26,16 @@
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
 
+- [x] 2026-06-22 Stable subscriber identity UDP loopback coverage 를 추가했다.
+  - 범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, root 상태 문서.
+  - 결과: 실제 `BrokerServer` + `SaeaTransport` UDP datagram loopback 에서 stable identity same-id remote rebind 가
+    publish fan-out target 을 새 remote 로 옮김을 검증한다.
+    새 remote 는 `REGISTER`만 보내고 `SUBSCRIBE`를 반복하지 않아 retained topic set 복구까지 확인한다.
+  - 비고: UDP는 TCP처럼 old remote 를 close 할 수 없으므로, 이 테스트는 routing table 에서 old remote 만 제거되고
+    새 remote 로 metadata 가 재바인딩되는 정책을 실제 datagram 경로로 고정한다.
+  - 검증: focused stable UDP loopback test 1개 통과.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 218개 통과.
+
 - [x] 2026-06-22 Stable subscriber identity TCP loopback coverage 를 추가했다.
   - 범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, root 상태 문서.
   - 결과: 실제 `BrokerServer` + `SaeaTransport` TCP loopback 에서 stable identity reconnect/rebind 가 동작함을 검증한다.

@@ -76,10 +76,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   stable identity client 는 `REGISTER` 후 필요한 topic 을 다시 `SUBSCRIBE`해야 한다.
 - UDP lease sweep 이 활성화된 경우에도 late `REGISTER` 성공 후 같은 remote 의 기존 runtime lease metadata 를 제거하거나
   stable identity topic set 으로 교체한다(D076).
-- stable subscriber identity TCP reconnect/rebind 는 실제 `SaeaTransport` TCP loopback 에서도 검증됐다.
+- stable subscriber identity TCP reconnect/rebind 와 UDP remote rebind 는 실제 `SaeaTransport` loopback 에서도 검증됐다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — Stable subscriber identity UDP loopback coverage
+  - stable identity UDP rebind 가 fake handler 단위뿐 아니라 실제 `BrokerServer` + `SaeaTransport` UDP datagram loopback 에서도
+    동작하는지 검증하는 테스트를 추가했다.
+  - old remote 가 `REGISTER device-a` 후 `SUBSCRIBE alpha`를 보내고, new remote 가 같은 id 로 `REGISTER`만 하면
+    old remote routing target 이 제거되고 retained topic set 이 new remote 로 재바인딩되어 이후 publish payload 를 받는지 확인한다.
+  - 검증: focused stable UDP loopback test 1개 통과.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 218개 통과.
 - 이번 단위 — Stable subscriber identity TCP loopback coverage
   - stable identity 가 fake handler 단위뿐 아니라 실제 `BrokerServer` + `SaeaTransport` TCP accept/receive/send pump 에서도
     동작하는지 검증하는 loopback 테스트를 추가했다.
@@ -201,19 +208,19 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Stable subscriber identity 구현 계획 Task 1~5와 late REGISTER routing/UDP lease cleanup 보강이 완료됐다.
+Stable subscriber identity 구현 계획 Task 1~5와 late REGISTER routing/UDP lease cleanup, TCP/UDP loopback coverage 보강이 완료됐다.
 
 다음 단위는 구현 리뷰 대기다. `.claude/review/` 검토에서 must-fix 가 나오면 그 항목을 다음 작은 커밋 단위로 처리한다.
 새 기능으로 넘어가기 전에는 stable identity 전체 흐름(protocol → registry → TCP/UDP handler → Server opt-in)을 리뷰 대상으로 둔다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 Stable subscriber identity TCP loopback coverage 이다.
+이번 단위는 Stable subscriber identity UDP loopback coverage 이다.
 
-- Focused: `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter FullyQualifiedName~TcpCommandLoopback_WhenStableSubscriberReconnects_RebindsTopicToNewSocket`
+- Focused: `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter FullyQualifiedName~UdpCommandLoopback_WhenStableSubscriberRemoteRebinds_RoutesPayloadToNewRemote`
   통과.
 - 최종 검증: `git diff --check` 통과, `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0/오류 0,
-  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 217개 통과.
+  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 218개 통과.
 
 ## 이번 작업에서 건드리지 않는 범위
 

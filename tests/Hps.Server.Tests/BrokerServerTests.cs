@@ -571,6 +571,58 @@ namespace Hps.Server.Tests
             }
         }
 
+        // stable identity 실제 UDP loopback 테스트: UDP는 TCP처럼 old remote 를 close 할 수 없으므로 routing table 에서만
+        // old remote 를 제거하고 retained topic set 을 새 remote 로 재바인딩해야 한다. 새 remote 는 REGISTER 만 보내므로
+        // 이 테스트는 실제 SaeaTransport datagram 경로에서 metadata rebind 가 publish fan-out 으로 이어지는지 검증한다.
+        [Fact]
+        public async Task UdpCommandLoopback_WhenStableSubscriberRemoteRebinds_RoutesPayloadToNewRemote()
+        {
+            const string Topic = "alpha";
+            PinnedBlockMemoryPool serverPool = new PinnedBlockMemoryPool(128);
+            byte[] expectedPayload = new byte[] { 211, 212, 213, 214, 215 };
+            BrokerServerOptions options = BrokerServerOptions.CreateWithStableSubscriberIdentity(
+                TimeSpan.FromMinutes(5),
+                TimeProvider.System);
+
+            using (SaeaTransport transport = new SaeaTransport())
+            using (BrokerServer server = new BrokerServer(transport, serverPool, 128, options))
+            {
+                Socket? oldSubscriber = null;
+                Socket? newSubscriber = null;
+                Socket? publisher = null;
+
+                try
+                {
+                    await server.StartUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint serverEndPoint = Assert.IsType<IPEndPoint>(server.UdpLocalEndPoint);
+
+                    oldSubscriber = CreateBoundUdpSocket();
+                    newSubscriber = CreateBoundUdpSocket();
+                    publisher = CreateBoundUdpSocket();
+
+                    await SendUdpDatagramAsync(oldSubscriber, serverEndPoint, Encoding.ASCII.GetBytes("REGISTER device-a"));
+                    await SendUdpDatagramAsync(oldSubscriber, serverEndPoint, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
+                    await WaitForSubscriberCountAsync(server, Topic, 1);
+
+                    await SendUdpDatagramAsync(newSubscriber, serverEndPoint, Encoding.ASCII.GetBytes("REGISTER device-a"));
+                    await WaitForSubscriberCountAsync(server, Topic, 1);
+
+                    await SendUdpDatagramAsync(publisher, serverEndPoint, CreatePublishCommand(Topic, expectedPayload));
+
+                    ReceivedUdpDatagram received = await ReceiveUdpDatagramAsync(newSubscriber, 256);
+                    Assert.Equal(expectedPayload, received.Payload);
+                    Assert.Equal(serverEndPoint, received.RemoteEndPoint);
+                }
+                finally
+                {
+                    oldSubscriber?.Dispose();
+                    newSubscriber?.Dispose();
+                    publisher?.Dispose();
+                    await server.StopAsync();
+                }
+            }
+        }
+
         private static bool HasExpectedConstructor(ConstructorInfo constructor)
         {
             ParameterInfo[] parameters = constructor.GetParameters();
