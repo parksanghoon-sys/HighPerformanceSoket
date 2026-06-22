@@ -150,6 +150,64 @@ namespace Hps.Server.Tests
             }
         }
 
+        // UDP lease timer wiring 테스트는 enabled options 일 때 Server host 가 bind 성공 뒤 sweep timer 를 만들고,
+        // timer fire 시 BrokerUdpDatagramHandler 의 sweep entry point 를 통해 stale remote subscription 을 제거하는지 검증한다.
+        [Fact]
+        public async Task StartUdpAsync_WhenUdpLeaseSweepEnabled_CreatesTimerAndSweepsExpiredRemote()
+        {
+            FakeTransport transport = new FakeTransport();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+            ManualTimeProvider timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+            BrokerServerOptions options = BrokerServerOptions.CreateWithUdpLeaseSweep(
+                TimeSpan.FromSeconds(30),
+                TimeSpan.FromSeconds(5),
+                timeProvider);
+            using (BrokerServer server = new BrokerServer(transport, pool, 64, options))
+            {
+                await server.StartUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+
+                Assert.Single(timeProvider.Timers);
+                Assert.Equal(TimeSpan.FromSeconds(5), timeProvider.Timers[0].DueTime);
+                Assert.Equal(TimeSpan.FromSeconds(5), timeProvider.Timers[0].Period);
+
+                EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, 20000);
+                transport.DatagramHandler!.OnDatagramReceived(
+                    transport.UdpEndpoint!,
+                    remoteEndPoint,
+                    RentDatagram(pool, "SUBSCRIBE alpha"));
+                Assert.True(ReadSubscriptionTable(server).IsSubscribed("alpha", BrokerSubscriber.ForUdp(transport.UdpEndpoint!, remoteEndPoint)));
+
+                timeProvider.Advance(TimeSpan.FromSeconds(31));
+                timeProvider.Timers[0].Fire();
+
+                Assert.False(ReadSubscriptionTable(server).IsSubscribed("alpha", BrokerSubscriber.ForUdp(transport.UdpEndpoint!, remoteEndPoint)));
+                Assert.Equal(0, pool.RentedCount);
+            }
+        }
+
+        // UDP lease timer stop 테스트는 Server host 가 소유한 timer 를 StopAsync 에서 endpoint/transport 종료 전에 dispose 하는지 검증한다.
+        // timer 를 남겨두면 stop 이후에도 routing table cleanup callback 이 들어와 host 수명 경계를 흐릴 수 있다.
+        [Fact]
+        public async Task StopAsync_WhenUdpLeaseSweepEnabled_DisposesSweepTimer()
+        {
+            FakeTransport transport = new FakeTransport();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+            ManualTimeProvider timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+            BrokerServerOptions options = BrokerServerOptions.CreateWithUdpLeaseSweep(
+                TimeSpan.FromSeconds(30),
+                TimeSpan.FromSeconds(5),
+                timeProvider);
+            using (BrokerServer server = new BrokerServer(transport, pool, 64, options))
+            {
+                await server.StartUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                ManualTimer timer = Assert.Single(timeProvider.Timers);
+
+                await server.StopAsync();
+
+                Assert.Equal(1, timer.DisposeCallCount);
+            }
+        }
+
         // 실제 TCP command loopback 테스트: 서버 wiring 이 단순히 handler 를 등록하는 데 그치지 않고,
         // SaeaTransport 의 accept/receive/send pump 를 통해 SUBSCRIBE 와 PUBLISH command 를 연결해 subscriber 로 payload 를 보내야 한다.
         [Fact]
@@ -586,6 +644,15 @@ namespace Hps.Server.Tests
             return new ReceivedUdpDatagram(result.RemoteEndPoint, payload);
         }
 
+        private static RefCountedBuffer RentDatagram(PinnedBlockMemoryPool pool, string text)
+        {
+            byte[] bytes = Encoding.ASCII.GetBytes(text);
+            RefCountedBuffer datagram = pool.RentCounted();
+            bytes.CopyTo(datagram.Span);
+            datagram.SetLength(bytes.Length);
+            return datagram;
+        }
+
         private static async Task WaitForSubscriberCountAsync(BrokerServer server, string topic, int expected)
         {
             SubscriptionTable subscriptions = ReadSubscriptionTable(server);
@@ -639,6 +706,90 @@ namespace Hps.Server.Tests
             internal EndPoint RemoteEndPoint { get; }
 
             internal byte[] Payload { get; }
+        }
+
+        private sealed class ManualTimeProvider : TimeProvider
+        {
+            private readonly System.Collections.Generic.List<ManualTimer> _timers;
+            private DateTimeOffset _utcNow;
+
+            internal ManualTimeProvider(DateTimeOffset utcNow)
+            {
+                _utcNow = utcNow;
+                _timers = new System.Collections.Generic.List<ManualTimer>();
+            }
+
+            internal System.Collections.Generic.IReadOnlyList<ManualTimer> Timers
+            {
+                get { return _timers; }
+            }
+
+            public override DateTimeOffset GetUtcNow()
+            {
+                return _utcNow;
+            }
+
+            public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+            {
+                ManualTimer timer = new ManualTimer(callback, state, dueTime, period);
+                _timers.Add(timer);
+                return timer;
+            }
+
+            internal void Advance(TimeSpan delta)
+            {
+                _utcNow = _utcNow.Add(delta);
+            }
+        }
+
+        private sealed class ManualTimer : ITimer
+        {
+            private readonly TimerCallback _callback;
+            private readonly object? _state;
+
+            internal ManualTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+            {
+                _callback = callback;
+                _state = state;
+                DueTime = dueTime;
+                Period = period;
+            }
+
+            internal TimeSpan DueTime { get; private set; }
+
+            internal TimeSpan Period { get; private set; }
+
+            internal int DisposeCallCount { get; private set; }
+
+            internal bool Disposed { get; private set; }
+
+            public bool Change(TimeSpan dueTime, TimeSpan period)
+            {
+                if (Disposed)
+                    return false;
+
+                DueTime = dueTime;
+                Period = period;
+                return true;
+            }
+
+            public void Dispose()
+            {
+                DisposeCallCount++;
+                Disposed = true;
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+                return default;
+            }
+
+            internal void Fire()
+            {
+                if (!Disposed)
+                    _callback(_state);
+            }
         }
 
         private sealed class FakeTransport : ITransport

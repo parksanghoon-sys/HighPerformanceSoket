@@ -47,15 +47,22 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - `UdpRemoteLeaseTracker.SweepExpired(DateTimeOffset)`가 생겼고, 만료된 remote target 을
   `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 모든 topic 에서 제거한다.
 - `BrokerUdpDatagramHandler`가 SUBSCRIBE/UNSUBSCRIBE/PUBLISH/endpoint-close activity 를 tracker 로 위임하고,
-  `SweepExpiredUdpLeases(DateTimeOffset)` 내부 entry point 를 제공한다. host timer/public settings 는 아직 없다.
+  `SweepExpiredUdpLeases(DateTimeOffset)` 내부 entry point 를 제공한다.
 - BrokerServer UDP lease host timer/public settings 설계는
   `docs/superpowers/specs/2026-06-22-broker-server-udp-lease-host-timer-design.md`에 있다(D074).
   기본은 disabled 이고, 활성화 시 idle timeout/sweep interval 은 명시 입력으로만 받는다.
 - `BrokerServerOptions` public 설정 타입이 생겼다. `Default`는 UDP lease sweep disabled 이고,
-  `CreateWithUdpLeaseSweep(...)`는 explicit timeout/interval 과 `TimeProvider`를 저장한다. 아직 timer wiring 은 없다.
+  `CreateWithUdpLeaseSweep(...)`는 explicit timeout/interval 과 `TimeProvider`를 저장한다.
+- `BrokerServer`가 UDP lease sweep enabled options 를 받으면 `StartUdpAsync` 성공 후 `TimeProvider.CreateTimer`로 sweep timer 를 만들고,
+  `StopAsync`와 start 실패 cleanup 에서 timer 를 dispose 한다. timer callback 은 `BrokerUdpDatagramHandler.SweepExpiredUdpLeases(...)`를 호출한다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — BrokerServer UDP lease host timer wiring
+  - D074 구현 두 번째 단위로 `BrokerServerOptions`를 `BrokerServer`와 `BrokerUdpDatagramHandler`에 연결했다.
+  - UDP start 성공 시 sweep timer 를 만들고, Stop/start 실패 시 timer 수명을 정리한다.
+  - 검증: Red assertion failure 2개 확인, focused tests 2개 통과, 생성자 reflection 제거 후 focused tests 2개 통과,
+    solution build 경고 0/오류 0, solution tests 175개 통과.
 - 이번 단위 — BrokerServerOptions public 설정 타입
   - D074 구현 첫 단위로 `BrokerServerOptions`를 추가했다.
   - 기본 disabled, 0 이하 timeout/interval 거부, explicit 값과 `TimeProvider` 보존을 테스트했다.
@@ -120,18 +127,18 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 사용자 리뷰 대기.
 
 이번 구현 단위 리뷰가 다음 게이트다.
-리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 중 BrokerServer host timer/public settings 구현을 다음 후보로 본다.
+리뷰 finding 이 있으면 먼저 반영한다. finding 이 없으면 `TODOS.md`의 Deferred Backlog 를 재평가해 다음 reviewable 단위를 고른다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 BrokerServerOptions public 설정 타입 추가다.
+이번 단위는 BrokerServer UDP lease host timer wiring 이다.
 
-- Red: `BrokerServerOptionsTests`를 reflection 기반으로 먼저 추가해 `BrokerServerOptions` 타입 부재에 따른 `Assert.NotNull` 실패 3개를 확인했다.
-- Green: `BrokerServerOptions`를 추가해 기본 disabled 와 enabled explicit 값 저장을 구현했다.
-- Refactor: reflection 기반 Red helper 를 direct public API 호출로 정리하고 focused tests 3개 통과를 확인했다.
+- Red: `BrokerServerTests`에 UDP lease sweep enabled 경로 테스트 2개를 reflection 기반으로 먼저 추가해 생성자 부재에 따른 `Assert.NotNull` 실패 2개를 확인했다.
+- Green: `BrokerServer` options 생성자, `Hps.Broker` friend assembly, UDP start/stop timer 수명 wiring 을 추가했다.
+- Refactor: 기본 생성자를 options 생성자에 위임하고, reflection 기반 Red helper 를 direct public API 호출로 정리했다.
 - 최종 검증: `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
 - 최종 검증: `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
-- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 173개 통과/실패 0.
+- 최종 검증: `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 175개 통과/실패 0.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -140,4 +147,3 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - latency hard gate 확정
 - RIO/io_uring backend 구현
 - stable subscriber identity 구현
-- BrokerServer host timer wiring 은 다음 단위

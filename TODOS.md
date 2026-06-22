@@ -9,13 +9,9 @@
 
 ## Current TODOs
 
-- BrokerServer UDP lease sweep host timer/public settings 를 구현한다.
-  - 기준 설계: `docs/superpowers/specs/2026-06-22-broker-server-udp-lease-host-timer-design.md` (D074).
-  - 예상 범위: `src/Hps.Server/BrokerServer.cs`, `src/Hps.Broker/Properties/AssemblyInfo.cs`,
-    server tests, root 상태 문서.
-  - 현재 상태: public `BrokerServerOptions` 타입은 구현됐다. 남은 작업은 options 를 `BrokerUdpDatagramHandler`에 연결하고
-    UDP start/stop 수명에 `TimeProvider.CreateTimer`를 붙이는 것이다.
-  - 검증: Red-Green-Refactor, `git diff --check`, solution build/test.
+- 현재 실행 중인 코드 작업 없음.
+  - BrokerServer UDP lease sweep host timer/public settings 구현 단위는 완료됐다.
+  - 이번 단위 리뷰 후 finding 이 있으면 우선 반영하고, 없으면 Deferred Backlog 를 재평가해 다음 reviewable 단위를 고른다.
 
 ## Deferred Backlog
 
@@ -38,6 +34,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-22 BrokerServer UDP lease sweep host timer/public settings 를 구현했다.
+  - 범위: `src/Hps.Server/BrokerServer.cs`, `src/Hps.Broker/Properties/AssemblyInfo.cs`,
+    `tests/Hps.Server.Tests/BrokerServerTests.cs`, root 상태 문서.
+  - 결과: `BrokerServerOptions` enabled 설정을 `BrokerUdpDatagramHandler`에 연결하고,
+    `StartUdpAsync` 성공 후 sweep timer 를 생성하며 `StopAsync`/start 실패 cleanup 에서 dispose 한다.
+  - 비고: 기본 생성자는 options 생성자로 위임해 disabled 기본 동작과 enabled host timer 경로가 같은 초기화 흐름을 사용한다.
+  - 검증: Red assertion failure 2개 확인, focused tests 2개 통과, 생성자 reflection 제거 후 focused tests 2개 통과,
+    solution build 경고 0/오류 0, solution tests 175개 통과.
 
 - [x] 2026-06-22 BrokerServerOptions public 설정 타입을 구현했다.
   - 범위: `src/Hps.Server/BrokerServerOptions.cs`, `tests/Hps.Server.Tests/BrokerServerOptionsTests.cs`, root 상태 문서.

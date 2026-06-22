@@ -21,6 +21,7 @@ namespace Hps.Server
         private readonly ITransport _transport;
         private readonly PinnedBlockMemoryPool _pool;
         private readonly int _maxPayloadLength;
+        private readonly BrokerServerOptions _options;
         private readonly SubscriptionTable _subscriptions;
         private readonly BrokerPublisher _publisher;
         private readonly BrokerTcpFrameHandler _brokerFrameHandler;
@@ -28,6 +29,7 @@ namespace Hps.Server
         private readonly TcpFrameReceiveHandler _receiveHandler;
         private IConnectionListener? _tcpListener;
         private IUdpEndpoint? _udpEndpoint;
+        private ITimer? _udpLeaseSweepTimer;
         private CancellationTokenSource? _acceptLoopCancellation;
         private Task? _acceptLoopTask;
         private bool _transportStarted;
@@ -42,11 +44,28 @@ namespace Hps.Server
         /// 담는 소유권 버퍼를 대여한다. <paramref name="maxPayloadLength"/> 는 Protocol 조립기의 DoS 방지 상한이다.
         /// </summary>
         public BrokerServer(ITransport transport, PinnedBlockMemoryPool pool, int maxPayloadLength)
+            : this(transport, pool, maxPayloadLength, BrokerServerOptions.Default)
+        {
+        }
+
+        /// <summary>
+        /// 선택적 host 설정을 포함하는 테스트 가능한 서버 host 를 만든다.
+        ///
+        /// UDP lease sweep 같은 host 수명 기능은 Transport/Broker 내부가 아니라 Server 가 소유한다.
+        /// 이 생성자는 테스트에서 가상 시간을 주입할 수 있게 하되, 기본 생성자와 동일한 초기화 경로를 사용한다.
+        /// </summary>
+        public BrokerServer(
+            ITransport transport,
+            PinnedBlockMemoryPool pool,
+            int maxPayloadLength,
+            BrokerServerOptions options)
         {
             if (transport == null)
                 throw new ArgumentNullException(nameof(transport));
             if (pool == null)
                 throw new ArgumentNullException(nameof(pool));
+            if (options == null)
+                throw new ArgumentNullException(nameof(options));
             if (maxPayloadLength < 0)
                 throw new ArgumentOutOfRangeException(nameof(maxPayloadLength));
             if (maxPayloadLength > pool.BlockSize)
@@ -55,11 +74,16 @@ namespace Hps.Server
             _transport = transport;
             _pool = pool;
             _maxPayloadLength = maxPayloadLength;
+            _options = options;
             _gate = new object();
             _subscriptions = new SubscriptionTable();
             _publisher = new BrokerPublisher(_subscriptions, _transport);
             _brokerFrameHandler = new BrokerTcpFrameHandler(_subscriptions, _publisher);
-            _brokerDatagramHandler = new BrokerUdpDatagramHandler(_subscriptions, _publisher);
+            _brokerDatagramHandler = new BrokerUdpDatagramHandler(
+                _subscriptions,
+                _publisher,
+                CreateUdpLeaseOptions(_options),
+                _options.TimeProvider);
             _receiveHandler = new TcpFrameReceiveHandler(_pool, _maxPayloadLength, _brokerFrameHandler);
         }
 
@@ -165,6 +189,7 @@ namespace Hps.Server
             }
 
             IUdpEndpoint? endpoint = null;
+            ITimer? udpLeaseSweepTimer = null;
 
             try
             {
@@ -173,16 +198,18 @@ namespace Hps.Server
                     await _transport.StartAsync(cancellationToken).ConfigureAwait(false);
 
                 endpoint = await _transport.BindUdpAsync(localEndPoint, cancellationToken).ConfigureAwait(false);
+                udpLeaseSweepTimer = CreateUdpLeaseSweepTimer();
 
                 lock (_gate)
                 {
                     _udpEndpoint = endpoint;
+                    _udpLeaseSweepTimer = udpLeaseSweepTimer;
                     UdpLocalEndPoint = endpoint.LocalEndPoint;
                 }
             }
             catch
             {
-                CleanupFailedUdpStart(endpoint);
+                CleanupFailedUdpStart(endpoint, udpLeaseSweepTimer);
 
                 bool shouldStopTransport = false;
 
@@ -212,6 +239,7 @@ namespace Hps.Server
         {
             IConnectionListener? listener;
             IUdpEndpoint? udpEndpoint;
+            ITimer? udpLeaseSweepTimer;
             CancellationTokenSource? acceptLoopCancellation;
             Task? acceptLoopTask;
             bool shouldStopTransport;
@@ -220,12 +248,14 @@ namespace Hps.Server
             {
                 listener = _tcpListener;
                 udpEndpoint = _udpEndpoint;
+                udpLeaseSweepTimer = _udpLeaseSweepTimer;
                 acceptLoopCancellation = _acceptLoopCancellation;
                 acceptLoopTask = _acceptLoopTask;
                 shouldStopTransport = _transportStarted;
 
                 _tcpListener = null;
                 _udpEndpoint = null;
+                _udpLeaseSweepTimer = null;
                 _acceptLoopCancellation = null;
                 _acceptLoopTask = null;
                 LocalEndPoint = null;
@@ -234,6 +264,8 @@ namespace Hps.Server
                 _tcpStarted = false;
                 _udpStarted = false;
             }
+
+            udpLeaseSweepTimer?.Dispose();
 
             if (!shouldStopTransport)
                 return;
@@ -315,11 +347,37 @@ namespace Hps.Server
             acceptLoopCancellation?.Dispose();
         }
 
-        private static void CleanupFailedUdpStart(IUdpEndpoint? endpoint)
+        private static void CleanupFailedUdpStart(IUdpEndpoint? endpoint, ITimer? udpLeaseSweepTimer)
         {
+            udpLeaseSweepTimer?.Dispose();
             // BindUdpAsync 이후 예외가 나면 endpoint 소유권은 Server 로 넘어온 상태일 수 있으므로 즉시 닫는다.
             endpoint?.Close();
             endpoint?.Dispose();
+        }
+
+        private static UdpLeaseOptions CreateUdpLeaseOptions(BrokerServerOptions options)
+        {
+            if (!options.UdpLeaseSweepEnabled)
+                return UdpLeaseOptions.Disabled;
+
+            return UdpLeaseOptions.CreateEnabled(options.UdpLeaseIdleTimeout, options.UdpLeaseSweepInterval);
+        }
+
+        private ITimer? CreateUdpLeaseSweepTimer()
+        {
+            if (!_options.UdpLeaseSweepEnabled)
+                return null;
+
+            return _options.TimeProvider.CreateTimer(
+                OnUdpLeaseSweepTimer,
+                null,
+                _options.UdpLeaseSweepInterval,
+                _options.UdpLeaseSweepInterval);
+        }
+
+        private void OnUdpLeaseSweepTimer(object? state)
+        {
+            _brokerDatagramHandler.SweepExpiredUdpLeases(_options.TimeProvider.GetUtcNow());
         }
 
         private void ThrowIfDisposed()
