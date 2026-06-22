@@ -15,12 +15,14 @@ namespace Hps.Broker
         private readonly SubscriptionTable _subscriptions;
         private readonly BrokerPublisher _publisher;
         private readonly UdpRemoteLeaseTracker _udpLeases;
+        private readonly SubscriberRegistry? _subscriberRegistry;
+        private readonly TimeProvider _timeProvider;
 
         /// <summary>
-        /// UDP command 처리를 위한 routing table 과 publisher 를 지정한다.
+        /// stable identity 와 lease sweep 없이 기본 UDP command 처리를 수행한다.
         /// </summary>
         public BrokerUdpDatagramHandler(SubscriptionTable subscriptions, BrokerPublisher publisher)
-            : this(subscriptions, publisher, UdpLeaseOptions.Disabled, TimeProvider.System)
+            : this(subscriptions, publisher, UdpLeaseOptions.Disabled, TimeProvider.System, null)
         {
         }
 
@@ -29,6 +31,16 @@ namespace Hps.Broker
             BrokerPublisher publisher,
             UdpLeaseOptions leaseOptions,
             TimeProvider timeProvider)
+            : this(subscriptions, publisher, leaseOptions, timeProvider, null)
+        {
+        }
+
+        internal BrokerUdpDatagramHandler(
+            SubscriptionTable subscriptions,
+            BrokerPublisher publisher,
+            UdpLeaseOptions leaseOptions,
+            TimeProvider timeProvider,
+            SubscriberRegistry? subscriberRegistry)
         {
             if (subscriptions == null)
                 throw new ArgumentNullException(nameof(subscriptions));
@@ -41,6 +53,8 @@ namespace Hps.Broker
 
             _subscriptions = subscriptions;
             _publisher = publisher;
+            _subscriberRegistry = subscriberRegistry;
+            _timeProvider = timeProvider;
             _udpLeases = new UdpRemoteLeaseTracker(subscriptions, leaseOptions, timeProvider);
         }
 
@@ -62,8 +76,24 @@ namespace Hps.Broker
                 TcpCommandDecodeError error;
                 if (!TcpCommandDecoder.TryDecode(datagram.Memory.Span.Slice(0, datagram.Length), out command, out error))
                 {
-                    // UDP endpoint 는 여러 remote 가 공유할 수 있다. 따라서 malformed datagram 하나 때문에 endpoint 전체를
-                    // 닫지 않고, D060 정책대로 현재 datagram 만 폐기한다. protocol error 응답은 아직 범위 밖이다.
+                    // UDP endpoint 는 여러 remote 가 공유할 수 있으므로 malformed datagram 하나 때문에 endpoint 전체를 닫지 않는다.
+                    // TCP와 달리 datagram 경계는 이미 보존되므로 현재 datagram 만 폐기하는 것이 v1 정책이다.
+                    return;
+                }
+
+                BrokerSubscriber target = BrokerSubscriber.ForUdp(endpoint, remoteEndPoint);
+
+                if (command.Kind == TcpCommandKind.Register)
+                {
+                    RegisterUdpTarget(target, DecodeTopic(command.Topic));
+                    return;
+                }
+
+                if (command.Kind == TcpCommandKind.Unregister)
+                {
+                    if (_subscriberRegistry != null)
+                        _subscriberRegistry.Unregister(SubscriberIdentity.Create(DecodeTopic(command.Topic)), target);
+                    _udpLeases.RemoveRemote(endpoint, remoteEndPoint);
                     return;
                 }
 
@@ -71,6 +101,8 @@ namespace Hps.Broker
                 {
                     string topic = DecodeTopic(command.Topic);
                     _udpLeases.Subscribe(topic, endpoint, remoteEndPoint);
+                    if (_subscriberRegistry != null)
+                        _subscriberRegistry.Subscribe(topic, target);
                     return;
                 }
 
@@ -78,6 +110,8 @@ namespace Hps.Broker
                 {
                     string topic = DecodeTopic(command.Topic);
                     _udpLeases.Unsubscribe(topic, endpoint, remoteEndPoint);
+                    if (_subscriberRegistry != null)
+                        _subscriberRegistry.Unsubscribe(topic, target);
                     return;
                 }
 
@@ -103,6 +137,9 @@ namespace Hps.Broker
             if (endpoint == null)
                 throw new ArgumentNullException(nameof(endpoint));
 
+            if (_subscriberRegistry != null)
+                _subscriberRegistry.RemoveUdpEndpoint(endpoint, _timeProvider.GetUtcNow());
+
             _udpLeases.RemoveEndpoint(endpoint);
         }
 
@@ -111,10 +148,31 @@ namespace Hps.Broker
             return _udpLeases.SweepExpired(now);
         }
 
+        private void RegisterUdpTarget(BrokerSubscriber target, string identityValue)
+        {
+            if (_subscriberRegistry == null)
+                return;
+
+            SubscriberRegistrationResult result = _subscriberRegistry.Register(
+                SubscriberIdentity.Create(identityValue),
+                target,
+                out BrokerSubscriber? replacedTarget,
+                out string[] reboundTopics);
+
+            if (result == SubscriberRegistrationResult.TargetAlreadyRegisteredWithDifferentIdentity)
+                return;
+
+            if (replacedTarget.HasValue && replacedTarget.Value.TransportKind == EndpointTransportKind.Udp)
+                _udpLeases.RemoveRemote(replacedTarget.Value.UdpEndpoint, replacedTarget.Value.UdpRemoteEndPoint);
+
+            if (reboundTopics.Length > 0)
+                _udpLeases.MarkSubscribedTopics(target.UdpEndpoint, target.UdpRemoteEndPoint, reboundTopics);
+        }
+
         private static string DecodeTopic(ReadOnlySpan<byte> topic)
         {
-            // topic 은 routing table key 로 datagram 수명 이후에도 남을 수 있으므로 string 으로 명시 복사한다.
-            // payload 는 RefCountedBuffer range 로 유지하지만 topic key 는 dictionary lookup 에 안정적인 관리 객체가 필요하다.
+            // topic/identity token 은 routing table key 로 datagram 수명 이후에도 남는다.
+            // payload 는 RefCountedBuffer range 로 유지하지만 key token 은 명시적으로 string 으로 복사한다.
             return Encoding.ASCII.GetString(topic);
         }
     }

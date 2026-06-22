@@ -95,6 +95,36 @@ namespace Hps.Broker
             }
         }
 
+        internal void MarkSubscribedTopics(IUdpEndpoint endpoint, EndPoint remoteEndPoint, string[] topics)
+        {
+            ValidateEndpoint(endpoint);
+            ValidateRemoteEndPoint(remoteEndPoint);
+            if (topics == null)
+                throw new ArgumentNullException(nameof(topics));
+            if (!_options.Enabled)
+                return;
+
+            lock (_gate)
+            {
+                UdpRemoteLease lease = GetOrCreateLease(endpoint, remoteEndPoint);
+                DateTimeOffset now = _timeProvider.GetUtcNow();
+                for (int index = 0; index < topics.Length; index++)
+                    lease.MarkSubscribed(topics[index], now);
+            }
+        }
+
+        internal int RemoveRemote(IUdpEndpoint endpoint, EndPoint remoteEndPoint)
+        {
+            ValidateEndpoint(endpoint);
+            ValidateRemoteEndPoint(remoteEndPoint);
+
+            lock (_gate)
+            {
+                _leases.Remove(new UdpRemoteLeaseKey(endpoint, remoteEndPoint));
+                return _subscriptions.UnsubscribeAll(endpoint, remoteEndPoint);
+            }
+        }
+
         internal int RemoveEndpoint(IUdpEndpoint endpoint)
         {
             ValidateEndpoint(endpoint);

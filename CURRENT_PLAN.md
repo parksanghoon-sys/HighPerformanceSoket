@@ -67,9 +67,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   registry 는 identity별 topic metadata 와 현재 online `BrokerSubscriber` target 을 연결하며 payload 는 저장하지 않는다.
 - TCP `BrokerTcpFrameHandler`는 선택적 `SubscriberRegistry`가 주입되면 `REGISTER`/`UNREGISTER`와 registered
   target 의 subscribe/unsubscribe/close cleanup 을 registry 로 연결한다. 기본 public constructor 는 기존 runtime target 동작을 유지한다.
+- UDP `BrokerUdpDatagramHandler`는 선택적 `SubscriberRegistry`가 주입되면 UDP `REGISTER`/`UNREGISTER`,
+  registered remote subscribe/unsubscribe, same-id remote rebind, endpoint close cleanup 을 registry 와 lease tracker 로 연결한다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — Stable subscriber identity UDP handler wiring
+  - Task 4로 `BrokerUdpDatagramHandler`에 optional `SubscriberRegistry` internal constructor 를 추가했다.
+  - UDP `REGISTER`/`UNREGISTER`, registered remote subscribe/unsubscribe, same-id remote rebind,
+    duplicate target datagram-drop, endpoint close retention 을 registry/lease tracker 경로로 연결했다.
+  - `UdpRemoteLeaseTracker.RemoveRemote(...)`와 `MarkSubscribedTopics(...)`를 추가해 rebind 시 old lease 제거와 new lease topic 복구를 처리한다.
+  - 검증: internal constructor 부재 Red assertion failure 4개 확인, focused UDP handler tests 12개 통과.
 - 이번 단위 — Stable subscriber identity TCP handler wiring
   - Task 3으로 `BrokerTcpFrameHandler`에 optional `SubscriberRegistry`와 `TimeProvider` internal constructor 를 추가했다.
   - TCP `REGISTER`/`UNREGISTER`, registered target subscribe/unsubscribe, same-id reconnect rebind,
@@ -161,19 +169,18 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Stable subscriber identity 구현 계획 Task 4를 진행한다.
+Stable subscriber identity 구현 계획 Task 5를 진행한다.
 
-다음 단위는 UDP `BrokerUdpDatagramHandler` stable identity wiring 이다.
-enabled registry 가 주입된 handler 에서 UDP `REGISTER`/`UNREGISTER`, registered remote 의 subscribe/unsubscribe,
-same-id remote rebind, endpoint close cleanup 을 `SubscriberRegistry`와 `UdpRemoteLeaseTracker`에 함께 연결한다.
+다음 단위는 `BrokerServerOptions` stable identity opt-in 설정과 `BrokerServer` retention timer wiring 이다.
+enabled options 일 때 shared `SubscriberRegistry`를 TCP/UDP handler 에 주입하고, disconnected identity sweep timer 를 host 수명에 맞춘다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 Stable subscriber identity TCP handler wiring 구현이다.
+이번 단위는 Stable subscriber identity UDP handler wiring 구현이다.
 
-- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter FullyQualifiedName~BrokerTcpFrameHandlerTests`
+- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter FullyQualifiedName~BrokerUdpDatagramHandlerTests`
   에서 registry 주입 internal constructor 부재로 assertion failure 4개를 확인했다.
-- Green/Refactor: 같은 focused TCP handler tests 11개가 통과했다.
+- Green/Refactor: 같은 focused UDP handler tests 12개가 통과했다.
 - 최종 검증은 커밋 전 `git diff --check`, solution build/test 로 확인한다.
 
 ## 이번 작업에서 건드리지 않는 범위
@@ -182,4 +189,4 @@ same-id remote rebind, endpoint close cleanup 을 `SubscriberRegistry`와 `UdpRe
 - CI workflow 또는 warning-as-failure 정책 구현
 - latency hard gate 확정
 - RIO/io_uring backend 구현
-- UDP handler wiring 과 BrokerServer opt-in timer wiring
+- BrokerServer stable identity opt-in settings 와 retention timer wiring
