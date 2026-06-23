@@ -93,9 +93,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - UDP lease sweep registry cleanup race 는 D077 기준으로 정리했다.
   `BrokerUdpDatagramHandler`는 UDP receive command/endpoint-close/sweep state mutation 을 handler gate 로 직렬화하고,
   `PUBLISH` fan-out 은 lease activity 갱신 뒤 lock 밖에서 수행한다.
+- UDP lease sweep registry race guard 리뷰에서 새 Blocker/Major finding 은 나오지 않았다.
+  상세는 `docs/agent-state/reviews/2026-06-23-udp-lease-sweep-race-guard-review.md`를 본다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — UDP lease sweep registry race guard 리뷰
+  - `a817c6e`의 handler gate 직렬화, PUBLISH fan-out lock 범위, race regression test 를 검토했다.
+  - Blocker/Major correctness finding 은 없고, race test 의 250ms scheduling window 는 비차단 Minor 관찰로 남겼다.
+  - 검증: `git show`/`rg`/line review 로 코드·테스트·D077 정합성을 대조했다.
 - 이번 단위 — UDP lease sweep registry race guard
   - F1 후속 must-fix 로 sweep expired snapshot 과 같은 target `REGISTER`가 겹칠 때 stale registry cleanup 이 새 online 상태를
     disconnected 로 덮는 race 를 막았다.
@@ -256,21 +262,18 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-UDP lease sweep registry race guard 수정분을 리뷰받는다.
+Phase 4 backlog 를 재평가하고 다음 구현 단위를 설계한다.
 
-다음 단위는 구현 추가가 아니라 review gate 다. 이번 race guard 수정이 설계/코드/테스트와 정합한지 검토받고,
-must-fix 가 새로 나오면 그 항목을 다음 작은 구현 단위로 처리한다. 새 must-fix 가 없으면 Phase 4 backlog 를 재평가한다.
+stable subscriber identity / UDP lease sweep must-fix 체인은 현재 닫혔다. 다음 단위는 구현을 바로 늘리기 전에
+Phase 4의 남은 backlog, baseline/observability 문서, 현재 `TODOS.md`를 대조해 가장 안전한 다음 작은 구현 단위를 고르는 설계 작업이다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 UDP lease sweep registry race guard 다.
+이번 단위는 Phase 4 backlog 재평가 및 다음 구현 단위 설계다.
 
-- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter FullyQualifiedName~SweepExpiredUdpLeases_WhenRegisteredRemoteReRegistersDuringSweep_KeepsReRegisteredTargetOnline`
-  에서 `Assert.True()` failure 를 확인했다.
-- Green: 같은 focused race test 통과.
-- Focused regression: `BrokerUdpDatagramHandlerTests` 17개 통과, `Hps.Broker.Tests` 73개 통과.
-- 최종 검증: `git diff --check` 통과, `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0/오류 0,
-  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 222개 통과.
+- `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`, 최근 review/spec/plan 문서를 대조해 현재 실행 가능한 항목을 확인한다.
+- 구현 설계 산출물이 생기면 관련 spec/plan/state 문서만 작은 단위로 갱신한다.
+- 문서 변경 검증은 `git diff --check`를 기본으로 하고, current code state 를 확인해야 하면 solution build/test 를 추가로 실행한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

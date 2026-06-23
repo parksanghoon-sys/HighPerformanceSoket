@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - UDP lease sweep registry race guard review gate)
+
+### 작업 단위
+- 직전 `a817c6e` UDP lease sweep registry race guard 수정분을 다음 구현 전 리뷰 게이트로 검토했다.
+
+### 변경 내용
+- `docs/agent-state/reviews/2026-06-23-udp-lease-sweep-race-guard-review.md`: handler gate 직렬화, PUBLISH fan-out lock 범위, race regression test 를 검토한 문서를 추가했다.
+- Blocker/Major correctness finding 은 발견하지 못했다.
+- race regression test 의 250ms scheduling window 는 fixed path 판단을 막지 않는 Minor 관찰로 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: stable identity / UDP lease sweep must-fix 체인이 닫힌 상태와 다음 Phase 4 backlog 재평가 진입점을 반영했다.
+
+### 검증
+- `git show --stat --oneline a817c6e`와 `git show -- src\Hps.Broker\BrokerUdpDatagramHandler.cs`,
+  `git show -- tests\Hps.Broker.Tests\BrokerUdpDatagramHandlerTests.cs`로 수정 범위를 확인했다.
+- `rg`로 D077, handler gate, sweep/register race test, PUBLISH lock-outside 경계를 대조했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 222개 통과/실패 0.
+
 ## 2026-06-23 (Codex - UDP lease sweep registry race guard)
 
 ### 작업 단위

@@ -9,14 +9,12 @@
 
 ## Current TODOs
 
-- [ ] `P0_NOW` UDP lease sweep registry race guard 수정분을 리뷰받는다.
-  - 무엇이 남았는지: F1 후속 stale snapshot race 는 구현 완료됐고, 다음 implementation 전에 검토가 필요하다.
-  - 왜 지금 해야 하는지: 사용자 작업 규칙상 기능별 작은 단위로 커밋한 뒤 다음 구현 전에 검토를 거쳐야 한다.
-  - objective: handler gate 기반 직렬화가 UDP receive command, endpoint close, lease sweep 경계에서 correctness 를 보장하면서
-    PUBLISH fan-out lock 범위를 과하게 넓히지 않았는지 확인한다.
-  - 관련 파일: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`,
-    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
-  - next step: 리뷰 결과 must-fix 가 있으면 다음 작은 구현 단위로 처리하고, 없으면 Phase 4 backlog 를 재평가한다.
+- [ ] `P1_SOON` Phase 4 backlog 를 재평가하고 다음 구현 단위를 설계한다.
+  - 무엇이 남았는지: stable subscriber identity / UDP lease sweep must-fix 체인이 닫혔으므로, Phase 4 원래 흐름으로 돌아가 다음 작은 구현 단위를 골라야 한다.
+  - 왜 지금 해야 하는지: 현재 `Deferred Backlog`에는 server-level diagnostics P3만 남아 있고, baseline/observability 관련 spec/plan 문서에는 아직 승격 가능한 후속이 있을 수 있다.
+  - objective: `CURRENT_PLAN.md`, `DECISIONS.md`, 최근 review/spec/plan 문서를 대조해 지금 바로 실행 가능한 가장 작은 Phase 4 작업을 하나로 좁힌다.
+  - 관련 파일: `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`, `docs/superpowers/specs/`, `docs/superpowers/plans/`, `docs/agent-state/reviews/`.
+  - next step: 후보 작업을 하나 선택하고, touched files/검증 경로/커밋 경계까지 설계한다.
 
 ## Deferred Backlog
 
@@ -31,6 +29,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 UDP lease sweep registry race guard 리뷰를 완료했다.
+  - 범위: `a817c6e`, `src/Hps.Broker/BrokerUdpDatagramHandler.cs`,
+    `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`, D077 관련 문서, root 상태 문서.
+  - 결과: handler gate 직렬화는 sweep/re-register stale cleanup race 를 닫고, `PUBLISH` fan-out 을 lock 밖에 둔 범위도 D077과 정합했다.
+  - 비고: race regression test 의 250ms scheduling window 는 비차단 Minor 관찰로 남겼다. fixed path green 판단은 해당 반환값에 의존하지 않는다.
+  - 검증: `git show`/`rg`/line review 로 코드·테스트·문서 정합성을 대조했다.
 
 - [x] 2026-06-23 UDP lease sweep registry cleanup stale snapshot race 를 막았다.
   - 범위: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`,
