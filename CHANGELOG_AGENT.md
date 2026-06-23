@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - summary/history comparison signal design)
+
+### 작업 단위
+- D079 raw report metadata 이후 summary/history 가 비교 가능성을 어떻게 보존·표현할지 설계했다.
+- 코드 구현, generated baseline artifact 재생성, warning-as-failure 정책은 이번 범위에서 제외했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`:
+  summary/history comparison signal schema, mismatch 표현, Markdown 출력, 후속 구현 단위를 정리했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`: D080을 추가했다.
+  comparison signal 은 hard gate, 기존 `warning-count`, CLI exit code 와 분리된 non-failing compatibility artifact 로 둔다.
+- `CURRENT_PLAN.md`, `TODOS.md`: 설계 완료와 다음 구현 계획 작성 진입점을 반영했다.
+
+### 검증
+- current `BaselineReport`, `BaselineSummary*`, `BaselineHistory*`, D079 raw writer/reader 구조를 대조했다.
+- summary 안의 `load`와 `open-loop`이 서로 다른 `scenario`를 가질 수 있어, comparison key 를 단일 scenario 가 아니라
+  `result-name`별 `cases` 배열로 설계했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 246개 통과/실패 0.
+
 ## 2026-06-23 (Codex - benchmark runner identity implementation review)
 
 ### 작업 단위

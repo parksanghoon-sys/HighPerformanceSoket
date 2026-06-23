@@ -76,6 +76,10 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - benchmark runner identity Task 1~3 구현 검토가 완료됐다.
   새 Blocker/Major finding 은 없고, writer output 에 대한 architecture field roundtrip/assertion 보강은 비차단 test-hardening 으로 남겼다.
   상세는 `docs/agent-state/reviews/2026-06-23-benchmark-runner-identity-implementation-review.md`를 본다.
+- summary/history comparison signal 설계를 완료했다.
+  설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
+  D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
+  summary comparison key 는 `load`/`open-loop` scenario 차이를 허용하기 위해 `result-name`별 `cases` 배열로 표현한다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -139,6 +143,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Summary/history comparison signal 설계
+  - D079 raw report metadata 이후 남은 summary/history 비교 가능성 표현을 설계했다.
+  - `comparison-compatible`, `comparison-key`, `comparison-mismatch-count`, `comparison-mismatches`,
+    `unknown-runner-count` field 를 summary/history additive schema 로 정리했다.
+  - summary 안의 `load`와 `open-loop`은 서로 다른 `scenario`를 가질 수 있으므로, 단일 scenario key 대신
+    `result-name`별 `cases` 배열을 comparison key 로 사용하기로 했다.
+  - 결정: D080으로 comparison signal 은 기존 hard gate, `warning-count`, CLI exit code 에 영향을 주지 않는
+    non-failing compatibility artifact 로 둔다.
+  - 검증: 현재 `BaselineReport`, `BaselineSummary*`, `BaselineHistory*`, D079 raw writer/reader 구조를 대조했다.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 246개 통과.
 - 이번 단위 — Benchmark runner identity Task 1~3 구현 검토
   - D079 설계, 구현 계획, `BenchmarkRunIdentity` model, raw writer, raw reader, focused tests 를 대조했다.
   - 새 Blocker/Major finding 은 없다.
@@ -397,20 +411,20 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Summary/history comparison signal 설계를 진행한다.
+Summary/history comparison signal 구현 계획을 작성한다.
 
-다음 작업은 D079 후속으로 `BaselineSummary`/`BaselineHistory`가 raw report metadata 를 어떻게 보존·집계하고,
-runner mismatch 를 어떤 JSON/Markdown field 로 표현할지 정하는 설계 단위다.
+다음 작업은 D080 설계를 `BaselineReport` payload/target 확장, summary comparison model/generator,
+summary writer/Markdown, history reader/generator/writer 의 작은 TDD 커밋 단위로 나누는 계획 단위다.
 
 ## 이번 단위의 검증 경로
 
-다음 단위는 설계다.
+다음 단위는 구현 계획이다.
 
-- 범위: `BaselineSummary`, `BaselineSummaryWriter`, `BaselineSummaryMarkdownWriter`, `BaselineHistory*` model/writer,
-  D079 summary/history 비교 가능성 규칙.
-- 검증: 기존 summary/history tests 와 artifact schema 를 대조하고, 설계 문서/결정/상태 문서를 갱신한 뒤
+- 범위: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
+  `BaselineReport`, `BaselineSummary*`, `BaselineHistory*`, 관련 tests.
+- 검증: 설계 문서와 현재 source/test 구조를 대조하고, 구현 Task 별 Red/Green 경계와 커밋 경계를 작성한 뒤
   `git diff --check`, solution build/test 를 수행한다.
-- 완료 후 구현 가능한 작은 Task 단위로 나눈다.
+- 완료 후 사용자 검토를 받기 전 실제 코드는 변경하지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

@@ -9,14 +9,17 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` summary/history comparison signal 설계를 진행한다.
-  - 무엇이 남았는지: raw report 에 runner/environment metadata 를 기록하고 reader 가 보존하게 됐다.
-    아직 `summary.json`/`history.json`이 metadata 일치 여부와 mismatch reason 을 어떻게 표현할지 정하지 않았다.
-  - 왜 지금 해야 하는지: warning-as-failure 나 CI gate 로 넘어가기 전에 비교 가능한 baseline 인지 machine-readable 하게 판단할 수 있어야 한다.
-  - objective: `comparison-compatible` 계열 field, mismatch reason 표현, JSON/Markdown 출력 범위, 구현 Task 단위를 설계한다.
-  - 관련 파일: `docs/superpowers/specs/2026-06-23-benchmark-runner-identity-design.md`,
-    `tests/Hps.Benchmarks/BaselineSummary*.cs`, `BaselineHistory*.cs`, 관련 writer/tests, root 상태 문서.
-  - next step: 현재 summary/history model/writer/test 구조를 읽고 D079 summary/history 집계 규칙을 작은 구현 단위로 설계한다.
+- [ ] `P1_SOON` summary/history comparison signal 구현 계획을 작성한다.
+  - 무엇이 남았는지: D080으로 summary/history comparison signal schema 와 compatibility 규칙을 정했다.
+    아직 이를 어떤 TDD 커밋 단위로 구현할지 계획 문서로 쪼개지 않았다.
+  - 왜 지금 해야 하는지: 실제 코드 변경 전에 `BaselineReport` payload/target 확장, summary comparison model/generator,
+    summary writer/Markdown, history reader/generator/writer 의 경계와 Red 테스트를 작게 고정해야 한다.
+  - objective: `docs/superpowers/plans/` 아래 구현 계획을 작성하고, 각 Task 의 touched files, Red/Green 검증,
+    커밋 경계, 테스트 주석 요구를 명시한다.
+  - 관련 파일: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
+    `tests/Hps.Benchmarks/BaselineReport*.cs`, `BaselineSummary*.cs`, `BaselineHistory*.cs`,
+    `tests/Hps.Benchmarks.Tests/*`.
+  - next step: D080 설계와 현재 benchmark tests 를 대조해 구현 계획을 3~4개 reviewable 단위로 작성한다.
 
 ## Deferred Backlog
 
@@ -42,6 +45,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 summary/history comparison signal 설계를 완료했다.
+  - 범위: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
+    D079 raw metadata, `BaselineReport`, `BaselineSummary*`, `BaselineHistory*`.
+  - 결과: summary/history JSON에 `comparison-compatible`, `comparison-key`, `comparison-mismatch-count`,
+    `comparison-mismatches`, `unknown-runner-count` 계열 additive field 를 두는 설계를 작성했다.
+  - 결정: D080으로 comparison signal 은 hard gate, 기존 `warning-count`, CLI exit code 에 영향을 주지 않는
+    non-failing compatibility artifact 로 둔다.
+  - 비고: summary 안에서 `load`와 `open-loop` scenario 가 다를 수 있으므로, comparison key 는 단일 scenario 가 아니라
+    `result-name`별 `cases` 배열로 표현한다.
+  - 검증: current benchmark model/writer/reader 구조와 D079 설계를 대조했다.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 246개 통과.
 
 - [x] 2026-06-23 benchmark runner identity Task 1~3 구현 검토를 완료했다.
   - 범위: D079 설계, 구현 계획, `BenchmarkRunIdentity`, `TcpLoopbackRunResult`, `TcpLoopbackReportWriter`,
