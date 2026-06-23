@@ -9,17 +9,18 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` summary/history comparison signal 구현 계획을 작성한다.
-  - 무엇이 남았는지: D080으로 summary/history comparison signal schema 와 compatibility 규칙을 정했다.
-    아직 이를 어떤 TDD 커밋 단위로 구현할지 계획 문서로 쪼개지 않았다.
-  - 왜 지금 해야 하는지: 실제 코드 변경 전에 `BaselineReport` payload/target 확장, summary comparison model/generator,
-    summary writer/Markdown, history reader/generator/writer 의 경계와 Red 테스트를 작게 고정해야 한다.
-  - objective: `docs/superpowers/plans/` 아래 구현 계획을 작성하고, 각 Task 의 touched files, Red/Green 검증,
-    커밋 경계, 테스트 주석 요구를 명시한다.
+- [ ] `P1_SOON` summary/history comparison signal Task 1: `BaselineReport` payload/target settings 를 구현한다.
+  - 무엇이 남았는지: D080 구현 계획을 5개 Task 로 쪼갰고, 첫 단위는 raw report 의 `payload-bytes`,
+    `target-rate-hz`, `target-duration-seconds`를 `BaselineReport`와 reader 결과로 보존하는 것이다.
+  - 왜 지금 해야 하는지: summary comparison key 는 payload/target 설정 없이는 같은 부하 조건인지 판단할 수 없다.
+    이 선행 field 전파를 끝내야 Task 2 summary comparison generator 를 작게 구현할 수 있다.
+  - objective: `BaselineReport` property 와 `BaselineReportReader` parsing 을 추가하고, reader/writer benchmark tests 로
+    raw JSON 값이 model 로 올라오는지 검증한다.
   - 관련 파일: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
-    `tests/Hps.Benchmarks/BaselineReport*.cs`, `BaselineSummary*.cs`, `BaselineHistory*.cs`,
-    `tests/Hps.Benchmarks.Tests/*`.
-  - next step: D080 설계와 현재 benchmark tests 를 대조해 구현 계획을 3~4개 reviewable 단위로 작성한다.
+    `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`,
+    `tests/Hps.Benchmarks/BaselineReport.cs`, `tests/Hps.Benchmarks/BaselineReportReader.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`, direct `BaselineReport` helper call sites.
+  - next step: assertion-failure Red 를 먼저 만들고, 최소 구현 뒤 focused tests 와 solution build/test 로 검증한다.
 
 ## Deferred Backlog
 
@@ -45,6 +46,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-24 summary/history comparison signal 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
+    `tests/Hps.Benchmarks/BaselineReport*.cs`, `BaselineSummary*.cs`, `BaselineHistory*.cs`,
+    관련 benchmark tests.
+  - 결과: `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`에 5개 커밋 단위 구현 계획을 추가했다.
+  - 작업 단위: Task 1 `BaselineReport` payload/target settings, Task 2 summary comparison model/generator,
+    Task 3 summary JSON/Markdown output, Task 4 history reader/generator aggregate,
+    Task 5 history JSON/Markdown output 과 CLI smoke.
+  - 비고: 새 테스트에는 무엇을 검증하는지 한국어 주석을 남기고, comparison mismatch 는 hard gate/기존 `warning-count`/exit code 와
+    분리한다는 요구를 계획에 명시했다.
+  - 검증: D080 설계와 현재 source/test 구조를 대조해 touched files, Red/Green 경계, 커밋 경계를 확인했다.
 
 - [x] 2026-06-23 summary/history comparison signal 설계를 완료했다.
   - 범위: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,

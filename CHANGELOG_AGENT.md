@@ -5,6 +5,24 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - summary/history comparison signal implementation plan)
+
+### 작업 단위
+- D080 summary/history comparison signal 설계를 실제 구현 가능한 5개 작은 커밋 단위로 분해했다.
+- 코드 구현과 generated baseline artifact 재생성은 이번 범위에서 제외했다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`:
+  `BaselineReport` payload/target settings, summary comparison model/generator, summary output,
+  history reader/generator, history output/CLI smoke Task 를 작성했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: 다음 실행 지점을 Task 1 `BaselineReport` payload/target settings 구현으로 갱신했다.
+
+### 검증
+- D080 설계와 현재 `BaselineReport`, `BaselineReportReader`, `BaselineSummary*`, `BaselineHistory*`,
+  관련 benchmark tests 구조를 대조했다.
+- 각 Task 의 touched files, assertion-failure Red, focused test, 커밋 경계, 테스트 주석 요구를 계획에 명시했다.
+- 전체 repository 검증은 계획 문서 placeholder scan, `git diff --check`, solution build/test 로 수행한다.
+
 ## 2026-06-23 (Codex - summary/history comparison signal design)
 
 ### 작업 단위

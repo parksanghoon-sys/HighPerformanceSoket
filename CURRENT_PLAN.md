@@ -80,6 +80,10 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
   D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
   summary comparison key 는 `load`/`open-loop` scenario 차이를 허용하기 위해 `result-name`별 `cases` 배열로 표현한다.
+- summary/history comparison signal 구현 계획을 완료했다.
+  계획은 `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`에 있고,
+  `BaselineReport` payload/target settings, summary comparison 계산, summary 출력, history 집계, history 출력/CLI smoke 의
+  5개 커밋 단위로 나뉜다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -143,6 +147,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Summary/history comparison signal 구현 계획
+  - D080 설계를 실제 구현 가능한 5개 Task 로 분해했다.
+  - Task 1은 `BaselineReport`/reader payload·target settings 전파만 다룬다.
+  - Task 2는 summary comparison model/generator 를 추가한다.
+  - Task 3은 summary JSON/Markdown output 에 comparison field/section 을 쓴다.
+  - Task 4는 history reader/generator 가 session comparison 을 읽고 집계하게 한다.
+  - Task 5는 history JSON/Markdown output 과 CLI smoke 로 comparison mismatch 가 hard gate exit code 를 바꾸지 않음을 확인한다.
+  - 검증: D080 설계, 현재 benchmark model/writer/reader/test 구조를 대조해 touched files, Red/Green 경계,
+    테스트 주석 요구, 커밋 경계를 계획서에 명시했다.
 - 이번 단위 — Summary/history comparison signal 설계
   - D079 raw report metadata 이후 남은 summary/history 비교 가능성 표현을 설계했다.
   - `comparison-compatible`, `comparison-key`, `comparison-mismatch-count`, `comparison-mismatches`,
@@ -411,26 +424,30 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Summary/history comparison signal 구현 계획을 작성한다.
+Summary/history comparison signal Task 1을 구현한다.
 
-다음 작업은 D080 설계를 `BaselineReport` payload/target 확장, summary comparison model/generator,
-summary writer/Markdown, history reader/generator/writer 의 작은 TDD 커밋 단위로 나누는 계획 단위다.
+다음 작업은 `BaselineReport`와 `BaselineReportReader`가 raw report 의 `payload-bytes`, `target-rate-hz`,
+`target-duration-seconds`를 보존하게 하는 선행 구현 단위다. summary comparison 계산은 Task 2로 분리한다.
 
 ## 이번 단위의 검증 경로
 
-다음 단위는 구현 계획이다.
+다음 단위는 구현 Task 1이다.
 
 - 범위: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
-  `BaselineReport`, `BaselineSummary*`, `BaselineHistory*`, 관련 tests.
-- 검증: 설계 문서와 현재 source/test 구조를 대조하고, 구현 Task 별 Red/Green 경계와 커밋 경계를 작성한 뒤
-  `git diff --check`, solution build/test 를 수행한다.
-- 완료 후 사용자 검토를 받기 전 실제 코드는 변경하지 않는다.
+  `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`,
+  `tests/Hps.Benchmarks/BaselineReport.cs`, `tests/Hps.Benchmarks/BaselineReportReader.cs`,
+  `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`, direct `BaselineReport` helper call sites.
+- 검증: assertion-failure Red 로 `BaselineReport` payload/target property 부재와 reader 누락을 확인하고,
+  focused benchmark tests, `git diff --check`, solution build/test 를 수행한다.
+- 완료 후 root 상태 문서 갱신과 단일 커밋을 진행한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
-- benchmark schema 구현
+- summary comparison model/generator 구현
+- summary JSON/Markdown comparison output 구현
+- history comparison reader/generator/writer 구현
+- generated baseline artifact 재생성
 - CI workflow 또는 warning-as-failure 정책 구현
 - latency hard gate 확정
-- summary/history comparison signal 구현
 - RIO/io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay, diagnostics friendly-name 노출
