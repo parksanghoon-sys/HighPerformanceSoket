@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - baseline history report command 계획 리뷰 보정)
+
+### 작업 단위
+- baseline history report command 구현 계획에 대한 리뷰 의견을 구현 전 계약 보정으로 반영했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`: history root 실패 카운터를
+  `failed-session-count`로 고정하고, 누락 p99 를 JSON `null`/Markdown `-`로 표현하도록 보정했다.
+- `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`: reader/generator/writer/test 계획을
+  session `hard-passed` AND, `failed-session-count`, nullable p99 계약에 맞춰 갱신했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`: D078 영향 범위에 위 계약을 명시했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: 다음 실행점은 Task 1(parser contract)로 유지하고, 보정된 history 계약을 추가했다.
+
+### 검증
+- `rg`로 output root 의 옛 `hard-failure-count`와 p99 `0` fallback 이 설계/계획에 남지 않았는지 확인했다.
+  남은 `hard-failure-count`는 입력 summary schema 와 session raw field 읽기 용도다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 222개 통과/실패 0.
+
 ## 2026-06-23 (Codex - baseline history report command 구현 계획)
 
 ### 작업 단위

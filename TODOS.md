@@ -18,6 +18,7 @@
     `tests/Hps.Benchmarks/BenchmarkCommand.cs`, `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`,
     `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`, `tests/Hps.Benchmarks/Program.cs`,
     `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`.
+  - 기준: history aggregate 는 session `hard-passed` AND, `failed-session-count`, p99 누락 시 JSON `null`/Markdown `-` 계약을 따른다.
   - next step: 계획서 Task 1의 Red-Green-Refactor 순서대로 parser tests 부터 추가한다.
 
 ## Deferred Backlog
@@ -33,6 +34,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 baseline history report command 구현 계획 리뷰 보정을 완료했다.
+  - 범위: `.claude/review/2026-06-23-baseline-history-report-command-review.md`,
+    baseline history command 설계/구현 계획, D078 결정 문서, root 상태 문서.
+  - 결과: history `hard-passed` 기준을 session `hard-passed` AND 로 명시했고, root 실패 카운터를
+    `failed-session-count`로 고정했으며, 누락 p99 는 JSON `null`/Markdown `-`로 표현하도록 계획을 보정했다.
+  - 다음: Task 1(parser contract) 구현부터 진행한다.
 
 - [x] 2026-06-23 baseline history report command 구현 계획을 작성했다.
   - 범위: D078 설계, baseline history 설계 리뷰, `tests/Hps.Benchmarks` parser/source, summary reader/writer/test 패턴.

@@ -16,6 +16,8 @@
 - 작업은 기능별 작은 단위로 나누고, 각 Task 는 별도 커밋으로 끝낸다.
 - D078에 따라 history command 는 provider-independent aggregate artifact 다. CI workflow, warning-as-failure, latency hard gate 는 구현하지 않는다.
 - `BenchmarkCommand` enum 값은 `SummarizeBaselineHistory`로 고정한다.
+- history `hard-passed`는 모든 session summary 의 `hard-passed`가 true 일 때만 true 이며, 상위 실패 카운터는 `failed-session-count`로 기록한다.
+- load/open-loop p99 값이 summary 에 없으면 `0`이 아니라 JSON `null`과 Markdown `-`로 드러낸다.
 - 입력 root 는 parent baseline root 와 특정 날짜 root 를 모두 허용하되, 무제한 recursive scan 은 하지 않는다.
 - 기존 `docs/benchmarks/baselines/index.md`는 자동 덮어쓰지 않는다.
 
@@ -510,6 +512,21 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal("2026-06-18/summary.json", sessions[0].SummaryPath);
         }
 
+        // 부분 summary 는 history command 를 중단시키지 않되, 누락된 p99 를 0으로 위장하지 않는다.
+        // 0은 매우 빠른 정상 latency 로 읽힐 수 있으므로 null 로 노출해 artifact 결함을 분명히 드러낸다.
+        [Fact]
+        public void ReadSessions_WhenKindSummaryIsMissing_UsesNullP99AndZeroHwm()
+        {
+            string dateRoot = CreateTempDirectory("2026-06-18");
+            WriteSummaryWithoutKinds(Path.Combine(dateRoot, "summary.json"), true, 0, 6);
+
+            BaselineHistorySession session = BaselineHistoryReader.ReadSessions(dateRoot).Single();
+
+            Assert.Null(session.LoadP99MaxMicroseconds);
+            Assert.Null(session.OpenLoopP99MaxMicroseconds);
+            Assert.Equal(0, session.TcpHighWatermarkMax);
+        }
+
         // summary 가 하나도 없으면 성공한 빈 history 로 위장하지 않는다.
         // Program wiring 은 이 예외를 usage/data error exit code 2로 수렴시켜야 한다.
         [Fact]
@@ -545,6 +562,21 @@ namespace Hps.Benchmarks.Tests
                 + "}";
             File.WriteAllText(path, json);
         }
+
+        private static void WriteSummaryWithoutKinds(string path, bool hardPassed, int warningCount, int reportCount)
+        {
+            string json = "{"
+                + "\"summary-version\":1,"
+                + "\"source-directory\":\"source\","
+                + "\"source-report-count\":" + reportCount.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+                + "\"hard-passed\":" + (hardPassed ? "true" : "false") + ","
+                + "\"hard-failure-count\":" + (hardPassed ? "0" : "1") + ","
+                + "\"warning-count\":" + warningCount.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+                + "\"warnings\":[],"
+                + "\"by-kind\":{}"
+                + "}";
+            File.WriteAllText(path, json);
+        }
     }
 }
 ```
@@ -569,8 +601,8 @@ namespace Hps.Benchmarks
             bool hardPassed,
             int hardFailureCount,
             int warningCount,
-            double loadP99MaxMicroseconds,
-            double openLoopP99MaxMicroseconds,
+            double? loadP99MaxMicroseconds,
+            double? openLoopP99MaxMicroseconds,
             int tcpHighWatermarkMax)
         {
             Date = date;
@@ -602,9 +634,9 @@ namespace Hps.Benchmarks
 
         public int WarningCount { get; }
 
-        public double LoadP99MaxMicroseconds { get; }
+        public double? LoadP99MaxMicroseconds { get; }
 
-        public double OpenLoopP99MaxMicroseconds { get; }
+        public double? OpenLoopP99MaxMicroseconds { get; }
 
         public int TcpHighWatermarkMax { get; }
     }
@@ -710,8 +742,8 @@ Read JSON with explicit keys:
                 if (File.Exists(markdownPath))
                     humanReportPath = ToRelativePath(inputRoot, markdownPath);
 
-                double loadP99 = GetKindDouble(root, "load", "p99-max-us");
-                double openLoopP99 = GetKindDouble(root, "open-loop", "p99-max-us");
+                double? loadP99 = GetKindDouble(root, "load", "p99-max-us");
+                double? openLoopP99 = GetKindDouble(root, "open-loop", "p99-max-us");
                 int loadHwm = GetKindInt(root, "load", "tcp-hwm-max");
                 int openLoopHwm = GetKindInt(root, "open-loop", "tcp-hwm-max");
 
@@ -734,16 +766,16 @@ Read JSON with explicit keys:
 Add helper readers:
 
 ```csharp
-        private static double GetKindDouble(JsonElement root, string kindName, string propertyName)
+        private static double? GetKindDouble(JsonElement root, string kindName, string propertyName)
         {
             JsonElement byKind;
             JsonElement kind;
             JsonElement value;
             if (!root.TryGetProperty("by-kind", out byKind) || !byKind.TryGetProperty(kindName, out kind) || kind.ValueKind == JsonValueKind.Null)
-                return 0;
+                return null;
 
             if (!kind.TryGetProperty(propertyName, out value))
-                return 0;
+                return null;
 
             if (value.ValueKind == JsonValueKind.Number)
                 return value.GetDouble();
@@ -875,7 +907,7 @@ Create the Task 3 files with the public shape from the next steps. Keep the beha
 ```csharp
 public static BaselineHistory Generate(string sourceRoot, IReadOnlyList<BaselineHistorySession> sessions)
 {
-    return new BaselineHistory(sourceRoot, sessions);
+    return new BaselineHistory(sourceRoot, sessions, true, 0, 0);
 }
 ```
 
@@ -894,8 +926,8 @@ namespace Hps.Benchmarks.Tests
 {
     public sealed class BaselineHistoryGeneratorWriterTests
     {
-        // history aggregate 의 hard gate 는 기존 summary 의 hard-passed 만 합산한다.
-        // warning 은 soft signal 이므로 warning-count 를 보존하되 process failure 로 승격하지 않는다.
+        // history aggregate 의 hard gate 는 모든 session summary 의 hard-passed AND 로 계산한다.
+        // failed-session-count 는 raw-run 실패 합계가 아니라 실패한 session 수라서, raw 실패 2개인 session 하나도 1로 집계한다.
         [Fact]
         public void Generate_WhenSessionsContainFailureAndWarnings_AggregatesCounts()
         {
@@ -904,14 +936,27 @@ namespace Hps.Benchmarks.Tests
                 new[]
                 {
                     CreateSession("2026-06-18", "session-01(root)", true, 0, 0, 924.1, 1005.5, 2),
-                    CreateSession("2026-06-19", "session-01", false, 1, 2, 1400.0, 1500.0, 16)
+                    CreateSession("2026-06-19", "session-01", false, 2, 2, 1400.0, 1500.0, 16)
                 });
 
             Assert.Equal("docs/baselines", history.SourceRoot);
             Assert.Equal(2, history.SessionCount);
             Assert.False(history.HardPassed);
-            Assert.Equal(1, history.HardFailureCount);
+            Assert.Equal(1, history.FailedSessionCount);
             Assert.Equal(2, history.WarningCount);
+        }
+
+        // 빈 summary 는 summary generator 기준 hard-passed=false 이면서 raw 실패 수가 0일 수 있다.
+        // history hard gate 가 실패 카운터에서 파생되면 이 케이스를 PASS로 오판하므로 session flag 자체를 기준으로 삼는다.
+        [Fact]
+        public void Generate_WhenSessionHardPassedIsFalseWithZeroRawFailures_MarksHistoryFailed()
+        {
+            BaselineHistory history = BaselineHistoryGenerator.Generate(
+                "docs/baselines",
+                new[] { CreateSession("2026-06-19", "session-01", false, 0, 0, null, null, 0) });
+
+            Assert.False(history.HardPassed);
+            Assert.Equal(1, history.FailedSessionCount);
         }
 
         // JSON writer 는 CI/provider 에 묶이지 않는 stable key 집합을 만든다.
@@ -935,11 +980,33 @@ namespace Hps.Benchmarks.Tests
                 Assert.Equal(1, root.GetProperty("session-count").GetInt32());
                 Assert.True(root.GetProperty("hard-passed").GetBoolean());
                 Assert.Equal(0, root.GetProperty("warning-count").GetInt32());
+                Assert.Equal(0, root.GetProperty("failed-session-count").GetInt32());
                 JsonElement session = root.GetProperty("sessions")[0];
                 Assert.Equal("2026-06-18", session.GetProperty("date").GetString());
                 Assert.Equal("session-01(root)", session.GetProperty("session").GetString());
                 Assert.Equal(924.1, session.GetProperty("load-p99-max-us").GetDouble());
                 Assert.Equal(2, session.GetProperty("tcp-hwm-max").GetInt32());
+            }
+        }
+
+        // p99 누락은 0이 아니라 JSON null 로 써야 한다.
+        // 0은 정상 latency 값처럼 보이므로 부분 artifact 결함을 숨긴다.
+        [Fact]
+        public void Write_WhenP99IsMissing_WritesNullP99Values()
+        {
+            string directory = CreateTempDirectory();
+            string path = Path.Combine(directory, "history.json");
+            BaselineHistory history = BaselineHistoryGenerator.Generate(
+                "docs/baselines",
+                new[] { CreateSession("2026-06-18", "session-01(root)", true, 0, 0, null, null, 0) });
+
+            BaselineHistoryWriter.Write(path, history);
+
+            using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                JsonElement session = document.RootElement.GetProperty("sessions")[0];
+                Assert.Equal(JsonValueKind.Null, session.GetProperty("load-p99-max-us").ValueKind);
+                Assert.Equal(JsonValueKind.Null, session.GetProperty("open-loop-p99-max-us").ValueKind);
             }
         }
 
@@ -950,7 +1017,7 @@ namespace Hps.Benchmarks.Tests
         {
             BaselineHistory history = BaselineHistoryGenerator.Generate(
                 "docs/baselines",
-                new[] { CreateSession("2026-06-19", "session-01", true, 0, 2, 1400.0, 1500.0, 16) });
+                new[] { CreateSession("2026-06-19", "session-01", true, 0, 2, null, 1500.0, 16) });
             StringWriter writer = new StringWriter();
 
             BaselineHistoryMarkdownWriter.Write(writer, history);
@@ -958,6 +1025,7 @@ namespace Hps.Benchmarks.Tests
             string markdown = writer.ToString();
             Assert.Contains("# Baseline History", markdown);
             Assert.Contains("| 2026-06-19 | session-01 |", markdown);
+            Assert.Contains("| 2026-06-19 | session-01 | `2026-06-19/session-01/summary.json` | `2026-06-19/session-01/summary.md` | 6 | true | 2 | - | 1500 | 16 |", markdown);
             Assert.Contains("warning 이 있는 session", markdown);
         }
 
@@ -967,8 +1035,8 @@ namespace Hps.Benchmarks.Tests
             bool hardPassed,
             int hardFailureCount,
             int warningCount,
-            double loadP99,
-            double openLoopP99,
+            double? loadP99,
+            double? openLoopP99,
             int tcpHwm)
         {
             return new BaselineHistorySession(
@@ -1008,10 +1076,18 @@ namespace Hps.Benchmarks
 {
     internal sealed class BaselineHistory
     {
-        public BaselineHistory(string sourceRoot, IReadOnlyList<BaselineHistorySession> sessions)
+        public BaselineHistory(
+            string sourceRoot,
+            IReadOnlyList<BaselineHistorySession> sessions,
+            bool hardPassed,
+            int failedSessionCount,
+            int warningCount)
         {
             SourceRoot = sourceRoot;
             Sessions = sessions;
+            HardPassed = hardPassed;
+            FailedSessionCount = failedSessionCount;
+            WarningCount = warningCount;
         }
 
         public string SourceRoot { get; }
@@ -1023,14 +1099,11 @@ namespace Hps.Benchmarks
             get { return Sessions.Count; }
         }
 
-        public bool HardPassed
-        {
-            get { return HardFailureCount == 0; }
-        }
+        public bool HardPassed { get; }
 
-        public int HardFailureCount { get; internal set; }
+        public int FailedSessionCount { get; }
 
-        public int WarningCount { get; internal set; }
+        public int WarningCount { get; }
     }
 }
 ```
@@ -1053,18 +1126,21 @@ namespace Hps.Benchmarks
             if (sessions == null)
                 throw new ArgumentNullException(nameof(sessions));
 
-            int hardFailureCount = 0;
+            bool hardPassed = true;
+            int failedSessionCount = 0;
             int warningCount = 0;
             for (int i = 0; i < sessions.Count; i++)
             {
-                hardFailureCount += sessions[i].HardFailureCount;
+                if (!sessions[i].HardPassed)
+                {
+                    hardPassed = false;
+                    failedSessionCount++;
+                }
+
                 warningCount += sessions[i].WarningCount;
             }
 
-            BaselineHistory history = new BaselineHistory(sourceRoot, sessions);
-            history.HardFailureCount = hardFailureCount;
-            history.WarningCount = warningCount;
-            return history;
+            return new BaselineHistory(sourceRoot, sessions, hardPassed, failedSessionCount, warningCount);
         }
     }
 }
@@ -1106,7 +1182,7 @@ namespace Hps.Benchmarks
                     writer.WriteString("source-root", history.SourceRoot);
                     writer.WriteNumber("session-count", history.SessionCount);
                     writer.WriteBoolean("hard-passed", history.HardPassed);
-                    writer.WriteNumber("hard-failure-count", history.HardFailureCount);
+                    writer.WriteNumber("failed-session-count", history.FailedSessionCount);
                     writer.WriteNumber("warning-count", history.WarningCount);
                     writer.WritePropertyName("sessions");
                     writer.WriteStartArray();
@@ -1137,10 +1213,18 @@ Add `WriteSession` in the same file:
             writer.WriteNumber("source-report-count", session.SourceReportCount);
             writer.WriteBoolean("hard-passed", session.HardPassed);
             writer.WriteNumber("warning-count", session.WarningCount);
-            writer.WriteNumber("load-p99-max-us", session.LoadP99MaxMicroseconds);
-            writer.WriteNumber("open-loop-p99-max-us", session.OpenLoopP99MaxMicroseconds);
+            WriteNullableDouble(writer, "load-p99-max-us", session.LoadP99MaxMicroseconds);
+            WriteNullableDouble(writer, "open-loop-p99-max-us", session.OpenLoopP99MaxMicroseconds);
             writer.WriteNumber("tcp-hwm-max", session.TcpHighWatermarkMax);
             writer.WriteEndObject();
+        }
+
+        private static void WriteNullableDouble(Utf8JsonWriter writer, string propertyName, double? value)
+        {
+            if (value.HasValue)
+                writer.WriteNumber(propertyName, value.Value);
+            else
+                writer.WriteNull(propertyName);
         }
 ```
 
@@ -1223,9 +1307,12 @@ Add helpers:
             writer.WriteLine(string.Format(CultureInfo.InvariantCulture, format, args));
         }
 
-        private static string FormatDouble(double value)
+        private static string FormatDouble(double? value)
         {
-            return value.ToString("0.###", CultureInfo.InvariantCulture);
+            if (!value.HasValue)
+                return "-";
+
+            return value.Value.ToString("0.###", CultureInfo.InvariantCulture);
         }
 
         private static string EscapeCell(string value)
