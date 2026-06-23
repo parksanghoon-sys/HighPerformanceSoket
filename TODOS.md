@@ -9,17 +9,16 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` benchmark runner identity 설계 검토 후 구현 계획을 작성한다.
-  - 무엇이 남았는지: D079 설계는 raw report 에 runner/environment metadata 를 additive 관측 필드로 남기는 방향을 확정했다.
-    아직 TDD 구현 계획과 커밋 단위는 작성하지 않았다.
-  - 왜 지금 해야 하는지: warning-as-failure, latency hard gate, CI workflow 는 같은 runner 비교군을 판별할 metadata 없이는
-    false signal 위험이 크다.
-  - objective: 사용자 검토 후 raw report identity capture/write/read 구현을 가장 작은 Red-Green-Refactor 단위로 쪼갠다.
-  - 관련 파일: `docs/superpowers/specs/2026-06-23-benchmark-runner-identity-design.md`, `DECISIONS.md`,
-    `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`,
-    `tests/Hps.Benchmarks/BaselineReport.cs`, `tests/Hps.Benchmarks/BaselineReportReader.cs`,
-    `tests/Hps.Benchmarks.Tests/`.
-  - next step: 설계 검토가 끝나면 구현 계획 문서를 작성한다.
+- [ ] `P1_SOON` benchmark runner identity Task 1 model 을 구현한다.
+  - 무엇이 남았는지: 구현 계획은 `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`에 작성됐다.
+    첫 Task 는 `BenchmarkRunIdentity` model 과 `CaptureDefault()` privacy/default/env override 규칙이다.
+  - 왜 지금 해야 하는지: raw report writer/reader 가 같은 identity type 을 공유해야 metadata field 이름과 기본값 중복을 피할 수 있다.
+  - objective: `BenchmarkRunIdentity`를 focused Red-Green-Refactor 로 추가하고, host name/user name/IP 자동 수집 없이
+    `HPS_BENCHMARK_RUNNER_ID`, `HPS_BENCHMARK_RUNNER_KIND`만 명시 override 로 쓰게 한다.
+  - 관련 파일: `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`,
+    `tests/Hps.Benchmarks/BenchmarkRunIdentity.cs`, `tests/Hps.Benchmarks.Tests/BenchmarkRunIdentityTests.cs`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - next step: 계획서 Task 1 Step 1부터 진행한다.
 
 ## Deferred Backlog
 
@@ -34,6 +33,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 benchmark runner identity 구현 계획을 작성했다.
+  - 범위: D079 설계, benchmark raw report writer/reader/source model, 기존 benchmark test 패턴.
+  - 결과: `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`에 3개 커밋 단위 구현 계획을 추가했다.
+  - 작업 단위: Task 1 `BenchmarkRunIdentity` model, Task 2 raw report writer metadata, Task 3 raw report reader/legacy compatibility.
+  - 비고: summary/history comparison signal 은 raw metadata 원천 기록 뒤 별도 단위에서 다룬다.
+  - 검증: 계획 self-review 로 D079 coverage, type consistency, commit boundary 를 확인했다.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 239개 통과.
 
 - [x] 2026-06-23 Phase 4 backlog 를 재평가하고 benchmark runner identity 를 다음 구현 후보로 설계했다.
   - 범위: baseline history 이후 남은 Phase 4 항목, D069/D070/D071/D078, benchmark raw report/summary/history source, baseline index.

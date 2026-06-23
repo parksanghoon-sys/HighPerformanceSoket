@@ -62,6 +62,8 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - Phase 4 backlog 재평가 결과, 다음 구현 후보는 CI workflow/warning-as-failure 가 아니라 benchmark runner identity/environment metadata 로 좁혔다.
   설계는 `docs/superpowers/specs/2026-06-23-benchmark-runner-identity-design.md`에 있고, D079로 raw report schema v1 additive 관측 필드
   방식을 수락했다.
+- benchmark runner identity 구현 계획은 `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`에 있다.
+  계획은 identity model, raw report writer metadata, raw report reader legacy compatibility 의 3개 커밋 단위로 나뉜다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -125,6 +127,13 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Benchmark runner identity 구현 계획
+  - D079 설계를 raw report identity capture/write/read 구현으로 좁혀 3개 Task 로 분해했다.
+  - Task 1은 `BenchmarkRunIdentity` model 과 privacy 우선 `CaptureDefault()`를 고정한다.
+  - Task 2는 `TcpLoopbackRunResult`와 raw report writer 에 metadata field 를 추가한다.
+  - Task 3은 `BaselineReportReader`가 신규 metadata 와 legacy report 를 모두 읽게 한다.
+  - summary/history comparison signal, warning-as-failure, latency hard gate 는 이번 계획 범위에서 제외했다.
+  - 검증: 계획 placeholder scan 결과 없음, `git diff --check`, solution build 경고 0/오류 0, solution tests 239개 통과.
 - 이번 단위 — Benchmark runner identity / baseline comparison readiness 설계
   - baseline history command 이후 남은 Phase 4 backlog 를 D069/D070/D071/D078 기준으로 다시 정렬했다.
   - CI workflow, warning-as-failure, latency hard gate 보다 먼저 raw report 에 runner/environment metadata 를 남겨야 한다고 판단했다.
@@ -346,25 +355,25 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Benchmark runner identity 설계 검토 후 구현 계획을 작성한다.
+Benchmark runner identity 구현 계획 Task 1을 진행한다.
 
-이번 설계에서 다음 구현 후보는 raw report identity capture/write/read 로 좁혀졌다. 사용자가 설계를 검토한 뒤,
-구현 계획은 `BenchmarkRunIdentity` model, `TcpLoopbackReportWriter`, `BaselineReportReader`, legacy report 처리,
-focused TDD 경로와 커밋 경계를 포함해 별도 계획 문서로 작성한다.
+다음 구현은 `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`의 Task 1이다.
+`BenchmarkRunIdentity` 내부 model 을 만들고, 환경 변수 override 와 privacy 우선 기본값을 focused tests 로 고정한다.
 
 ## 이번 단위의 검증 경로
 
-다음 단위는 구현 계획 작성이다.
+다음 단위는 Task 1 구현이다.
 
-- `docs/superpowers/specs/2026-06-23-benchmark-runner-identity-design.md`와 D079를 기준으로 한다.
-- raw report writer/reader/summary/history source 를 다시 열어 실제 구현 단위를 쪼갠다.
-- Red-Green-Refactor 검증 경로와 touched files 를 계획에 명시한다.
-- 코드 변경은 하지 않는다.
+- Red: `BenchmarkRunIdentity` 타입 부재 reflection contract test 실패를 먼저 확인한다.
+- Green: model stub 후 behavior Red 를 추가하고 `CaptureDefault()` 구현으로 focused tests 를 통과시킨다.
+- 검증: focused `BenchmarkRunIdentityTests`, benchmark test project, 필요한 경우 solution build/test.
+- 완료 후 상태 문서 갱신과 단일 커밋을 수행한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - benchmark schema 구현
 - CI workflow 또는 warning-as-failure 정책 구현
 - latency hard gate 확정
+- summary/history comparison signal 구현
 - RIO/io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay, diagnostics friendly-name 노출
