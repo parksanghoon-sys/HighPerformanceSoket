@@ -9,18 +9,15 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` baseline history report command Task 3(history aggregate/writer)를 구현한다.
-  - 무엇이 남았는지: parser contract 와 summary reader 는 완료됐고, 다음 단위는 session 목록을 history aggregate 로 변환해
-    JSON/Markdown artifact 로 쓰는 writer 이다.
-  - 왜 지금 해야 하는지: Task 4 Program wiring 이 붙기 전에 output schema, `failed-session-count`, nullable p99 표현을 고정해야 한다.
-  - objective: `BaselineHistory`, `BaselineHistoryGenerator`, `BaselineHistoryWriter`, `BaselineHistoryMarkdownWriter`를 추가하고,
-    JSON root/session schema 와 사람이 읽는 Markdown table 을 생성하게 한다.
+- [ ] `P1_SOON` baseline history report command Task 4(Program wiring/smoke)를 구현한다.
+  - 무엇이 남았는지: parser, reader, aggregate/writer 는 완료됐고, 아직 CLI command 가 실제로 history artifact 를 생성하지 않는다.
+  - 왜 지금 해야 하는지: `--summarize-baseline-history` surface 가 이미 parser/usage 에 노출됐으므로 실제 실행 경로와 exit code 를 닫아야 한다.
+  - objective: `Program.Main`에 `BenchmarkCommand.SummarizeBaselineHistory` branch 를 연결하고,
+    실제 baseline fixture 를 대상으로 `history.json`/선택 `history.md` 생성 smoke 를 검증한다.
   - 관련 파일: `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`,
-    `tests/Hps.Benchmarks/BaselineHistory.cs`, `tests/Hps.Benchmarks/BaselineHistoryGenerator.cs`,
-    `tests/Hps.Benchmarks/BaselineHistoryWriter.cs`, `tests/Hps.Benchmarks/BaselineHistoryMarkdownWriter.cs`,
-    `tests/Hps.Benchmarks.Tests/BaselineHistoryGeneratorWriterTests.cs`.
+    `tests/Hps.Benchmarks/Program.cs`, `tests/Hps.Benchmarks.Tests/BaselineHistoryProgramTests.cs`.
   - 기준: history aggregate 는 session `hard-passed` AND, `failed-session-count`, p99 누락 시 JSON `null`/Markdown `-` 계약을 따른다.
-  - next step: 계획서 Task 3의 reflection contract Red 부터 시작한다.
+  - next step: 계획서 Task 4의 Program wiring Red 부터 시작한다.
 
 ## Deferred Backlog
 
@@ -35,6 +32,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 baseline history report command Task 3 history aggregate/writer 를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/BaselineHistory.cs`, `BaselineHistoryGenerator.cs`, `BaselineHistoryWriter.cs`,
+    `BaselineHistoryMarkdownWriter.cs`, `tests/Hps.Benchmarks.Tests/BaselineHistoryGeneratorWriterTests.cs`, root 상태 문서.
+  - 결과: session 목록을 history aggregate 로 변환하고, stable JSON schema 와 Markdown 보조 artifact 를 생성한다.
+  - 비고: `hard-passed`는 session flag AND, 실패 카운터는 `failed-session-count`, p99 누락은 JSON `null`/Markdown `-`로 표현한다.
+  - Red: reflection contract test 실패 1개, behavior tests 5개가 aggregate/writer stub 에서 실패함을 확인했다.
+  - Green/검증: focused generator/writer tests 5개 통과, `git diff --check`, solution build 경고 0/오류 0, solution tests 236개 통과.
 
 - [x] 2026-06-23 baseline history report command Task 2 history domain/reader 를 구현했다.
   - 범위: `tests/Hps.Benchmarks/BaselineHistorySession.cs`, `BaselineHistoryReader.cs`,

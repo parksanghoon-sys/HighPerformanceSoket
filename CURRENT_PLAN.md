@@ -50,6 +50,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - baseline history report command Task 2(history domain/reader)가 완료됐다.
   `BaselineHistoryReader.ReadSessions(...)`는 date root 와 parent baseline root 를 bounded discovery 로 읽고,
   legacy root `summary.json`은 `session-01(root)`로, `session-NN/summary.json`은 해당 session 으로 기록한다.
+- baseline history report command Task 3(history aggregate/writer)이 완료됐다.
+  `BaselineHistoryGenerator`는 session `hard-passed` AND 와 `failed-session-count`를 계산하고,
+  `BaselineHistoryWriter`/`BaselineHistoryMarkdownWriter`는 JSON `null`/Markdown `-` p99 누락 표현을 유지한다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -113,6 +116,12 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Baseline history report command Task 3 history aggregate/writer
+  - `BaselineHistory`, `BaselineHistoryGenerator`, `BaselineHistoryWriter`, `BaselineHistoryMarkdownWriter`를 추가했다.
+  - history JSON schema 는 `history-version`, `source-root`, `session-count`, `hard-passed`, `failed-session-count`, `warning-count`, `sessions`를 쓴다.
+  - Markdown writer 는 session table 과 warning session list 를 보조 artifact 로 출력한다.
+  - Red: reflection contract test 1개 실패, behavior tests 5개가 aggregate/writer stub 에서 실패함을 확인했다.
+  - Green: focused generator/writer tests 5개 통과, solution tests 236개 통과.
 - 이번 단위 — Baseline history report command Task 2 history domain/reader
   - `BaselineHistorySession`과 `BaselineHistoryReader.ReadSessions(...)`를 추가했다.
   - parent baseline root/date root 입력, legacy root summary, `session-NN/summary.json`, summary 없음, by-kind 누락 p99/null 경계를 검증했다.

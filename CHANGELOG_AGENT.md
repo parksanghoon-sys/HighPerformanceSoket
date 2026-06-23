@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - baseline history report command Task 3 history writer)
+
+### 작업 단위
+- baseline history report command 의 세 번째 구현 단위로 history aggregate 와 JSON/Markdown writer 를 추가했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/BaselineHistory.cs`: history root aggregate model 을 추가했다.
+- `tests/Hps.Benchmarks/BaselineHistoryGenerator.cs`: session `hard-passed` AND, `failed-session-count`, warning count 집계를 구현했다.
+- `tests/Hps.Benchmarks/BaselineHistoryWriter.cs`: stable JSON schema writer 를 추가했다.
+- `tests/Hps.Benchmarks/BaselineHistoryMarkdownWriter.cs`: 사람이 읽는 session table/warning session list writer 를 추가했다.
+- `tests/Hps.Benchmarks.Tests/BaselineHistoryGeneratorWriterTests.cs`: aggregate count, zero raw failure hard fail, JSON shape, null p99, Markdown table 을 검증했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: Task 3 완료와 다음 Task 4(Program wiring/smoke) 진입점을 반영했다.
+
+### 검증
+- Red 1: focused generator/writer contract test 에서 `BaselineHistoryGenerator` 타입 미존재로 `Assert.NotNull()` 실패를 확인했다.
+- Stub Green: aggregate/writer stub 추가 후 focused contract test 1개 통과.
+- Red 2: behavior tests 5개가 aggregate/writer stub 에서 실패함을 확인했다.
+- Green: focused generator/writer tests 5개 통과.
+- `git diff --check` 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 236개 통과/실패 0.
+
 ## 2026-06-23 (Codex - baseline history report command Task 2 history reader)
 
 ### 작업 단위
