@@ -111,6 +111,54 @@ namespace Hps.Benchmarks.Tests
             }
         }
 
+        // summary/history 단계는 raw report reader 를 통해서만 runner identity 를 볼 수 있다.
+        // BaselineReport 에 identity property 가 없으면 이후 comparison signal 이 runner 차이를 판단할 수 없다.
+        [Fact]
+        public void Contract_BaselineReportExposesIdentity()
+        {
+            System.Reflection.PropertyInfo? property = typeof(BaselineReport).GetProperty("Identity");
+
+            Assert.NotNull(property);
+            Assert.Equal(typeof(BenchmarkRunIdentity), property!.PropertyType);
+        }
+
+        // reader 는 신규 raw report 의 runner metadata 를 보존해야 한다.
+        // 이 값이 사라지면 summary/history 단계에서 서로 다른 runner 의 baseline 을 같은 비교군으로 착각할 수 있다.
+        [Fact]
+        public void ReadDirectory_WhenRunReportHasRunnerIdentity_ReadsIdentityMetadata()
+        {
+            string directory = CreateTempDirectory();
+            WriteRunJsonWithIdentity(Path.Combine(directory, "load-01.json"), "load", "dev-box-a", "self-hosted");
+
+            BaselineReport report = BaselineReportReader.ReadDirectory(directory).Single();
+
+            Assert.Equal(BenchmarkRunIdentity.DefaultBenchmarkProfile, report.Identity.BenchmarkProfile);
+            Assert.Equal("dev-box-a", report.Identity.RunnerId);
+            Assert.Equal("self-hosted", report.Identity.RunnerKind);
+            Assert.Equal(BenchmarkRunIdentity.DefaultTransportBackend, report.Identity.TransportBackend);
+            Assert.Equal("Windows", report.Identity.OsDescription);
+            Assert.Equal("X64", report.Identity.OsArchitecture);
+            Assert.Equal("X64", report.Identity.ProcessArchitecture);
+            Assert.Equal(".NET 9.0", report.Identity.FrameworkDescription);
+            Assert.Equal(16, report.Identity.ProcessorCount);
+        }
+
+        // 과거 baseline artifact 에는 metadata field 가 없다.
+        // legacy report 를 읽을 때 crash 하거나 임의 값을 만들지 않고 Unknown identity 로 보존해야 재생성이 안전하다.
+        [Fact]
+        public void ReadDirectory_WhenLegacyRunReportHasNoRunnerIdentity_UsesUnknownIdentity()
+        {
+            string directory = CreateTempDirectory();
+            WriteRunJson(Path.Combine(directory, "load-01.json"), "load", 500.0, 1, 0, 3000);
+
+            BaselineReport report = BaselineReportReader.ReadDirectory(directory).Single();
+
+            Assert.Equal("unknown", report.Identity.BenchmarkProfile);
+            Assert.Equal("unknown", report.Identity.RunnerId);
+            Assert.Equal("unknown", report.Identity.RunnerKind);
+            Assert.Equal(0, report.Identity.ProcessorCount);
+        }
+
         private static string CreateTempDirectory()
         {
             string directory = Path.Combine(Path.GetTempPath(), "hps-baseline-summary-tests", Path.GetRandomFileName());
@@ -139,6 +187,44 @@ namespace Hps.Benchmarks.Tests
                 + "\"actual-rate-hz\":99.9,"
                 + "\"p50-latency-us\":240.0,"
                 + "\"p99-latency-us\":" + p99.ToString(CultureInfo.InvariantCulture) + ","
+                + "\"first-half-p99-latency-us\":500.0,"
+                + "\"second-half-p99-latency-us\":500.0,"
+                + "\"p99-latency-growth-ratio\":1.0,"
+                + "\"elapsed-ms\":30000"
+                + "}";
+            File.WriteAllText(path, json);
+        }
+
+        private static void WriteRunJsonWithIdentity(string path, string resultName, string runnerId, string runnerKind)
+        {
+            string json = "{"
+                + "\"schema-version\":1,"
+                + "\"result-name\":\"" + resultName + "\","
+                + "\"passed\":true,"
+                + "\"scenario\":\"tcp-loopback-saea-baseline\","
+                + "\"benchmark-profile\":\"tcp-loopback-saea-v1\","
+                + "\"runner-id\":\"" + runnerId + "\","
+                + "\"runner-kind\":\"" + runnerKind + "\","
+                + "\"transport-backend\":\"SaeaTransport\","
+                + "\"os-description\":\"Windows\","
+                + "\"os-architecture\":\"X64\","
+                + "\"process-architecture\":\"X64\","
+                + "\"framework-description\":\".NET 9.0\","
+                + "\"processor-count\":16,"
+                + "\"payload-bytes\":4096,"
+                + "\"target-rate-hz\":100,"
+                + "\"target-duration-seconds\":30,"
+                + "\"planned-message-count\":3000,"
+                + "\"sent\":3000,"
+                + "\"received\":3000,"
+                + "\"dropped\":0,"
+                + "\"tcp-pending-send-queue-high-watermark\":1,"
+                + "\"udp-pending-send-queue-high-watermark\":0,"
+                + "\"payload-errors\":0,"
+                + "\"pool-rented\":0,"
+                + "\"actual-rate-hz\":99.9,"
+                + "\"p50-latency-us\":240.0,"
+                + "\"p99-latency-us\":500.0,"
                 + "\"first-half-p99-latency-us\":500.0,"
                 + "\"second-half-p99-latency-us\":500.0,"
                 + "\"p99-latency-growth-ratio\":1.0,"

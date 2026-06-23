@@ -44,6 +44,8 @@ namespace Hps.Benchmarks
                 if (!root.TryGetProperty("result-name", out JsonElement resultNameElement))
                     return null;
 
+                BenchmarkRunIdentity identity = ReadIdentity(root);
+
                 return new BaselineReport(
                     path.Replace('\\', '/'),
                     resultNameElement.GetString()!,
@@ -59,8 +61,49 @@ namespace Hps.Benchmarks
                     GetDouble(root, "p99-latency-us"),
                     GetDouble(root, "p99-latency-growth-ratio"),
                     GetInt(root, "tcp-pending-send-queue-high-watermark"),
-                    GetInt(root, "udp-pending-send-queue-high-watermark"));
+                    GetInt(root, "udp-pending-send-queue-high-watermark"),
+                    identity);
             }
+        }
+
+        private static BenchmarkRunIdentity ReadIdentity(JsonElement root)
+        {
+            JsonElement benchmarkProfile;
+            if (!root.TryGetProperty("benchmark-profile", out benchmarkProfile))
+                return BenchmarkRunIdentity.Unknown;
+
+            return new BenchmarkRunIdentity(
+                benchmarkProfile.GetString()!,
+                GetOptionalString(root, "runner-id"),
+                GetOptionalString(root, "runner-kind"),
+                GetOptionalString(root, "transport-backend"),
+                GetOptionalString(root, "os-description"),
+                GetOptionalString(root, "os-architecture"),
+                GetOptionalString(root, "process-architecture"),
+                GetOptionalString(root, "framework-description"),
+                GetOptionalInt(root, "processor-count"));
+        }
+
+        private static string GetOptionalString(JsonElement root, string name)
+        {
+            JsonElement value;
+            if (!root.TryGetProperty(name, out value))
+                return "unknown";
+
+            string? text = value.GetString();
+            if (string.IsNullOrWhiteSpace(text))
+                return "unknown";
+
+            return text;
+        }
+
+        private static int GetOptionalInt(JsonElement root, string name)
+        {
+            JsonElement value;
+            if (!root.TryGetProperty(name, out value) || value.ValueKind != JsonValueKind.Number)
+                return 0;
+
+            return value.GetInt32();
         }
 
         private static string GetString(JsonElement root, string name)

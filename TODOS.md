@@ -9,16 +9,16 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` benchmark runner identity Task 3 raw report reader/legacy compatibility 를 구현한다.
-  - 무엇이 남았는지: Task 2에서 raw report writer 가 runner/environment metadata 를 쓰게 됐다.
-    아직 `BaselineReport`와 `BaselineReportReader`가 신규 metadata 를 보존하지 않고, legacy report fallback 계약도 명시되지 않았다.
-  - 왜 지금 해야 하는지: raw report metadata 는 reader 까지 연결되어야 summary/history comparison signal 의 입력으로 쓸 수 있다.
-  - objective: `BaselineReport.Identity`, `BaselineReportReader` optional metadata parsing, legacy report `BenchmarkRunIdentity.Unknown` fallback 을 focused TDD 로 연결한다.
+- [ ] `P1_SOON` benchmark runner identity Task 1~3 구현 검토를 진행한다.
+  - 무엇이 남았는지: identity model, raw report writer, raw report reader/legacy fallback 구현이 모두 끝났다.
+    아직 D079 설계/계획/코드/테스트가 최종적으로 정합한지 별도 review 단위로 확인하지 않았다.
+  - 왜 지금 해야 하는지: summary/history comparison signal 설계로 넘어가기 전에 raw metadata 원천 기록·읽기 계약에 결함이 없어야 한다.
+  - objective: Task 1~3 구현을 D079와 구현 계획에 대조하고, Blocker/Major finding 여부와 다음 후보 작업을 기록한다.
   - 관련 파일: `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`,
-    `tests/Hps.Benchmarks/BaselineReport.cs`, `tests/Hps.Benchmarks/BaselineReportReader.cs`,
-    `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`,
-    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
-  - next step: 계획서 Task 3 Step 1부터 진행한다.
+    `docs/superpowers/specs/2026-06-23-benchmark-runner-identity-design.md`,
+    `tests/Hps.Benchmarks/BenchmarkRunIdentity.cs`, `TcpLoopbackRunResult.cs`, `TcpLoopbackReportWriter.cs`,
+    `BaselineReport.cs`, `BaselineReportReader.cs`, 관련 tests, root 상태 문서.
+  - next step: D079 field contract, privacy 기본값, writer/reader schema compatibility 를 소스와 테스트로 대조한다.
 
 ## Deferred Backlog
 
@@ -33,6 +33,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 benchmark runner identity Task 3 raw report reader/legacy compatibility 를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/BaselineReport.cs`, `tests/Hps.Benchmarks/BaselineReportReader.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`, root 상태 문서.
+  - 결과: `BaselineReport`가 `BenchmarkRunIdentity`를 보존하고, `BaselineReportReader`가 신규 raw report metadata 를 읽는다.
+  - 비고: metadata 가 없는 legacy raw report 는 crash 나 임의 추론 없이 `BenchmarkRunIdentity.Unknown`으로 보존한다.
+  - Red: `BaselineReport.Identity` property 부재로 contract test 가 `Assert.NotNull()` 실패함을 확인했다.
+    metadata 포함 raw report reader test 는 `Expected: tcp-loopback-saea-v1, Actual: unknown`으로 실패함을 확인했다.
+  - Green/검증: focused `BaselineReportReaderWriterTests` 6개 통과, `Hps.Benchmarks.Tests` 44개 통과.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 246개 통과.
 
 - [x] 2026-06-23 benchmark runner identity Task 2 raw report writer metadata 를 구현했다.
   - 범위: `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`,

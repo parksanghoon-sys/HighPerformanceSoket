@@ -70,6 +70,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - benchmark runner identity Task 2 raw report writer metadata 가 완료됐다.
   `TcpLoopbackRunResult`는 `BenchmarkRunIdentity`를 보존하고, `TcpLoopbackReportWriter`는 raw report schema v1 top-level 에
   runner/environment metadata field 를 additive 로 기록한다.
+- benchmark runner identity Task 3 raw report reader/legacy compatibility 가 완료됐다.
+  `BaselineReport`는 `BenchmarkRunIdentity`를 보존하고, `BaselineReportReader`는 신규 metadata field 를 읽는다.
+  metadata 가 없는 legacy raw report 는 `BenchmarkRunIdentity.Unknown`으로 보존한다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -133,6 +136,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Benchmark runner identity Task 3 raw report reader/legacy compatibility
+  - `BaselineReport`가 `BenchmarkRunIdentity`를 보존하게 했다.
+  - `BaselineReportReader`가 raw report metadata 를 optional field 로 읽고, metadata 가 없는 legacy report 는
+    `BenchmarkRunIdentity.Unknown`으로 보존하게 했다.
+  - Red: `BaselineReport.Identity` property 부재로 contract test 가 `Assert.NotNull()` 실패함을 확인했다.
+  - Red: metadata 포함 raw report reader test 가 `Expected: tcp-loopback-saea-v1, Actual: unknown`으로 실패함을 확인했다.
+  - Green: focused `BaselineReportReaderWriterTests` 6개 통과, `Hps.Benchmarks.Tests` 44개 통과.
+  - 최종 검증: `git diff --check`, solution build 경고 0/오류 0, solution tests 246개 통과.
 - 이번 단위 — Benchmark runner identity Task 2 raw report writer metadata
   - `TcpLoopbackRunResult`가 `BenchmarkRunIdentity`를 보존하게 했다.
   - `TcpLoopbackReportWriter`가 raw report top-level 에 `benchmark-profile`, `runner-id`, `runner-kind`,
@@ -377,20 +388,18 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Benchmark runner identity 구현 계획 Task 3을 진행한다.
+Benchmark runner identity Task 1~3 구현 검토를 진행한다.
 
-다음 구현은 `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`의 Task 3이다.
-`BaselineReport`가 identity 를 보존하게 하고, `BaselineReportReader`가 신규 raw report metadata 와 legacy report 를
-모두 읽도록 연결한다.
+다음 작업은 D079 설계, 구현 계획, `BenchmarkRunIdentity`/raw writer/raw reader/test 를 대조해
+Blocker/Major finding 이 있는지 확인하는 review 단위다. 이 검토가 green 이면 다음 후보는 summary/history comparison signal 설계다.
 
 ## 이번 단위의 검증 경로
 
-다음 단위는 Task 3 구현이다.
+다음 단위는 구현 검토다.
 
-- Red: `BaselineReport.Identity` contract test 가 property 부재 `Assert.NotNull()` 실패를 내는지 확인한다.
-- Green: `BaselineReport.Identity`와 `BaselineReportReader` optional metadata parsing/legacy fallback 을 구현한다.
-- 검증: focused reader/writer tests, `Hps.Benchmarks.Tests`, solution build/test.
-- 완료 후 상태 문서 갱신과 단일 커밋을 수행한다.
+- 범위: D079 설계/계획과 Task 1~3 코드·테스트·상태 문서 정합성.
+- 검증: 코드/테스트 대조, `git diff --check`, solution build/test.
+- 완료 후 review 결과와 다음 후보를 상태 문서에 기록한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

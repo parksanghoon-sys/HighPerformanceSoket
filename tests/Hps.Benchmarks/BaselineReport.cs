@@ -17,7 +17,8 @@ namespace Hps.Benchmarks
             double p99LatencyMicroseconds,
             double p99LatencyGrowthRatio,
             int tcpPendingSendQueueHighWatermark,
-            int udpPendingSendQueueHighWatermark)
+            int udpPendingSendQueueHighWatermark,
+            BenchmarkRunIdentity? identity = null)
         {
             SourcePath = sourcePath;
             ResultName = resultName;
@@ -34,6 +35,7 @@ namespace Hps.Benchmarks
             P99LatencyGrowthRatio = p99LatencyGrowthRatio;
             TcpPendingSendQueueHighWatermark = tcpPendingSendQueueHighWatermark;
             UdpPendingSendQueueHighWatermark = udpPendingSendQueueHighWatermark;
+            Identity = identity ?? BenchmarkRunIdentity.Unknown;
         }
 
         public string SourcePath { get; }
@@ -65,6 +67,12 @@ namespace Hps.Benchmarks
         public int TcpPendingSendQueueHighWatermark { get; }
 
         public int UdpPendingSendQueueHighWatermark { get; }
+
+        /// <summary>
+        /// raw report 에 기록된 runner/environment identity 다.
+        /// 과거 artifact 처럼 metadata 가 없으면 `Unknown`을 사용해 legacy summary 재생성을 깨지 않는다.
+        /// </summary>
+        public BenchmarkRunIdentity Identity { get; }
 
         public bool HardPassed
         {

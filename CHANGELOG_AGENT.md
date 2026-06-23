@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - benchmark runner identity Task 3 raw report reader)
+
+### 작업 단위
+- benchmark runner identity 구현 계획의 세 번째 단위로 raw report reader 와 legacy compatibility 를 연결했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/BaselineReport.cs`: raw report reader 결과가 `BenchmarkRunIdentity`를 보존하도록 `Identity` property 를 추가했다.
+  metadata 가 없는 경우 기본값은 `BenchmarkRunIdentity.Unknown`이다.
+- `tests/Hps.Benchmarks/BaselineReportReader.cs`: 신규 raw report 의 runner/environment metadata 를 optional field 로 읽고,
+  legacy raw report 는 `Unknown` identity 로 유지한다.
+- `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`: `BaselineReport.Identity` contract, metadata read,
+  legacy fallback 을 검증했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: Task 3 완료와 다음 구현 검토 진입점을 반영했다.
+
+### 검증
+- Red 1: `BaselineReport.Identity` property 부재로 focused contract test 가 `Assert.NotNull()` 실패함을 확인했다.
+- Contract Green: `BaselineReport.Identity` 추가 후 focused contract test 1개 통과.
+- Red 2: metadata 포함 raw report reader test 가 `Expected: tcp-loopback-saea-v1, Actual: unknown`으로 실패함을 확인했다.
+- Green: focused `BaselineReportReaderWriterTests` 6개 통과.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 44개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 246개 통과/실패 0.
+
 ## 2026-06-23 (Codex - benchmark runner identity Task 2 raw report writer metadata)
 
 ### 작업 단위
