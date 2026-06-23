@@ -81,9 +81,18 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   1) UDP lease sweep 이 stable registry current target 을 disconnected 로 바꾸지 않는다.
   2) UDP invalid identity validation 예외가 handler 밖으로 escape 되어 shared endpoint close 로 이어질 수 있다.
   상세는 `docs/agent-state/reviews/2026-06-23-stable-subscriber-identity-cross-check.md`를 본다.
+- UDP stable identity lease sweep 은 만료된 remote target 을 routing table 에서 제거한 뒤
+  `SubscriberRegistry.RemoveTarget(...)`에도 전달해 current target 을 disconnected 상태로 바꾼다.
+  이로써 retention sweep 이 idle stable UDP identity metadata 를 제거할 수 있다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — UDP stable identity lease sweep registry cleanup
+  - F1 must-fix 로 UDP lease sweep 이 stable registry current target 을 disconnected 상태로 바꾸도록 수정했다.
+  - `UdpRemoteLeaseTracker.SweepExpired(...)`는 기존 반환값을 routing 제거 수로 유지하면서 만료 target snapshot 을 선택적으로 채운다.
+  - `BrokerUdpDatagramHandler.SweepExpiredUdpLeases(...)`는 registry 주입 경로에서 snapshot 을 받아 `RemoveTarget(...)`으로 수명 상태를 맞춘다.
+  - 검증: Red assertion failure 1개 확인(`Expected: 1, Actual: 0`), focused UDP handler tests 14개 통과.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 219개 통과.
 - 이번 단위 — Stable subscriber identity post-implementation cross-verification
   - D075/D076 설계, Protocol/Broker/Server 구현, TCP/UDP handler, loopback coverage 를 교차검증했다.
   - 코드 수정 없이 리뷰 문서로 must-fix 2건을 기록했다.
@@ -217,19 +226,20 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Stable subscriber identity 구현 교차검증에서 UDP must-fix 2건을 발견했다.
+Stable subscriber identity 구현 교차검증의 F1은 완료됐다.
 
-다음 단위는 F1 수정이다. UDP lease sweep 이 만료된 stable UDP remote target 을 `SubscriberRegistry.RemoveTarget(...)`으로도
-전달해 registry current target 을 disconnected 상태로 바꾸고, retention sweep 이 entry 를 제거할 수 있게 한다.
-F2(UDP invalid identity datagram 예외 격리)는 F1 다음의 별도 작은 커밋 단위로 처리한다.
+다음 단위는 F2 수정이다. UDP `REGISTER`/`UNREGISTER` identity validation 실패를 handler 안에서 datagram drop 으로
+격리해 malformed UDP datagram 하나가 shared endpoint close 로 이어지지 않게 한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 Stable subscriber identity post-implementation cross-verification 이다.
+이번 단위는 UDP stable identity lease sweep registry cleanup 이다.
 
-- Source review: `rg`와 줄 번호 확인으로 stable identity 설계/구현/테스트를 대조했다.
+- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter FullyQualifiedName~SweepExpiredUdpLeases_WhenRegisteredRemoteExpires_MarksRegistryTargetDisconnected`
+  에서 `Expected: 1, Actual: 0` assertion failure 를 확인했다.
+- Green/Refactor: 같은 focused test 1개 통과, `BrokerUdpDatagramHandlerTests` 14개 통과.
 - 최종 검증: `git diff --check` 통과, `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0/오류 0,
-  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 218개 통과.
+  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 219개 통과.
 
 ## 이번 작업에서 건드리지 않는 범위
 

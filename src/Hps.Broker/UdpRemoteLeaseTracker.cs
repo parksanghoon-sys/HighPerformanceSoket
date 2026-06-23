@@ -153,6 +153,11 @@ namespace Hps.Broker
 
         internal int SweepExpired(DateTimeOffset now)
         {
+            return SweepExpired(now, null);
+        }
+
+        internal int SweepExpired(DateTimeOffset now, ICollection<BrokerSubscriber>? expiredTargets)
+        {
             if (!_options.Enabled)
                 return 0;
 
@@ -172,6 +177,10 @@ namespace Hps.Broker
                 for (int index = 0; index < expiredKeys.Count; index++)
                 {
                     UdpRemoteLeaseKey key = expiredKeys[index];
+                    // expiredTargets 는 stable identity registry 에 current target 종료를 알리기 위한 side-channel 이다.
+                    // 반환값은 기존 계약대로 routing table 에서 제거된 subscription 수만 의미하도록 유지한다.
+                    if (expiredTargets != null)
+                        expiredTargets.Add(BrokerSubscriber.ForUdp(key.Endpoint, key.RemoteEndPoint));
                     removed += _subscriptions.UnsubscribeAll(key.Endpoint, key.RemoteEndPoint);
                     _leases.Remove(key);
                 }

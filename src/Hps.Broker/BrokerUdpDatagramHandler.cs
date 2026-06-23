@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using Hps.Buffers;
@@ -152,7 +153,18 @@ namespace Hps.Broker
 
         internal int SweepExpiredUdpLeases(DateTimeOffset now)
         {
-            return _udpLeases.SweepExpired(now);
+            if (_subscriberRegistry == null)
+                return _udpLeases.SweepExpired(now);
+
+            List<BrokerSubscriber> expiredTargets = new List<BrokerSubscriber>();
+            int removed = _udpLeases.SweepExpired(now, expiredTargets);
+
+            // lease tracker 는 routing table/lease table 소유자이고, registry 는 stable identity current target 소유자다.
+            // 두 lock 을 중첩하지 않기 위해 expired target snapshot 을 받은 뒤 registry 에 별도로 disconnect 를 알린다.
+            for (int index = 0; index < expiredTargets.Count; index++)
+                _subscriberRegistry.RemoveTarget(expiredTargets[index], now);
+
+            return removed;
         }
 
         private void RegisterUdpTarget(BrokerSubscriber target, string identityValue)

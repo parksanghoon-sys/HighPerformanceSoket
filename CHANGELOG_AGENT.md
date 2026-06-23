@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - UDP stable identity lease sweep registry cleanup)
+
+### 작업 단위
+- Stable subscriber identity 교차검증 F1 must-fix 를 처리했다.
+- UDP lease sweep 이 만료 remote target 을 stable registry 에도 disconnected 로 반영하게 했다.
+
+### 변경 내용
+- `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`: registered UDP remote 가 idle sweep 으로 만료된 뒤
+  retention sweep 대상이 되는지 검증하는 회귀 테스트를 추가했다.
+- `src/Hps.Broker/UdpRemoteLeaseTracker.cs`: 기존 `SweepExpired(DateTimeOffset)` 반환값은 routing 제거 수로 유지하고,
+  registry cleanup 용 expired target snapshot 을 선택적으로 채우는 overload 를 추가했다.
+- `src/Hps.Broker/BrokerUdpDatagramHandler.cs`: registry 주입 경로에서 만료 target snapshot 을 받아
+  `SubscriberRegistry.RemoveTarget(...)`으로 current target 을 disconnected 상태로 전환한다.
+- `CURRENT_PLAN.md`, `TODOS.md`: F1 완료와 다음 F2(UDP invalid identity datagram 격리) 진입점을 반영했다.
+
+### 검증
+- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter FullyQualifiedName~SweepExpiredUdpLeases_WhenRegisteredRemoteExpires_MarksRegistryTargetDisconnected`
+  에서 `Expected: 1, Actual: 0` assertion failure 를 확인했다.
+- Green: 같은 focused test 1개 통과.
+- Focused regression: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter FullyQualifiedName~BrokerUdpDatagramHandlerTests`
+  통과, 14개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 219개 통과/실패 0.
+
 ## 2026-06-23 (Codex - Stable subscriber identity post-implementation cross-verification)
 
 ### 작업 단위

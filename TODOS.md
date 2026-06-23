@@ -9,15 +9,6 @@
 
 ## Current TODOs
 
-- [ ] `P0_NOW` UDP stable identity lease sweep 이 registry current target 을 disconnected 로 바꾸도록 수정한다.
-  - 무엇이 남았는지: `BrokerUdpDatagramHandler.SweepExpiredUdpLeases(...)`가 `_udpLeases.SweepExpired(...)`만 호출해
-    `SubscriberRegistry`에는 만료 remote target 을 알리지 않는다.
-  - 왜 지금 해야 하는지: stable identity 설계는 UDP idle sweep 이 current target 을 null 로 바꾸고 retention cleanup 대상이 되도록 요구한다.
-  - objective: lease sweep 으로 만료된 stable UDP remote 가 routing table 뿐 아니라 registry 에서도 disconnected 상태가 되게 한다.
-  - 관련 파일: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `src/Hps.Broker/UdpRemoteLeaseTracker.cs`,
-    `src/Hps.Broker/SubscriberRegistry.cs`, `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`.
-  - next step: registry 가 주입된 UDP handler lease sweep Red 테스트를 먼저 추가한다.
-
 - [ ] `P0_NOW` UDP invalid stable identity command 를 datagram drop 으로 격리한다.
   - 무엇이 남았는지: `REGISTER`/`UNREGISTER` token 이 decoder 는 통과하지만 `SubscriberIdentity.Create(...)`에서 거부되면
     `BrokerUdpDatagramHandler` 밖으로 예외가 나갈 수 있다.
@@ -40,6 +31,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 UDP stable identity lease sweep registry cleanup 을 구현했다.
+  - 범위: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `src/Hps.Broker/UdpRemoteLeaseTracker.cs`,
+    `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`, root 상태 문서.
+  - 결과: UDP lease sweep 으로 만료된 stable remote target 이 routing table 뿐 아니라
+    `SubscriberRegistry`에서도 disconnected 상태가 되어 retention sweep 대상이 된다.
+  - 비고: `UdpRemoteLeaseTracker.SweepExpired(...)`의 기존 반환값은 routing table 제거 수로 유지하고,
+    registry cleanup 용 expired target snapshot 은 선택적 side-channel 로 분리했다.
+  - 검증: focused Red assertion failure 1개 확인(`Expected: 1, Actual: 0`), focused UDP handler tests 14개 통과.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 219개 통과.
 
 - [x] 2026-06-23 Stable subscriber identity 구현 교차검증을 완료했다.
   - 범위: D075/D076 설계, Protocol/Broker/Server 구현, stable identity 관련 tests, root 상태 문서.

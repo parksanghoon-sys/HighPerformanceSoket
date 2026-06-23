@@ -284,6 +284,38 @@ namespace Hps.Broker.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // UDP stable identity lease sweep 테스트: idle sweep 이 routing table 만 지우고 registry current target 을 그대로 두면
+        // retention sweep 이 disconnected identity 를 제거하지 못한다. sweep 은 stable registry 에도 remote target 종료를 알려야 한다.
+        [Fact]
+        public void SweepExpiredUdpLeases_WhenRegisteredRemoteExpires_MarksRegistryTargetDisconnected()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            SubscriberRegistry registry = new SubscriberRegistry(subscriptions);
+            FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, 20000);
+            ManualTimeProvider time = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+            BrokerUdpDatagramHandler handler = CreateHandler(
+                subscriptions,
+                new FakeTransport(),
+                UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
+                time,
+                registry);
+
+            handler.OnDatagramReceived(endpoint, remoteEndPoint, RentDatagram(pool, "REGISTER device-a"));
+            handler.OnDatagramReceived(endpoint, remoteEndPoint, RentDatagram(pool, "SUBSCRIBE alpha"));
+
+            time.Advance(TimeSpan.FromSeconds(31));
+            int removed = handler.SweepExpiredUdpLeases(time.GetUtcNow());
+
+            int expiredIdentities = registry.SweepDisconnected(time.GetUtcNow().AddMinutes(6), TimeSpan.FromMinutes(5));
+
+            Assert.Equal(1, removed);
+            Assert.Equal(1, expiredIdentities);
+            Assert.False(subscriptions.IsSubscribed("alpha", BrokerSubscriber.ForUdp(endpoint, remoteEndPoint)));
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         // handler sweep wiring 테스트는 UDP SUBSCRIBE command 로 생성된 lease 가 만료되면
         // BrokerUdpDatagramHandler 의 sweep entry point 가 해당 remote subscription 을 제거하는지 검증한다.
         [Fact]
