@@ -47,6 +47,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - baseline history report command Task 1(parser contract)이 완료됐다.
   `--summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]`를 parser 가 인식하고,
   `BenchmarkCommandLine`에 history input/output path 를 보존한다. 실행 wiring 은 아직 Task 4 범위다.
+- baseline history report command Task 2(history domain/reader)가 완료됐다.
+  `BaselineHistoryReader.ReadSessions(...)`는 date root 와 parent baseline root 를 bounded discovery 로 읽고,
+  legacy root `summary.json`은 `session-01(root)`로, `session-NN/summary.json`은 해당 session 으로 기록한다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -110,6 +113,11 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Baseline history report command Task 2 history domain/reader
+  - `BaselineHistorySession`과 `BaselineHistoryReader.ReadSessions(...)`를 추가했다.
+  - parent baseline root/date root 입력, legacy root summary, `session-NN/summary.json`, summary 없음, by-kind 누락 p99/null 경계를 검증했다.
+  - Red: reflection contract test 1개 실패, behavior tests 4개가 stub `NotSupportedException`으로 실패함을 확인했다.
+  - Green: focused reader tests 4개 통과, solution tests 231개 통과.
 - 이번 단위 — Baseline history report command Task 1 parser contract
   - `BenchmarkCommand.SummarizeBaselineHistory`와 `BenchmarkCommandLine` history path 필드를 추가했다.
   - `BenchmarkCommandParser`가 `--summarize-baseline-history` command, 필수 `--history`, 선택 `--history-md`, `--report` 혼용 거부를 처리한다.

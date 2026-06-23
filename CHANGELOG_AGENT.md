@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - baseline history report command Task 2 history reader)
+
+### 작업 단위
+- baseline history report command 의 두 번째 구현 단위로 session domain model 과 summary reader 를 추가했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/BaselineHistorySession.cs`: history session 의 date/session/path/count/pass/warning/p99/HWM 값을 보존하는 immutable model 을 추가했다.
+- `tests/Hps.Benchmarks/BaselineHistoryReader.cs`: date root 와 parent baseline root 를 bounded discovery 로 읽고, summary JSON schema v1을 `BaselineHistorySession`으로 변환한다.
+- `tests/Hps.Benchmarks.Tests/BaselineHistoryReaderTests.cs`: date root, parent root, by-kind 누락, summary 없음 경계를 검증했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: Task 2 완료와 다음 Task 3(history aggregate/writer) 진입점을 반영했다.
+
+### 검증
+- Red 1: focused reader contract test 에서 `BaselineHistoryReader` 타입 미존재로 `Assert.NotNull()` 실패를 확인했다.
+- Stub Green: 타입/메서드 stub 추가 후 focused contract test 1개 통과.
+- Red 2: behavior tests 4개가 stub `NotSupportedException`으로 실패함을 확인했다.
+- Green: focused reader tests 4개 통과.
+- `git diff --check` 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 231개 통과/실패 0.
+
 ## 2026-06-23 (Codex - baseline history report command Task 1 parser contract)
 
 ### 작업 단위
