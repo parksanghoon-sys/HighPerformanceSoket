@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - baseline history command implementation review)
+
+### 작업 단위
+- baseline history report command Task 1~4 전체 구현을 D078 계약과 대조해 검토했다.
+
+### 변경 내용
+- `docs/agent-state/reviews/2026-06-23-baseline-history-command-implementation-review.md`: parser, reader, aggregate writer,
+  Program wiring, tests, 실제 baseline root CLI smoke 를 기준으로 구현 검토 결과를 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: 구현 검토 완료와 다음 Phase 4 backlog 재평가/설계 진입점을 반영했다.
+
+### 검증
+- 실제 CLI smoke 로 `--summarize-baseline-history docs\benchmarks\baselines` 실행 결과 `session-count: 3`,
+  `hard-passed: true`, `warning-count: 0`을 확인했다.
+- 생성 JSON에서 `history-version: 1`, `failed-session-count: 0`, `/` separator relative summary path 를 확인했다.
+- 생성 Markdown은 `Get-Content -Encoding UTF8` 기준 한글 header 와 session table 이 정상 표시됨을 확인했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 239개 통과/실패 0.
+
 ## 2026-06-23 (Codex - baseline history report command Task 4 Program wiring)
 
 ### 작업 단위

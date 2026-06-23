@@ -9,16 +9,16 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` baseline history report command 전체 구현 검토를 진행한다.
-  - 무엇이 남았는지: Task 1~4 구현은 완료됐고, parser/reader/generator/writer/Program wiring 전체가 D078 계약과 맞는지 검토가 필요하다.
-  - 왜 지금 해야 하는지: `--summarize-baseline-history` CLI surface 가 실제 실행 가능해졌으므로, 다음 기능으로 넘어가기 전 schema/exit code/discovery 경계를 닫아야 한다.
-  - objective: history command 구현이 parent/date root discovery, session hard gate AND, `failed-session-count`, warning soft signal,
-    p99 null/Markdown `-`, generated artifact output 계약을 지키는지 검토한다.
-  - 관련 파일: `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`,
-    `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`, `BaselineHistoryReader.cs`, `BaselineHistoryGenerator.cs`,
-    `BaselineHistoryWriter.cs`, `BaselineHistoryMarkdownWriter.cs`, `Program.cs`,
-    `tests/Hps.Benchmarks.Tests/*BaselineHistory*Tests.cs`.
-  - next step: 구현 검토를 수행하고 must-fix 가 있으면 별도 작은 구현 단위로 분리한다.
+- [ ] `P1_SOON` Phase 4 backlog 를 재평가하고 다음 구현 후보를 설계한다.
+  - 무엇이 남았는지: baseline history command 구현/검토는 완료됐고, 다음 Phase 4 실행 단위를 다시 선택해야 한다.
+  - 왜 지금 해야 하는지: CI workflow, warning-as-failure, latency hard gate, runner identity, generated index 자동화는 서로 의존성이 있어
+    바로 구현하면 scope 가 커질 수 있다.
+  - objective: 현재 남은 Phase 4 항목 중 가장 작고 검증 가능한 다음 작업을 고르고, 구현 전에 touched files/validation/commit boundary 를 설계한다.
+  - 관련 파일: `PLAN.md`, `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`,
+    `docs/superpowers/specs/2026-06-18-baseline-report-history-warning-policy-design.md`,
+    `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`,
+    `docs/agent-state/reviews/2026-06-23-baseline-history-command-implementation-review.md`.
+  - next step: 현재 backlog 와 decision index 를 대조해 다음 단일 구현 후보를 설계 문서로 확정한다.
 
 ## Deferred Backlog
 
@@ -33,6 +33,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 baseline history report command 전체 구현 검토를 완료했다.
+  - 범위: Task 1~4 parser/reader/generator/writer/Program wiring, tests, D078 설계 정합성.
+  - 결과: 새 Blocker/Major finding 은 없고, `docs/agent-state/reviews/2026-06-23-baseline-history-command-implementation-review.md`에 검토 결과를 기록했다.
+  - 비고: CLI optional Markdown path 오류 메시지 정밀화와 date root 직접 입력 Program smoke 는 비차단 후속으로 남겼다.
+  - 검증: 실제 baseline root CLI smoke 로 session-count 3, hard-passed true, warning-count 0과 UTF-8 Markdown 출력을 확인했다.
 
 - [x] 2026-06-23 baseline history report command Task 4 Program wiring/smoke 를 구현했다.
   - 범위: `tests/Hps.Benchmarks/Program.cs`, `tests/Hps.Benchmarks.Tests/BaselineHistoryProgramTests.cs`, root 상태 문서.
