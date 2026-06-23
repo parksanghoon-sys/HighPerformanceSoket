@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - baseline history report command Task 4 Program wiring)
+
+### 작업 단위
+- baseline history report command 의 네 번째 구현 단위로 `Program.Main` 실행 경로와 CLI smoke coverage 를 추가했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/Program.cs`: `BenchmarkCommand.SummarizeBaselineHistory` branch 를 추가하고,
+  `BaselineHistoryReader` → `BaselineHistoryGenerator` → `BaselineHistoryWriter`/`BaselineHistoryMarkdownWriter` 경로를 연결했다.
+- `tests/Hps.Benchmarks.Tests/BaselineHistoryProgramTests.cs`: passing summary, failed summary, warning-only summary 의
+  CLI exit code 와 artifact 생성을 검증했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: Task 4 완료와 다음 구현 검토 게이트를 반영했다.
+
+### 검증
+- Red: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --filter FullyQualifiedName~BaselineHistoryProgramTests`
+  에서 Program tests 3개가 usage error exit code 2 반환으로 실패함을 확인했다.
+- Green: 같은 focused Program tests 3개 통과.
+- CLI smoke: 첫 `dotnet run`은 restore 네트워크 접근 때문에 sandbox 에서 실패했고,
+  `dotnet run --no-build --no-restore --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --summarize-baseline-history docs\benchmarks\baselines ...`
+  로 재실행해 session-count 3, hard-passed true, warning-count 0 출력을 확인했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+  비고: Benchmark 프로젝트 assets 가 sandbox package folder 를 가리켜 처음에는 실패했으므로,
+  로컬 NuGet cache 를 `--source`/`--packages`로 명시한 restore 후 재검증했다.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 239개 통과/실패 0.
+
 ## 2026-06-23 (Codex - baseline history report command Task 3 history writer)
 
 ### 작업 단위

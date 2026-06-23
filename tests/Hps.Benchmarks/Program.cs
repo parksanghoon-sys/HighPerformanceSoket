@@ -52,6 +52,9 @@ namespace Hps.Benchmarks
                 case BenchmarkCommand.SummarizeBaseline:
                     return CompleteBaselineSummary(commandLine.SummaryInputDirectory!, commandLine.SummaryOutputPath!, commandLine.SummaryMarkdownOutputPath);
 
+                case BenchmarkCommand.SummarizeBaselineHistory:
+                    return CompleteBaselineHistory(commandLine.HistoryInputRoot!, commandLine.HistoryOutputPath!, commandLine.HistoryMarkdownOutputPath);
+
                 case BenchmarkCommand.Help:
                     PrintUsage(Console.Out);
                     return SuccessExitCode;
@@ -120,6 +123,45 @@ namespace Hps.Benchmarks
             {
                 Console.Error.WriteLine("baseline-summary-error: {0}", ex.Message);
                 return ReportWriteFailedExitCode;
+            }
+        }
+
+        private static int CompleteBaselineHistory(string inputRoot, string historyPath, string? historyMarkdownPath)
+        {
+            try
+            {
+                System.Collections.Generic.IReadOnlyList<BaselineHistorySession> sessions = BaselineHistoryReader.ReadSessions(inputRoot);
+                BaselineHistory history = BaselineHistoryGenerator.Generate(inputRoot, sessions);
+                BaselineHistoryWriter.Write(historyPath, history);
+                if (historyMarkdownPath != null)
+                    WriteBaselineHistoryMarkdown(historyMarkdownPath, history);
+
+                Console.Out.WriteLine("baseline-history: {0}", historyPath);
+                if (historyMarkdownPath != null)
+                    Console.Out.WriteLine("baseline-history-md: {0}", historyMarkdownPath);
+
+                Console.Out.WriteLine("session-count: {0}", history.SessionCount);
+                Console.Out.WriteLine("hard-passed: {0}", history.HardPassed ? "true" : "false");
+                Console.Out.WriteLine("warning-count: {0}", history.WarningCount);
+                return history.HardPassed ? SuccessExitCode : FailedRunExitCode;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("baseline-history-error: {0}", ex.Message);
+                return ReportWriteFailedExitCode;
+            }
+        }
+
+        private static void WriteBaselineHistoryMarkdown(string path, BaselineHistory history)
+        {
+            string fullPath = Path.GetFullPath(path);
+            string? directory = Path.GetDirectoryName(fullPath);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
+            using (StreamWriter writer = new StreamWriter(fullPath, false))
+            {
+                BaselineHistoryMarkdownWriter.Write(writer, history);
             }
         }
 

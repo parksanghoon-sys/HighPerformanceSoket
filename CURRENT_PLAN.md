@@ -53,6 +53,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - baseline history report command Task 3(history aggregate/writer)이 완료됐다.
   `BaselineHistoryGenerator`는 session `hard-passed` AND 와 `failed-session-count`를 계산하고,
   `BaselineHistoryWriter`/`BaselineHistoryMarkdownWriter`는 JSON `null`/Markdown `-` p99 누락 표현을 유지한다.
+- baseline history report command Task 4(Program wiring/smoke)가 완료됐다.
+  `--summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]`는 실제 CLI에서
+  history JSON과 선택 Markdown을 생성하고, session hard gate 결과에 따라 exit code 0/1을 반환한다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -116,6 +119,13 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Baseline history report command Task 4 Program wiring/smoke
+  - `Program.Main`에 `BenchmarkCommand.SummarizeBaselineHistory` branch 를 연결했다.
+  - CLI는 `BaselineHistoryReader` → `BaselineHistoryGenerator` → `BaselineHistoryWriter`/`BaselineHistoryMarkdownWriter` 경로를 사용한다.
+  - warning-only history 는 soft signal 이므로 success exit code 를 유지하고, failed session 이 있으면 failed-run exit code 를 반환한다.
+  - Red: focused Program tests 3개가 구현 전 usage error exit code 2 반환으로 실패함을 확인했다.
+  - Green: focused Program tests 3개 통과, 실제 baseline root CLI smoke 는 session-count 3, hard-passed true, warning-count 0을 출력했다.
+  - 최종 검증: `git diff --check`, solution build 경고 0/오류 0, solution tests 239개 통과.
 - 이번 단위 — Baseline history report command Task 3 history aggregate/writer
   - `BaselineHistory`, `BaselineHistoryGenerator`, `BaselineHistoryWriter`, `BaselineHistoryMarkdownWriter`를 추가했다.
   - history JSON schema 는 `history-version`, `source-root`, `session-count`, `hard-passed`, `failed-session-count`, `warning-count`, `sessions`를 쓴다.
@@ -319,21 +329,19 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-baseline history report command Task 1(parser contract)을 구현한다.
+baseline history report command 전체 구현(parser/reader/generator/writer/Program wiring)에 대한 구현 검토를 진행한다.
 
-다음 구현은 `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`의 Task 1만 따른다.
-범위는 `BenchmarkCommand.SummarizeBaselineHistory`, `BenchmarkCommandLine` history 경로 속성,
-`BenchmarkCommandParser` parse/usage error, `Program.PrintUsage`, parser tests 로 제한한다.
-Program execution wiring, reader, writer 는 아직 구현하지 않는다.
+다음 작업은 새 기능 추가가 아니라 구현 검토 게이트다. 범위는 D078 계약, Task 1~4 변경 파일, baseline artifact discovery,
+history hard gate/soft warning exit code, JSON/Markdown schema, 실제 CLI smoke 결과를 대조하는 것으로 제한한다.
 
 ## 이번 단위의 검증 경로
 
-다음 단위는 parser contract 구현이다.
+다음 단위는 구현 검토다.
 
-- Red: `BenchmarkCommandParserTests`에 history parser 계약 테스트를 먼저 추가하고 assertion failure 를 확인한다.
-- Green: enum/command line/parser/usage text 만 최소 구현한다.
-- Refactor: 기존 summary parser 패턴과 중복/메시지 이름을 정리하고 focused parser tests 를 재실행한다.
-- 최종 검증: `git diff --check`, solution build 경고 0/오류 0, solution tests 전체 green.
+- `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`와 Task 1~4 commit scope 를 대조한다.
+- `tests/Hps.Benchmarks` history 관련 source 와 `tests/Hps.Benchmarks.Tests` coverage 를 검토한다.
+- 필요하면 `--summarize-baseline-history` CLI smoke 와 focused tests 를 다시 실행한다.
+- 검토 결과는 repo-local review/state 문서에 남기고, must-fix 가 있으면 다음 구현 단위로 분리한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

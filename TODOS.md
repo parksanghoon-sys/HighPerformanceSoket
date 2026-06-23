@@ -9,15 +9,16 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` baseline history report command Task 4(Program wiring/smoke)를 구현한다.
-  - 무엇이 남았는지: parser, reader, aggregate/writer 는 완료됐고, 아직 CLI command 가 실제로 history artifact 를 생성하지 않는다.
-  - 왜 지금 해야 하는지: `--summarize-baseline-history` surface 가 이미 parser/usage 에 노출됐으므로 실제 실행 경로와 exit code 를 닫아야 한다.
-  - objective: `Program.Main`에 `BenchmarkCommand.SummarizeBaselineHistory` branch 를 연결하고,
-    실제 baseline fixture 를 대상으로 `history.json`/선택 `history.md` 생성 smoke 를 검증한다.
+- [ ] `P1_SOON` baseline history report command 전체 구현 검토를 진행한다.
+  - 무엇이 남았는지: Task 1~4 구현은 완료됐고, parser/reader/generator/writer/Program wiring 전체가 D078 계약과 맞는지 검토가 필요하다.
+  - 왜 지금 해야 하는지: `--summarize-baseline-history` CLI surface 가 실제 실행 가능해졌으므로, 다음 기능으로 넘어가기 전 schema/exit code/discovery 경계를 닫아야 한다.
+  - objective: history command 구현이 parent/date root discovery, session hard gate AND, `failed-session-count`, warning soft signal,
+    p99 null/Markdown `-`, generated artifact output 계약을 지키는지 검토한다.
   - 관련 파일: `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`,
-    `tests/Hps.Benchmarks/Program.cs`, `tests/Hps.Benchmarks.Tests/BaselineHistoryProgramTests.cs`.
-  - 기준: history aggregate 는 session `hard-passed` AND, `failed-session-count`, p99 누락 시 JSON `null`/Markdown `-` 계약을 따른다.
-  - next step: 계획서 Task 4의 Program wiring Red 부터 시작한다.
+    `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`, `BaselineHistoryReader.cs`, `BaselineHistoryGenerator.cs`,
+    `BaselineHistoryWriter.cs`, `BaselineHistoryMarkdownWriter.cs`, `Program.cs`,
+    `tests/Hps.Benchmarks.Tests/*BaselineHistory*Tests.cs`.
+  - next step: 구현 검토를 수행하고 must-fix 가 있으면 별도 작은 구현 단위로 분리한다.
 
 ## Deferred Backlog
 
@@ -32,6 +33,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 baseline history report command Task 4 Program wiring/smoke 를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/Program.cs`, `tests/Hps.Benchmarks.Tests/BaselineHistoryProgramTests.cs`, root 상태 문서.
+  - 결과: `Program.Main`이 `--summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]`를
+    실행해 history JSON/Markdown artifact 를 생성한다.
+  - 비고: warning-only history 는 success exit code 를 유지하고, failed session 이 있으면 failed-run exit code 를 반환한다.
+  - Red: focused Program tests 3개가 구현 전 usage error exit code 2 반환으로 실패함을 확인했다.
+  - Green/검증: focused Program tests 3개 통과, 실제 baseline root CLI smoke 는 session-count 3, hard-passed true, warning-count 0을 출력했다.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 239개 통과.
 
 - [x] 2026-06-23 baseline history report command Task 3 history aggregate/writer 를 구현했다.
   - 범위: `tests/Hps.Benchmarks/BaselineHistory.cs`, `BaselineHistoryGenerator.cs`, `BaselineHistoryWriter.cs`,
