@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - benchmark runner identity Task 1 model)
+
+### 작업 단위
+- benchmark runner identity 구현 계획의 첫 번째 단위로 `BenchmarkRunIdentity` model 을 추가했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/BenchmarkRunIdentity.cs`: raw report metadata 에 사용할 benchmark profile, runner id/kind,
+  transport backend, runtime OS/framework/architecture 정보를 보존하는 내부 model 을 추가했다.
+- `tests/Hps.Benchmarks.Tests/BenchmarkRunIdentityTests.cs`: 타입 계약, privacy 우선 기본값, 환경 변수 override 를 검증했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: Task 1 완료와 다음 Task 2(raw report writer metadata) 진입점을 반영했다.
+
+### 검증
+- Red 1: focused contract test 가 타입 부재로 `Assert.NotNull()` 실패함을 확인했다.
+- Stub Green: stub type 추가 후 focused contract test 1개 통과.
+- Red 2: behavior tests 2개가 stub `unknown` 반환으로 실패함을 확인했다.
+- Green: focused `BenchmarkRunIdentityTests` 3개 통과.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 40개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 242개 통과/실패 0.
+
 ## 2026-06-23 (Codex - benchmark runner identity implementation plan)
 
 ### 작업 단위

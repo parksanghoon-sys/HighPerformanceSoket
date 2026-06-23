@@ -9,16 +9,16 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` benchmark runner identity Task 1 model 을 구현한다.
-  - 무엇이 남았는지: 구현 계획은 `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`에 작성됐다.
-    첫 Task 는 `BenchmarkRunIdentity` model 과 `CaptureDefault()` privacy/default/env override 규칙이다.
-  - 왜 지금 해야 하는지: raw report writer/reader 가 같은 identity type 을 공유해야 metadata field 이름과 기본값 중복을 피할 수 있다.
-  - objective: `BenchmarkRunIdentity`를 focused Red-Green-Refactor 로 추가하고, host name/user name/IP 자동 수집 없이
-    `HPS_BENCHMARK_RUNNER_ID`, `HPS_BENCHMARK_RUNNER_KIND`만 명시 override 로 쓰게 한다.
+- [ ] `P1_SOON` benchmark runner identity Task 2 raw report writer metadata 를 구현한다.
+  - 무엇이 남았는지: Task 1에서 `BenchmarkRunIdentity` model 과 `CaptureDefault()`가 추가됐다.
+    아직 `TcpLoopbackRunResult`가 identity 를 보존하지 않고, raw report JSON에 metadata field 를 쓰지 않는다.
+  - 왜 지금 해야 하는지: raw report 가 원천 metadata 를 남겨야 summary/history comparison signal 을 나중에 만들 수 있다.
+  - objective: `TcpLoopbackRunResult.Identity`와 `TcpLoopbackReportWriter` metadata field output 을 focused TDD 로 연결한다.
   - 관련 파일: `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`,
-    `tests/Hps.Benchmarks/BenchmarkRunIdentity.cs`, `tests/Hps.Benchmarks.Tests/BenchmarkRunIdentityTests.cs`,
+    `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`,
     `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
-  - next step: 계획서 Task 1 Step 1부터 진행한다.
+  - next step: 계획서 Task 2 Step 1부터 진행한다.
 
 ## Deferred Backlog
 
@@ -33,6 +33,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 benchmark runner identity Task 1 model 을 구현했다.
+  - 범위: `tests/Hps.Benchmarks/BenchmarkRunIdentity.cs`, `tests/Hps.Benchmarks.Tests/BenchmarkRunIdentityTests.cs`, root 상태 문서.
+  - 결과: raw report metadata 의 공통 identity model 과 `CaptureDefault()`를 추가했다.
+  - 비고: default runner id/kind 는 privacy 우선으로 `local-unspecified`/`local`이며,
+    명시 override 는 `HPS_BENCHMARK_RUNNER_ID`, `HPS_BENCHMARK_RUNNER_KIND`만 사용한다.
+  - Red: 타입 부재 contract test 1개 `Assert.NotNull()` 실패, behavior tests 2개가 `unknown` 반환으로 실패함을 확인했다.
+  - Green/검증: focused `BenchmarkRunIdentityTests` 3개 통과, `Hps.Benchmarks.Tests` 40개 통과.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 242개 통과.
 
 - [x] 2026-06-23 benchmark runner identity 구현 계획을 작성했다.
   - 범위: D079 설계, benchmark raw report writer/reader/source model, 기존 benchmark test 패턴.

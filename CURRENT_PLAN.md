@@ -64,6 +64,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   방식을 수락했다.
 - benchmark runner identity 구현 계획은 `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`에 있다.
   계획은 identity model, raw report writer metadata, raw report reader legacy compatibility 의 3개 커밋 단위로 나뉜다.
+- benchmark runner identity Task 1 model 이 완료됐다.
+  `BenchmarkRunIdentity.CaptureDefault()`는 privacy 우선 기본값과 `HPS_BENCHMARK_RUNNER_ID`/`HPS_BENCHMARK_RUNNER_KIND`
+  명시 override 만 사용한다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -127,6 +130,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Benchmark runner identity Task 1 model
+  - `BenchmarkRunIdentity` 내부 model 을 추가해 raw report metadata 의 공통 identity 타입을 만들었다.
+  - 기본값은 `benchmark-profile=tcp-loopback-saea-v1`, `runner-id=local-unspecified`, `runner-kind=local`,
+    `transport-backend=SaeaTransport`다.
+  - `CaptureDefault()`는 runtime OS/framework/architecture/process architecture/processor count 를 수집하되,
+    host name/user name/IP address 는 자동 수집하지 않는다.
+  - Red: 타입 부재 contract test 1개 `Assert.NotNull()` 실패, behavior tests 2개가 `unknown` 반환으로 실패함을 확인했다.
+  - Green: focused `BenchmarkRunIdentityTests` 3개 통과, `Hps.Benchmarks.Tests` 40개 통과.
+  - 최종 검증: `git diff --check`, solution build 경고 0/오류 0, solution tests 242개 통과.
 - 이번 단위 — Benchmark runner identity 구현 계획
   - D079 설계를 raw report identity capture/write/read 구현으로 좁혀 3개 Task 로 분해했다.
   - Task 1은 `BenchmarkRunIdentity` model 과 privacy 우선 `CaptureDefault()`를 고정한다.
@@ -355,18 +367,19 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Benchmark runner identity 구현 계획 Task 1을 진행한다.
+Benchmark runner identity 구현 계획 Task 2를 진행한다.
 
-다음 구현은 `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`의 Task 1이다.
-`BenchmarkRunIdentity` 내부 model 을 만들고, 환경 변수 override 와 privacy 우선 기본값을 focused tests 로 고정한다.
+다음 구현은 `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`의 Task 2다.
+`TcpLoopbackRunResult`가 `BenchmarkRunIdentity`를 보존하게 하고, `TcpLoopbackReportWriter`가 raw report top-level 에
+D079 metadata field 를 쓰도록 연결한다.
 
 ## 이번 단위의 검증 경로
 
-다음 단위는 Task 1 구현이다.
+다음 단위는 Task 2 구현이다.
 
-- Red: `BenchmarkRunIdentity` 타입 부재 reflection contract test 실패를 먼저 확인한다.
-- Green: model stub 후 behavior Red 를 추가하고 `CaptureDefault()` 구현으로 focused tests 를 통과시킨다.
-- 검증: focused `BenchmarkRunIdentityTests`, benchmark test project, 필요한 경우 solution build/test.
+- Red: raw report writer metadata shape test 가 `benchmark-profile` 미기록 `Assert.True()` 실패를 내는지 확인한다.
+- Green: `TcpLoopbackRunResult.Identity`와 `TcpLoopbackReportWriter` metadata output 을 구현한다.
+- 검증: focused writer test, `Hps.Benchmarks.Tests`, 필요한 경우 solution build/test.
 - 완료 후 상태 문서 갱신과 단일 커밋을 수행한다.
 
 ## 이번 작업에서 건드리지 않는 범위
