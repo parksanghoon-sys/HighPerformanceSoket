@@ -44,6 +44,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   계획은 parser contract, history reader, aggregate writer, Program wiring/smoke 의 4개 커밋 단위로 나뉜다.
 - baseline history report command 구현 계획은 2026-06-23 리뷰 의견을 반영해 history `hard-passed`,
   `failed-session-count`, 누락 p99 표현(JSON `null`/Markdown `-`) 계약까지 보정했다.
+- baseline history report command Task 1(parser contract)이 완료됐다.
+  `--summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]`를 parser 가 인식하고,
+  `BenchmarkCommandLine`에 history input/output path 를 보존한다. 실행 wiring 은 아직 Task 4 범위다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -107,6 +110,12 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Baseline history report command Task 1 parser contract
+  - `BenchmarkCommand.SummarizeBaselineHistory`와 `BenchmarkCommandLine` history path 필드를 추가했다.
+  - `BenchmarkCommandParser`가 `--summarize-baseline-history` command, 필수 `--history`, 선택 `--history-md`, `--report` 혼용 거부를 처리한다.
+  - `Program.PrintUsage`에 history command usage 를 추가했지만, 실행 switch wiring 은 Task 4로 남겼다.
+  - Red: focused parser tests 에서 새 history command 5개가 실패함을 확인했다.
+  - Green: focused parser tests 15개 통과, solution tests 227개 통과.
 - 이번 단위 — Baseline history report command 구현 계획 리뷰 보정
   - `.claude/review/2026-06-23-baseline-history-report-command-review.md`의 must-fix 성격 의견을 설계/계획에 반영했다.
   - history `hard-passed`는 모든 session summary 의 `hard-passed` AND 로 계산하고, 상위 실패 카운터는 `failed-session-count`로 기록한다.

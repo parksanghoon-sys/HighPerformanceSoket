@@ -145,6 +145,7 @@ namespace Hps.Benchmarks
             writer.WriteLine("  Hps.Benchmarks --load-open-loop [--report <path>]");
             writer.WriteLine("  Hps.Benchmarks --baseline-suite <output-dir> [--runs <count>]");
             writer.WriteLine("  Hps.Benchmarks --summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]");
+            writer.WriteLine("  Hps.Benchmarks --summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]");
             writer.WriteLine("  Hps.Benchmarks [BenchmarkDotNet arguments]");
         }
 

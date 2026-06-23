@@ -9,6 +9,7 @@ namespace Hps.Benchmarks
         LoadOpenLoop,
         BaselineSuite,
         SummarizeBaseline,
+        SummarizeBaselineHistory,
         Help
     }
 }

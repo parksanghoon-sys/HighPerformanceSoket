@@ -17,10 +17,14 @@ namespace Hps.Benchmarks
         public const string MessageSummaryOutputRequired = "--summary 옵션에는 저장할 summary JSON 파일 경로가 필요합니다.";
         public const string MessageSummaryMarkdownOutputRequired = "--summary-md 옵션에는 저장할 summary Markdown 파일 경로가 필요합니다.";
         public const string MessageSummaryReportNotAllowed = "--report 옵션은 --summarize-baseline 과 함께 사용할 수 없습니다.";
+        public const string MessageHistoryInputRequired = "--summarize-baseline-history 옵션에는 입력 baseline root 경로가 필요합니다.";
+        public const string MessageHistoryOutputRequired = "--history 옵션에는 저장할 history JSON 파일 경로가 필요합니다.";
+        public const string MessageHistoryMarkdownOutputRequired = "--history-md 옵션에는 저장할 history Markdown 파일 경로가 필요합니다.";
+        public const string MessageHistoryReportNotAllowed = "--report 옵션은 --summarize-baseline-history 와 함께 사용할 수 없습니다.";
 
         public static bool TryParse(string[] args, out BenchmarkCommandLine commandLine, out string? errorMessage)
         {
-            commandLine = new BenchmarkCommandLine(BenchmarkCommand.None, null, null, 0, null, null, null);
+            commandLine = new BenchmarkCommandLine(BenchmarkCommand.None, null, null, 0, null, null, null, null, null, null);
             errorMessage = null;
 
             if (args.Length == 0)
@@ -31,16 +35,19 @@ namespace Hps.Benchmarks
             if (string.Equals(commandArg, "--help", StringComparison.OrdinalIgnoreCase))
             {
                 errorMessage = ValidateNoReportOption(args);
-                commandLine = new BenchmarkCommandLine(BenchmarkCommand.Help, null, null, 0, null, null, null);
+                commandLine = new BenchmarkCommandLine(BenchmarkCommand.Help, null, null, 0, null, null, null, null, null, null);
                 return true;
             }
 
             if (string.Equals(commandArg, "--target", StringComparison.OrdinalIgnoreCase))
             {
                 errorMessage = ValidateNoReportOption(args);
-                commandLine = new BenchmarkCommandLine(BenchmarkCommand.Target, null, null, 0, null, null, null);
+                commandLine = new BenchmarkCommandLine(BenchmarkCommand.Target, null, null, 0, null, null, null, null, null, null);
                 return true;
             }
+
+            if (string.Equals(commandArg, "--summarize-baseline-history", StringComparison.OrdinalIgnoreCase))
+                return ParseSummarizeBaselineHistory(args, out commandLine, out errorMessage);
 
             if (string.Equals(commandArg, "--summarize-baseline", StringComparison.OrdinalIgnoreCase))
                 return ParseSummarizeBaseline(args, out commandLine, out errorMessage);
@@ -71,7 +78,7 @@ namespace Hps.Benchmarks
             out BenchmarkCommandLine commandLine,
             out string? errorMessage)
         {
-            commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, null, DefaultBaselineRunCount, null, null, null);
+            commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, null, DefaultBaselineRunCount, null, null, null, null, null, null);
             errorMessage = null;
 
             if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
@@ -82,7 +89,7 @@ namespace Hps.Benchmarks
 
             if (ContainsReportOption(args))
             {
-                commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, args[1], DefaultBaselineRunCount, null, null, null);
+                commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, args[1], DefaultBaselineRunCount, null, null, null, null, null, null);
                 errorMessage = MessageBaselineReportNotAllowed;
                 return true;
             }
@@ -98,7 +105,7 @@ namespace Hps.Benchmarks
                 errorMessage = MessageUnknownRunnerArgs;
             }
 
-            commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, args[1], runCount, null, null, null);
+            commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, args[1], runCount, null, null, null, null, null, null);
             return true;
         }
 
@@ -108,7 +115,7 @@ namespace Hps.Benchmarks
             out string? errorMessage)
         {
             string? inputDirectory = args.Length >= 2 ? args[1] : null;
-            commandLine = new BenchmarkCommandLine(BenchmarkCommand.SummarizeBaseline, null, null, 0, inputDirectory, null, null);
+            commandLine = new BenchmarkCommandLine(BenchmarkCommand.SummarizeBaseline, null, null, 0, inputDirectory, null, null, null, null, null);
             errorMessage = null;
 
             if (string.IsNullOrWhiteSpace(inputDirectory))
@@ -153,7 +160,82 @@ namespace Hps.Benchmarks
                 summaryMarkdownOutputPath = args[5];
             }
 
-            commandLine = new BenchmarkCommandLine(BenchmarkCommand.SummarizeBaseline, null, null, 0, inputDirectory, args[3], summaryMarkdownOutputPath);
+            commandLine = new BenchmarkCommandLine(BenchmarkCommand.SummarizeBaseline, null, null, 0, inputDirectory, args[3], summaryMarkdownOutputPath, null, null, null);
+            return true;
+        }
+
+        private static bool ParseSummarizeBaselineHistory(
+            string[] args,
+            out BenchmarkCommandLine commandLine,
+            out string? errorMessage)
+        {
+            string? inputRoot = args.Length >= 2 ? args[1] : null;
+            commandLine = new BenchmarkCommandLine(
+                BenchmarkCommand.SummarizeBaselineHistory,
+                null,
+                null,
+                0,
+                null,
+                null,
+                null,
+                inputRoot,
+                null,
+                null);
+            errorMessage = null;
+
+            if (string.IsNullOrWhiteSpace(inputRoot))
+            {
+                errorMessage = MessageHistoryInputRequired;
+                return true;
+            }
+
+            if (ContainsReportOption(args))
+            {
+                errorMessage = MessageHistoryReportNotAllowed;
+                return true;
+            }
+
+            if ((args.Length != 4 && args.Length != 6) || !string.Equals(args[2], "--history", StringComparison.OrdinalIgnoreCase))
+            {
+                errorMessage = MessageHistoryOutputRequired;
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(args[3]))
+            {
+                errorMessage = MessageHistoryOutputRequired;
+                return true;
+            }
+
+            string? historyMarkdownOutputPath = null;
+            if (args.Length == 6)
+            {
+                if (!string.Equals(args[4], "--history-md", StringComparison.OrdinalIgnoreCase))
+                {
+                    errorMessage = MessageHistoryMarkdownOutputRequired;
+                    return true;
+                }
+
+                if (string.IsNullOrWhiteSpace(args[5]))
+                {
+                    errorMessage = MessageHistoryMarkdownOutputRequired;
+                    return true;
+                }
+
+                historyMarkdownOutputPath = args[5];
+            }
+
+            commandLine = new BenchmarkCommandLine(
+                BenchmarkCommand.SummarizeBaselineHistory,
+                null,
+                null,
+                0,
+                null,
+                null,
+                null,
+                inputRoot,
+                args[3],
+                historyMarkdownOutputPath);
             return true;
         }
 
@@ -165,7 +247,7 @@ namespace Hps.Benchmarks
         {
             string? reportPath;
             ParseOptionalReport(args, out reportPath, out errorMessage);
-            commandLine = new BenchmarkCommandLine(command, reportPath, null, 0, null, null, null);
+            commandLine = new BenchmarkCommandLine(command, reportPath, null, 0, null, null, null, null, null, null);
             return true;
         }
 

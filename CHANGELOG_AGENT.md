@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - baseline history report command Task 1 parser contract)
+
+### 작업 단위
+- baseline history report command 의 첫 구현 단위로 parser/usage contract 만 추가했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`: history command 성공/Markdown 선택/필수 `--history`/`--history-md` 경계/`--report` 혼용 거부 테스트 5개를 추가했다.
+- `tests/Hps.Benchmarks/BenchmarkCommand.cs`: `SummarizeBaselineHistory` command 값을 추가했다.
+- `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`: history input root, JSON output path, Markdown output path 보존 필드를 추가했다.
+- `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`: `--summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]` parsing 을 추가했다.
+- `tests/Hps.Benchmarks/Program.cs`: usage text 에 history command 를 추가했다. 실행 switch wiring 은 Task 4 범위로 남겼다.
+- `CURRENT_PLAN.md`, `TODOS.md`: Task 1 완료와 다음 Task 2(history domain/reader) 진입점을 반영했다.
+
+### 검증
+- Red: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --filter FullyQualifiedName~BenchmarkCommandParserTests`
+  에서 새 history command 테스트 5개 실패를 확인했다.
+- Green: 같은 focused parser tests 15개 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 227개 통과/실패 0.
+
 ## 2026-06-23 (Codex - baseline history report command 계획 리뷰 보정)
 
 ### 작업 단위

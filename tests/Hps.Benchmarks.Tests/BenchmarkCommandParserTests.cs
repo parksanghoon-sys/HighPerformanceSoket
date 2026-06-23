@@ -201,6 +201,104 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal("SummarizeBaseline", commandLine.Command.ToString());
         }
 
+        // history command 는 여러 session summary 를 읽는 별도 aggregate command 이다.
+        // parser 가 input root 와 JSON output path 를 보존해야 후속 reader/writer 단계가 같은 계약에 붙을 수 있다.
+        [Fact]
+        public void TryParse_WhenSummarizeBaselineHistoryHasInputAndHistory_ReturnsHistoryCommand()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--summarize-baseline-history", "docs/baselines", "--history", "out/history.json" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal("SummarizeBaselineHistory", commandLine.Command.ToString());
+            Assert.Equal("docs/baselines", GetStringProperty(commandLine, "HistoryInputRoot"));
+            Assert.Equal("out/history.json", GetStringProperty(commandLine, "HistoryOutputPath"));
+            Assert.Null(GetStringProperty(commandLine, "HistoryMarkdownOutputPath"));
+            Assert.Null(commandLine.ReportPath);
+            Assert.Null(commandLine.BaselineOutputDirectory);
+        }
+
+        // Markdown history 는 JSON history 를 대체하지 않는 선택 보조 artifact 다.
+        // 두 output path 를 분리해 보존해야 Program wiring 때 같은 aggregate 결과로 두 파일을 쓸 수 있다.
+        [Fact]
+        public void TryParse_WhenSummarizeBaselineHistoryHasMarkdown_ReturnsHistoryCommandWithMarkdownPath()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--summarize-baseline-history", "docs/baselines", "--history", "out/history.json", "--history-md", "out/history.md" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal("SummarizeBaselineHistory", commandLine.Command.ToString());
+            Assert.Equal("docs/baselines", GetStringProperty(commandLine, "HistoryInputRoot"));
+            Assert.Equal("out/history.json", GetStringProperty(commandLine, "HistoryOutputPath"));
+            Assert.Equal("out/history.md", GetStringProperty(commandLine, "HistoryMarkdownOutputPath"));
+        }
+
+        // history command 는 output directory command 가 아니므로 --history JSON 파일 경로가 반드시 필요하다.
+        // 이 경계가 없으면 사용자가 history artifact 를 기대했는데 아무 파일도 생기지 않는 usage 오류가 생긴다.
+        [Fact]
+        public void TryParse_WhenSummarizeBaselineHistoryMissingHistory_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--summarize-baseline-history", "docs/baselines" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Equal("SummarizeBaselineHistory", commandLine.Command.ToString());
+        }
+
+        // --history-md 는 선택 옵션이지만 지정했다면 파일 경로가 반드시 필요하다.
+        // 경로 없이 통과시키면 Markdown history 를 쓴다고 보고하면서 실제 출력 위치를 잃는다.
+        [Fact]
+        public void TryParse_WhenSummarizeBaselineHistoryMarkdownMissingPath_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--summarize-baseline-history", "docs/baselines", "--history", "out/history.json", "--history-md" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Equal("SummarizeBaselineHistory", commandLine.Command.ToString());
+        }
+
+        // --report 는 단일 runner raw JSON 출력용이고, history command 의 출력은 --history 로만 지정한다.
+        // 두 옵션을 섞으면 raw report 와 aggregate history 의미가 충돌하므로 parser 단계에서 막는다.
+        [Fact]
+        public void TryParse_WhenSummarizeBaselineHistoryHasReport_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--summarize-baseline-history", "docs/baselines", "--report", "out/report.json" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Equal("SummarizeBaselineHistory", commandLine.Command.ToString());
+        }
+
         private static string? GetStringProperty(BenchmarkCommandLine commandLine, string propertyName)
         {
             PropertyInfo? property = typeof(BenchmarkCommandLine).GetProperty(propertyName);

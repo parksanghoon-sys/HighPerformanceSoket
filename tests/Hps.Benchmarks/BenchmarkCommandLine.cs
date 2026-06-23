@@ -9,7 +9,10 @@ namespace Hps.Benchmarks
             int baselineRunCount,
             string? summaryInputDirectory,
             string? summaryOutputPath,
-            string? summaryMarkdownOutputPath)
+            string? summaryMarkdownOutputPath,
+            string? historyInputRoot,
+            string? historyOutputPath,
+            string? historyMarkdownOutputPath)
         {
             Command = command;
             ReportPath = reportPath;
@@ -18,6 +21,9 @@ namespace Hps.Benchmarks
             SummaryInputDirectory = summaryInputDirectory;
             SummaryOutputPath = summaryOutputPath;
             SummaryMarkdownOutputPath = summaryMarkdownOutputPath;
+            HistoryInputRoot = historyInputRoot;
+            HistoryOutputPath = historyOutputPath;
+            HistoryMarkdownOutputPath = historyMarkdownOutputPath;
         }
 
         public BenchmarkCommand Command { get; }
@@ -33,5 +39,11 @@ namespace Hps.Benchmarks
         public string? SummaryOutputPath { get; }
 
         public string? SummaryMarkdownOutputPath { get; }
+
+        public string? HistoryInputRoot { get; }
+
+        public string? HistoryOutputPath { get; }
+
+        public string? HistoryMarkdownOutputPath { get; }
     }
 }

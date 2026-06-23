@@ -9,17 +9,17 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` baseline history report command Task 1(parser contract)을 구현한다.
-  - 무엇이 남았는지: 구현 계획이 작성됐고, 첫 구현 단위는 parser/usage contract 로 제한됐다.
-  - 왜 지금 해야 하는지: 후속 reader/writer/Program wiring 이 붙기 전에 CLI surface 와 usage error 경계를 먼저 고정해야 한다.
-  - objective: `--summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]`를 parser 가 인식하고,
-    history input/output path 를 `BenchmarkCommandLine`에 보존하게 한다.
+- [ ] `P1_SOON` baseline history report command Task 2(history domain/reader)를 구현한다.
+  - 무엇이 남았는지: parser contract 는 완료됐고, 다음 단위는 여러 session `summary.json`을 bounded discovery 로 읽어
+    history session model 로 변환하는 reader 이다.
+  - 왜 지금 해야 하는지: Task 3 aggregate/writer 와 Task 4 Program wiring 이 붙기 전에 입력 artifact 해석 규칙을 고정해야 한다.
+  - objective: `BaselineHistorySession`, `BaselineHistoryReader.ReadSessions(string sourceRoot)`를 추가하고,
+    parent baseline root/date root 입력, `session-NN/summary.json`, 날짜 root 의 legacy `summary.json`을 읽게 한다.
   - 관련 파일: `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`,
-    `tests/Hps.Benchmarks/BenchmarkCommand.cs`, `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`,
-    `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`, `tests/Hps.Benchmarks/Program.cs`,
-    `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`.
+    `tests/Hps.Benchmarks/BaselineHistorySession.cs`, `tests/Hps.Benchmarks/BaselineHistoryReader.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineHistoryReaderTests.cs`.
   - 기준: history aggregate 는 session `hard-passed` AND, `failed-session-count`, p99 누락 시 JSON `null`/Markdown `-` 계약을 따른다.
-  - next step: 계획서 Task 1의 Red-Green-Refactor 순서대로 parser tests 부터 추가한다.
+  - next step: 계획서 Task 2의 reflection contract Red 부터 시작한다.
 
 ## Deferred Backlog
 
@@ -34,6 +34,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 baseline history report command Task 1 parser contract 를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/BenchmarkCommand.cs`, `BenchmarkCommandLine.cs`, `BenchmarkCommandParser.cs`, `Program.cs`,
+    `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`, root 상태 문서.
+  - 결과: `--summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]` parser contract 를 추가했다.
+    `--report` 혼용은 usage error 로 막고, 실행 wiring 은 계획대로 Task 4에 남겼다.
+  - Red: focused parser tests 에서 history command 테스트 5개가 실패함을 확인했다.
+  - Green/검증: focused parser tests 15개 통과, `git diff --check`, solution build 경고 0/오류 0, solution tests 227개 통과.
 
 - [x] 2026-06-23 baseline history report command 구현 계획 리뷰 보정을 완료했다.
   - 범위: `.claude/review/2026-06-23-baseline-history-report-command-review.md`,
