@@ -43,6 +43,15 @@ namespace Hps.Benchmarks
                     writer.WriteString("result-name", result.ResultName);
                     writer.WriteBoolean("passed", result.Passed);
                     writer.WriteString("scenario", result.Scenario);
+                    writer.WriteString("benchmark-profile", result.Identity.BenchmarkProfile);
+                    writer.WriteString("runner-id", result.Identity.RunnerId);
+                    writer.WriteString("runner-kind", result.Identity.RunnerKind);
+                    writer.WriteString("transport-backend", result.Identity.TransportBackend);
+                    writer.WriteString("os-description", result.Identity.OsDescription);
+                    writer.WriteString("os-architecture", result.Identity.OsArchitecture);
+                    writer.WriteString("process-architecture", result.Identity.ProcessArchitecture);
+                    writer.WriteString("framework-description", result.Identity.FrameworkDescription);
+                    writer.WriteNumber("processor-count", result.Identity.ProcessorCount);
                     writer.WriteNumber("payload-bytes", result.PayloadBytes);
                     writer.WriteNumber("target-rate-hz", result.TargetRateHz);
                     writer.WriteNumber("target-duration-seconds", result.TargetDurationSeconds);

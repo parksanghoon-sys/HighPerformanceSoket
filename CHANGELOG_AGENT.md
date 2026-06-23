@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - benchmark runner identity Task 2 raw report writer metadata)
+
+### 작업 단위
+- benchmark runner identity 구현 계획의 두 번째 단위로 raw report writer metadata 를 연결했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`: optional `BenchmarkRunIdentity`를 보존하는 `Identity` property 를 추가했다.
+  명시 identity 가 없으면 privacy 우선 `BenchmarkRunIdentity.CaptureDefault()`를 사용한다.
+- `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`: raw report schema v1 top-level 에 runner/environment metadata field 를 additive 로 기록한다.
+- `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`: writer output 이 identity metadata 를 포함하는지 검증했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: Task 2 완료와 다음 Task 3(raw report reader/legacy compatibility) 진입점을 반영했다.
+
+### 검증
+- Red: focused writer metadata test 가 `benchmark-profile` 미기록으로 `Assert.True()` 실패함을 확인했다.
+- Green: focused writer metadata test 1개 통과.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 41개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 243개 통과/실패 0.
+
 ## 2026-06-23 (Codex - benchmark runner identity Task 1 model)
 
 ### 작업 단위

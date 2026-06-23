@@ -54,6 +54,63 @@ namespace Hps.Benchmarks.Tests
             }
         }
 
+        // raw report 가 runner identity 를 원천 artifact 로 남겨야 summary/history 단계가 비교 가능성을 판단할 수 있다.
+        // schema-version 은 그대로 1이고 metadata 는 기존 reader 를 깨지 않는 top-level additive field 로만 추가한다.
+        [Fact]
+        public void Write_WhenRunResultIsWritten_IncludesRunnerIdentityMetadata()
+        {
+            string directory = CreateTempDirectory();
+            string path = Path.Combine(directory, "load-01.json");
+            TcpLoopbackRunResult result = new TcpLoopbackRunResult(
+                "load",
+                "tcp-loopback-saea-baseline",
+                4096,
+                100,
+                30,
+                3000,
+                3000,
+                3000,
+                0,
+                2,
+                0,
+                0,
+                0,
+                240.0,
+                500.0,
+                450.0,
+                550.0,
+                30000);
+
+            TcpLoopbackReportWriter.Write(path, result);
+
+            using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                JsonElement root = document.RootElement;
+                JsonElement benchmarkProfile;
+                JsonElement runnerId;
+                JsonElement runnerKind;
+                JsonElement transportBackend;
+                JsonElement osDescription;
+                JsonElement frameworkDescription;
+                JsonElement processorCount;
+                Assert.Equal(1, root.GetProperty("schema-version").GetInt32());
+                Assert.True(root.TryGetProperty("benchmark-profile", out benchmarkProfile));
+                Assert.True(root.TryGetProperty("runner-id", out runnerId));
+                Assert.True(root.TryGetProperty("runner-kind", out runnerKind));
+                Assert.True(root.TryGetProperty("transport-backend", out transportBackend));
+                Assert.True(root.TryGetProperty("os-description", out osDescription));
+                Assert.True(root.TryGetProperty("framework-description", out frameworkDescription));
+                Assert.True(root.TryGetProperty("processor-count", out processorCount));
+                Assert.Equal(BenchmarkRunIdentity.DefaultBenchmarkProfile, benchmarkProfile.GetString());
+                Assert.False(string.IsNullOrWhiteSpace(runnerId.GetString()));
+                Assert.False(string.IsNullOrWhiteSpace(runnerKind.GetString()));
+                Assert.Equal(BenchmarkRunIdentity.DefaultTransportBackend, transportBackend.GetString());
+                Assert.False(string.IsNullOrWhiteSpace(osDescription.GetString()));
+                Assert.False(string.IsNullOrWhiteSpace(frameworkDescription.GetString()));
+                Assert.True(processorCount.GetInt32() > 0);
+            }
+        }
+
         private static string CreateTempDirectory()
         {
             string directory = Path.Combine(Path.GetTempPath(), "hps-baseline-summary-tests", Path.GetRandomFileName());

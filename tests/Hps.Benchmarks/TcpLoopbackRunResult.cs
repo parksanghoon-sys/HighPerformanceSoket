@@ -31,7 +31,8 @@ namespace Hps.Benchmarks
             double p99LatencyMicroseconds,
             double firstHalfP99LatencyMicroseconds,
             double secondHalfP99LatencyMicroseconds,
-            long elapsedMilliseconds)
+            long elapsedMilliseconds,
+            BenchmarkRunIdentity? identity = null)
         {
             ResultName = resultName;
             Scenario = scenario;
@@ -51,6 +52,7 @@ namespace Hps.Benchmarks
             FirstHalfP99LatencyMicroseconds = firstHalfP99LatencyMicroseconds;
             SecondHalfP99LatencyMicroseconds = secondHalfP99LatencyMicroseconds;
             ElapsedMilliseconds = elapsedMilliseconds;
+            Identity = identity ?? BenchmarkRunIdentity.CaptureDefault();
         }
 
         public string ResultName { get; }
@@ -88,6 +90,12 @@ namespace Hps.Benchmarks
         public double SecondHalfP99LatencyMicroseconds { get; }
 
         public long ElapsedMilliseconds { get; }
+
+        /// <summary>
+        /// raw report 를 생성한 runner/environment identity 다.
+        /// 명시 identity 가 없으면 privacy 우선 기본 capture 를 사용해 과거 runner 생성 코드를 깨지 않는다.
+        /// </summary>
+        public BenchmarkRunIdentity Identity { get; }
 
         public double ActualRateHz
         {

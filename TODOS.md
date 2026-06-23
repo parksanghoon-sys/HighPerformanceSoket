@@ -9,16 +9,16 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` benchmark runner identity Task 2 raw report writer metadata 를 구현한다.
-  - 무엇이 남았는지: Task 1에서 `BenchmarkRunIdentity` model 과 `CaptureDefault()`가 추가됐다.
-    아직 `TcpLoopbackRunResult`가 identity 를 보존하지 않고, raw report JSON에 metadata field 를 쓰지 않는다.
-  - 왜 지금 해야 하는지: raw report 가 원천 metadata 를 남겨야 summary/history comparison signal 을 나중에 만들 수 있다.
-  - objective: `TcpLoopbackRunResult.Identity`와 `TcpLoopbackReportWriter` metadata field output 을 focused TDD 로 연결한다.
+- [ ] `P1_SOON` benchmark runner identity Task 3 raw report reader/legacy compatibility 를 구현한다.
+  - 무엇이 남았는지: Task 2에서 raw report writer 가 runner/environment metadata 를 쓰게 됐다.
+    아직 `BaselineReport`와 `BaselineReportReader`가 신규 metadata 를 보존하지 않고, legacy report fallback 계약도 명시되지 않았다.
+  - 왜 지금 해야 하는지: raw report metadata 는 reader 까지 연결되어야 summary/history comparison signal 의 입력으로 쓸 수 있다.
+  - objective: `BaselineReport.Identity`, `BaselineReportReader` optional metadata parsing, legacy report `BenchmarkRunIdentity.Unknown` fallback 을 focused TDD 로 연결한다.
   - 관련 파일: `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`,
-    `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`,
+    `tests/Hps.Benchmarks/BaselineReport.cs`, `tests/Hps.Benchmarks/BaselineReportReader.cs`,
     `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`,
     `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
-  - next step: 계획서 Task 2 Step 1부터 진행한다.
+  - next step: 계획서 Task 3 Step 1부터 진행한다.
 
 ## Deferred Backlog
 
@@ -33,6 +33,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 benchmark runner identity Task 2 raw report writer metadata 를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`, root 상태 문서.
+  - 결과: `TcpLoopbackRunResult`가 `BenchmarkRunIdentity`를 보존하고, `TcpLoopbackReportWriter`가 raw report schema v1 top-level 에
+    runner/environment metadata field 를 additive 로 기록한다.
+  - 비고: 기존 runner 생성자는 identity optional parameter 로 호환성을 유지하며, 명시 identity 가 없으면 `CaptureDefault()`를 사용한다.
+  - Red: writer metadata shape test 가 `benchmark-profile` 미기록으로 `Assert.True()` 실패함을 확인했다.
+  - Green/검증: focused writer metadata test 1개 통과, `Hps.Benchmarks.Tests` 41개 통과.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 243개 통과.
 
 - [x] 2026-06-23 benchmark runner identity Task 1 model 을 구현했다.
   - 범위: `tests/Hps.Benchmarks/BenchmarkRunIdentity.cs`, `tests/Hps.Benchmarks.Tests/BenchmarkRunIdentityTests.cs`, root 상태 문서.
