@@ -9,16 +9,14 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` benchmark runner identity Task 1~3 구현 검토를 진행한다.
-  - 무엇이 남았는지: identity model, raw report writer, raw report reader/legacy fallback 구현이 모두 끝났다.
-    아직 D079 설계/계획/코드/테스트가 최종적으로 정합한지 별도 review 단위로 확인하지 않았다.
-  - 왜 지금 해야 하는지: summary/history comparison signal 설계로 넘어가기 전에 raw metadata 원천 기록·읽기 계약에 결함이 없어야 한다.
-  - objective: Task 1~3 구현을 D079와 구현 계획에 대조하고, Blocker/Major finding 여부와 다음 후보 작업을 기록한다.
-  - 관련 파일: `docs/superpowers/plans/2026-06-23-benchmark-runner-identity.md`,
-    `docs/superpowers/specs/2026-06-23-benchmark-runner-identity-design.md`,
-    `tests/Hps.Benchmarks/BenchmarkRunIdentity.cs`, `TcpLoopbackRunResult.cs`, `TcpLoopbackReportWriter.cs`,
-    `BaselineReport.cs`, `BaselineReportReader.cs`, 관련 tests, root 상태 문서.
-  - next step: D079 field contract, privacy 기본값, writer/reader schema compatibility 를 소스와 테스트로 대조한다.
+- [ ] `P1_SOON` summary/history comparison signal 설계를 진행한다.
+  - 무엇이 남았는지: raw report 에 runner/environment metadata 를 기록하고 reader 가 보존하게 됐다.
+    아직 `summary.json`/`history.json`이 metadata 일치 여부와 mismatch reason 을 어떻게 표현할지 정하지 않았다.
+  - 왜 지금 해야 하는지: warning-as-failure 나 CI gate 로 넘어가기 전에 비교 가능한 baseline 인지 machine-readable 하게 판단할 수 있어야 한다.
+  - objective: `comparison-compatible` 계열 field, mismatch reason 표현, JSON/Markdown 출력 범위, 구현 Task 단위를 설계한다.
+  - 관련 파일: `docs/superpowers/specs/2026-06-23-benchmark-runner-identity-design.md`,
+    `tests/Hps.Benchmarks/BaselineSummary*.cs`, `BaselineHistory*.cs`, 관련 writer/tests, root 상태 문서.
+  - next step: 현재 summary/history model/writer/test 구조를 읽고 D079 summary/history 집계 규칙을 작은 구현 단위로 설계한다.
 
 ## Deferred Backlog
 
@@ -30,9 +28,28 @@
   - 관련 파일/범위: `src/Hps.Server/`, `src/Hps.Transport/`, host/sample 코드, 관련 tests.
   - next step: metrics/exporter 또는 server-only consumer 요구가 나오면 별도 설계로 승격한다.
 
+- [ ] `P3_NICE` benchmark writer metadata roundtrip test 를 보강한다.
+  - 무엇이 남았는지: Task 1~3 구현 검토에서 writer shape test 가 실제 writer output 의 `os-architecture`,
+    `process-architecture` field 를 직접 assert하지 않는 작은 testing gap 을 발견했다.
+  - 왜 defer 되었는지: 현재 구현은 코드 대조상 writer/reader field name 이 정합하고, Blocker/Major correctness issue 는 아니다.
+  - objective: future field drift 를 더 빨리 잡도록 실제 `TcpLoopbackReportWriter` output 을 `BaselineReportReader`로 다시 읽는 roundtrip test
+    또는 D079 전체 field assertion 을 추가한다.
+  - relevant context: `docs/agent-state/reviews/2026-06-23-benchmark-runner-identity-implementation-review.md`.
+  - 관련 파일/범위: `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`,
+    `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`, `tests/Hps.Benchmarks/BaselineReportReader.cs`.
+  - next step: summary/history comparison signal 구현 전후 테스트 보강 단위로 승격할지 판단한다.
+
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 benchmark runner identity Task 1~3 구현 검토를 완료했다.
+  - 범위: D079 설계, 구현 계획, `BenchmarkRunIdentity`, `TcpLoopbackRunResult`, `TcpLoopbackReportWriter`,
+    `BaselineReport`, `BaselineReportReader`, 관련 focused tests.
+  - 결과: 새 Blocker/Major finding 은 없다.
+  - 비고: writer metadata field drift 를 더 강하게 잡는 roundtrip test 는 `P3_NICE` deferred backlog 로 남겼다.
+  - 리뷰: `docs/agent-state/reviews/2026-06-23-benchmark-runner-identity-implementation-review.md`.
+  - 검증: 코드/테스트/문서 대조를 수행했다. `git diff --check`, solution build 경고 0/오류 0, solution tests 246개 통과.
 
 - [x] 2026-06-23 benchmark runner identity Task 3 raw report reader/legacy compatibility 를 구현했다.
   - 범위: `tests/Hps.Benchmarks/BaselineReport.cs`, `tests/Hps.Benchmarks/BaselineReportReader.cs`,
