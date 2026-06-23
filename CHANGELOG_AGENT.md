@@ -5,6 +5,29 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - Phase 4 backlog 재평가)
+
+### 작업 단위
+- stable identity / UDP lease sweep must-fix 체인 종료 후 Phase 4 backlog 를 재평가하고 다음 구현 후보를 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`: 여러 baseline session `summary.json`을 읽어
+  `history.json`과 선택적 `history.md`를 생성하는 provider-independent command 설계를 추가했다.
+- 다음 구현 후보는 `--summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]`로 좁혔다.
+- CI workflow, warning-as-failure, latency hard gate, 기존 `index.md` 자동 덮어쓰기는 범위 밖으로 남겼다.
+- `CURRENT_PLAN.md`, `TODOS.md`: 다음 진입점을 baseline history report command 설계 리뷰로 갱신했다.
+
+### 검증
+- `PLAN.md`, `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`를 읽고 현재 Phase 4 진입점을 대조했다.
+- `docs/superpowers/specs/2026-06-18-repeat-baseline-policy-design.md`,
+  `docs/superpowers/specs/2026-06-18-ci-repeat-baseline-policy-design.md`,
+  `docs/superpowers/specs/2026-06-18-baseline-report-history-warning-policy-design.md`,
+  `.claude/review/2026-06-18-repeat-baseline-policy-review.md`를 확인했다.
+- `tests/Hps.Benchmarks`와 `tests/Hps.Benchmarks.Tests`의 현재 CLI/parser/summary 구조를 확인해 설계가 기존 경로를 재사용하는지 검토했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 222개 통과/실패 0.
+
 ## 2026-06-23 (Codex - UDP lease sweep registry race guard review gate)
 
 ### 작업 단위

@@ -35,6 +35,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - baseline summary 이후 report history 와 warning 승격 정책은
   `docs/superpowers/specs/2026-06-18-baseline-report-history-warning-policy-design.md`로 정리했다(D071).
 - 반복 baseline session 을 빠르게 찾기 위한 전역 index 는 `docs/benchmarks/baselines/index.md`에 둔다(D071).
+- Phase 4 backlog 재평가 결과, 다음 코드 구현 후보는 CI workflow 가 아니라 여러 session `summary.json`을 읽는
+  provider-independent baseline history report command 로 좁혔다.
+  설계 초안은 `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`에 있다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -98,6 +101,11 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Phase 4 backlog 재평가 및 baseline history command 설계
+  - stable identity / UDP lease sweep must-fix 체인이 닫힌 뒤 Phase 4 backlog 를 다시 대조했다.
+  - QoS/Server diagnostics 는 v1 보류 결정이 이미 있고, CI workflow/warning-as-failure 는 runner identity 가 부족해 아직 이르다고 판단했다.
+  - 다음 구현 후보를 `--summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]` command 로 좁혔다.
+  - 검증: `PLAN.md`, `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`, baseline specs/plans/review, benchmark CLI source 를 대조했다.
 - 이번 단위 — UDP lease sweep registry race guard 리뷰
   - `a817c6e`의 handler gate 직렬화, PUBLISH fan-out lock 범위, race regression test 를 검토했다.
   - Blocker/Major correctness finding 은 없고, race test 의 250ms scheduling window 는 비차단 Minor 관찰로 남겼다.
@@ -262,18 +270,18 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Phase 4 backlog 를 재평가하고 다음 구현 단위를 설계한다.
+baseline history report command 설계를 리뷰받는다.
 
-stable subscriber identity / UDP lease sweep must-fix 체인은 현재 닫혔다. 다음 단위는 구현을 바로 늘리기 전에
-Phase 4의 남은 backlog, baseline/observability 문서, 현재 `TODOS.md`를 대조해 가장 안전한 다음 작은 구현 단위를 고르는 설계 작업이다.
+다음 구현으로 바로 들어가기 전에 `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`를 검토한다.
+must-fix 가 나오면 설계를 보정하고, 승인되면 implementation plan 을 작성한 뒤 Task 1(parser contract)부터 작은 커밋으로 진행한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 Phase 4 backlog 재평가 및 다음 구현 단위 설계다.
+이번 단위는 baseline history report command 설계 리뷰다.
 
-- `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`, 최근 review/spec/plan 문서를 대조해 현재 실행 가능한 항목을 확인한다.
-- 구현 설계 산출물이 생기면 관련 spec/plan/state 문서만 작은 단위로 갱신한다.
-- 문서 변경 검증은 `git diff --check`를 기본으로 하고, current code state 를 확인해야 하면 solution build/test 를 추가로 실행한다.
+- 설계 문서가 D069/D070/D071, 현재 benchmark CLI 구조, `docs/benchmarks/baselines/index.md`와 충돌하지 않는지 확인한다.
+- root summary 를 `session-01(root)`로 취급하는 discovery 규칙, output schema, exit code 정책이 충분히 명확한지 본다.
+- review 결과 must-fix 가 없으면 다음 단위에서 `superpowers:writing-plans`를 사용해 구현 계획을 작성한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

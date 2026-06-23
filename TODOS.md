@@ -9,12 +9,13 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` Phase 4 backlog 를 재평가하고 다음 구현 단위를 설계한다.
-  - 무엇이 남았는지: stable subscriber identity / UDP lease sweep must-fix 체인이 닫혔으므로, Phase 4 원래 흐름으로 돌아가 다음 작은 구현 단위를 골라야 한다.
-  - 왜 지금 해야 하는지: 현재 `Deferred Backlog`에는 server-level diagnostics P3만 남아 있고, baseline/observability 관련 spec/plan 문서에는 아직 승격 가능한 후속이 있을 수 있다.
-  - objective: `CURRENT_PLAN.md`, `DECISIONS.md`, 최근 review/spec/plan 문서를 대조해 지금 바로 실행 가능한 가장 작은 Phase 4 작업을 하나로 좁힌다.
-  - 관련 파일: `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`, `docs/superpowers/specs/`, `docs/superpowers/plans/`, `docs/agent-state/reviews/`.
-  - next step: 후보 작업을 하나 선택하고, touched files/검증 경로/커밋 경계까지 설계한다.
+- [ ] `P1_SOON` baseline history report command 설계를 리뷰받는다.
+  - 무엇이 남았는지: Phase 4 backlog 재평가 결과 다음 구현 후보를 baseline history report command 로 좁혔고, 설계 초안이 작성됐다.
+  - 왜 지금 해야 하는지: 구현 전에 D071 history/warning 정책, 현재 benchmark CLI 구조, 기존 `index.md` 운영 방식과 충돌이 없는지 확인해야 한다.
+  - objective: `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`를 검토해 must-fix 를 닫고, 승인되면 implementation plan 작성으로 넘어간다.
+  - 관련 파일: `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`,
+    `tests/Hps.Benchmarks/`, `tests/Hps.Benchmarks.Tests/`, `docs/benchmarks/baselines/index.md`.
+  - next step: 설계 승인 후 `superpowers:writing-plans`로 구현 계획을 작성하고 Task 1(parser contract)부터 시작한다.
 
 ## Deferred Backlog
 
@@ -29,6 +30,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 Phase 4 backlog 를 재평가하고 baseline history report command 를 설계했다.
+  - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`, baseline 관련 specs/plans/review, benchmark CLI/source 구조.
+  - 결과: CI workflow/warning-as-failure 는 아직 보류하고, 여러 session `summary.json`을 읽어 `history.json`과 선택적 `history.md`를 쓰는
+    provider-independent command 를 다음 구현 후보로 좁혔다.
+  - 설계: `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`.
+  - 검증: `PLAN.md`, `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`, baseline specs/plans/review,
+    `tests/Hps.Benchmarks` CLI/parser/summary source 를 대조했다.
 
 - [x] 2026-06-23 UDP lease sweep registry race guard 리뷰를 완료했다.
   - 범위: `a817c6e`, `src/Hps.Broker/BrokerUdpDatagramHandler.cs`,
