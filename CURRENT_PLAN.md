@@ -84,9 +84,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - UDP stable identity lease sweep 은 만료된 remote target 을 routing table 에서 제거한 뒤
   `SubscriberRegistry.RemoveTarget(...)`에도 전달해 current target 을 disconnected 상태로 바꾼다.
   이로써 retention sweep 이 idle stable UDP identity metadata 를 제거할 수 있다.
+- UDP `REGISTER`/`UNREGISTER` identity token validation 실패는 handler 안에서 datagram drop 으로 격리한다.
+  tab 같은 non-space whitespace 가 decoder 를 통과해도 `SubscriberIdentity.Create(...)` 예외가 SAEA receive loop 로 전파되지 않는다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — UDP invalid stable identity datagram isolation
+  - F2 must-fix 로 UDP stable identity validation 실패가 handler 밖으로 escape 하지 않도록 수정했다.
+  - `BrokerUdpDatagramHandler`는 `REGISTER`/`UNREGISTER` 처리 전에 identity token 을 비예외 방식으로 검사하고,
+    실패 시 endpoint close 나 기존 subscription 변경 없이 해당 datagram 만 drop 한다.
+  - 검증: Red assertion failure 2개 확인(`Assert.Null()` failure), focused invalid identity tests 2개 통과,
+    focused UDP handler tests 16개 통과. `git diff --check`, solution build 경고 0/오류 0, solution tests 221개 통과.
 - 이번 단위 — UDP stable identity lease sweep registry cleanup
   - F1 must-fix 로 UDP lease sweep 이 stable registry current target 을 disconnected 상태로 바꾸도록 수정했다.
   - `UdpRemoteLeaseTracker.SweepExpired(...)`는 기존 반환값을 routing 제거 수로 유지하면서 만료 target snapshot 을 선택적으로 채운다.
@@ -226,20 +234,20 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Stable subscriber identity 구현 교차검증의 F1은 완료됐다.
+Stable subscriber identity 구현 교차검증의 UDP must-fix F1/F2는 모두 완료됐다.
 
-다음 단위는 F2 수정이다. UDP `REGISTER`/`UNREGISTER` identity validation 실패를 handler 안에서 datagram drop 으로
-격리해 malformed UDP datagram 하나가 shared endpoint close 로 이어지지 않게 한다.
+다음 단위는 구현 추가가 아니라 review gate 다. F1/F2 수정 커밋을 검토받고, must-fix 가 새로 나오면 그 항목을
+다음 작은 구현 단위로 처리한다. 새 must-fix 가 없으면 Phase 4의 다음 backlog 후보를 다시 평가한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 UDP stable identity lease sweep registry cleanup 이다.
+이번 단위는 UDP invalid stable identity datagram isolation 이다.
 
-- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter FullyQualifiedName~SweepExpiredUdpLeases_WhenRegisteredRemoteExpires_MarksRegistryTargetDisconnected`
-  에서 `Expected: 1, Actual: 0` assertion failure 를 확인했다.
-- Green/Refactor: 같은 focused test 1개 통과, `BrokerUdpDatagramHandlerTests` 14개 통과.
+- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter FullyQualifiedName~OnDatagramReceived_WhenStableIdentityTokenIsInvalid_DropsDatagramWithoutThrowingOrClosingEndpoint`
+  에서 `REGISTER`/`UNREGISTER` invalid identity 두 케이스가 `Assert.Null()` failure 로 실패함을 확인했다.
+- Green/Refactor: 같은 focused test 2개 통과, `BrokerUdpDatagramHandlerTests` 16개 통과.
 - 최종 검증: `git diff --check` 통과, `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0/오류 0,
-  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 219개 통과.
+  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 221개 통과.
 
 ## 이번 작업에서 건드리지 않는 범위
 

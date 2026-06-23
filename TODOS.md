@@ -9,14 +9,13 @@
 
 ## Current TODOs
 
-- [ ] `P0_NOW` UDP invalid stable identity command 를 datagram drop 으로 격리한다.
-  - 무엇이 남았는지: `REGISTER`/`UNREGISTER` token 이 decoder 는 통과하지만 `SubscriberIdentity.Create(...)`에서 거부되면
-    `BrokerUdpDatagramHandler` 밖으로 예외가 나갈 수 있다.
-  - 왜 지금 해야 하는지: SAEA UDP receive loop 는 handler 예외를 endpoint close 로 수렴시키므로 malformed datagram 하나가 shared UDP endpoint 를 닫을 수 있다.
-  - objective: UDP stable identity validation 실패는 endpoint close 가 아니라 해당 datagram drop 으로 끝나게 한다.
-  - 관련 파일: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `src/Hps.Protocol/TcpCommandDecoder.cs`,
-    `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`.
-  - next step: `REGISTER \t` 같은 invalid identity datagram 이 throw 없이 release/drop 되는 Red 테스트를 추가한다.
+- [ ] `P0_NOW` Stable subscriber identity UDP F1/F2 수정분을 리뷰받는다.
+  - 무엇이 남았는지: 2026-06-23 교차검증에서 나온 UDP must-fix F1/F2는 구현 완료됐고, 다음 implementation 전에 검토가 필요하다.
+  - 왜 지금 해야 하는지: 사용자 작업 규칙상 기능별 작은 단위로 커밋한 뒤 다음 구현 전에 검토를 거쳐야 한다.
+  - objective: F1 lease sweep registry cleanup 과 F2 invalid identity datagram isolation 이 설계/코드/테스트와 정합한지 확인한다.
+  - 관련 파일: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `src/Hps.Broker/UdpRemoteLeaseTracker.cs`,
+    `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`, root 상태 문서.
+  - next step: 리뷰 결과 must-fix 가 있으면 다음 작은 구현 단위로 처리하고, 없으면 Phase 4 backlog 를 재평가한다.
 
 ## Deferred Backlog
 
@@ -31,6 +30,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 UDP invalid stable identity datagram isolation 을 구현했다.
+  - 범위: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`, root 상태 문서.
+  - 결과: UDP `REGISTER`/`UNREGISTER` identity token 이 decoder 를 통과한 뒤 registry validation 에서 거부될 값이어도
+    handler 밖으로 예외가 전파되지 않고 해당 datagram 만 drop 된다.
+  - 비고: Protocol decoder 전체 whitespace grammar 는 이번 범위에서 바꾸지 않았다. UDP handler boundary 에서 stable identity token 을
+    비예외 방식으로 먼저 검사해 shared endpoint close 를 막는다.
+  - 검증: focused Red assertion failure 2개 확인(`Assert.Null()` failure), focused invalid identity tests 2개 통과,
+    focused UDP handler tests 16개 통과. `git diff --check`, solution build 경고 0/오류 0, solution tests 221개 통과.
 
 - [x] 2026-06-23 UDP stable identity lease sweep registry cleanup 을 구현했다.
   - 범위: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `src/Hps.Broker/UdpRemoteLeaseTracker.cs`,

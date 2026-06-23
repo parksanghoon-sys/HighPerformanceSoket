@@ -93,14 +93,22 @@ namespace Hps.Broker
 
                 if (command.Kind == TcpCommandKind.Register)
                 {
-                    RegisterUdpTarget(target, DecodeTopic(command.Topic));
+                    SubscriberIdentity identity;
+                    if (!TryDecodeIdentity(command.Topic, out identity))
+                        return;
+
+                    RegisterUdpTarget(target, identity);
                     return;
                 }
 
                 if (command.Kind == TcpCommandKind.Unregister)
                 {
+                    SubscriberIdentity identity;
+                    if (!TryDecodeIdentity(command.Topic, out identity))
+                        return;
+
                     if (_subscriberRegistry != null)
-                        _subscriberRegistry.Unregister(SubscriberIdentity.Create(DecodeTopic(command.Topic)), target);
+                        _subscriberRegistry.Unregister(identity, target);
                     _udpLeases.RemoveRemote(endpoint, remoteEndPoint);
                     return;
                 }
@@ -167,13 +175,13 @@ namespace Hps.Broker
             return removed;
         }
 
-        private void RegisterUdpTarget(BrokerSubscriber target, string identityValue)
+        private void RegisterUdpTarget(BrokerSubscriber target, SubscriberIdentity identity)
         {
             if (_subscriberRegistry == null)
                 return;
 
             SubscriberRegistrationResult result = _subscriberRegistry.Register(
-                SubscriberIdentity.Create(identityValue),
+                identity,
                 target,
                 out BrokerSubscriber? replacedTarget,
                 out string[] reboundTopics);
@@ -185,6 +193,26 @@ namespace Hps.Broker
                 _udpLeases.RemoveRemote(replacedTarget.Value.UdpEndpoint, replacedTarget.Value.UdpRemoteEndPoint);
 
             _udpLeases.ReplaceSubscribedTopics(target.UdpEndpoint, target.UdpRemoteEndPoint, reboundTopics);
+        }
+
+        private static bool TryDecodeIdentity(ReadOnlySpan<byte> topic, out SubscriberIdentity identity)
+        {
+            string value = DecodeTopic(topic);
+            identity = default(SubscriberIdentity);
+
+            if (value.Length == 0)
+                return false;
+
+            // UDP endpoint 는 여러 remote 가 공유하므로 identity token validation 실패를 예외로 흘리면
+            // SAEA receive loop 이 endpoint 전체 close 로 수렴할 수 있다. wire input 은 먼저 검사해 datagram drop 으로 격리한다.
+            for (int index = 0; index < value.Length; index++)
+            {
+                if (char.IsWhiteSpace(value[index]))
+                    return false;
+            }
+
+            identity = SubscriberIdentity.Create(value);
+            return true;
         }
 
         private static string DecodeTopic(ReadOnlySpan<byte> topic)

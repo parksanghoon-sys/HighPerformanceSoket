@@ -199,6 +199,37 @@ namespace Hps.Broker.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // UDP invalid stable identity 테스트: decoder 는 ASCII space 만 token 구분자로 보므로 tab 이 포함된 identity 는 decode 이후
+        // registry validation 에서 거부된다. 이 예외는 shared UDP endpoint close 로 전파되지 않고 해당 datagram drop 으로 끝나야 한다.
+        [Theory]
+        [InlineData("REGISTER device\t-a")]
+        [InlineData("UNREGISTER device\t-a")]
+        public void OnDatagramReceived_WhenStableIdentityTokenIsInvalid_DropsDatagramWithoutThrowingOrClosingEndpoint(string invalidCommand)
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            SubscriberRegistry registry = new SubscriberRegistry(subscriptions);
+            FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            EndPoint remote = new IPEndPoint(IPAddress.Loopback, 20000);
+            BrokerSubscriber subscriber = BrokerSubscriber.ForUdp(endpoint, remote);
+            BrokerUdpDatagramHandler handler = CreateHandler(
+                subscriptions,
+                new FakeTransport(),
+                UdpLeaseOptions.Disabled,
+                TimeProvider.System,
+                registry);
+
+            handler.OnDatagramReceived(endpoint, remote, RentDatagram(pool, "REGISTER device-a"));
+            handler.OnDatagramReceived(endpoint, remote, RentDatagram(pool, "SUBSCRIBE alpha"));
+
+            Exception? exception = Record.Exception(() => handler.OnDatagramReceived(endpoint, remote, RentDatagram(pool, invalidCommand)));
+
+            Assert.Null(exception);
+            Assert.Equal(0, endpoint.CloseCallCount);
+            Assert.True(subscriptions.IsSubscribed("alpha", subscriber));
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         // UDP late REGISTER lease cleanup 테스트: REGISTER 전에 만든 runtime 구독은 routing table 뿐 아니라
         // optional lease tracker 에서도 제거되어야 한다. 그렇지 않으면 active remote 가 PUBLISH 로 lease 를 계속 갱신해
         // 실제 구독이 없어도 lease metadata 가 남을 수 있다.
