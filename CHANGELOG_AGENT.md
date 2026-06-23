@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - UDP lease sweep registry race guard)
+
+### 작업 단위
+- F1 후속 must-fix 로 UDP lease sweep registry cleanup 의 stale snapshot race 를 막았다.
+
+### 변경 내용
+- `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`: sweep 이 expired target snapshot 을 만든 뒤 같은 stable target 이
+  다시 `REGISTER`되는 interleave 를 deterministic 하게 재현하는 회귀 테스트를 추가했다.
+- `src/Hps.Broker/BrokerUdpDatagramHandler.cs`: UDP receive command, endpoint close cleanup, lease sweep state mutation 을
+  handler-local gate 로 직렬화했다.
+- `src/Hps.Broker/BrokerUdpDatagramHandler.cs`: `PUBLISH`는 lease activity 만 gate 안에서 갱신하고, 실제 fan-out 은 lock 밖에서 수행한다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`: D077로 handler gate 선형화 결정을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: race guard 완료와 다음 review gate 를 반영했다.
+
+### 검증
+- Red: focused race test 에서 `Assert.True()` failure 를 확인했다.
+- Green: 같은 focused race test 통과.
+- Focused regression: `BrokerUdpDatagramHandlerTests` 17개 통과, `Hps.Broker.Tests` 73개 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 222개 통과/실패 0.
+
 ## 2026-06-23 (Codex - UDP stable identity F1/F2 review gate)
 
 ### 작업 단위

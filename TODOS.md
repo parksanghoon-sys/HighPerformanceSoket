@@ -9,16 +9,14 @@
 
 ## Current TODOs
 
-- [ ] `P0_NOW` UDP lease sweep registry cleanup 의 stale snapshot race 를 막는다.
-  - 무엇이 남았는지: `SweepExpiredUdpLeases(...)`가 lease tracker 에서 expired target snapshot 을 받은 뒤 registry cleanup 을 별도 호출한다.
-    이 사이에 같은 UDP stable target 이 재등록되면 stale `RemoveTarget(...)`이 새 online 상태를 disconnected 로 덮을 수 있다.
-  - 왜 지금 해야 하는지: 직전 F1 리뷰에서 발견된 correctness/reliability must-fix 이며, stable UDP subscriber 의 재등록/lease timer 경합에서 routing 이 끊길 수 있다.
-  - objective: sweep 당시 만료된 세대만 registry disconnected 로 반영하고, sweep 이후 생긴 새 activity 는 stale cleanup 이 덮지 못하게 한다.
-  - 관련 파일: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `src/Hps.Broker/UdpRemoteLeaseTracker.cs`,
-    `src/Hps.Broker/SubscriberRegistry.cs`, `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`,
-    `docs/agent-state/reviews/2026-06-23-udp-stable-identity-f1-f2-review.md`.
-  - known blocker/open question: tracker generation/last-seen check 로 좁게 막을지, broker-level lock 으로 registry/lease owner 경계를 재정렬할지 구현 전 코드 경계를 다시 확인해야 한다.
-  - next step: deterministic Red test 로 sweep snapshot 이후 same target `REGISTER`가 stale registry cleanup 에 의해 disconnected 되지 않아야 함을 증명한다.
+- [ ] `P0_NOW` UDP lease sweep registry race guard 수정분을 리뷰받는다.
+  - 무엇이 남았는지: F1 후속 stale snapshot race 는 구현 완료됐고, 다음 implementation 전에 검토가 필요하다.
+  - 왜 지금 해야 하는지: 사용자 작업 규칙상 기능별 작은 단위로 커밋한 뒤 다음 구현 전에 검토를 거쳐야 한다.
+  - objective: handler gate 기반 직렬화가 UDP receive command, endpoint close, lease sweep 경계에서 correctness 를 보장하면서
+    PUBLISH fan-out lock 범위를 과하게 넓히지 않았는지 확인한다.
+  - 관련 파일: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - next step: 리뷰 결과 must-fix 가 있으면 다음 작은 구현 단위로 처리하고, 없으면 Phase 4 backlog 를 재평가한다.
 
 ## Deferred Backlog
 
@@ -33,6 +31,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 UDP lease sweep registry cleanup stale snapshot race 를 막았다.
+  - 범위: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: UDP receive command/endpoint-close/sweep state mutation 을 handler gate 로 직렬화해, sweep expired snapshot 이후
+    같은 stable target 이 재등록되는 경우 stale registry cleanup 이 새 online 상태를 disconnected 로 덮지 못하게 했다.
+  - 비고: `PUBLISH` fan-out 은 lock 밖에서 유지해 transport send path 를 handler gate 에 묶지 않는다(D077).
+  - 검증: focused race test Red assertion failure 1개 확인(`Assert.True()` failure), focused race test 통과,
+    focused UDP handler tests 17개 통과, Broker tests 73개 통과.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 222개 통과.
 
 - [x] 2026-06-23 UDP stable identity F1/F2 수정분 리뷰를 완료했다.
   - 범위: `b85220f`, `8749c64`, `src/Hps.Broker/BrokerUdpDatagramHandler.cs`,

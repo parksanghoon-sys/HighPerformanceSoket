@@ -1,6 +1,8 @@
 using System;
 using System.Net;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Hps.Buffers;
 using Hps.Transport;
 using Xunit;
@@ -347,6 +349,52 @@ namespace Hps.Broker.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // UDP lease sweep race 테스트는 sweep 이 expired snapshot 을 만든 뒤 registry cleanup 으로 넘어가기 전
+        // 같은 stable target 이 다시 REGISTER 되는 interleave 를 고정한다. 새 REGISTER 가 이긴 상태를
+        // stale cleanup 이 다시 disconnected 로 덮으면 active subscriber 의 retained topic fan-out 이 끊긴다.
+        [Fact]
+        public async Task SweepExpiredUdpLeases_WhenRegisteredRemoteReRegistersDuringSweep_KeepsReRegisteredTargetOnline()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(128);
+            SubscriptionTable subscriptions = new SubscriptionTable();
+            SubscriberRegistry registry = new SubscriberRegistry(subscriptions);
+            FakeUdpEndpoint endpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 10000));
+            InstrumentedEndPoint remoteEndPoint = new InstrumentedEndPoint("target");
+            BlockingComparisonEndPoint blockingRemote = new BlockingComparisonEndPoint("blocker", remoteEndPoint);
+            ManualTimeProvider time = new ManualTimeProvider(DateTimeOffset.Parse("2026-06-22T00:00:00Z"));
+            BrokerSubscriber target = BrokerSubscriber.ForUdp(endpoint, remoteEndPoint);
+            BrokerUdpDatagramHandler handler = CreateHandler(
+                subscriptions,
+                new FakeTransport(),
+                UdpLeaseOptions.CreateEnabled(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)),
+                time,
+                registry);
+
+            handler.OnDatagramReceived(endpoint, remoteEndPoint, RentDatagram(pool, "REGISTER device-a"));
+            handler.OnDatagramReceived(endpoint, remoteEndPoint, RentDatagram(pool, "SUBSCRIBE alpha"));
+            subscriptions.Subscribe("alpha", BrokerSubscriber.ForUdp(endpoint, blockingRemote));
+
+            blockingRemote.EnableBlocking();
+            time.Advance(TimeSpan.FromSeconds(31));
+
+            Task<int> sweepTask = Task.Run(delegate { return handler.SweepExpiredUdpLeases(time.GetUtcNow()); });
+            Assert.True(blockingRemote.WaitUntilBlocked(TimeSpan.FromSeconds(5)));
+
+            remoteEndPoint.EnableAccessSignal();
+            Task registerTask = Task.Run(delegate { handler.OnDatagramReceived(endpoint, remoteEndPoint, RentDatagram(pool, "REGISTER device-a")); });
+
+            // 취약 구현에서는 REGISTER 가 sweep cleanup 전에 registry 까지 들어오도록 짧게 기회를 준다.
+            // 수정된 구현에서는 handler gate 에 막혀 접근 신호가 오지 않을 수 있으므로 반환값은 assertion 으로 쓰지 않는다.
+            remoteEndPoint.WaitForAccess(TimeSpan.FromMilliseconds(250));
+            blockingRemote.Release();
+
+            Assert.Equal(1, await sweepTask);
+            await registerTask;
+
+            Assert.True(subscriptions.IsSubscribed("alpha", target));
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         // handler sweep wiring 테스트는 UDP SUBSCRIBE command 로 생성된 lease 가 만료되면
         // BrokerUdpDatagramHandler 의 sweep entry point 가 해당 remote subscription 을 제거하는지 검증한다.
         [Fact]
@@ -457,6 +505,105 @@ namespace Hps.Broker.Tests
             internal void Advance(TimeSpan delta)
             {
                 _utcNow = _utcNow.Add(delta);
+            }
+        }
+
+        private sealed class InstrumentedEndPoint : EndPoint
+        {
+            private readonly string _id;
+            private readonly ManualResetEventSlim _accessed;
+            private volatile bool _signalAccess;
+
+            internal InstrumentedEndPoint(string id)
+            {
+                _id = id;
+                _accessed = new ManualResetEventSlim(false);
+            }
+
+            internal void EnableAccessSignal()
+            {
+                _signalAccess = true;
+                _accessed.Reset();
+            }
+
+            internal bool WaitForAccess(TimeSpan timeout)
+            {
+                return _accessed.Wait(timeout);
+            }
+
+            public override bool Equals(object? obj)
+            {
+                InstrumentedEndPoint? other = obj as InstrumentedEndPoint;
+                return other != null && string.Equals(_id, other._id, StringComparison.Ordinal);
+            }
+
+            public override int GetHashCode()
+            {
+                if (_signalAccess)
+                    _accessed.Set();
+
+                return _id.GetHashCode();
+            }
+
+            public override string ToString()
+            {
+                return _id;
+            }
+        }
+
+        private sealed class BlockingComparisonEndPoint : EndPoint
+        {
+            private readonly string _id;
+            private readonly EndPoint _blockedComparisonTarget;
+            private readonly ManualResetEventSlim _blocked;
+            private readonly ManualResetEventSlim _release;
+            private volatile bool _blockingEnabled;
+
+            internal BlockingComparisonEndPoint(string id, EndPoint blockedComparisonTarget)
+            {
+                _id = id;
+                _blockedComparisonTarget = blockedComparisonTarget;
+                _blocked = new ManualResetEventSlim(false);
+                _release = new ManualResetEventSlim(false);
+            }
+
+            internal void EnableBlocking()
+            {
+                _blockingEnabled = true;
+                _blocked.Reset();
+                _release.Reset();
+            }
+
+            internal bool WaitUntilBlocked(TimeSpan timeout)
+            {
+                return _blocked.Wait(timeout);
+            }
+
+            internal void Release()
+            {
+                _release.Set();
+            }
+
+            public override bool Equals(object? obj)
+            {
+                if (_blockingEnabled && object.ReferenceEquals(obj, _blockedComparisonTarget))
+                {
+                    _blocked.Set();
+                    Assert.True(_release.Wait(TimeSpan.FromSeconds(5)));
+                }
+
+                BlockingComparisonEndPoint? other = obj as BlockingComparisonEndPoint;
+                return other != null && string.Equals(_id, other._id, StringComparison.Ordinal);
+            }
+
+            public override int GetHashCode()
+            {
+                return _id.GetHashCode();
+            }
+
+            public override string ToString()
+            {
+                return _id;
             }
         }
     }

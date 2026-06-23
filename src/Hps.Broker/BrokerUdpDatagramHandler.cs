@@ -10,9 +10,13 @@ namespace Hps.Broker
 {
     /// <summary>
     /// UDP datagram self-command 를 Broker routing table 과 fan-out 경로로 연결하는 handler 이다.
+    ///
+    /// UDP receive callback 과 host timer callback 은 서로 다른 thread 에서 들어올 수 있으므로,
+    /// lease tracker 와 stable registry 를 함께 갱신하는 구간은 handler gate 로 직렬화한다.
     /// </summary>
     public sealed class BrokerUdpDatagramHandler : ITransportDatagramHandler
     {
+        private readonly object _gate;
         private readonly SubscriptionTable _subscriptions;
         private readonly BrokerPublisher _publisher;
         private readonly UdpRemoteLeaseTracker _udpLeases;
@@ -52,6 +56,7 @@ namespace Hps.Broker
             if (timeProvider == null)
                 throw new ArgumentNullException(nameof(timeProvider));
 
+            _gate = new object();
             _subscriptions = subscriptions;
             _publisher = publisher;
             _subscriberRegistry = subscriberRegistry;
@@ -61,13 +66,16 @@ namespace Hps.Broker
 
         internal int UdpLeaseCount
         {
-            // optional lease tracker 는 routing table 과 별개 수명 상태를 가진다.
-            // internal 테스트는 이 값을 통해 REGISTER/rebind/endpoint-close 가 lease metadata 까지 정리하는지 확인한다.
+            // optional lease tracker 는 routing table 과 별개의 수명 상태를 가진다.
+            // 테스트는 이 값을 통해 REGISTER/rebind/endpoint-close 가 lease metadata 까지 정리하는지 확인한다.
             get { return _udpLeases.LeaseCount; }
         }
 
         /// <summary>
         /// UDP datagram command 를 처리한다.
+        ///
+        /// 상태 mutation 은 `_gate` 안에서 직렬화하지만, PUBLISH fan-out 은 lock 밖에서 수행한다.
+        /// transport send 경로까지 handler gate 로 묶으면 느린 subscriber 가 다른 UDP command 처리를 지연시킬 수 있기 때문이다.
         /// </summary>
         public void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
         {
@@ -84,58 +92,72 @@ namespace Hps.Broker
                 TcpCommandDecodeError error;
                 if (!TcpCommandDecoder.TryDecode(datagram.Memory.Span.Slice(0, datagram.Length), out command, out error))
                 {
-                    // UDP endpoint 는 여러 remote 가 공유할 수 있으므로 malformed datagram 하나 때문에 endpoint 전체를 닫지 않는다.
-                    // TCP와 달리 datagram 경계는 이미 보존되므로 현재 datagram 만 폐기하는 것이 v1 정책이다.
+                    // UDP endpoint 는 여러 remote 가 공유할 수 있으므로 malformed datagram 하나 때문에
+                    // endpoint 전체를 닫지 않는다. TCP 와 달리 현재 datagram 만 버리는 것이 v1 정책이다.
                     return;
                 }
 
                 BrokerSubscriber target = BrokerSubscriber.ForUdp(endpoint, remoteEndPoint);
+                string? publishTopic = null;
+                int publishOffset = 0;
+                int publishLength = 0;
+                bool shouldPublish = false;
 
-                if (command.Kind == TcpCommandKind.Register)
+                lock (_gate)
                 {
-                    SubscriberIdentity identity;
-                    if (!TryDecodeIdentity(command.Topic, out identity))
+                    if (command.Kind == TcpCommandKind.Register)
+                    {
+                        SubscriberIdentity identity;
+                        if (!TryDecodeIdentity(command.Topic, out identity))
+                            return;
+
+                        RegisterUdpTarget(target, identity);
                         return;
+                    }
 
-                    RegisterUdpTarget(target, identity);
-                    return;
-                }
+                    if (command.Kind == TcpCommandKind.Unregister)
+                    {
+                        SubscriberIdentity identity;
+                        if (!TryDecodeIdentity(command.Topic, out identity))
+                            return;
 
-                if (command.Kind == TcpCommandKind.Unregister)
-                {
-                    SubscriberIdentity identity;
-                    if (!TryDecodeIdentity(command.Topic, out identity))
+                        if (_subscriberRegistry != null)
+                            _subscriberRegistry.Unregister(identity, target);
+                        _udpLeases.RemoveRemote(endpoint, remoteEndPoint);
                         return;
+                    }
 
-                    if (_subscriberRegistry != null)
-                        _subscriberRegistry.Unregister(identity, target);
-                    _udpLeases.RemoveRemote(endpoint, remoteEndPoint);
-                    return;
+                    if (command.Kind == TcpCommandKind.Subscribe)
+                    {
+                        string topic = DecodeTopic(command.Topic);
+                        _udpLeases.Subscribe(topic, endpoint, remoteEndPoint);
+                        if (_subscriberRegistry != null)
+                            _subscriberRegistry.Subscribe(topic, target);
+                        return;
+                    }
+
+                    if (command.Kind == TcpCommandKind.Unsubscribe)
+                    {
+                        string topic = DecodeTopic(command.Topic);
+                        _udpLeases.Unsubscribe(topic, endpoint, remoteEndPoint);
+                        if (_subscriberRegistry != null)
+                            _subscriberRegistry.Unsubscribe(topic, target);
+                        return;
+                    }
+
+                    if (command.Kind == TcpCommandKind.Publish)
+                    {
+                        publishTopic = DecodeTopic(command.Topic);
+                        publishOffset = command.PayloadOffset;
+                        publishLength = command.Payload.Length;
+                        _udpLeases.MarkPublishActivity(endpoint, remoteEndPoint);
+                        shouldPublish = true;
+                    }
                 }
 
-                if (command.Kind == TcpCommandKind.Subscribe)
+                if (shouldPublish)
                 {
-                    string topic = DecodeTopic(command.Topic);
-                    _udpLeases.Subscribe(topic, endpoint, remoteEndPoint);
-                    if (_subscriberRegistry != null)
-                        _subscriberRegistry.Subscribe(topic, target);
-                    return;
-                }
-
-                if (command.Kind == TcpCommandKind.Unsubscribe)
-                {
-                    string topic = DecodeTopic(command.Topic);
-                    _udpLeases.Unsubscribe(topic, endpoint, remoteEndPoint);
-                    if (_subscriberRegistry != null)
-                        _subscriberRegistry.Unsubscribe(topic, target);
-                    return;
-                }
-
-                if (command.Kind == TcpCommandKind.Publish)
-                {
-                    string topic = DecodeTopic(command.Topic);
-                    _udpLeases.MarkPublishActivity(endpoint, remoteEndPoint);
-                    _publisher.Publish(topic, datagram, command.PayloadOffset, command.Payload.Length);
+                    _publisher.Publish(publishTopic!, datagram, publishOffset, publishLength);
                     return;
                 }
             }
@@ -153,26 +175,33 @@ namespace Hps.Broker
             if (endpoint == null)
                 throw new ArgumentNullException(nameof(endpoint));
 
-            if (_subscriberRegistry != null)
-                _subscriberRegistry.RemoveUdpEndpoint(endpoint, _timeProvider.GetUtcNow());
+            lock (_gate)
+            {
+                if (_subscriberRegistry != null)
+                    _subscriberRegistry.RemoveUdpEndpoint(endpoint, _timeProvider.GetUtcNow());
 
-            _udpLeases.RemoveEndpoint(endpoint);
+                _udpLeases.RemoveEndpoint(endpoint);
+            }
         }
 
         internal int SweepExpiredUdpLeases(DateTimeOffset now)
         {
-            if (_subscriberRegistry == null)
-                return _udpLeases.SweepExpired(now);
+            lock (_gate)
+            {
+                if (_subscriberRegistry == null)
+                    return _udpLeases.SweepExpired(now);
 
-            List<BrokerSubscriber> expiredTargets = new List<BrokerSubscriber>();
-            int removed = _udpLeases.SweepExpired(now, expiredTargets);
+                List<BrokerSubscriber> expiredTargets = new List<BrokerSubscriber>();
+                int removed = _udpLeases.SweepExpired(now, expiredTargets);
 
-            // lease tracker 는 routing table/lease table 소유자이고, registry 는 stable identity current target 소유자다.
-            // 두 lock 을 중첩하지 않기 위해 expired target snapshot 을 받은 뒤 registry 에 별도로 disconnect 를 알린다.
-            for (int index = 0; index < expiredTargets.Count; index++)
-                _subscriberRegistry.RemoveTarget(expiredTargets[index], now);
+                // lease tracker 는 routing/lease table owner 이고 registry 는 stable identity current target owner 이다.
+                // 같은 handler gate 안에서 snapshot cleanup 까지 끝내야 동시 REGISTER 가 expired snapshot 과
+                // registry cleanup 사이에 끼어들어 새 online 상태를 stale disconnect 로 덮지 못한다.
+                for (int index = 0; index < expiredTargets.Count; index++)
+                    _subscriberRegistry.RemoveTarget(expiredTargets[index], now);
 
-            return removed;
+                return removed;
+            }
         }
 
         private void RegisterUdpTarget(BrokerSubscriber target, SubscriberIdentity identity)
@@ -203,8 +232,8 @@ namespace Hps.Broker
             if (value.Length == 0)
                 return false;
 
-            // UDP endpoint 는 여러 remote 가 공유하므로 identity token validation 실패를 예외로 흘리면
-            // SAEA receive loop 이 endpoint 전체 close 로 수렴할 수 있다. wire input 은 먼저 검사해 datagram drop 으로 격리한다.
+            // UDP endpoint 는 여러 remote 가 공유하므로 identity validation 실패를 예외로 흘리면
+            // SAEA receive loop 에서 endpoint 전체 close 로 이어질 수 있다. wire input 은 먼저 검사해 datagram drop 으로 격리한다.
             for (int index = 0; index < value.Length; index++)
             {
                 if (char.IsWhiteSpace(value[index]))

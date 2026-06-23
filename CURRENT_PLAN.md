@@ -90,9 +90,20 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   UDP lease sweep 은 expired target snapshot 을 만든 뒤 registry cleanup 을 별도로 수행하므로, snapshot 이후 같은 target 이 재등록되면
   stale `RemoveTarget(...)`이 새 online 상태를 disconnected 로 덮을 수 있다.
   상세는 `docs/agent-state/reviews/2026-06-23-udp-stable-identity-f1-f2-review.md`를 본다.
+- UDP lease sweep registry cleanup race 는 D077 기준으로 정리했다.
+  `BrokerUdpDatagramHandler`는 UDP receive command/endpoint-close/sweep state mutation 을 handler gate 로 직렬화하고,
+  `PUBLISH` fan-out 은 lease activity 갱신 뒤 lock 밖에서 수행한다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — UDP lease sweep registry race guard
+  - F1 후속 must-fix 로 sweep expired snapshot 과 같은 target `REGISTER`가 겹칠 때 stale registry cleanup 이 새 online 상태를
+    disconnected 로 덮는 race 를 막았다.
+  - `BrokerUdpDatagramHandler`에 handler-local gate 를 두고 UDP receive command, endpoint-close cleanup, lease sweep state mutation 을
+    직렬화했다. `PUBLISH` fan-out 은 lock 밖에서 유지한다.
+  - deterministic race 테스트를 추가해 기존 구현의 `Assert.True()` failure 를 확인하고 Green 으로 전환했다.
+  - 검증: focused race test Red/Green, focused UDP handler tests 17개 통과, Broker tests 73개 통과.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 222개 통과.
 - 이번 단위 — UDP stable identity F1/F2 수정분 리뷰
   - `b85220f`, `8749c64`를 대상으로 lease sweep registry cleanup 과 invalid identity datagram isolation 을 검토했다.
   - F2는 의도대로 UDP shared endpoint close 를 막는다.
@@ -245,21 +256,21 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-UDP lease sweep registry cleanup 의 stale snapshot race 를 막는다.
+UDP lease sweep registry race guard 수정분을 리뷰받는다.
 
-다음 구현은 F1 후속 must-fix 로만 좁힌다. `SweepExpiredUdpLeases(...)`가 sweep 당시 만료된 target 만 registry disconnected 로
-반영하고, sweep snapshot 이후 같은 UDP stable target 에 새 lease/REGISTER activity 가 생기면 stale cleanup 이 이를 덮지 못하게 한다.
+다음 단위는 구현 추가가 아니라 review gate 다. 이번 race guard 수정이 설계/코드/테스트와 정합한지 검토받고,
+must-fix 가 새로 나오면 그 항목을 다음 작은 구현 단위로 처리한다. 새 must-fix 가 없으면 Phase 4 backlog 를 재평가한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 UDP stable identity F1/F2 수정분 리뷰다.
+이번 단위는 UDP lease sweep registry race guard 다.
 
-- 리뷰 입력: `b85220f`, `8749c64`, `src/Hps.Broker/BrokerUdpDatagramHandler.cs`,
-  `src/Hps.Broker/UdpRemoteLeaseTracker.cs`, `src/Hps.Broker/SubscriberRegistry.cs`, `src/Hps.Server/BrokerServer.cs`.
-- 코드 대조: `rg -n "SweepExpiredUdpLeases|SweepExpired\\(|expiredTargets|RemoveTarget\\(|RegisterUdpTarget|OnUdpLeaseSweepTimer|OnDatagramReceived\\(" ...`
-  로 timer sweep, lease snapshot, registry cleanup, UDP receive path 를 확인했다.
+- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter FullyQualifiedName~SweepExpiredUdpLeases_WhenRegisteredRemoteReRegistersDuringSweep_KeepsReRegisteredTargetOnline`
+  에서 `Assert.True()` failure 를 확인했다.
+- Green: 같은 focused race test 통과.
+- Focused regression: `BrokerUdpDatagramHandlerTests` 17개 통과, `Hps.Broker.Tests` 73개 통과.
 - 최종 검증: `git diff --check` 통과, `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0/오류 0,
-  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 221개 통과.
+  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 222개 통과.
 
 ## 이번 작업에서 건드리지 않는 범위
 
