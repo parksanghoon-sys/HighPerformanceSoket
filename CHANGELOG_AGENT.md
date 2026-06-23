@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - baseline history report command 설계 리뷰)
+
+### 작업 단위
+- baseline history report command 설계를 구현 전 리뷰 게이트로 검토하고, 구현자가 흔들릴 수 있는 모호성을 닫았다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`: command enum 이름을
+  `BenchmarkCommand.SummarizeBaselineHistory`로 고정하고, parent baseline root/date root 입력 discovery 규칙을 분리했다.
+- `docs/agent-state/reviews/2026-06-23-baseline-history-report-command-design-review.md`: 설계 리뷰 결과와 보정한 finding 2건을 기록했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`: D078로 history command 를 provider-independent aggregate artifact 로 두고,
+  warning 은 계속 soft signal 로 유지한다고 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: 다음 진입점을 baseline history report command 구현 계획 작성으로 갱신했다.
+
+### 검증
+- `BenchmarkCommand`, `BenchmarkCommandLine`, `BenchmarkCommandParser`, `Program`, summary writer/generator, baseline summary artifact 구조를 대조했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 222개 통과/실패 0.
+
 ## 2026-06-23 (Codex - Phase 4 backlog 재평가)
 
 ### 작업 단위

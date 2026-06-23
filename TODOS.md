@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` baseline history report command 설계를 리뷰받는다.
-  - 무엇이 남았는지: Phase 4 backlog 재평가 결과 다음 구현 후보를 baseline history report command 로 좁혔고, 설계 초안이 작성됐다.
-  - 왜 지금 해야 하는지: 구현 전에 D071 history/warning 정책, 현재 benchmark CLI 구조, 기존 `index.md` 운영 방식과 충돌이 없는지 확인해야 한다.
-  - objective: `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`를 검토해 must-fix 를 닫고, 승인되면 implementation plan 작성으로 넘어간다.
+- [ ] `P1_SOON` baseline history report command 구현 계획을 작성한다.
+  - 무엇이 남았는지: 설계 리뷰에서 must-fix 성격의 문서 모호성을 보정했고, D078로 command 방향을 수락했다.
+  - 왜 지금 해야 하는지: 실제 코드 구현 전에 Task 1(parser contract)부터 작게 커밋할 수 있도록 Red-Green-Refactor 계획과 검증 경로를 고정해야 한다.
+  - objective: `superpowers:writing-plans`를 사용해 `--summarize-baseline-history` 구현을 parser contract, reader, generator/writer, Program wiring 단위로 나눈다.
   - 관련 파일: `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`,
     `tests/Hps.Benchmarks/`, `tests/Hps.Benchmarks.Tests/`, `docs/benchmarks/baselines/index.md`.
-  - next step: 설계 승인 후 `superpowers:writing-plans`로 구현 계획을 작성하고 Task 1(parser contract)부터 시작한다.
+  - next step: 구현 계획 작성 후 다음 단위에서 Task 1(parser contract)만 구현한다.
 
 ## Deferred Backlog
 
@@ -30,6 +30,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 baseline history report command 설계 리뷰를 완료했다.
+  - 범위: `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`,
+    `tests/Hps.Benchmarks/`, `tests/Hps.Benchmarks.Tests/`, `docs/benchmarks/baselines/index.md`, 결정/상태 문서.
+  - 결과: enum 이름 모호성은 `BenchmarkCommand.SummarizeBaselineHistory`로 고정했고, parent baseline root/date root 입력 discovery 규칙을 분리했다.
+  - 결정: D078로 history command 를 provider-independent aggregate artifact 로 두고 warning 은 soft signal 로 유지한다고 기록했다.
+  - 리뷰: `docs/agent-state/reviews/2026-06-23-baseline-history-report-command-design-review.md`.
+  - 검증: benchmark CLI/parser/source, summary writer/generator, baseline artifact 구조를 대조했다.
 
 - [x] 2026-06-23 Phase 4 backlog 를 재평가하고 baseline history report command 를 설계했다.
   - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`, baseline 관련 specs/plans/review, benchmark CLI/source 구조.

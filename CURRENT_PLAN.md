@@ -38,6 +38,8 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - Phase 4 backlog 재평가 결과, 다음 코드 구현 후보는 CI workflow 가 아니라 여러 session `summary.json`을 읽는
   provider-independent baseline history report command 로 좁혔다.
   설계 초안은 `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`에 있다.
+- baseline history report command 설계 리뷰에서 enum 이름과 parent/date root discovery 모호성을 발견해 보정했다.
+  설계는 D078로 수락됐고, command enum 값은 `SummarizeBaselineHistory`로 고정한다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -101,6 +103,13 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Baseline history report command 설계 리뷰
+  - `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`를 D069/D070/D071, 현재 benchmark CLI/parser 구조,
+    `docs/benchmarks/baselines/index.md`와 대조했다.
+  - enum 이름 모호성(`HistoryBaseline` 또는 `SummarizeBaselineHistory`)과 parent baseline root/date root discovery 모호성을 발견해
+    설계 문서에서 바로 보정했다.
+  - D078로 history command 를 provider-independent aggregate artifact 로 두고 warning 은 계속 soft signal 로 유지한다고 기록했다.
+  - 검증: benchmark CLI/source, summary writer/generator, baseline artifact 구조를 대조했다.
 - 이번 단위 — Phase 4 backlog 재평가 및 baseline history command 설계
   - stable identity / UDP lease sweep must-fix 체인이 닫힌 뒤 Phase 4 backlog 를 다시 대조했다.
   - QoS/Server diagnostics 는 v1 보류 결정이 이미 있고, CI workflow/warning-as-failure 는 runner identity 가 부족해 아직 이르다고 판단했다.
@@ -270,18 +279,19 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-baseline history report command 설계를 리뷰받는다.
+baseline history report command 구현 계획을 작성한다.
 
-다음 구현으로 바로 들어가기 전에 `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`를 검토한다.
-must-fix 가 나오면 설계를 보정하고, 승인되면 implementation plan 을 작성한 뒤 Task 1(parser contract)부터 작은 커밋으로 진행한다.
+다음 구현으로 바로 들어가기 전에 `superpowers:writing-plans`를 사용해 D078 설계를 Task 1~4 구현 계획으로 구체화한다.
+첫 구현 커밋은 Task 1(parser contract)만 다루며, production wiring 없이 parser/usage contract 를 고정한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 baseline history report command 설계 리뷰다.
+다음 단위는 구현 계획 작성이다.
 
-- 설계 문서가 D069/D070/D071, 현재 benchmark CLI 구조, `docs/benchmarks/baselines/index.md`와 충돌하지 않는지 확인한다.
-- root summary 를 `session-01(root)`로 취급하는 discovery 규칙, output schema, exit code 정책이 충분히 명확한지 본다.
-- review 결과 must-fix 가 없으면 다음 단위에서 `superpowers:writing-plans`를 사용해 구현 계획을 작성한다.
+- `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`와 D078을 기준으로 Task 경계가 충분히 작은지 확인한다.
+- 각 Task 에 Red-Green-Refactor 검증 경로와 커밋 경계를 명시한다.
+- Task 1에는 `BenchmarkCommand.SummarizeBaselineHistory`, history 경로 속성, `--history` 필수 검증, `--report` 혼용 거부를 포함한다.
+- 계획 변경 후 `git diff --check`, solution build/test 를 실행한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
