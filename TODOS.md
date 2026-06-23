@@ -9,16 +9,17 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` Phase 4 backlog 를 재평가하고 다음 구현 후보를 설계한다.
-  - 무엇이 남았는지: baseline history command 구현/검토는 완료됐고, 다음 Phase 4 실행 단위를 다시 선택해야 한다.
-  - 왜 지금 해야 하는지: CI workflow, warning-as-failure, latency hard gate, runner identity, generated index 자동화는 서로 의존성이 있어
-    바로 구현하면 scope 가 커질 수 있다.
-  - objective: 현재 남은 Phase 4 항목 중 가장 작고 검증 가능한 다음 작업을 고르고, 구현 전에 touched files/validation/commit boundary 를 설계한다.
-  - 관련 파일: `PLAN.md`, `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`,
-    `docs/superpowers/specs/2026-06-18-baseline-report-history-warning-policy-design.md`,
-    `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`,
-    `docs/agent-state/reviews/2026-06-23-baseline-history-command-implementation-review.md`.
-  - next step: 현재 backlog 와 decision index 를 대조해 다음 단일 구현 후보를 설계 문서로 확정한다.
+- [ ] `P1_SOON` benchmark runner identity 설계 검토 후 구현 계획을 작성한다.
+  - 무엇이 남았는지: D079 설계는 raw report 에 runner/environment metadata 를 additive 관측 필드로 남기는 방향을 확정했다.
+    아직 TDD 구현 계획과 커밋 단위는 작성하지 않았다.
+  - 왜 지금 해야 하는지: warning-as-failure, latency hard gate, CI workflow 는 같은 runner 비교군을 판별할 metadata 없이는
+    false signal 위험이 크다.
+  - objective: 사용자 검토 후 raw report identity capture/write/read 구현을 가장 작은 Red-Green-Refactor 단위로 쪼갠다.
+  - 관련 파일: `docs/superpowers/specs/2026-06-23-benchmark-runner-identity-design.md`, `DECISIONS.md`,
+    `tests/Hps.Benchmarks/TcpLoopbackRunResult.cs`, `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`,
+    `tests/Hps.Benchmarks/BaselineReport.cs`, `tests/Hps.Benchmarks/BaselineReportReader.cs`,
+    `tests/Hps.Benchmarks.Tests/`.
+  - next step: 설계 검토가 끝나면 구현 계획 문서를 작성한다.
 
 ## Deferred Backlog
 
@@ -33,6 +34,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 Phase 4 backlog 를 재평가하고 benchmark runner identity 를 다음 구현 후보로 설계했다.
+  - 범위: baseline history 이후 남은 Phase 4 항목, D069/D070/D071/D078, benchmark raw report/summary/history source, baseline index.
+  - 결과: CI workflow/warning-as-failure/latency hard gate 보다 runner identity/environment metadata 를 먼저 기록해야 한다고 판단했다.
+    설계는 `docs/superpowers/specs/2026-06-23-benchmark-runner-identity-design.md`에 기록했고 D079로 결정했다.
+  - 비고: schema 는 raw report v1 additive field 로 유지하고, host name/user name/IP address 는 자동 수집하지 않는다.
+  - 검증: 관련 상태 문서, 결정 문서, benchmark writer/reader/source model 을 대조했다.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 239개 통과.
 
 - [x] 2026-06-23 baseline history report command 전체 구현 검토를 완료했다.
   - 범위: Task 1~4 parser/reader/generator/writer/Program wiring, tests, D078 설계 정합성.

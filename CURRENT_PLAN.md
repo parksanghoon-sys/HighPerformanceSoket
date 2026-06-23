@@ -59,6 +59,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - baseline history report command Task 1~4 구현 검토를 완료했다.
   새 Blocker/Major finding 은 없고, CLI 오류 메시지 정밀화와 Program-level date-root smoke 는 비차단 후속으로 남겼다.
   상세는 `docs/agent-state/reviews/2026-06-23-baseline-history-command-implementation-review.md`를 본다.
+- Phase 4 backlog 재평가 결과, 다음 구현 후보는 CI workflow/warning-as-failure 가 아니라 benchmark runner identity/environment metadata 로 좁혔다.
+  설계는 `docs/superpowers/specs/2026-06-23-benchmark-runner-identity-design.md`에 있고, D079로 raw report schema v1 additive 관측 필드
+  방식을 수락했다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -122,6 +125,12 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Benchmark runner identity / baseline comparison readiness 설계
+  - baseline history command 이후 남은 Phase 4 backlog 를 D069/D070/D071/D078 기준으로 다시 정렬했다.
+  - CI workflow, warning-as-failure, latency hard gate 보다 먼저 raw report 에 runner/environment metadata 를 남겨야 한다고 판단했다.
+  - D079로 `schema-version: 1` additive metadata field, privacy 우선 기본값, `HPS_BENCHMARK_RUNNER_ID` 명시 식별자 정책을 정리했다.
+  - 검증: `git diff --check`, solution build 경고 0/오류 0, solution tests 239개 통과.
+  - 다음 구현은 사용자 검토 후 raw report identity capture/write/read 계획부터 작성한다.
 - 이번 단위 — Baseline history report command 구현 검토
   - Task 1~4 parser/reader/generator/writer/Program wiring 을 D078 계약과 대조했다.
   - 실제 baseline root CLI smoke 로 `session-count: 3`, `hard-passed: true`, `warning-count: 0`을 확인했다.
@@ -337,24 +346,24 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Phase 4 backlog 를 다시 재평가하고 다음 구현 후보를 설계한다.
+Benchmark runner identity 설계 검토 후 구현 계획을 작성한다.
 
-baseline history command 구현과 검토가 닫혔으므로, 다음 작업은 바로 새 코드를 쓰기보다 현재 남은 Phase 4 항목을
-D053/D063~D078 기준으로 다시 정렬하는 설계 단위로 둔다. CI workflow, warning-as-failure, latency hard gate,
-runner identity, generated index 자동화 중 무엇이 지금 가장 작고 검증 가능한 다음 단위인지 판단한다.
+이번 설계에서 다음 구현 후보는 raw report identity capture/write/read 로 좁혀졌다. 사용자가 설계를 검토한 뒤,
+구현 계획은 `BenchmarkRunIdentity` model, `TcpLoopbackReportWriter`, `BaselineReportReader`, legacy report 처리,
+focused TDD 경로와 커밋 경계를 포함해 별도 계획 문서로 작성한다.
 
 ## 이번 단위의 검증 경로
 
-다음 단위는 backlog 재평가/설계다.
+다음 단위는 구현 계획 작성이다.
 
-- `PLAN.md`, `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`, baseline 관련 specs/reviews 를 대조한다.
-- 현재 실행 가능한 backlog 와 아직 설계가 필요한 항목을 분리한다.
-- 다음 구현 후보가 정해지면 touched files, validation path, commit boundary 를 포함한 작은 계획 문서로 남긴다.
+- `docs/superpowers/specs/2026-06-23-benchmark-runner-identity-design.md`와 D079를 기준으로 한다.
+- raw report writer/reader/summary/history source 를 다시 열어 실제 구현 단위를 쪼갠다.
+- Red-Green-Refactor 검증 경로와 touched files 를 계획에 명시한다.
 - 코드 변경은 하지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
-- benchmark schema 변경
+- benchmark schema 구현
 - CI workflow 또는 warning-as-failure 정책 구현
 - latency hard gate 확정
 - RIO/io_uring backend 구현

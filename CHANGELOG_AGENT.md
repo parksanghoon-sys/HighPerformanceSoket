@@ -5,6 +5,23 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - benchmark runner identity design)
+
+### 작업 단위
+- baseline history command 이후 남은 Phase 4 backlog 를 재평가하고, 다음 구현 후보를 benchmark runner identity/environment metadata 로 좁혔다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-23-benchmark-runner-identity-design.md`: raw report schema v1 additive metadata, privacy 우선 기본값,
+  summary/history comparison signal 방향, 범위 밖 항목을 정리했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`: D079를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: backlog 재평가 완료와 다음 구현 계획 진입점을 반영했다.
+
+### 검증
+- `PLAN.md`, `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`, baseline 관련 spec/review 와 benchmark writer/reader/source model 을 대조했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 239개 통과/실패 0.
+
 ## 2026-06-23 (Codex - baseline history command implementation review)
 
 ### 작업 단위
