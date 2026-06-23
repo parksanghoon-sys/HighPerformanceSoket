@@ -9,13 +9,16 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` baseline history report command 구현 계획을 작성한다.
-  - 무엇이 남았는지: 설계 리뷰에서 must-fix 성격의 문서 모호성을 보정했고, D078로 command 방향을 수락했다.
-  - 왜 지금 해야 하는지: 실제 코드 구현 전에 Task 1(parser contract)부터 작게 커밋할 수 있도록 Red-Green-Refactor 계획과 검증 경로를 고정해야 한다.
-  - objective: `superpowers:writing-plans`를 사용해 `--summarize-baseline-history` 구현을 parser contract, reader, generator/writer, Program wiring 단위로 나눈다.
-  - 관련 파일: `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`,
-    `tests/Hps.Benchmarks/`, `tests/Hps.Benchmarks.Tests/`, `docs/benchmarks/baselines/index.md`.
-  - next step: 구현 계획 작성 후 다음 단위에서 Task 1(parser contract)만 구현한다.
+- [ ] `P1_SOON` baseline history report command Task 1(parser contract)을 구현한다.
+  - 무엇이 남았는지: 구현 계획이 작성됐고, 첫 구현 단위는 parser/usage contract 로 제한됐다.
+  - 왜 지금 해야 하는지: 후속 reader/writer/Program wiring 이 붙기 전에 CLI surface 와 usage error 경계를 먼저 고정해야 한다.
+  - objective: `--summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]`를 parser 가 인식하고,
+    history input/output path 를 `BenchmarkCommandLine`에 보존하게 한다.
+  - 관련 파일: `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`,
+    `tests/Hps.Benchmarks/BenchmarkCommand.cs`, `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`,
+    `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`, `tests/Hps.Benchmarks/Program.cs`,
+    `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`.
+  - next step: 계획서 Task 1의 Red-Green-Refactor 순서대로 parser tests 부터 추가한다.
 
 ## Deferred Backlog
 
@@ -30,6 +33,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 baseline history report command 구현 계획을 작성했다.
+  - 범위: D078 설계, baseline history 설계 리뷰, `tests/Hps.Benchmarks` parser/source, summary reader/writer/test 패턴.
+  - 결과: `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`에 4개 커밋 단위 구현 계획을 추가했다.
+  - 작업 단위: Task 1 parser contract, Task 2 history domain/reader, Task 3 aggregate/writer, Task 4 Program wiring/smoke.
+  - 비고: Task 2/3은 새 타입 도입 시 컴파일 실패 Red 를 피하기 위해 reflection contract Red → stub → behavior Red 순서를 명시했다.
+  - 검증: 계획 self-review 로 spec coverage, placeholder scan, type consistency, commit boundary 를 확인했다.
 
 - [x] 2026-06-23 baseline history report command 설계 리뷰를 완료했다.
   - 범위: `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`,

@@ -40,6 +40,8 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   설계 초안은 `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`에 있다.
 - baseline history report command 설계 리뷰에서 enum 이름과 parent/date root discovery 모호성을 발견해 보정했다.
   설계는 D078로 수락됐고, command enum 값은 `SummarizeBaselineHistory`로 고정한다.
+- baseline history report command 구현 계획은 `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`에 있다.
+  계획은 parser contract, history reader, aggregate writer, Program wiring/smoke 의 4개 커밋 단위로 나뉜다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -103,6 +105,11 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Baseline history report command 구현 계획
+  - D078 설계를 `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`로 구현 가능한 Task 1~4 단위로 쪼갰다.
+  - Task 1은 parser/usage contract 만 다루고, 실행 wiring 은 Task 4로 보류해 첫 구현 커밋을 작게 유지한다.
+  - 새 타입이 필요한 Task 2/3은 assertion-failure Red 를 만들기 위해 reflection contract Red → stub → behavior Red 순서로 계획했다.
+  - 검증: 설계 문서, 리뷰 문서, benchmark parser/source, summary reader/writer 패턴을 대조했다.
 - 이번 단위 — Baseline history report command 설계 리뷰
   - `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`를 D069/D070/D071, 현재 benchmark CLI/parser 구조,
     `docs/benchmarks/baselines/index.md`와 대조했다.
@@ -279,19 +286,21 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-baseline history report command 구현 계획을 작성한다.
+baseline history report command Task 1(parser contract)을 구현한다.
 
-다음 구현으로 바로 들어가기 전에 `superpowers:writing-plans`를 사용해 D078 설계를 Task 1~4 구현 계획으로 구체화한다.
-첫 구현 커밋은 Task 1(parser contract)만 다루며, production wiring 없이 parser/usage contract 를 고정한다.
+다음 구현은 `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`의 Task 1만 따른다.
+범위는 `BenchmarkCommand.SummarizeBaselineHistory`, `BenchmarkCommandLine` history 경로 속성,
+`BenchmarkCommandParser` parse/usage error, `Program.PrintUsage`, parser tests 로 제한한다.
+Program execution wiring, reader, writer 는 아직 구현하지 않는다.
 
 ## 이번 단위의 검증 경로
 
-다음 단위는 구현 계획 작성이다.
+다음 단위는 parser contract 구현이다.
 
-- `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`와 D078을 기준으로 Task 경계가 충분히 작은지 확인한다.
-- 각 Task 에 Red-Green-Refactor 검증 경로와 커밋 경계를 명시한다.
-- Task 1에는 `BenchmarkCommand.SummarizeBaselineHistory`, history 경로 속성, `--history` 필수 검증, `--report` 혼용 거부를 포함한다.
-- 계획 변경 후 `git diff --check`, solution build/test 를 실행한다.
+- Red: `BenchmarkCommandParserTests`에 history parser 계약 테스트를 먼저 추가하고 assertion failure 를 확인한다.
+- Green: enum/command line/parser/usage text 만 최소 구현한다.
+- Refactor: 기존 summary parser 패턴과 중복/메시지 이름을 정리하고 focused parser tests 를 재실행한다.
+- 최종 검증: `git diff --check`, solution build 경고 0/오류 0, solution tests 전체 green.
 
 ## 이번 작업에서 건드리지 않는 범위
 

@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-23 (Codex - baseline history report command 구현 계획)
+
+### 작업 단위
+- D078 baseline history report command 설계를 실제 구현 가능한 Task 1~4 계획으로 분해했다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-06-23-baseline-history-report-command.md`: parser contract, history reader, aggregate writer,
+  Program wiring/smoke 의 4개 커밋 단위 계획을 추가했다.
+- Task 1은 `BenchmarkCommandParser`와 usage text 만 다루고, 실행 wiring 은 Task 4로 분리했다.
+- Task 2/3은 새 타입 도입 시 컴파일 실패 Red 를 피하기 위해 reflection contract Red → stub → behavior Red 순서를 명시했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: 다음 진입점을 Task 1(parser contract) 구현으로 갱신했다.
+
+### 검증
+- `docs/superpowers/specs/2026-06-23-baseline-history-report-command-design.md`, D078, 설계 리뷰 문서, benchmark parser/source,
+  summary reader/writer/test 패턴을 대조했다.
+- 계획 self-review 로 spec coverage, placeholder scan, type consistency, commit boundary 를 확인했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 전체 222개 통과/실패 0.
+
 ## 2026-06-23 (Codex - baseline history report command 설계 리뷰)
 
 ### 작업 단위
