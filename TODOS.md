@@ -9,8 +9,23 @@
 
 ## Current TODOs
 
-- 없음. Stable subscriber identity 구현 계획 Task 1~5와 late REGISTER routing/UDP lease cleanup 보강은 완료됐고,
-  다음 단계는 `.claude/review/` 구현 검토 대기다.
+- [ ] `P0_NOW` UDP stable identity lease sweep 이 registry current target 을 disconnected 로 바꾸도록 수정한다.
+  - 무엇이 남았는지: `BrokerUdpDatagramHandler.SweepExpiredUdpLeases(...)`가 `_udpLeases.SweepExpired(...)`만 호출해
+    `SubscriberRegistry`에는 만료 remote target 을 알리지 않는다.
+  - 왜 지금 해야 하는지: stable identity 설계는 UDP idle sweep 이 current target 을 null 로 바꾸고 retention cleanup 대상이 되도록 요구한다.
+  - objective: lease sweep 으로 만료된 stable UDP remote 가 routing table 뿐 아니라 registry 에서도 disconnected 상태가 되게 한다.
+  - 관련 파일: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `src/Hps.Broker/UdpRemoteLeaseTracker.cs`,
+    `src/Hps.Broker/SubscriberRegistry.cs`, `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`.
+  - next step: registry 가 주입된 UDP handler lease sweep Red 테스트를 먼저 추가한다.
+
+- [ ] `P0_NOW` UDP invalid stable identity command 를 datagram drop 으로 격리한다.
+  - 무엇이 남았는지: `REGISTER`/`UNREGISTER` token 이 decoder 는 통과하지만 `SubscriberIdentity.Create(...)`에서 거부되면
+    `BrokerUdpDatagramHandler` 밖으로 예외가 나갈 수 있다.
+  - 왜 지금 해야 하는지: SAEA UDP receive loop 는 handler 예외를 endpoint close 로 수렴시키므로 malformed datagram 하나가 shared UDP endpoint 를 닫을 수 있다.
+  - objective: UDP stable identity validation 실패는 endpoint close 가 아니라 해당 datagram drop 으로 끝나게 한다.
+  - 관련 파일: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `src/Hps.Protocol/TcpCommandDecoder.cs`,
+    `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`.
+  - next step: `REGISTER \t` 같은 invalid identity datagram 이 throw 없이 release/drop 되는 Red 테스트를 추가한다.
 
 ## Deferred Backlog
 
@@ -25,6 +40,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 Stable subscriber identity 구현 교차검증을 완료했다.
+  - 범위: D075/D076 설계, Protocol/Broker/Server 구현, stable identity 관련 tests, root 상태 문서.
+  - 결과: 구현 방향은 타당하지만 UDP 경계 must-fix 2건을 발견했다.
+    상세는 `docs/agent-state/reviews/2026-06-23-stable-subscriber-identity-cross-check.md`에 기록했다.
+  - 검증: `rg`와 줄 번호 기반 소스/테스트 대조를 수행했다.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 218개 통과.
 
 - [x] 2026-06-22 Stable subscriber identity UDP loopback coverage 를 추가했다.
   - 범위: `tests/Hps.Server.Tests/BrokerServerTests.cs`, root 상태 문서.

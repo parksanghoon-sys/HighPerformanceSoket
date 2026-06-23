@@ -77,9 +77,18 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - UDP lease sweep 이 활성화된 경우에도 late `REGISTER` 성공 후 같은 remote 의 기존 runtime lease metadata 를 제거하거나
   stable identity topic set 으로 교체한다(D076).
 - stable subscriber identity TCP reconnect/rebind 와 UDP remote rebind 는 실제 `SaeaTransport` loopback 에서도 검증됐다.
+- 2026-06-23 stable identity post-implementation 교차검증에서 UDP must-fix 2건을 발견했다.
+  1) UDP lease sweep 이 stable registry current target 을 disconnected 로 바꾸지 않는다.
+  2) UDP invalid identity validation 예외가 handler 밖으로 escape 되어 shared endpoint close 로 이어질 수 있다.
+  상세는 `docs/agent-state/reviews/2026-06-23-stable-subscriber-identity-cross-check.md`를 본다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — Stable subscriber identity post-implementation cross-verification
+  - D075/D076 설계, Protocol/Broker/Server 구현, TCP/UDP handler, loopback coverage 를 교차검증했다.
+  - 코드 수정 없이 리뷰 문서로 must-fix 2건을 기록했다.
+  - 검증: 문서 self-review 와 `rg` 기반 소스/테스트 대조를 수행했다.
+    `git diff --check`, solution build 경고 0/오류 0, solution tests 218개 통과.
 - 이번 단위 — Stable subscriber identity UDP loopback coverage
   - stable identity UDP rebind 가 fake handler 단위뿐 아니라 실제 `BrokerServer` + `SaeaTransport` UDP datagram loopback 에서도
     동작하는지 검증하는 테스트를 추가했다.
@@ -208,17 +217,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Stable subscriber identity 구현 계획 Task 1~5와 late REGISTER routing/UDP lease cleanup, TCP/UDP loopback coverage 보강이 완료됐다.
+Stable subscriber identity 구현 교차검증에서 UDP must-fix 2건을 발견했다.
 
-다음 단위는 구현 리뷰 대기다. `.claude/review/` 검토에서 must-fix 가 나오면 그 항목을 다음 작은 커밋 단위로 처리한다.
-새 기능으로 넘어가기 전에는 stable identity 전체 흐름(protocol → registry → TCP/UDP handler → Server opt-in)을 리뷰 대상으로 둔다.
+다음 단위는 F1 수정이다. UDP lease sweep 이 만료된 stable UDP remote target 을 `SubscriberRegistry.RemoveTarget(...)`으로도
+전달해 registry current target 을 disconnected 상태로 바꾸고, retention sweep 이 entry 를 제거할 수 있게 한다.
+F2(UDP invalid identity datagram 예외 격리)는 F1 다음의 별도 작은 커밋 단위로 처리한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 Stable subscriber identity UDP loopback coverage 이다.
+이번 단위는 Stable subscriber identity post-implementation cross-verification 이다.
 
-- Focused: `dotnet test tests\Hps.Server.Tests\Hps.Server.Tests.csproj --filter FullyQualifiedName~UdpCommandLoopback_WhenStableSubscriberRemoteRebinds_RoutesPayloadToNewRemote`
-  통과.
+- Source review: `rg`와 줄 번호 확인으로 stable identity 설계/구현/테스트를 대조했다.
 - 최종 검증: `git diff --check` 통과, `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0/오류 0,
   `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 218개 통과.
 
