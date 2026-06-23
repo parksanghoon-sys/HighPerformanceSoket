@@ -9,13 +9,16 @@
 
 ## Current TODOs
 
-- [ ] `P0_NOW` Stable subscriber identity UDP F1/F2 수정분을 리뷰받는다.
-  - 무엇이 남았는지: 2026-06-23 교차검증에서 나온 UDP must-fix F1/F2는 구현 완료됐고, 다음 implementation 전에 검토가 필요하다.
-  - 왜 지금 해야 하는지: 사용자 작업 규칙상 기능별 작은 단위로 커밋한 뒤 다음 구현 전에 검토를 거쳐야 한다.
-  - objective: F1 lease sweep registry cleanup 과 F2 invalid identity datagram isolation 이 설계/코드/테스트와 정합한지 확인한다.
+- [ ] `P0_NOW` UDP lease sweep registry cleanup 의 stale snapshot race 를 막는다.
+  - 무엇이 남았는지: `SweepExpiredUdpLeases(...)`가 lease tracker 에서 expired target snapshot 을 받은 뒤 registry cleanup 을 별도 호출한다.
+    이 사이에 같은 UDP stable target 이 재등록되면 stale `RemoveTarget(...)`이 새 online 상태를 disconnected 로 덮을 수 있다.
+  - 왜 지금 해야 하는지: 직전 F1 리뷰에서 발견된 correctness/reliability must-fix 이며, stable UDP subscriber 의 재등록/lease timer 경합에서 routing 이 끊길 수 있다.
+  - objective: sweep 당시 만료된 세대만 registry disconnected 로 반영하고, sweep 이후 생긴 새 activity 는 stale cleanup 이 덮지 못하게 한다.
   - 관련 파일: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `src/Hps.Broker/UdpRemoteLeaseTracker.cs`,
-    `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`, root 상태 문서.
-  - next step: 리뷰 결과 must-fix 가 있으면 다음 작은 구현 단위로 처리하고, 없으면 Phase 4 backlog 를 재평가한다.
+    `src/Hps.Broker/SubscriberRegistry.cs`, `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`,
+    `docs/agent-state/reviews/2026-06-23-udp-stable-identity-f1-f2-review.md`.
+  - known blocker/open question: tracker generation/last-seen check 로 좁게 막을지, broker-level lock 으로 registry/lease owner 경계를 재정렬할지 구현 전 코드 경계를 다시 확인해야 한다.
+  - next step: deterministic Red test 로 sweep snapshot 이후 same target `REGISTER`가 stale registry cleanup 에 의해 disconnected 되지 않아야 함을 증명한다.
 
 ## Deferred Backlog
 
@@ -30,6 +33,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-23 UDP stable identity F1/F2 수정분 리뷰를 완료했다.
+  - 범위: `b85220f`, `8749c64`, `src/Hps.Broker/BrokerUdpDatagramHandler.cs`,
+    `src/Hps.Broker/UdpRemoteLeaseTracker.cs`, `src/Hps.Server/BrokerServer.cs`, root 상태 문서.
+  - 결과: F2 invalid identity datagram isolation 은 적절하지만, F1 lease sweep registry cleanup 에 stale snapshot race 가 남아 있음을 확인했다.
+  - 다음: 위 `P0_NOW` 항목으로 다음 구현 단위를 분리했다.
+  - 검증: `rg` 기반 코드 경계 대조와 리뷰 문서 작성. `git diff --check`, solution build 경고 0/오류 0,
+    solution tests 221개 통과.
 
 - [x] 2026-06-23 UDP invalid stable identity datagram isolation 을 구현했다.
   - 범위: `src/Hps.Broker/BrokerUdpDatagramHandler.cs`, `tests/Hps.Broker.Tests/BrokerUdpDatagramHandlerTests.cs`, root 상태 문서.

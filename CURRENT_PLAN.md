@@ -86,9 +86,20 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   이로써 retention sweep 이 idle stable UDP identity metadata 를 제거할 수 있다.
 - UDP `REGISTER`/`UNREGISTER` identity token validation 실패는 handler 안에서 datagram drop 으로 격리한다.
   tab 같은 non-space whitespace 가 decoder 를 통과해도 `SubscriberIdentity.Create(...)` 예외가 SAEA receive loop 로 전파되지 않는다.
+- 2026-06-23 F1/F2 수정분 리뷰에서 추가 must-fix 1건을 발견했다.
+  UDP lease sweep 은 expired target snapshot 을 만든 뒤 registry cleanup 을 별도로 수행하므로, snapshot 이후 같은 target 이 재등록되면
+  stale `RemoveTarget(...)`이 새 online 상태를 disconnected 로 덮을 수 있다.
+  상세는 `docs/agent-state/reviews/2026-06-23-udp-stable-identity-f1-f2-review.md`를 본다.
 
 ## 최근 완료 단위
 
+- 이번 단위 — UDP stable identity F1/F2 수정분 리뷰
+  - `b85220f`, `8749c64`를 대상으로 lease sweep registry cleanup 과 invalid identity datagram isolation 을 검토했다.
+  - F2는 의도대로 UDP shared endpoint close 를 막는다.
+  - F1에는 timer sweep 과 UDP receive path 가 동시에 같은 stable target 을 갱신할 때 stale expired snapshot 이 새 등록 상태를
+    disconnected 로 덮을 수 있는 race 가 남아 있음을 확인했다.
+  - 검증: `rg` 기반 코드 경계 대조와 리뷰 문서 작성. `git diff --check`, solution build 경고 0/오류 0,
+    solution tests 221개 통과.
 - 이번 단위 — UDP invalid stable identity datagram isolation
   - F2 must-fix 로 UDP stable identity validation 실패가 handler 밖으로 escape 하지 않도록 수정했다.
   - `BrokerUdpDatagramHandler`는 `REGISTER`/`UNREGISTER` 처리 전에 identity token 을 비예외 방식으로 검사하고,
@@ -234,18 +245,19 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Stable subscriber identity 구현 교차검증의 UDP must-fix F1/F2는 모두 완료됐다.
+UDP lease sweep registry cleanup 의 stale snapshot race 를 막는다.
 
-다음 단위는 구현 추가가 아니라 review gate 다. F1/F2 수정 커밋을 검토받고, must-fix 가 새로 나오면 그 항목을
-다음 작은 구현 단위로 처리한다. 새 must-fix 가 없으면 Phase 4의 다음 backlog 후보를 다시 평가한다.
+다음 구현은 F1 후속 must-fix 로만 좁힌다. `SweepExpiredUdpLeases(...)`가 sweep 당시 만료된 target 만 registry disconnected 로
+반영하고, sweep snapshot 이후 같은 UDP stable target 에 새 lease/REGISTER activity 가 생기면 stale cleanup 이 이를 덮지 못하게 한다.
 
 ## 이번 단위의 검증 경로
 
-이번 단위는 UDP invalid stable identity datagram isolation 이다.
+이번 단위는 UDP stable identity F1/F2 수정분 리뷰다.
 
-- Red: `dotnet test tests\Hps.Broker.Tests\Hps.Broker.Tests.csproj --filter FullyQualifiedName~OnDatagramReceived_WhenStableIdentityTokenIsInvalid_DropsDatagramWithoutThrowingOrClosingEndpoint`
-  에서 `REGISTER`/`UNREGISTER` invalid identity 두 케이스가 `Assert.Null()` failure 로 실패함을 확인했다.
-- Green/Refactor: 같은 focused test 2개 통과, `BrokerUdpDatagramHandlerTests` 16개 통과.
+- 리뷰 입력: `b85220f`, `8749c64`, `src/Hps.Broker/BrokerUdpDatagramHandler.cs`,
+  `src/Hps.Broker/UdpRemoteLeaseTracker.cs`, `src/Hps.Broker/SubscriberRegistry.cs`, `src/Hps.Server/BrokerServer.cs`.
+- 코드 대조: `rg -n "SweepExpiredUdpLeases|SweepExpired\\(|expiredTargets|RemoveTarget\\(|RegisterUdpTarget|OnUdpLeaseSweepTimer|OnDatagramReceived\\(" ...`
+  로 timer sweep, lease snapshot, registry cleanup, UDP receive path 를 확인했다.
 - 최종 검증: `git diff --check` 통과, `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0/오류 0,
   `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 전체 221개 통과.
 
