@@ -36,6 +36,8 @@
 ## 2026-06-24 Reference Latency Envelope
 
 이 표는 D082 기준의 non-failing reference envelope 다. 자동 실패 조건이 아니라 후속 baseline 리뷰 기준으로만 사용한다.
+집계 방식은 각 session `summary.json`의 `by-kind` aggregate 를 세 session 간 다시 집계하는 방식이며,
+latency, growth, HWM 은 max, actual rate 는 min 을 사용한다.
 
 | 항목 | load | open-loop |
 | --- | ---: | ---: |
@@ -62,6 +64,8 @@
 - D082 기준으로 2026-06-24 compatible baseline 3개는 reference latency envelope 로 채택하지만,
   hard latency gate, warning-as-failure, CI latency failure 로 승격하지 않는다.
   현재 p99 max 가 load 1020.4 us, open-loop 1006.5 us 까지 관측되어 1 ms hard SLO 는 현 baseline 과 맞지 않는다.
+- 2026-06-24 baseline 은 `runner-id=local-unspecified`이므로 gate 승격 조건의 날짜 root count 에 산입하지 않는다.
+  이 표본은 reference envelope 의 근거이며, envelope 초과 여부는 현재 자동 failure 가 아니라 수동 리뷰 메모로만 기록한다.
 - 2026-06-18 raw report 는 D079 runner identity/environment metadata 도입 전 artifact 이므로
   summary/history comparison 은 `unknown-runner` mismatch 로 `comparison-compatible=false`를 기록한다.
   이 값은 hard gate 실패가 아니라 비교 가능성 신호다.

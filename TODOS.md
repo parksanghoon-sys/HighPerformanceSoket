@@ -9,11 +9,10 @@
 
 ## Current TODOs
 
-- [ ] D082 latency envelope/gate 보류 설계를 검토받고, must-fix 의견이 있으면 문서 batch 로 반영한다.
-  - 목적: 2026-06-24 compatible baseline 3개를 reference envelope 로만 쓰고 hard latency/CI gate 를 보류하는 결정이
-    설계 검토에서도 타당한지 확인한다.
-  - 범위: `docs/superpowers/specs/2026-06-24-latency-envelope-and-gate-deferral-design.md`, D082 관련 root 상태 문서.
-  - 검증: 검토 의견 대조, 필요 시 문서 self-review, `git diff --check`, solution build/test.
+- [ ] D082 이후 Phase 4 다음 실행 후보를 재평가하고, 가장 안전한 단일 작업 단위를 선정한다.
+  - 목적: hard latency/CI gate 가 계속 보류된 상태에서 다음으로 실제 가치가 큰 Phase 4 작업을 고른다.
+  - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`, Phase 4 관련 specs/review, 필요 시 benchmark/source 문서.
+  - 검증: 현재 backlog 와 결정 문서 대조, 다음 단위 scope/검증 경로 명시, `git diff --check`, 필요 시 solution build/test.
 
 ## Deferred Backlog
 
@@ -28,6 +27,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D082 latency envelope/gate 보류 설계 검토 의견을 반영했다.
+  - 범위: `docs/superpowers/specs/2026-06-24-latency-envelope-and-gate-deferral-design.md`,
+    `docs/benchmarks/baselines/index.md`, `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: 집계 방식은 세 session summary 의 `by-kind` aggregate 를 세션 간 max/min 으로 다시 집계한다고 명시했다.
+    2026-06-24 `runner-id=local-unspecified` baseline 은 gate 승격 표본 count 에 산입하지 않고 reference 로만 쓴다고 명시했다.
+    envelope 초과 기록은 자동 failure 나 schema field 가 아니라 수동 리뷰 메모라고 명시했다.
+  - 비고: 검토서는 승인 수준이며 must-fix는 없었다.
+  - 검증: D082 리뷰 finding 1/2와 info 3 반영 여부 대조 완료.
+    신규 설계/결정/index 문서 임시 표기 검색 결과 없음.
+    `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 
 - [x] 2026-06-24 compatible baseline 3개를 근거로 latency envelope 재산정과 warning-as-failure/CI gate 보류 조건을 설계했다.
   - 범위: `docs/superpowers/specs/2026-06-24-latency-envelope-and-gate-deferral-design.md`,

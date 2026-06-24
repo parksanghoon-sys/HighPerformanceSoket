@@ -33,7 +33,9 @@ warning-as-failure 또는 CI failure 조건으로 승격할 수 있는지 판단
 ## 2026-06-24 reference envelope
 
 아래 값은 hard threshold 가 아니라 현재 관측된 compatible reference envelope 다. 이후 compatible baseline 이
-이 범위를 넘으면 회귀 의심 신호로 기록하되, 별도 결정 전까지 실패로 처리하지 않는다.
+이 범위를 넘으면 회귀 의심 신호로 수동 리뷰 메모에 기록하되, 별도 결정 전까지 실패로 처리하지 않는다.
+집계 방식은 각 session `summary.json`의 `by-kind` aggregate 를 다시 세 session 간 집계하는 방식이다.
+latency, growth, HWM 은 세션 간 max 를 쓰고, actual rate 는 세션 간 min 을 쓴다.
 
 | 항목 | load | open-loop | 해석 |
 | --- | ---: | ---: | --- |
@@ -76,6 +78,8 @@ warning-as-failure 또는 CI failure 조건으로 승격할 수 있는지 판단
 - `summary.json`, `history.json`, `docs/benchmarks/baselines/index.md`가 canonical evidence 다.
 - `p99 max`가 1 ms 근처까지 관측됐으므로 1 ms hard SLO 는 현재 baseline 과 맞지 않는다.
 - `warning-count > 0`, p99 envelope 초과, p99 growth 증가, HWM 증가가 발생해도 이번 결정만으로는 process failure 가 아니다.
+- envelope 초과 기록은 현재 자동 schema 나 command output 이 아니라, 사람이 `docs/benchmarks/baselines/index.md`
+  해석 메모 또는 후속 리뷰 문서에 남기는 수동 관측이다.
 - delivery/drop/leak hard gate 는 계속 유지한다. `hard-passed=false`는 지금처럼 실패다.
 
 ## warning-as-failure 승격 보류 조건
@@ -89,6 +93,9 @@ warning-as-failure 또는 CI failure 조건으로 승격할 수 있는지 판단
 5. 모든 session 의 delivery/drop/leak hard gate 가 통과한다.
 6. `comparison-compatible=true`, `unknown-runner-count=0`, `comparison-mismatch-count=0`이 유지된다.
 7. warning threshold 가 transient scheduling noise 와 실제 regression 을 구분할 수 있다는 검토 문서가 별도로 작성된다.
+
+현재 2026-06-24 baseline 은 `runner-id=local-unspecified`이므로 위 조건 2의 날짜 root count 에 산입하지 않는다.
+이 표본은 D082 reference envelope 의 근거로만 쓰고, gate 승격 표본으로 재사용하지 않는다.
 
 이 조건은 "언젠가 반드시 warning-as-failure 를 켠다"는 뜻이 아니다. 위 조건이 채워진 뒤에도 false failure 비용,
 CI runner 안정성, artifact 보존 정책을 다시 검토해야 한다.

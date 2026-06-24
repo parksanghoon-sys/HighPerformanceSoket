@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - latency envelope design review response)
+
+### 작업 단위
+- D082 latency envelope/gate 보류 설계 리뷰의 Low 명확성 의견을 문서 batch 로 반영했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-24-latency-envelope-and-gate-deferral-design.md`:
+  envelope 집계 방식, `local-unspecified` 표본의 gate 승격 표본 제외, envelope 초과 기록의 수동 리뷰 메모 성격을 명시했다.
+- `docs/benchmarks/baselines/index.md`:
+  reference envelope 표와 해석 메모에 같은 기준을 추가했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D082 판단 기준에 `local-unspecified` baseline 은 reference 전용이라는 문구를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  리뷰 반영 완료 상태와 다음 Phase 4 후보 재평가 진입점을 반영했다.
+
+### 검증
+- D082 review finding 1/2와 info 3 반영 여부를 대조했다.
+- 신규 설계/결정/index 문서 임시 표기 검색 결과 없음.
+- `git diff --check` 통과. whitespace 오류 없음.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 269개 통과/실패 0.
+
 ## 2026-06-24 (Codex - latency envelope and gate deferral design)
 
 ### 작업 단위

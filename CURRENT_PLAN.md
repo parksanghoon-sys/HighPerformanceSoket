@@ -94,6 +94,8 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - 2026-06-24 compatible baseline 3개를 D082 reference latency envelope 로 채택했다.
   load p99 max 는 1020.4 us, open-loop p99 max 는 1006.5 us 이므로 1 ms hard latency SLO 는 현재 baseline 과 맞지 않는다.
   warning-as-failure 와 CI latency failure 는 명시적 runner id 와 여러 날짜 root 의 compatible baseline 이 쌓일 때까지 보류한다.
+  현재 2026-06-24 baseline 은 `runner-id=local-unspecified`이므로 gate 승격 표본 count 에 산입하지 않고,
+  envelope 초과 기록도 자동 failure 가 아니라 수동 리뷰 메모로 남긴다.
 - summary/history comparison signal 설계를 완료했다.
   설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
   D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
@@ -185,6 +187,15 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — D082 설계 리뷰 Low 명확성 보강
+  - `.claude/review/2026-06-24-latency-envelope-and-gate-deferral-design-review.md`를 확인했다.
+  - must-fix는 없고, Low 명확성 지적 2건과 info 1건을 문서 batch 로 반영했다.
+  - 집계 방식은 session `summary.json`의 `by-kind` aggregate 를 세션 간 max/min 으로 다시 집계한다고 명시했다.
+  - 2026-06-24 `local-unspecified` baseline 은 gate 승격 표본 count 에 산입하지 않고 reference 로만 사용한다고 명시했다.
+  - envelope 초과 기록은 자동 schema/command output 이 아니라 수동 리뷰 메모라고 명시했다.
+  - 검증: D082 리뷰 finding 1/2와 info 3 반영 여부 대조 완료.
+    신규 설계/결정/index 문서 임시 표기 검색 결과 없음.
+    `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 - 이번 단위 — latency envelope 재산정과 gate 보류 조건 설계
   - 2026-06-24 compatible baseline 3개를 기준으로 D082 reference latency envelope 를 정리했다.
   - 현재 p99 max 가 1 ms 근처 또는 그 이상까지 관측되므로 hard latency gate 와 CI latency failure 는 계속 보류한다고 명시했다.
@@ -585,17 +596,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 Summary/history comparison signal 계획의 Task 1~5, benchmark writer metadata roundtrip test-hardening,
 2026-06-18 generated baseline artifact 재생성, 2026-06-24 current-schema baseline session-01/session-02/session-03 추가는 완료됐다.
 
-다음 작업은 D082 latency envelope/gate 보류 설계 문서를 검토받고, must-fix 의견이 있으면 문서 batch 로 반영하는 것이다.
+다음 작업은 D082 이후 Phase 4 다음 실행 후보를 재평가하고, 가장 안전한 단일 작업 단위를 선정하는 것이다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 2026-06-24 compatible baseline 3개를 근거로 latency envelope 와 gate 보류 조건을 설계한 뒤
-최종 검증으로 마무리한다.
+이번 cycle 은 D082 설계 리뷰의 Low 명확성 의견을 문서 batch 로 반영한 뒤 최종 검증으로 마무리한다.
 
 - 범위: `docs/superpowers/specs/2026-06-24-latency-envelope-and-gate-deferral-design.md`,
   `docs/benchmarks/baselines/index.md`, `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`,
   `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
-- 검증: 2026-06-24 `history.json`과 `session-01`/`session-02`/`session-03` `summary.json` 수치를 대조했다.
+- 검증: D082 review finding 1/2와 info 3 반영 여부를 대조했다.
   신규 설계/결정/index 문서 임시 표기 검색 결과 없음.
   `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 
