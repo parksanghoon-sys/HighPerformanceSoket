@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] 같은 explicit runner/date root 에 `session-02` baseline 을 수집한다.
-  - 목적: `local-win-x64-01/2026-06-24` date root 를 D082식 3-session 비교 후보로 확장한다.
-  - 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/session-02/`,
-    해당 date root `history.json`/`history.md`, `docs/benchmarks/baselines/index.md`, root 상태 문서.
-  - runner id: `local-win-x64-01`. `HPS_BENCHMARK_RUNNER_ID`와 path 가 계속 일치해야 한다.
-  - 검증: `--baseline-suite`, `--summarize-baseline`, `--summarize-baseline-history`, local absolute path 검색,
-    `Hps.Benchmarks.Tests`, `git diff --check`, solution build/test.
+- [ ] explicit runner 3-session 결과를 리뷰받은 뒤 Phase 4 다음 후보를 재평가한다.
+  - 목적: `local-win-x64-01/2026-06-24`가 3-session reference 를 갖췄으므로, 다음 date root 를 더 쌓을지
+    CI/warning-as-failure 설계로 넘어갈지 판단한다.
+  - 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/history.json`,
+    `docs/benchmarks/baselines/index.md`, D082/D084 판단 기준, `.claude/review/`의 신규 검토 의견.
+  - 현재 판단: 같은 runner 의 date root 는 아직 1개뿐이므로 D082 warning-as-failure 승격 조건에는 산입하지 않는다.
+  - 검증: history/index 수치 대조, 신규 리뷰 의견 반영 여부 확인, 필요 시 root 상태 문서 갱신.
 
 ## Deferred Backlog
 
@@ -30,6 +30,23 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] explicit runner baseline 을 3-session reference 로 확장하고 문서 batch 를 완료했다.
+  - 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/session-02/`,
+    `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/session-03/`,
+    `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/history.json`,
+    `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/history.md`,
+    `docs/benchmarks/baselines/index.md`, root 상태 문서.
+  - 결과: `session-02`, `session-03` raw report 를 각각 6개씩 생성하고, 각 summary artifact 와
+    3-session 기준 date-level history artifact 를 재생성했다.
+  - 비고: history 는 `session-count=3`, `hard-passed=true`, `warning-count=0`,
+    `comparison-compatible=true`, unknown runner 0, mismatch 0 이다.
+    explicit runner envelope 는 load p99 max 870.7 us, open-loop p99 max 1051.5 us 이다.
+    같은 runner 의 date root 가 아직 1개뿐이므로 D082 warning-as-failure 승격 조건에는 산입하지 않는다.
+  - 검증: session-02/session-03 baseline suite pass, 각 summary CLI source-report-count 6/hard-passed true/warning-count 0,
+    history CLI session-count 3/hard-passed true/warning-count 0.
+    runner artifact local absolute path 검색 결과 없음. `Hps.Benchmarks.Tests` 67개 통과,
+    `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 
 - [x] 첫 explicit runner baseline 을 새 runner group 구조에 수집했다.
   - 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/session-01/`,

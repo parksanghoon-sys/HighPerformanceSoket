@@ -1,7 +1,7 @@
 # Baseline History
 
 - source root: `docs\benchmarks\baselines\runners\local-win-x64-01\2026-06-24`
-- session count: 1
+- session count: 3
 - hard gate: PASS
 - warning count: 0
 
@@ -28,6 +28,8 @@
 | 날짜 | session | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | TCP HWM max |
 | --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
 | 2026-06-24 | session-01 | `session-01/summary.json` | `session-01/summary.md` | 6 | true | 0 | 870.7 | 844.7 | 2 |
+| 2026-06-24 | session-02 | `session-02/summary.json` | `session-02/summary.md` | 6 | true | 0 | 821.4 | 893 | 2 |
+| 2026-06-24 | session-03 | `session-03/summary.json` | `session-03/summary.md` | 6 | true | 0 | 806.9 | 1051.5 | 2 |
 
 ## warning 이 있는 session
 
