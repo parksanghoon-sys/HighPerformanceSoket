@@ -22,20 +22,18 @@
   - 관련 파일/범위: `src/Hps.Server/`, `src/Hps.Transport/`, host/sample 코드, 관련 tests.
   - next step: metrics/exporter 또는 server-only consumer 요구가 나오면 별도 설계로 승격한다.
 
-- [ ] `P3_NICE` benchmark writer metadata roundtrip test 를 보강한다.
-  - 무엇이 남았는지: Task 1~3 구현 검토에서 writer shape test 가 실제 writer output 의 `os-architecture`,
-    `process-architecture` field 를 직접 assert하지 않는 작은 testing gap 을 발견했다.
-  - 왜 defer 되었는지: 현재 구현은 코드 대조상 writer/reader field name 이 정합하고, Blocker/Major correctness issue 는 아니다.
-  - objective: future field drift 를 더 빨리 잡도록 실제 `TcpLoopbackReportWriter` output 을 `BaselineReportReader`로 다시 읽는 roundtrip test
-    또는 D079 전체 field assertion 을 추가한다.
-  - relevant context: `docs/agent-state/reviews/2026-06-23-benchmark-runner-identity-implementation-review.md`.
-  - 관련 파일/범위: `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`,
-    `tests/Hps.Benchmarks/TcpLoopbackReportWriter.cs`, `tests/Hps.Benchmarks/BaselineReportReader.cs`.
-  - next step: summary/history comparison signal 구현 전후 테스트 보강 단위로 승격할지 판단한다.
-
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-24 benchmark writer metadata roundtrip test 를 보강했다.
+  - 범위: `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`, root 상태 문서.
+  - 결과: `TcpLoopbackReportWriter`가 쓴 raw report 를 `BaselineReportReader`로 다시 읽어 D079 runner/environment metadata 전체를 검증한다.
+  - 비고: `os-architecture=Arm64`, `process-architecture=X64`를 의도적으로 다르게 둬 architecture field name drift 와 혼동을 잡는다.
+  - Red: `TcpLoopbackReportWriter`의 `process-architecture` field 이름을 임시로 바꿨을 때 새 roundtrip test 가
+    `Expected: "X64", Actual: "unknown"` assertion failure 로 실패함을 확인했다.
+  - Green/검증: focused roundtrip test 1개 통과, `Hps.Benchmarks.Tests` 66개 통과, `git diff --check` exit 0,
+    solution build 경고 0/오류 0, solution tests 268개 통과.
 
 - [x] 2026-06-24 summary/history comparison signal 계획 리뷰 보강을 완료했다.
   - 범위: `.claude/review/2026-06-24-summary-history-comparison-signal-plan-review.md`,

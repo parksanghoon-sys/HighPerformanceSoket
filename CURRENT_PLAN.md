@@ -76,6 +76,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - benchmark runner identity Task 1~3 구현 검토가 완료됐다.
   새 Blocker/Major finding 은 없고, writer output 에 대한 architecture field roundtrip/assertion 보강은 비차단 test-hardening 으로 남겼다.
   상세는 `docs/agent-state/reviews/2026-06-23-benchmark-runner-identity-implementation-review.md`를 본다.
+- benchmark writer metadata roundtrip test-hardening 이 완료됐다.
+  `TcpLoopbackReportWriter`가 쓴 raw report 를 `BaselineReportReader`로 다시 읽어 D079 runner/environment metadata 전체,
+  특히 `os-architecture`와 `process-architecture` field 이름 drift 를 조기에 잡는다.
 - summary/history comparison signal 설계를 완료했다.
   설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
   D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
@@ -167,6 +170,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Benchmark writer metadata roundtrip test 보강
+  - `TODOS.md`의 P3_NICE benchmark writer metadata roundtrip test gap 을 해소했다.
+  - `BaselineReportReaderWriterTests`에 실제 `TcpLoopbackReportWriter.Write(...)` output 을
+    `BaselineReportReader.ReadDirectory(...)`로 다시 읽는 roundtrip 테스트를 추가했다.
+  - test identity 에 `os-architecture=Arm64`, `process-architecture=X64`를 서로 다르게 넣어 두 field 가 섞이거나 누락되는
+    회귀를 구분해서 잡게 했다.
+  - Red 확인: `TcpLoopbackReportWriter`의 `process-architecture` field 이름을 임시로 바꿨을 때 새 테스트가
+    `Expected: "X64", Actual: "unknown"` assertion failure 로 실패함을 확인했다.
+  - Green/검증: 임시 mutation 을 되돌린 뒤 focused roundtrip test 1개가 통과했다.
+    `Hps.Benchmarks.Tests` 66개 통과, `git diff --check` exit 0, solution build 경고 0/오류 0,
+    solution tests 268개 통과.
 - 이번 단위 — Summary/history comparison signal 리뷰 보강
   - `.claude/review/2026-06-24-summary-history-comparison-signal-plan-review.md`의 High/Medium 지적을 대조했다.
   - `BaselineSummaryMarkdownWriterTests`에 legacy/unknown identity summary 의 null-key Markdown 출력 회귀 테스트를 추가했다.
@@ -493,23 +507,19 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Summary/history comparison signal 계획의 Task 1~5 구현은 완료됐다.
+Summary/history comparison signal 계획의 Task 1~5와 benchmark writer metadata roundtrip test-hardening 은 완료됐다.
 
 다음 작업은 새 검토 의견을 반영하거나, 별도 요청 시 generated baseline artifact 재생성/후속 정책 설계로 넘어간다.
 현재 문맥에서 즉시 승격할 P0/P1 코드 작업은 없다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 summary/history comparison signal 계획 리뷰 보강을 완료한 뒤 최종 검증으로 마무리한다.
+이번 cycle 은 benchmark writer metadata roundtrip test 보강을 완료한 뒤 최종 검증으로 마무리한다.
 
-- 범위: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
-  `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`,
-  `.claude/review/2026-06-24-summary-history-comparison-signal-plan-review.md`,
-  `tests/Hps.Benchmarks.Tests/BaselineSummaryGeneratorTests.cs`,
-  `tests/Hps.Benchmarks.Tests/BaselineSummaryMarkdownWriterTests.cs`, `DECISIONS.md`.
-- 검증: null-key guard 제거 mutation Red, partial unknown predicate 약화 mutation Red 를 확인했다.
-  focused 보강 tests 2개와 `Hps.Benchmarks.Tests` 65개는 통과했다.
-  커밋 전 `git diff --check`, solution build/test 를 수행한다.
+- 범위: `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`, root 상태 문서.
+- 검증: `process-architecture` field 이름 변경 mutation Red 를 확인했다.
+  focused roundtrip test 1개, `Hps.Benchmarks.Tests` 66개, solution tests 268개가 통과했다.
+  `git diff --check`는 exit 0이고, solution build 는 경고 0/오류 0이다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

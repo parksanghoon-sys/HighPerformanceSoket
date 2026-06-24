@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - benchmark writer metadata roundtrip test hardening)
+
+### 작업 단위
+- `TODOS.md`에 남아 있던 P3_NICE benchmark writer metadata roundtrip test gap 을 해소했다.
+- 기능 동작 변경은 없고, writer/reader schema drift 를 더 빨리 잡는 테스트만 보강했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`:
+  `TcpLoopbackReportWriter.Write(...)`가 만든 raw report 를 `BaselineReportReader.ReadDirectory(...)`로 다시 읽어
+  runner/environment metadata 전체가 roundtrip 되는지 검증했다.
+- test identity 는 `os-architecture=Arm64`, `process-architecture=X64`를 서로 다르게 둬 두 field 가 누락되거나
+  잘못된 key 로 기록되는 회귀를 구분해서 잡는다.
+- `CURRENT_PLAN.md`, `TODOS.md`: deferred test-hardening 항목 완료와 다음 실행 지점을 반영했다.
+
+### 검증
+- Red: `TcpLoopbackReportWriter`의 `process-architecture` field 이름을 임시로 바꿨을 때
+  `Write_WhenRunResultIsReadBack_PreservesFullRunnerIdentityMetadata`가
+  `Expected: "X64", Actual: "unknown"` assertion failure 로 실패함을 확인했다.
+- Green: 임시 mutation 을 되돌린 뒤 focused roundtrip test 1개 통과.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 66개 통과/실패 0.
+- `git diff --check` exit 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 268개 통과/실패 0.
+
 ## 2026-06-24 (Codex - summary/history comparison signal review hardening)
 
 ### 작업 단위

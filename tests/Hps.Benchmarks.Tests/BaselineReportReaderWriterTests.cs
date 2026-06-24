@@ -183,6 +183,59 @@ namespace Hps.Benchmarks.Tests
             }
         }
 
+        // writer 와 reader 는 같은 raw report schema 를 공유한다.
+        // architecture metadata 가 writer shape test 에만 머물면 field 이름 drift 가 summary/history comparison 까지 늦게 전파된다.
+        [Fact]
+        public void Write_WhenRunResultIsReadBack_PreservesFullRunnerIdentityMetadata()
+        {
+            string directory = CreateTempDirectory();
+            string path = Path.Combine(directory, "load-01.json");
+            BenchmarkRunIdentity identity = new BenchmarkRunIdentity(
+                "tcp-loopback-saea-v1",
+                "runner-roundtrip",
+                "self-hosted",
+                "SaeaTransport",
+                "Windows 11",
+                "Arm64",
+                "X64",
+                ".NET 9.0.6",
+                24);
+            TcpLoopbackRunResult result = new TcpLoopbackRunResult(
+                "load",
+                "tcp-loopback-saea-baseline",
+                4096,
+                100,
+                30,
+                3000,
+                3000,
+                3000,
+                0,
+                2,
+                0,
+                0,
+                0,
+                240.0,
+                500.0,
+                450.0,
+                550.0,
+                30000,
+                identity);
+
+            TcpLoopbackReportWriter.Write(path, result);
+
+            BaselineReport report = BaselineReportReader.ReadDirectory(directory).Single();
+
+            Assert.Equal("tcp-loopback-saea-v1", report.Identity.BenchmarkProfile);
+            Assert.Equal("runner-roundtrip", report.Identity.RunnerId);
+            Assert.Equal("self-hosted", report.Identity.RunnerKind);
+            Assert.Equal("SaeaTransport", report.Identity.TransportBackend);
+            Assert.Equal("Windows 11", report.Identity.OsDescription);
+            Assert.Equal("Arm64", report.Identity.OsArchitecture);
+            Assert.Equal("X64", report.Identity.ProcessArchitecture);
+            Assert.Equal(".NET 9.0.6", report.Identity.FrameworkDescription);
+            Assert.Equal(24, report.Identity.ProcessorCount);
+        }
+
         // summary/history 단계는 raw report reader 를 통해서만 runner identity 를 볼 수 있다.
         // BaselineReport 에 identity property 가 없으면 이후 comparison signal 이 runner 차이를 판단할 수 없다.
         [Fact]
