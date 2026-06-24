@@ -412,6 +412,19 @@ Assertions:
 - existing `HardPassed` can remain true when delivery/drop/leak gate passed.
 
 ```csharp
+// 일부 metadata field 만 unknown 인 raw report 도 같은 runner 라고 증명할 수 없다.
+// runner-id 같은 hard key field 하나라도 unknown 이면 compatible 로 묶지 않고 unknown-runner 로 격리한다.
+[Fact]
+public void Generate_WhenIdentityHasPartialUnknownField_MarksComparisonIncompatible()
+```
+
+Assertions:
+- `Compatible == false`
+- `Key == null`
+- `UnknownRunnerCount == 1`
+- mismatch code `unknown-runner`
+
+```csharp
 // runner id 가 섞인 summary 는 같은 부하 수치라도 같은 비교군이 아니다.
 // 이 mismatch 는 warning-count 에 합산하지 않고 comparison mismatch 로만 남긴다.
 [Fact]
@@ -447,7 +460,10 @@ Expected Red: behavior tests fail because generator returns stub comparison.
 
 Implementation rules:
 - Build base key from the first non-unknown report.
-- Treat any `BenchmarkRunIdentity.Unknown` field set as unknown runner.
+- Treat the report as `unknown-runner` if any hard comparison identity field equals `unknown`
+  (`BenchmarkProfile`, `RunnerId`, `RunnerKind`, `TransportBackend`, `OsDescription`,
+  `OsArchitecture`, `ProcessArchitecture`, `FrameworkDescription`).
+  `ProcessorCount` remains diagnostic-only and does not affect compatibility.
 - Compare identity fields except `ProcessorCount`.
 - Group cases by `ResultName` case-insensitively.
 - Within the same result-name group, compare `Scenario`, `PayloadBytes`, `TargetRateHz`, `TargetDurationSeconds`.
@@ -550,6 +566,19 @@ Assertions:
 - contains runner id/kind
 - contains case row for `load`
 
+```csharp
+// 실제 legacy baseline artifact 처럼 identity metadata 가 없는 summary 는 comparison key 를 만들 수 없다.
+// 이 경로가 NRE 없이 Markdown 에 `comparison-key: 없음`과 unknown-runner 원인을 남기는지 고정한다.
+[Fact]
+public void Write_WhenComparisonKeyIsNull_WritesNullKeyAndUnknownRunnerMismatch()
+```
+
+Assertions:
+- contains `compatible: false`
+- contains `unknown-runner-count: 1`
+- contains `comparison-key: 없음`
+- contains mismatch code `unknown-runner`
+
 Run focused Markdown writer test and expect missing section failure.
 
 - [ ] **Step 4: Implement Markdown section**
@@ -559,9 +588,9 @@ Add `WriteComparison(...)` in `BaselineSummaryMarkdownWriter`.
 Output minimum:
 - `## Comparison`
 - `- compatible: true|false`
-- `- runner-id: ...`
-- `- runner-kind: ...`
-- case table: `| result | scenario | payload bytes | target rate hz | target duration seconds |`
+- when `Comparison.Key == null`, print `- comparison-key: 없음` and do not dereference the key.
+- when key exists, print `- runner-id: ...`, `- runner-kind: ...`, and the case table:
+  `| result | scenario | payload bytes | target rate hz | target duration seconds |`
 - mismatch table when `MismatchCount > 0`; otherwise `- mismatch: 없음`
 
 - [ ] **Step 5: Run focused tests**

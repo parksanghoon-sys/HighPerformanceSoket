@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - summary/history comparison signal review hardening)
+
+### 작업 단위
+- `.claude/review/2026-06-24-summary-history-comparison-signal-plan-review.md`의 High/Medium 지적을 현재 구현과 대조하고,
+  test-hardening 과 판정 술어 문서화로 반영했다.
+- 기능 동작 변경은 없고, 이미 구현된 null-key/unknown-runner 경로를 회귀 테스트로 고정했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks.Tests/BaselineSummaryMarkdownWriterTests.cs`:
+  legacy/unknown identity summary 에서 `Comparison.Key == null`이어도 Markdown 이 NRE 없이
+  `comparison-key: 없음`, `unknown-runner-count`, mismatch row 를 쓰는지 검증했다.
+- `tests/Hps.Benchmarks.Tests/BaselineSummaryGeneratorTests.cs`:
+  hard comparison identity field 일부만 `unknown`인 report 도 `unknown-runner`로 격리하는지 검증했다.
+- `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`:
+  partial unknown 판정 기준과 null-key Markdown test/출력 규칙을 보강했다.
+- `DECISIONS.md`: hard comparison identity field 중 하나라도 `unknown`이면 compatible 로 추정하지 않는다고 명시했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: 리뷰 보강 완료 상태와 검증 근거를 반영했다.
+
+### 검증
+- Red 1: `BaselineSummaryMarkdownWriter`의 null-key guard 를 임시 제거했을 때
+  `Write_WhenComparisonKeyIsNull_WritesNullKeyAndUnknownRunnerMismatch`가 `NullReferenceException`으로 실패함을 확인했다.
+- Red 2: `BaselineSummaryGenerator.IsUnknownIdentity(...)`를 benchmark-profile-only 판정으로 임시 약화했을 때
+  `Generate_WhenIdentityHasPartialUnknownField_MarksComparisonIncompatible`가 `Assert.False()` failure 로 실패함을 확인했다.
+- Green: 위 임시 mutation 을 되돌린 뒤 focused 보강 tests 2개 통과.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 65개 통과/실패 0.
+
 ## 2026-06-24 (Codex - summary/history comparison signal Task 5)
 
 ### 작업 단위

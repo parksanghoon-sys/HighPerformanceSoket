@@ -125,6 +125,29 @@ namespace Hps.Benchmarks.Tests
             Assert.Contains(summary.Comparison.Mismatches, mismatch => mismatch.Code == "unknown-runner" && mismatch.SourcePath == "a/load-01.json");
         }
 
+        // 일부 metadata field 만 unknown 인 raw report 도 같은 runner 라고 증명할 수 없다.
+        // runner-id 같은 hard key field 하나라도 unknown 이면 compatible 로 묶지 않고 unknown-runner 로 격리한다.
+        [Fact]
+        public void Generate_WhenIdentityHasPartialUnknownField_MarksComparisonIncompatible()
+        {
+            BaselineReport[] reports =
+            {
+                CreateReport("a/load-01.json", "load", 230.0, 500.0, 1.0, 100.0, 1, 0, 3000, identity: CreateIdentityWithRunnerId("unknown"))
+            };
+
+            BaselineSummary summary = BaselineSummaryGenerator.Generate("a", reports);
+
+            Assert.True(summary.HardPassed);
+            Assert.False(summary.Comparison.Compatible);
+            Assert.Null(summary.Comparison.Key);
+            Assert.Equal(1, summary.Comparison.UnknownRunnerCount);
+            Assert.Contains(
+                summary.Comparison.Mismatches,
+                mismatch => mismatch.Code == "unknown-runner"
+                    && mismatch.Field == "runner-identity"
+                    && mismatch.SourcePath == "a/load-01.json");
+        }
+
         // runner id 가 섞인 summary 는 같은 부하 수치라도 같은 비교군이 아니다.
         // 이 mismatch 는 warning-count 에 합산하지 않고 comparison mismatch 로만 남긴다.
         [Fact]
@@ -203,6 +226,11 @@ namespace Hps.Benchmarks.Tests
         }
 
         private static BenchmarkRunIdentity CreateIdentity(string runnerId)
+        {
+            return CreateIdentityWithRunnerId(runnerId);
+        }
+
+        private static BenchmarkRunIdentity CreateIdentityWithRunnerId(string runnerId)
         {
             return new BenchmarkRunIdentity(
                 BenchmarkRunIdentity.DefaultBenchmarkProfile,

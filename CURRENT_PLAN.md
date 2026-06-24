@@ -101,6 +101,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - summary/history comparison signal Task 5가 완료됐다.
   `BaselineHistoryWriter`와 `BaselineHistoryMarkdownWriter`가 history comparison output 을 쓰고,
   Program smoke 로 comparison mismatch-only history 가 hard gate success exit code 를 유지함을 확인했다.
+- 2026-06-24 summary/history comparison signal 계획 리뷰의 High/Medium 지적을 test-hardening 으로 반영했다.
+  Summary Markdown null-key/legacy unknown 경로와 partial unknown identity 판정이 회귀 테스트로 고정됐고,
+  hard comparison identity field 중 하나라도 `unknown`이면 `unknown-runner`로 처리한다는 기준을 문서화했다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -164,6 +167,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Summary/history comparison signal 리뷰 보강
+  - `.claude/review/2026-06-24-summary-history-comparison-signal-plan-review.md`의 High/Medium 지적을 대조했다.
+  - `BaselineSummaryMarkdownWriterTests`에 legacy/unknown identity summary 의 null-key Markdown 출력 회귀 테스트를 추가했다.
+  - `BaselineSummaryGeneratorTests`에 partial unknown identity field 를 `unknown-runner`로 격리하는 테스트를 추가했다.
+  - `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`와 `DECISIONS.md`에 unknown 판정 술어를 명시했다.
+  - Red 확인: null-key 가드를 임시 제거했을 때 새 Markdown test 가 `NullReferenceException`으로 실패함을 확인했다.
+  - Red 확인: partial unknown 판정을 임시 약화했을 때 새 generator test 가 `Assert.False()` failure 로 실패함을 확인했다.
+  - Green/검증: focused 보강 tests 2개 통과, `Hps.Benchmarks.Tests` 65개 통과.
 - 이번 단위 — Summary/history comparison signal Task 5
   - history JSON top-level 에 comparison-compatible/key/mismatch field 를 출력한다.
   - history JSON session entry 에 session-level comparison-compatible, unknown-runner-count, comparison-mismatch-count 를 출력한다.
@@ -489,16 +500,15 @@ Summary/history comparison signal 계획의 Task 1~5 구현은 완료됐다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 구현 Task 5까지 완료한 뒤 최종 검증으로 마무리한다.
+이번 cycle 은 summary/history comparison signal 계획 리뷰 보강을 완료한 뒤 최종 검증으로 마무리한다.
 
 - 범위: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
   `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`,
-  `tests/Hps.Benchmarks/BaselineHistoryWriter.cs`, `tests/Hps.Benchmarks/BaselineHistoryMarkdownWriter.cs`,
-  `tests/Hps.Benchmarks.Tests/BaselineHistoryGeneratorWriterTests.cs`,
-  `tests/Hps.Benchmarks.Tests/BaselineHistoryProgramTests.cs`.
-- 검증: history JSON writer comparison field 부재 Red, Markdown `## Comparison` section 부재 Red,
-  Program smoke 의 mismatch/non-failing exit-code contract Red 를 확인했다.
-  focused Task 5 tests 3개와 `Hps.Benchmarks.Tests` 63개는 통과했다.
+  `.claude/review/2026-06-24-summary-history-comparison-signal-plan-review.md`,
+  `tests/Hps.Benchmarks.Tests/BaselineSummaryGeneratorTests.cs`,
+  `tests/Hps.Benchmarks.Tests/BaselineSummaryMarkdownWriterTests.cs`, `DECISIONS.md`.
+- 검증: null-key guard 제거 mutation Red, partial unknown predicate 약화 mutation Red 를 확인했다.
+  focused 보강 tests 2개와 `Hps.Benchmarks.Tests` 65개는 통과했다.
   커밋 전 `git diff --check`, solution build/test 를 수행한다.
 
 ## 이번 작업에서 건드리지 않는 범위

@@ -37,6 +37,17 @@
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
 
+- [x] 2026-06-24 summary/history comparison signal 계획 리뷰 보강을 완료했다.
+  - 범위: `.claude/review/2026-06-24-summary-history-comparison-signal-plan-review.md`,
+    `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`, `DECISIONS.md`,
+    `tests/Hps.Benchmarks.Tests/BaselineSummaryGeneratorTests.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineSummaryMarkdownWriterTests.cs`, root 상태 문서.
+  - 결과: Summary Markdown null-key/legacy unknown 경로와 partial unknown identity 판정을 테스트로 고정했다.
+  - 비고: hard comparison identity field 중 하나라도 `unknown`이면 partial metadata 라도 `unknown-runner`로 본다.
+  - Red: null-key guard 제거 mutation 에서 Markdown test 가 `NullReferenceException`으로 실패함을 확인했다.
+    partial unknown predicate 약화 mutation 에서 generator test 가 `Assert.False()` failure 로 실패함을 확인했다.
+  - Green/검증: focused 보강 tests 2개 통과, `Hps.Benchmarks.Tests` 65개 통과.
+
 - [x] 2026-06-24 summary/history comparison signal Task 5를 구현했다.
   - 범위: `tests/Hps.Benchmarks/BaselineHistoryWriter.cs`,
     `tests/Hps.Benchmarks/BaselineHistoryMarkdownWriter.cs`,

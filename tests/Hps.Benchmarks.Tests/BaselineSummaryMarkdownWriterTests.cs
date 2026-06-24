@@ -73,6 +73,26 @@ namespace Hps.Benchmarks.Tests
             Assert.Contains("- mismatch: 없음", markdown);
         }
 
+        // 실제 2026-06-18 baseline artifact 처럼 identity metadata 가 없는 summary 는 comparison key 를 만들 수 없다.
+        // 이 경로가 NRE 없이 Markdown 에 `comparison-key: 없음`과 unknown-runner 원인을 남기는지 고정한다.
+        [Fact]
+        public void Write_WhenComparisonKeyIsNull_WritesNullKeyAndUnknownRunnerMismatch()
+        {
+            BaselineReport[] reports =
+            {
+                CreateReport("baseline/load-01.json", "load", 230.0, 500.0, 1.0, 99.9, 1)
+            };
+            BaselineSummary summary = BaselineSummaryGenerator.Generate("baseline", reports);
+
+            string markdown = WriteMarkdown(summary);
+
+            Assert.Contains("## Comparison", markdown);
+            Assert.Contains("- compatible: false", markdown);
+            Assert.Contains("- unknown-runner-count: 1", markdown);
+            Assert.Contains("- comparison-key: 없음", markdown);
+            Assert.Contains("| unknown-runner | runner-identity | known | unknown | `baseline/load-01.json` |", markdown);
+        }
+
         private static string WriteMarkdown(BaselineSummary summary)
         {
             using (StringWriter writer = new StringWriter(CultureInfo.InvariantCulture))
