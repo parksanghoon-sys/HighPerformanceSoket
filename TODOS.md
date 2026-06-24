@@ -9,12 +9,11 @@
 
 ## Current TODOs
 
-- [ ] 2026-06-24 current-schema baseline `session-03`을 추가한다.
-  - 목적: D079/D080 compatible baseline session 을 3개로 맞춘 뒤 latency envelope 재산정 정책 설계로 넘어갈 수 있게 한다.
-  - 범위: `docs/benchmarks/baselines/2026-06-24/session-03/`, 2026-06-24 date-level history artifact,
-    `docs/benchmarks/baselines/index.md`, root 상태 문서.
-  - 검증: baseline suite pass, summary/history CLI exit 0, comparison-compatible true, warning 0 여부 확인,
-    local absolute path 검색, `Hps.Benchmarks.Tests`, `git diff --check`, solution build/test.
+- [ ] 2026-06-24 compatible baseline 3개를 근거로 latency envelope 재산정과 warning-as-failure/CI gate 보류 조건을 설계한다.
+  - 목적: D070 이후 보류한 latency hard gate/warning 승격 판단을 새 D079/D080 compatible baseline 표본 기준으로 재검토한다.
+  - 범위: `docs/superpowers/specs/`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, 필요 시 `docs/benchmarks/baselines/index.md`.
+  - 검증: 2026-06-24 session-01~03 summary/history 수치 대조, placeholder/self-review, `git diff --check`,
+    solution build/test.
 
 ## Deferred Backlog
 
@@ -29,6 +28,21 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-24 current-schema baseline session-03 을 추가했다.
+  - 범위: `docs/benchmarks/baselines/2026-06-24/session-03/*.json`,
+    `docs/benchmarks/baselines/2026-06-24/session-03/summary.md`,
+    `docs/benchmarks/baselines/2026-06-24/history.json`,
+    `docs/benchmarks/baselines/2026-06-24/history.md`,
+    `docs/benchmarks/baselines/index.md`, root 상태 문서.
+  - 결과: D079 runner identity/environment metadata 를 포함한 raw report 6개(load 3회/open-loop 3회)와
+    D080 comparison field 를 포함한 summary/history artifact 를 추가했다.
+  - 비고: 2026-06-24 history 는 session-count 3이며 `comparison-compatible=true`, unknown runner 0, mismatch 0 이다.
+  - 검증: baseline suite pass, summary CLI source-report-count 6/hard-passed true/warning-count 0,
+    history CLI session-count 3/hard-passed true/warning-count 0.
+    `docs/benchmarks/baselines/2026-06-24` 아래 local absolute path 검색은 매칭 없음이다.
+    `Hps.Benchmarks.Tests` 67개 통과, `git diff --check` exit 0, solution build 경고 0/오류 0,
+    solution tests 269개 통과.
 
 - [x] 2026-06-24 current-schema baseline session-02 를 추가했다.
   - 범위: `docs/benchmarks/baselines/2026-06-24/session-02/*.json`,

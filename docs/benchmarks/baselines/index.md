@@ -19,7 +19,7 @@
 
 | 날짜 | history | human report | sessions | hard passed | warnings | comparison compatible |
 | --- | --- | --- | ---: | --- | ---: | --- |
-| 2026-06-24 | [history.json](2026-06-24/history.json) | [history.md](2026-06-24/history.md) | 2 | true | 0 | true |
+| 2026-06-24 | [history.json](2026-06-24/history.json) | [history.md](2026-06-24/history.md) | 3 | true | 0 | true |
 | 2026-06-18 | [history.json](2026-06-18/history.json) | [history.md](2026-06-18/history.md) | 3 | true | 0 | false |
 
 ## Baseline Sessions
@@ -28,17 +28,18 @@
 | --- | --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
 | 2026-06-24 | session-01 | local Windows TCP loopback SAEA, D079 metadata | [summary.json](2026-06-24/session-01/summary.json) | [summary.md](2026-06-24/session-01/summary.md) | 6 | true | 0 | 876.3 | 948.5 | 2 |
 | 2026-06-24 | session-02 | local Windows TCP loopback SAEA, D079 metadata | [summary.json](2026-06-24/session-02/summary.json) | [summary.md](2026-06-24/session-02/summary.md) | 6 | true | 0 | 1020.4 | 1006.5 | 2 |
+| 2026-06-24 | session-03 | local Windows TCP loopback SAEA, D079 metadata | [summary.json](2026-06-24/session-03/summary.json) | [summary.md](2026-06-24/session-03/summary.md) | 6 | true | 0 | 930 | 979.4 | 2 |
 | 2026-06-18 | session-01(root) | local Windows TCP loopback SAEA | [summary.json](2026-06-18/summary.json) | [summary.md](2026-06-18/summary.md) | 6 | true | 0 | 924.1 | 1005.5 | 2 |
 | 2026-06-18 | session-02 | local Windows TCP loopback SAEA | [summary.json](2026-06-18/session-02/summary.json) | [summary.md](2026-06-18/session-02/summary.md) | 6 | true | 0 | 512.1 | 643.3 | 3 |
 | 2026-06-18 | session-03 | local Windows TCP loopback SAEA | [summary.json](2026-06-18/session-03/summary.json) | [summary.md](2026-06-18/session-03/summary.md) | 6 | true | 0 | 489.9 | 587.8 | 3 |
 
 ## 해석 메모
 
-- 2026-06-18 세 session 과 2026-06-24 두 session 모두 delivery/drop/leak hard gate 를 통과했다.
+- 2026-06-18 세 session 과 2026-06-24 세 session 모두 delivery/drop/leak hard gate 를 통과했다.
 - 현재 기록된 모든 session 은 warning 이 없다.
 - session-01 은 같은 날짜의 초기 baseline 이며, 이후 session 보다 p99 가 높게 관측됐다.
 - 현재 수치는 hard latency SLO 가 아니라 Phase 4 추세 관측값이다.
-- 2026-06-24 session-01/session-02 는 D079 runner identity/environment metadata 도입 후 생성한 baseline 이다.
+- 2026-06-24 session-01/session-02/session-03 은 D079 runner identity/environment metadata 도입 후 생성한 baseline 이다.
   summary/history comparison 은 `comparison-compatible=true`, unknown runner 0, mismatch 0 이다.
 - 2026-06-18 raw report 는 D079 runner identity/environment metadata 도입 전 artifact 이므로
   summary/history comparison 은 `unknown-runner` mismatch 로 `comparison-compatible=false`를 기록한다.

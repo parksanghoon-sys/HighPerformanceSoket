@@ -1,7 +1,7 @@
 # Baseline History
 
 - source root: `docs\benchmarks\baselines\2026-06-24`
-- session count: 2
+- session count: 3
 - hard gate: PASS
 - warning count: 0
 
@@ -29,6 +29,7 @@
 | --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
 | 2026-06-24 | session-01 | `session-01/summary.json` | `session-01/summary.md` | 6 | true | 0 | 876.3 | 948.5 | 2 |
 | 2026-06-24 | session-02 | `session-02/summary.json` | `session-02/summary.md` | 6 | true | 0 | 1020.4 | 1006.5 | 2 |
+| 2026-06-24 | session-03 | `session-03/summary.json` | `session-03/summary.md` | 6 | true | 0 | 930 | 979.4 | 2 |
 
 ## warning 이 있는 session
 
