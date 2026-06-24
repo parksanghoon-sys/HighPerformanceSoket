@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - summary/history comparison signal Task 4)
+
+### 작업 단위
+- D080 구현 계획의 네 번째 단위로 history reader/model/generator 가 comparison signal 을 보존·집계하게 했다.
+- history JSON/Markdown output 과 CLI smoke 는 다음 Task 로 분리했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/BaselineHistorySession.cs`: session 단위 `Comparison` property 를 추가했다.
+- `tests/Hps.Benchmarks/BaselineHistory.cs`: history aggregate 단위 `Comparison` property 를 추가했다.
+- `tests/Hps.Benchmarks/BaselineHistoryReader.cs`: summary JSON의 comparison field/key/mismatch 를 읽고,
+  comparison field 가 없는 legacy summary 는 `legacy-summary-without-comparison` mismatch 로 변환한다.
+- `tests/Hps.Benchmarks/BaselineHistoryGenerator.cs`: session comparison key 를 비교해 history-level compatible 여부와
+  `history-comparison-key-mismatch`를 계산한다. 기존 hard gate/warning-count 계산은 변경하지 않았다.
+- `tests/Hps.Benchmarks.Tests/BaselineHistoryReaderTests.cs`: comparison property contract, summary comparison read,
+  legacy summary fallback 을 검증했다.
+- `tests/Hps.Benchmarks.Tests/BaselineHistoryGeneratorWriterTests.cs`: compatible sessions, key mismatch,
+  incompatible session aggregate 를 검증했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: Task 4 완료와 다음 Task 5 history output/CLI smoke 진입점을 반영했다.
+
+### 검증
+- Red 1: `BaselineHistorySession.Comparison`, `BaselineHistory.Comparison` property 부재로 contract tests 2개가
+  `Assert.NotNull()` 실패함을 확인했다.
+- Contract Green: model property 추가 후 focused contract tests 2개 통과.
+- Red 2: reader/generator behavior tests 5개가 stub comparison 에서 `Assert.True()`/`Assert.Single()` 실패함을 확인했다.
+- Green 2: focused history reader/generator tests 12개 통과.
+
 ## 2026-06-24 (Codex - summary/history comparison signal Task 3)
 
 ### 작업 단위

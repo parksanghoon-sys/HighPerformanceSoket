@@ -6,6 +6,14 @@ namespace Hps.Benchmarks.Tests
 {
     public sealed class BaselineHistoryGeneratorWriterTests
     {
+        // history 전체 compatibility 를 output 으로 넘기려면 aggregate model 이 comparison result 를 보존해야 한다.
+        // property 부재를 컴파일 실패가 아니라 assertion failure 로 확인하기 위해 reflection 을 사용한다.
+        [Fact]
+        public void Contract_BaselineHistoryExposesComparison()
+        {
+            Assert.NotNull(typeof(BaselineHistory).GetProperty("Comparison"));
+        }
+
         // history aggregate 의 hard gate 는 모든 session summary 의 hard-passed AND 로 계산한다.
         // failed-session-count 는 raw-run 실패 합계가 아니라 실패한 session 수라서 raw 실패 2개인 session 하나도 1로 집계한다.
         [Fact]
@@ -37,6 +45,70 @@ namespace Hps.Benchmarks.Tests
 
             Assert.False(history.HardPassed);
             Assert.Equal(1, history.FailedSessionCount);
+        }
+
+        // 모든 session summary 가 같은 comparison key 를 가져야 history 전체가 compatible 이다.
+        // hard gate 가 모두 PASS 여도 runner/case 가 다르면 history trend 로 비교하면 안 된다.
+        [Fact]
+        public void Generate_WhenSessionsHaveSameComparisonKey_MarksHistoryComparisonCompatible()
+        {
+            BaselineHistory history = BaselineHistoryGenerator.Generate(
+                "docs/baselines",
+                new[]
+                {
+                    CreateSession("2026-06-18", "session-01(root)", true, 0, 0, 924.1, 1005.5, 2, CreateCompatibleComparison("runner-a")),
+                    CreateSession("2026-06-19", "session-01", true, 0, 0, 900.0, 1000.0, 3, CreateCompatibleComparison("runner-a"))
+                });
+
+            Assert.True(history.Comparison.Compatible);
+            Assert.Equal(0, history.Comparison.MismatchCount);
+            Assert.NotNull(history.Comparison.Key);
+            Assert.Equal("runner-a", history.Comparison.Key!.RunnerId);
+        }
+
+        // 한 session 이 다른 runner/case 를 가지면 history comparison mismatch 로만 기록한다.
+        // 이 mismatch 는 기존 warning-count 와 hard-passed 를 변경하지 않는다.
+        [Fact]
+        public void Generate_WhenSessionComparisonKeyDiffers_RecordsHistoryComparisonMismatchWithoutChangingWarningCount()
+        {
+            BaselineHistory history = BaselineHistoryGenerator.Generate(
+                "docs/baselines",
+                new[]
+                {
+                    CreateSession("2026-06-18", "session-01(root)", true, 0, 0, 924.1, 1005.5, 2, CreateCompatibleComparison("runner-a")),
+                    CreateSession("2026-06-19", "session-01", true, 0, 0, 900.0, 1000.0, 3, CreateCompatibleComparison("runner-b"))
+                });
+
+            Assert.True(history.HardPassed);
+            Assert.Equal(0, history.WarningCount);
+            Assert.False(history.Comparison.Compatible);
+            BaselineComparisonMismatch mismatch = Assert.Single(history.Comparison.Mismatches);
+            Assert.Equal("history-comparison-key-mismatch", mismatch.Code);
+            Assert.Equal("runner-id", mismatch.Field);
+            Assert.Equal("runner-a", mismatch.Expected);
+            Assert.Equal("runner-b", mismatch.Actual);
+            Assert.Equal("session-01", mismatch.Session);
+        }
+
+        // legacy summary 가 하나라도 섞이면 history comparison 은 incompatible 이다.
+        // 기존 history command exit code 는 hard gate 기준만 유지해야 하므로 comparison 은 별도 결과로 남긴다.
+        [Fact]
+        public void Generate_WhenSessionComparisonIsIncompatible_MarksHistoryComparisonIncompatible()
+        {
+            BaselineHistory history = BaselineHistoryGenerator.Generate(
+                "docs/baselines",
+                new[]
+                {
+                    CreateSession("2026-06-18", "session-01(root)", true, 0, 0, 924.1, 1005.5, 2, CreateCompatibleComparison("runner-a")),
+                    CreateSession("2026-06-19", "session-01", true, 0, 0, 900.0, 1000.0, 3, CreateLegacyComparison("session-01", "2026-06-19/session-01/summary.json"))
+                });
+
+            Assert.True(history.HardPassed);
+            Assert.False(history.Comparison.Compatible);
+            BaselineComparisonMismatch mismatch = Assert.Single(history.Comparison.Mismatches);
+            Assert.Equal("legacy-summary-without-comparison", mismatch.Code);
+            Assert.Equal("session-01", mismatch.Session);
+            Assert.Equal("2026-06-19/session-01/summary.json", mismatch.SummaryPath);
         }
 
         // JSON writer 는 CI/provider 에 묶이지 않는 stable key 집합을 만든다.
@@ -117,7 +189,8 @@ namespace Hps.Benchmarks.Tests
             int warningCount,
             double? loadP99,
             double? openLoopP99,
-            int tcpHwm)
+            int tcpHwm,
+            BaselineComparisonResult? comparison = null)
         {
             return new BaselineHistorySession(
                 date,
@@ -130,7 +203,48 @@ namespace Hps.Benchmarks.Tests
                 warningCount,
                 loadP99,
                 openLoopP99,
-                tcpHwm);
+                tcpHwm,
+                comparison ?? CreateCompatibleComparison("runner-a"));
+        }
+
+        private static BaselineComparisonResult CreateCompatibleComparison(string runnerId)
+        {
+            return new BaselineComparisonResult(
+                true,
+                new BaselineComparisonKey(
+                    "tcp-loopback-saea-v1",
+                    runnerId,
+                    "local",
+                    "SaeaTransport",
+                    "Windows",
+                    "X64",
+                    "X64",
+                    ".NET 9.0",
+                    new[]
+                    {
+                        new BaselineComparisonCase("load", "tcp-loopback-saea-baseline", 4096, 100.0, 30)
+                    }),
+                0,
+                new BaselineComparisonMismatch[0]);
+        }
+
+        private static BaselineComparisonResult CreateLegacyComparison(string session, string summaryPath)
+        {
+            return new BaselineComparisonResult(
+                false,
+                null,
+                0,
+                new[]
+                {
+                    new BaselineComparisonMismatch(
+                        "legacy-summary-without-comparison",
+                        "comparison-compatible",
+                        "present",
+                        "missing",
+                        null,
+                        session,
+                        summaryPath)
+                });
         }
 
         private static string CreateTempDirectory()

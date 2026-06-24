@@ -9,22 +9,21 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` summary/history comparison signal Task 4: history reader/generator comparison 집계를 구현한다.
-  - 무엇이 남았는지: Task 3에서 summary JSON/Markdown comparison output 까지 완료했다.
-    아직 `BaselineHistoryReader`가 session `summary.json`의 comparison field 를 읽지 않고,
-    `BaselineHistoryGenerator`도 session 간 compatible 여부를 집계하지 않는다.
-  - 왜 지금 해야 하는지: history command 는 여러 baseline session 을 비교하는 entry point 이므로,
-    summary 단위의 비교 가능성 신호를 history artifact 로 끌어올려야 runner/session 혼합을 식별할 수 있다.
-  - objective: `BaselineHistorySession`과 `BaselineHistory`에 comparison result 를 보존하고,
-    legacy summary 누락 field 는 incompatible compatibility signal 로 표시하며,
-    session comparison mismatch 는 기존 hard gate/warning-count 를 바꾸지 않는 별도 aggregate 로 계산한다.
+- [ ] `P1_SOON` summary/history comparison signal Task 5: history JSON/Markdown output 과 CLI smoke 를 구현한다.
+  - 무엇이 남았는지: Task 4에서 history reader/generator comparison aggregate 까지 완료했다.
+    아직 `BaselineHistoryWriter`와 `BaselineHistoryMarkdownWriter`가 comparison result 를 output 으로 쓰지 않고,
+    CLI smoke 도 comparison mismatch 가 hard gate exit code 를 바꾸지 않는다는 계약을 고정하지 않는다.
+  - 왜 지금 해야 하는지: history command 의 canonical artifact 는 JSON output 이므로,
+    aggregate comparison result 가 파일에 남아야 후속 script/리뷰가 session 비교 가능성 문제를 감지할 수 있다.
+  - objective: history JSON top-level/session entry 에 comparison field 를 쓰고,
+    history Markdown 에 `## Comparison` section 을 추가하며,
+    comparison mismatch-only history 는 `Program.Main`이 success exit code 를 유지함을 검증한다.
   - 관련 파일: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
     `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`,
-    `tests/Hps.Benchmarks/BaselineHistorySession.cs`, `tests/Hps.Benchmarks/BaselineHistory.cs`,
-    `tests/Hps.Benchmarks/BaselineHistoryReader.cs`, `tests/Hps.Benchmarks/BaselineHistoryGenerator.cs`,
-    `tests/Hps.Benchmarks.Tests/BaselineHistoryReaderTests.cs`,
-    `tests/Hps.Benchmarks.Tests/BaselineHistoryGeneratorWriterTests.cs`.
-  - next step: comparison property contract Red 를 먼저 만들고, reader behavior 와 generator aggregate Red 를 순서대로 닫는다.
+    `tests/Hps.Benchmarks/BaselineHistoryWriter.cs`, `tests/Hps.Benchmarks/BaselineHistoryMarkdownWriter.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineHistoryGeneratorWriterTests.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineHistoryProgramTests.cs`.
+  - next step: JSON writer comparison field 부재 Red 를 먼저 만들고, Markdown section 과 Program smoke 를 순서대로 닫는다.
 
 ## Deferred Backlog
 
@@ -50,6 +49,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-24 summary/history comparison signal Task 4를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/BaselineHistorySession.cs`, `tests/Hps.Benchmarks/BaselineHistory.cs`,
+    `tests/Hps.Benchmarks/BaselineHistoryReader.cs`, `tests/Hps.Benchmarks/BaselineHistoryGenerator.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineHistoryReaderTests.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineHistoryGeneratorWriterTests.cs`, root 상태 문서.
+  - 결과: history session/history model 이 comparison result 를 보존하고,
+    reader 는 summary comparison field 와 legacy fallback 을 읽으며,
+    generator 는 session comparison key 를 history-level compatibility 로 집계한다.
+  - 비고: comparison mismatch 는 hard gate, failed-session-count, warning-count 를 바꾸지 않는 별도 result 로 유지한다.
+  - Red: comparison property contract tests 2개가 `Assert.NotNull()` 실패함을 확인했다.
+    reader/generator behavior tests 5개는 stub comparison 에서 `Assert.True()`/`Assert.Single()` 실패함을 확인했다.
+  - Green/검증: focused history reader/generator tests 12개 통과.
 
 - [x] 2026-06-24 summary/history comparison signal Task 3을 구현했다.
   - 범위: `tests/Hps.Benchmarks/BaselineSummaryWriter.cs`,

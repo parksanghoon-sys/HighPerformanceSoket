@@ -9,13 +9,15 @@ namespace Hps.Benchmarks
             IReadOnlyList<BaselineHistorySession> sessions,
             bool hardPassed,
             int failedSessionCount,
-            int warningCount)
+            int warningCount,
+            BaselineComparisonResult? comparison = null)
         {
             SourceRoot = sourceRoot;
             Sessions = sessions;
             HardPassed = hardPassed;
             FailedSessionCount = failedSessionCount;
             WarningCount = warningCount;
+            Comparison = comparison ?? new BaselineComparisonResult(false, null, 0, new BaselineComparisonMismatch[0]);
         }
 
         public string SourceRoot { get; }
@@ -32,5 +34,7 @@ namespace Hps.Benchmarks
         public int FailedSessionCount { get; }
 
         public int WarningCount { get; }
+
+        public BaselineComparisonResult Comparison { get; }
     }
 }

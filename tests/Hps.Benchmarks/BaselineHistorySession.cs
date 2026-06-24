@@ -13,7 +13,8 @@ namespace Hps.Benchmarks
             int warningCount,
             double? loadP99MaxMicroseconds,
             double? openLoopP99MaxMicroseconds,
-            int tcpHighWatermarkMax)
+            int tcpHighWatermarkMax,
+            BaselineComparisonResult? comparison = null)
         {
             Date = date;
             Session = session;
@@ -26,6 +27,7 @@ namespace Hps.Benchmarks
             LoadP99MaxMicroseconds = loadP99MaxMicroseconds;
             OpenLoopP99MaxMicroseconds = openLoopP99MaxMicroseconds;
             TcpHighWatermarkMax = tcpHighWatermarkMax;
+            Comparison = comparison ?? new BaselineComparisonResult(false, null, 0, new BaselineComparisonMismatch[0]);
         }
 
         public string Date { get; }
@@ -49,5 +51,7 @@ namespace Hps.Benchmarks
         public double? OpenLoopP99MaxMicroseconds { get; }
 
         public int TcpHighWatermarkMax { get; }
+
+        public BaselineComparisonResult Comparison { get; }
     }
 }

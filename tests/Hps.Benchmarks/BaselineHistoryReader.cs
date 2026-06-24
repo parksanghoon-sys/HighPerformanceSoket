@@ -89,11 +89,13 @@ namespace Hps.Benchmarks
                 double? openLoopP99 = GetKindDouble(root, "open-loop", "p99-max-us");
                 int loadHwm = GetKindInt(root, "load", "tcp-hwm-max");
                 int openLoopHwm = GetKindInt(root, "open-loop", "tcp-hwm-max");
+                string relativeSummaryPath = ToRelativePath(inputRoot, summaryPath);
+                BaselineComparisonResult comparison = ReadComparison(root, session, relativeSummaryPath);
 
                 return new BaselineHistorySession(
                     Path.GetFileName(dateRoot),
                     session,
-                    ToRelativePath(inputRoot, summaryPath),
+                    relativeSummaryPath,
                     humanReportPath,
                     root.GetProperty("source-report-count").GetInt32(),
                     root.GetProperty("hard-passed").GetBoolean(),
@@ -101,8 +103,106 @@ namespace Hps.Benchmarks
                     root.GetProperty("warning-count").GetInt32(),
                     loadP99,
                     openLoopP99,
-                    Math.Max(loadHwm, openLoopHwm));
+                    Math.Max(loadHwm, openLoopHwm),
+                    comparison);
             }
+        }
+
+        private static BaselineComparisonResult ReadComparison(JsonElement root, string session, string summaryPath)
+        {
+            JsonElement compatibleElement;
+            if (!root.TryGetProperty("comparison-compatible", out compatibleElement))
+            {
+                return new BaselineComparisonResult(
+                    false,
+                    null,
+                    0,
+                    new[]
+                    {
+                        new BaselineComparisonMismatch(
+                            "legacy-summary-without-comparison",
+                            "comparison-compatible",
+                            "present",
+                            "missing",
+                            null,
+                            session,
+                            summaryPath)
+                    });
+            }
+
+            BaselineComparisonKey? key = null;
+            JsonElement keyElement;
+            if (root.TryGetProperty("comparison-key", out keyElement) && keyElement.ValueKind != JsonValueKind.Null)
+                key = ReadComparisonKey(keyElement);
+
+            int unknownRunnerCount = 0;
+            JsonElement unknownRunnerElement;
+            if (root.TryGetProperty("unknown-runner-count", out unknownRunnerElement))
+                unknownRunnerCount = unknownRunnerElement.GetInt32();
+
+            List<BaselineComparisonMismatch> mismatches = new List<BaselineComparisonMismatch>();
+            JsonElement mismatchesElement;
+            if (root.TryGetProperty("comparison-mismatches", out mismatchesElement) && mismatchesElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement mismatchElement in mismatchesElement.EnumerateArray())
+                    mismatches.Add(ReadComparisonMismatch(mismatchElement, session, summaryPath));
+            }
+
+            return new BaselineComparisonResult(
+                compatibleElement.GetBoolean(),
+                key,
+                unknownRunnerCount,
+                mismatches);
+        }
+
+        private static BaselineComparisonKey ReadComparisonKey(JsonElement key)
+        {
+            List<BaselineComparisonCase> cases = new List<BaselineComparisonCase>();
+            JsonElement casesElement;
+            if (key.TryGetProperty("cases", out casesElement) && casesElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement runCase in casesElement.EnumerateArray())
+                {
+                    cases.Add(new BaselineComparisonCase(
+                        runCase.GetProperty("result-name").GetString()!,
+                        runCase.GetProperty("scenario").GetString()!,
+                        runCase.GetProperty("payload-bytes").GetInt32(),
+                        runCase.GetProperty("target-rate-hz").GetDouble(),
+                        runCase.GetProperty("target-duration-seconds").GetInt32()));
+                }
+            }
+
+            return new BaselineComparisonKey(
+                key.GetProperty("benchmark-profile").GetString()!,
+                key.GetProperty("runner-id").GetString()!,
+                key.GetProperty("runner-kind").GetString()!,
+                key.GetProperty("transport-backend").GetString()!,
+                key.GetProperty("os-description").GetString()!,
+                key.GetProperty("os-architecture").GetString()!,
+                key.GetProperty("process-architecture").GetString()!,
+                key.GetProperty("framework-description").GetString()!,
+                cases);
+        }
+
+        private static BaselineComparisonMismatch ReadComparisonMismatch(JsonElement mismatch, string session, string summaryPath)
+        {
+            return new BaselineComparisonMismatch(
+                mismatch.GetProperty("code").GetString()!,
+                mismatch.GetProperty("field").GetString()!,
+                mismatch.GetProperty("expected").GetString()!,
+                mismatch.GetProperty("actual").GetString()!,
+                GetOptionalString(mismatch, "source-path"),
+                GetOptionalString(mismatch, "session") ?? session,
+                GetOptionalString(mismatch, "summary-path") ?? summaryPath);
+        }
+
+        private static string? GetOptionalString(JsonElement element, string propertyName)
+        {
+            JsonElement value;
+            if (!element.TryGetProperty(propertyName, out value) || value.ValueKind == JsonValueKind.Null)
+                return null;
+
+            return value.GetString();
         }
 
         private static double? GetKindDouble(JsonElement root, string kindName, string propertyName)
