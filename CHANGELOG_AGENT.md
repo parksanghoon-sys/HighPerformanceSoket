@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - summary/history comparison signal Task 5)
+
+### 작업 단위
+- D080 구현 계획의 마지막 단위로 history JSON/Markdown output 과 CLI smoke 에 comparison signal 을 연결했다.
+- summary/history comparison signal Task 1~5 구현은 이 단위로 완료됐다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/BaselineHistoryWriter.cs`: history JSON top-level 에 comparison-compatible/key/mismatch field 를 쓰고,
+  session entry 에 comparison-compatible, unknown-runner-count, comparison-mismatch-count 를 기록한다.
+- `tests/Hps.Benchmarks/BaselineHistoryMarkdownWriter.cs`: history Markdown 에 `## Comparison` section,
+  기준 key 요약, workload case table, mismatch table 을 출력한다.
+- `tests/Hps.Benchmarks.Tests/BaselineHistoryGeneratorWriterTests.cs`: history JSON comparison field 와
+  Markdown comparison section 을 검증했다.
+- `tests/Hps.Benchmarks.Tests/BaselineHistoryProgramTests.cs`: runner mismatch-only history 가 hard gate success exit code 를
+  유지하면서 comparison mismatch field 를 쓰는지 검증했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: Task 1~5 완료와 현재 실행 작업 없음 상태를 반영했다.
+
+### 검증
+- Red 1: history JSON writer test 가 comparison field 부재로 `KeyNotFoundException`을 냄을 확인했다.
+- Red 2: Markdown writer test 가 `## Comparison` section 부재로 `Assert.Contains()` 실패함을 확인했다.
+- Red 3: Program smoke test 가 history JSON comparison field 부재로 `KeyNotFoundException`을 냄을 확인했다.
+- Green: focused Task 5 tests 3개 통과.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 63개 통과/실패 0.
+
 ## 2026-06-24 (Codex - summary/history comparison signal Task 4)
 
 ### 작업 단위

@@ -75,6 +75,34 @@ namespace Hps.Benchmarks.Tests
             }
         }
 
+        // comparison mismatch 는 D080 기준 hard gate 가 아니라 별도 compatibility artifact 다.
+        // 모든 session hard gate 가 PASS 이면 runner mismatch 가 있어도 CLI exit code 는 성공을 유지해야 한다.
+        [Fact]
+        public void Main_WhenHistorySummaryHasComparisonMismatchOnly_ReturnsSuccessAndWritesComparisonSignal()
+        {
+            string root = CreateTempDirectory("baselines");
+            string dateRoot = Path.Combine(root, "2026-06-18");
+            Directory.CreateDirectory(dateRoot);
+            WriteSummaryWithComparison(Path.Combine(dateRoot, "summary.json"), "runner-a");
+            string sessionTwo = Path.Combine(dateRoot, "session-02");
+            Directory.CreateDirectory(sessionTwo);
+            WriteSummaryWithComparison(Path.Combine(sessionTwo, "summary.json"), "runner-b");
+            string historyJson = Path.Combine(root, "history.json");
+
+            int exitCode = Program.Main(new[] { "--summarize-baseline-history", root, "--history", historyJson });
+
+            Assert.Equal(0, exitCode);
+            using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(historyJson)))
+            {
+                JsonElement rootElement = document.RootElement;
+                Assert.True(rootElement.GetProperty("hard-passed").GetBoolean());
+                Assert.Equal(0, rootElement.GetProperty("warning-count").GetInt32());
+                Assert.False(rootElement.GetProperty("comparison-compatible").GetBoolean());
+                Assert.Equal(1, rootElement.GetProperty("comparison-mismatch-count").GetInt32());
+                Assert.Equal("history-comparison-key-mismatch", rootElement.GetProperty("comparison-mismatches")[0].GetProperty("code").GetString());
+            }
+        }
+
         private static string CreateTempDirectory(string leafName)
         {
             string directory = Path.Combine(Path.GetTempPath(), "hps-baseline-history-program-tests", Path.GetRandomFileName(), leafName);
@@ -91,6 +119,39 @@ namespace Hps.Benchmarks.Tests
                 + "\"hard-passed\":" + (hardPassed ? "true" : "false") + ","
                 + "\"hard-failure-count\":" + (hardPassed ? "0" : "1") + ","
                 + "\"warning-count\":" + warningCount.ToString(CultureInfo.InvariantCulture) + ","
+                + "\"warnings\":[],"
+                + "\"by-kind\":{"
+                + "\"load\":{\"p99-max-us\":924.1,\"tcp-hwm-max\":2},"
+                + "\"open-loop\":{\"p99-max-us\":1005.5,\"tcp-hwm-max\":3}"
+                + "}"
+                + "}";
+            File.WriteAllText(path, json);
+        }
+
+        private static void WriteSummaryWithComparison(string path, string runnerId)
+        {
+            string json = "{"
+                + "\"summary-version\":1,"
+                + "\"source-directory\":\"source\","
+                + "\"source-report-count\":6,"
+                + "\"hard-passed\":true,"
+                + "\"hard-failure-count\":0,"
+                + "\"warning-count\":0,"
+                + "\"comparison-compatible\":true,"
+                + "\"comparison-key\":{"
+                + "\"benchmark-profile\":\"tcp-loopback-saea-v1\","
+                + "\"runner-id\":\"" + runnerId + "\","
+                + "\"runner-kind\":\"local\","
+                + "\"transport-backend\":\"SaeaTransport\","
+                + "\"os-description\":\"Windows\","
+                + "\"os-architecture\":\"X64\","
+                + "\"process-architecture\":\"X64\","
+                + "\"framework-description\":\".NET 9.0\","
+                + "\"cases\":[{\"result-name\":\"load\",\"scenario\":\"tcp-loopback-saea-baseline\",\"payload-bytes\":4096,\"target-rate-hz\":100,\"target-duration-seconds\":30}]"
+                + "},"
+                + "\"unknown-runner-count\":0,"
+                + "\"comparison-mismatch-count\":0,"
+                + "\"comparison-mismatches\":[],"
                 + "\"warnings\":[],"
                 + "\"by-kind\":{"
                 + "\"load\":{\"p99-max-us\":924.1,\"tcp-hwm-max\":2},"
