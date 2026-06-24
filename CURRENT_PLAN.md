@@ -87,6 +87,10 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - summary/history comparison signal Task 1이 완료됐다.
   `BaselineReport`와 `BaselineReportReader`가 raw report 의 `payload-bytes`, `target-rate-hz`,
   `target-duration-seconds`를 보존한다. 이 값은 다음 Task 2에서 summary comparison key 의 workload case 입력으로 사용한다.
+- summary/history comparison signal Task 2가 완료됐다.
+  `BaselineComparisonCase`, `BaselineComparisonKey`, `BaselineComparisonMismatch`, `BaselineComparisonResult`를 추가했고,
+  `BaselineSummaryGenerator`가 source report 목록에서 compatible 여부, unknown runner count, mismatch 목록,
+  result-name별 canonical cases 를 계산한다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -150,6 +154,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Summary/history comparison signal Task 2
+  - summary comparison 내부 model 4종을 추가했다.
+  - `BaselineSummary`가 `Comparison`을 보존하고, `BaselineSummaryGenerator`가 D080 compatible/unknown/mismatch/no-source 규칙을 계산한다.
+  - comparison key 는 `processor-count`를 제외하고 runner/profile/backend/OS/framework/architecture field 와
+    `result-name`별 workload case 를 포함한다.
+  - Red: `BaselineSummary.Comparison` property 부재로 contract test 가 `Assert.NotNull()` 실패함을 확인했다.
+  - Red: compatible behavior test 가 stub comparison 에서 `Expected: True, Actual: False`로 실패함을 확인했다.
+  - Green/검증: focused `BaselineSummaryGeneratorTests` 8개 통과, `Hps.Benchmarks.Tests` 51개 통과.
 - 이번 단위 — Summary/history comparison signal Task 1
   - `BaselineReport`에 `PayloadBytes`, `TargetRateHz`, `TargetDurationSeconds`를 추가했다.
   - `BaselineReportReader`가 raw report JSON의 `payload-bytes`, `target-rate-hz`, `target-duration-seconds`를 읽어 model 로 전달하게 했다.
@@ -435,22 +447,21 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Summary/history comparison signal Task 2를 구현한다.
+Summary/history comparison signal Task 3을 구현한다.
 
-다음 작업은 summary comparison model/generator 를 추가하는 단위다.
-`BaselineComparisonCase`, `BaselineComparisonKey`, `BaselineComparisonMismatch`, `BaselineComparisonResult`를 추가하고,
-`BaselineSummaryGenerator`가 source report 목록에서 compatible 여부, unknown runner count, mismatch 목록을 계산하게 한다.
+다음 작업은 summary JSON/Markdown output 에 comparison field 와 `## Comparison` section 을 추가하는 단위다.
+계산은 Task 2의 `BaselineSummary.Comparison`을 그대로 사용하고, writer 에서 다시 계산하지 않는다.
 
 ## 이번 단위의 검증 경로
 
-다음 단위는 구현 Task 2다.
+다음 단위는 구현 Task 3이다.
 
 - 범위: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
   `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`,
-  `tests/Hps.Benchmarks/BaselineSummary.cs`, `tests/Hps.Benchmarks/BaselineSummaryGenerator.cs`,
-  신규 comparison model 파일들, `tests/Hps.Benchmarks.Tests/BaselineSummaryGeneratorTests.cs`.
-- 검증: assertion-failure Red 로 `BaselineSummary.Comparison` 부재를 확인하고,
-  behavior Red 로 compatible/unknown/mismatch/no-source cases 를 확인한 뒤 focused benchmark tests,
+  `tests/Hps.Benchmarks/BaselineSummaryWriter.cs`, `tests/Hps.Benchmarks/BaselineSummaryMarkdownWriter.cs`,
+  `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`,
+  `tests/Hps.Benchmarks.Tests/BaselineSummaryMarkdownWriterTests.cs`.
+- 검증: JSON writer field 부재 Red 와 Markdown `## Comparison` section 부재 Red 를 확인한 뒤 focused benchmark tests,
   `git diff --check`, solution build/test 를 수행한다.
 - 완료 후 root 상태 문서 갱신과 단일 커밋을 진행한다.
 

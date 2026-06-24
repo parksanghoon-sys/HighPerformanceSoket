@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - summary/history comparison signal Task 2)
+
+### 작업 단위
+- D080 구현 계획의 두 번째 단위로 summary comparison model/generator 를 추가했다.
+- summary JSON/Markdown output 과 history aggregation 은 다음 Task 로 분리했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/BaselineComparisonCase.cs`: `result-name`별 scenario/payload/target case model 을 추가했다.
+- `tests/Hps.Benchmarks/BaselineComparisonKey.cs`: runner/environment key 와 case 목록 model 을 추가했다.
+- `tests/Hps.Benchmarks/BaselineComparisonMismatch.cs`: summary/history 공용 mismatch entry model 을 추가했다.
+- `tests/Hps.Benchmarks/BaselineComparisonResult.cs`: compatible 여부, key, unknown runner count, mismatch 목록 aggregate model 을 추가했다.
+- `tests/Hps.Benchmarks/BaselineSummary.cs`: `Comparison` property 를 추가했다.
+- `tests/Hps.Benchmarks/BaselineSummaryGenerator.cs`: source report 목록에서 no-source, unknown-runner,
+  runner/case mismatch, compatible key 를 계산한다. `processor-count`는 comparison key 에 포함하지 않는다.
+- `tests/Hps.Benchmarks.Tests/BaselineSummaryGeneratorTests.cs`: compatible, unknown identity, runner mismatch,
+  empty report comparison behavior 를 검증했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: Task 2 완료와 다음 Task 3 summary output 진입점을 반영했다.
+
+### 검증
+- Red 1: `BaselineSummary.Comparison` property 부재로 contract test 가 `Assert.NotNull()` 실패함을 확인했다.
+- Contract Green: comparison model stubs 와 summary property 추가 후 focused contract test 1개 통과.
+- Red 2: compatible behavior test 가 stub comparison 에서 `Expected: True, Actual: False`로 실패함을 확인했다.
+- Green: focused `BaselineSummaryGeneratorTests` 8개 통과.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 51개 통과/실패 0.
+
 ## 2026-06-24 (Codex - summary/history comparison signal Task 1)
 
 ### 작업 단위

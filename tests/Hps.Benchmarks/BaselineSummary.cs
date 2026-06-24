@@ -11,7 +11,8 @@ namespace Hps.Benchmarks
             int hardFailureCount,
             IReadOnlyList<BaselineWarning> warnings,
             BaselineKindSummary? load,
-            BaselineKindSummary? openLoop)
+            BaselineKindSummary? openLoop,
+            BaselineComparisonResult? comparison = null)
         {
             SourceDirectory = sourceDirectory;
             SourceReportCount = sourceReportCount;
@@ -20,6 +21,7 @@ namespace Hps.Benchmarks
             Warnings = warnings;
             Load = load;
             OpenLoop = openLoop;
+            Comparison = comparison ?? new BaselineComparisonResult(false, null, 0, new BaselineComparisonMismatch[0]);
         }
 
         public string SourceDirectory { get; }
@@ -40,5 +42,7 @@ namespace Hps.Benchmarks
         public BaselineKindSummary? Load { get; }
 
         public BaselineKindSummary? OpenLoop { get; }
+
+        public BaselineComparisonResult Comparison { get; }
     }
 }

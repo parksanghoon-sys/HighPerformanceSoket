@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace Hps.Benchmarks
 {
@@ -37,6 +38,7 @@ namespace Hps.Benchmarks
 
             BaselineKindSummary? load = CreateKindSummary("load", allReports);
             BaselineKindSummary? openLoop = CreateKindSummary("open-loop", allReports);
+            BaselineComparisonResult comparison = CreateComparison(allReports);
 
             return new BaselineSummary(
                 sourceDirectory,
@@ -45,7 +47,208 @@ namespace Hps.Benchmarks
                 hardFailureCount,
                 warnings,
                 load,
-                openLoop);
+                openLoop,
+                comparison);
+        }
+
+        // comparison signal 은 hard gate/warning 과 분리된 artifact 품질 신호다.
+        // 여기서 한 번 계산해 둬야 JSON/Markdown/history 단계가 서로 다른 기준으로 재계산하지 않는다.
+        private static BaselineComparisonResult CreateComparison(List<BaselineReport> reports)
+        {
+            List<BaselineComparisonMismatch> mismatches = new List<BaselineComparisonMismatch>();
+            if (reports.Count == 0)
+            {
+                mismatches.Add(new BaselineComparisonMismatch(
+                    "no-source-reports",
+                    "source-report-count",
+                    ">0",
+                    "0",
+                    null,
+                    null,
+                    null));
+
+                return new BaselineComparisonResult(false, null, 0, mismatches);
+            }
+
+            int unknownRunnerCount = 0;
+            BaselineReport? baseReport = null;
+            Dictionary<string, BaselineComparisonCase> cases = new Dictionary<string, BaselineComparisonCase>(StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < reports.Count; i++)
+            {
+                BaselineReport report = reports[i];
+                if (IsUnknownIdentity(report.Identity))
+                {
+                    unknownRunnerCount++;
+                    mismatches.Add(new BaselineComparisonMismatch(
+                        "unknown-runner",
+                        "runner-identity",
+                        "known",
+                        "unknown",
+                        report.SourcePath,
+                        null,
+                        null));
+                    continue;
+                }
+
+                if (baseReport == null)
+                    baseReport = report;
+                else
+                    AddIdentityMismatches(baseReport.Identity, report, mismatches);
+
+                AddOrCompareCase(report, cases, mismatches);
+            }
+
+            if (baseReport == null)
+                return new BaselineComparisonResult(false, null, unknownRunnerCount, mismatches);
+
+            BaselineComparisonKey key = new BaselineComparisonKey(
+                baseReport.Identity.BenchmarkProfile,
+                baseReport.Identity.RunnerId,
+                baseReport.Identity.RunnerKind,
+                baseReport.Identity.TransportBackend,
+                baseReport.Identity.OsDescription,
+                baseReport.Identity.OsArchitecture,
+                baseReport.Identity.ProcessArchitecture,
+                baseReport.Identity.FrameworkDescription,
+                CreateSortedCases(cases));
+
+            return new BaselineComparisonResult(mismatches.Count == 0, key, unknownRunnerCount, mismatches);
+        }
+
+        private static bool IsUnknownIdentity(BenchmarkRunIdentity identity)
+        {
+            return IsUnknown(identity.BenchmarkProfile)
+                || IsUnknown(identity.RunnerId)
+                || IsUnknown(identity.RunnerKind)
+                || IsUnknown(identity.TransportBackend)
+                || IsUnknown(identity.OsDescription)
+                || IsUnknown(identity.OsArchitecture)
+                || IsUnknown(identity.ProcessArchitecture)
+                || IsUnknown(identity.FrameworkDescription);
+        }
+
+        private static bool IsUnknown(string value)
+        {
+            return string.Equals(value, "unknown", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void AddIdentityMismatches(
+            BenchmarkRunIdentity expected,
+            BaselineReport actualReport,
+            List<BaselineComparisonMismatch> mismatches)
+        {
+            BenchmarkRunIdentity actual = actualReport.Identity;
+            AddStringMismatch("benchmark-profile", expected.BenchmarkProfile, actual.BenchmarkProfile, actualReport.SourcePath, mismatches);
+            AddStringMismatch("runner-id", expected.RunnerId, actual.RunnerId, actualReport.SourcePath, mismatches);
+            AddStringMismatch("runner-kind", expected.RunnerKind, actual.RunnerKind, actualReport.SourcePath, mismatches);
+            AddStringMismatch("transport-backend", expected.TransportBackend, actual.TransportBackend, actualReport.SourcePath, mismatches);
+            AddStringMismatch("os-description", expected.OsDescription, actual.OsDescription, actualReport.SourcePath, mismatches);
+            AddStringMismatch("os-architecture", expected.OsArchitecture, actual.OsArchitecture, actualReport.SourcePath, mismatches);
+            AddStringMismatch("process-architecture", expected.ProcessArchitecture, actual.ProcessArchitecture, actualReport.SourcePath, mismatches);
+            AddStringMismatch("framework-description", expected.FrameworkDescription, actual.FrameworkDescription, actualReport.SourcePath, mismatches);
+        }
+
+        private static void AddStringMismatch(
+            string field,
+            string expected,
+            string actual,
+            string sourcePath,
+            List<BaselineComparisonMismatch> mismatches)
+        {
+            if (string.Equals(expected, actual, StringComparison.Ordinal))
+                return;
+
+            mismatches.Add(new BaselineComparisonMismatch(
+                "comparison-key-mismatch",
+                field,
+                expected,
+                actual,
+                sourcePath,
+                null,
+                null));
+        }
+
+        private static void AddOrCompareCase(
+            BaselineReport report,
+            Dictionary<string, BaselineComparisonCase> cases,
+            List<BaselineComparisonMismatch> mismatches)
+        {
+            BaselineComparisonCase observed = CreateCase(report);
+            BaselineComparisonCase? expected;
+            if (!cases.TryGetValue(report.ResultName, out expected))
+            {
+                cases.Add(report.ResultName, observed);
+                return;
+            }
+
+            BaselineComparisonCase existing = expected!;
+            string prefix = "cases[" + existing.ResultName + "].";
+            AddStringMismatch(prefix + "scenario", existing.Scenario, observed.Scenario, report.SourcePath, mismatches);
+            AddIntMismatch(prefix + "payload-bytes", existing.PayloadBytes, observed.PayloadBytes, report.SourcePath, mismatches);
+            AddDoubleMismatch(prefix + "target-rate-hz", existing.TargetRateHz, observed.TargetRateHz, report.SourcePath, mismatches);
+            AddIntMismatch(prefix + "target-duration-seconds", existing.TargetDurationSeconds, observed.TargetDurationSeconds, report.SourcePath, mismatches);
+        }
+
+        private static BaselineComparisonCase CreateCase(BaselineReport report)
+        {
+            return new BaselineComparisonCase(
+                report.ResultName,
+                report.Scenario,
+                report.PayloadBytes,
+                report.TargetRateHz,
+                report.TargetDurationSeconds);
+        }
+
+        private static void AddIntMismatch(
+            string field,
+            int expected,
+            int actual,
+            string sourcePath,
+            List<BaselineComparisonMismatch> mismatches)
+        {
+            if (expected == actual)
+                return;
+
+            mismatches.Add(new BaselineComparisonMismatch(
+                "comparison-key-mismatch",
+                field,
+                expected.ToString(CultureInfo.InvariantCulture),
+                actual.ToString(CultureInfo.InvariantCulture),
+                sourcePath,
+                null,
+                null));
+        }
+
+        private static void AddDoubleMismatch(
+            string field,
+            double expected,
+            double actual,
+            string sourcePath,
+            List<BaselineComparisonMismatch> mismatches)
+        {
+            if (expected.Equals(actual))
+                return;
+
+            mismatches.Add(new BaselineComparisonMismatch(
+                "comparison-key-mismatch",
+                field,
+                expected.ToString("G17", CultureInfo.InvariantCulture),
+                actual.ToString("G17", CultureInfo.InvariantCulture),
+                sourcePath,
+                null,
+                null));
+        }
+
+        private static IReadOnlyList<BaselineComparisonCase> CreateSortedCases(Dictionary<string, BaselineComparisonCase> cases)
+        {
+            List<BaselineComparisonCase> sorted = new List<BaselineComparisonCase>(cases.Values);
+            sorted.Sort(
+                delegate (BaselineComparisonCase left, BaselineComparisonCase right)
+                {
+                    return StringComparer.OrdinalIgnoreCase.Compare(left.ResultName, right.ResultName);
+                });
+            return sorted;
         }
 
         // kind별 summary 는 사람이 outlier 를 해석할 때 보는 중심경향/범위 정보다.
