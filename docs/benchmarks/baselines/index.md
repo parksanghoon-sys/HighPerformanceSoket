@@ -21,12 +21,18 @@
 
 ## Runner Groups
 
-아직 명시적 runner baseline 은 수집하지 않았다.
-첫 runner group 은 D084 기준으로 `docs/benchmarks/baselines/runners/<runner-id>/YYYY-MM-DD/session-NN/` 구조를 사용한다.
+명시적 runner baseline 은 D084 기준으로 `docs/benchmarks/baselines/runners/<runner-id>/YYYY-MM-DD/session-NN/`
+구조를 사용한다.
 
 | runner id | runner kind | profile | transport backend | latest date root | 비고 |
 | --- | --- | --- | --- | --- | --- |
-| 없음 | 없음 | 없음 | 없음 | 없음 | explicit runner baseline 수집 전 |
+| local-win-x64-01 | local | tcp-loopback-saea-v1 | SaeaTransport | [2026-06-24](runners/local-win-x64-01/2026-06-24/history.json) | 첫 explicit runner baseline, gate 승격 전 구조 검증 표본 |
+
+## Runner Date-level History
+
+| runner id | 날짜 | history | human report | sessions | hard passed | warnings | comparison compatible |
+| --- | --- | --- | --- | ---: | --- | ---: | --- |
+| local-win-x64-01 | 2026-06-24 | [history.json](runners/local-win-x64-01/2026-06-24/history.json) | [history.md](runners/local-win-x64-01/2026-06-24/history.md) | 1 | true | 0 | true |
 
 ## Date-level History
 
@@ -39,6 +45,7 @@
 
 | 날짜 | session | runner/scope | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | TCP HWM max |
 | --- | --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
+| 2026-06-24 | session-01 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-24/session-01/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-24/session-01/summary.md) | 6 | true | 0 | 870.7 | 844.7 | 2 |
 | 2026-06-24 | session-01 | local Windows TCP loopback SAEA, D079 metadata | [summary.json](2026-06-24/session-01/summary.json) | [summary.md](2026-06-24/session-01/summary.md) | 6 | true | 0 | 876.3 | 948.5 | 2 |
 | 2026-06-24 | session-02 | local Windows TCP loopback SAEA, D079 metadata | [summary.json](2026-06-24/session-02/summary.json) | [summary.md](2026-06-24/session-02/summary.md) | 6 | true | 0 | 1020.4 | 1006.5 | 2 |
 | 2026-06-24 | session-03 | local Windows TCP loopback SAEA, D079 metadata | [summary.json](2026-06-24/session-03/summary.json) | [summary.md](2026-06-24/session-03/summary.md) | 6 | true | 0 | 930 | 979.4 | 2 |
@@ -79,6 +86,8 @@ latency, growth, HWM 은 max, actual rate 는 min 을 사용한다.
   현재 p99 max 가 load 1020.4 us, open-loop 1006.5 us 까지 관측되어 1 ms hard SLO 는 현 baseline 과 맞지 않는다.
 - 2026-06-24 baseline 은 `runner-id=local-unspecified`이므로 gate 승격 조건의 날짜 root count 에 산입하지 않는다.
   이 표본은 reference envelope 의 근거이며, envelope 초과 여부는 현재 자동 failure 가 아니라 수동 리뷰 메모로만 기록한다.
+- `local-win-x64-01` runner group 은 첫 explicit runner baseline 이며, D084 저장 구조와 history command 경로 검증 표본이다.
+  아직 같은 runner 의 date root 가 1개이고 session 도 1개뿐이므로 D082 warning-as-failure 승격 조건에는 산입하지 않는다.
 - 2026-06-18 raw report 는 D079 runner identity/environment metadata 도입 전 artifact 이므로
   summary/history comparison 은 `unknown-runner` mismatch 로 `comparison-compatible=false`를 기록한다.
   이 값은 hard gate 실패가 아니라 비교 가능성 신호다.

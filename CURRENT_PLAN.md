@@ -100,6 +100,8 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - explicit runner baseline 저장 구조와 수집 정책을 D084로 확정했다.
   명시적 runner baseline 은 `docs/benchmarks/baselines/runners/<runner-id>/YYYY-MM-DD/session-NN/` 아래에 저장하고,
   기존 top-level date roots 는 legacy/local-unspecified baseline 으로 보존한다.
+- 첫 explicit runner baseline 을 `local-win-x64-01/2026-06-24/session-01`에 수집했다.
+  runner/date history 는 session-count 1, hard-passed true, warning-count 0, comparison-compatible true 다.
 - summary/history comparison signal 설계를 완료했다.
   설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
   D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
@@ -191,6 +193,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — 첫 explicit runner baseline session-01 수집
+  - `HPS_BENCHMARK_RUNNER_ID=local-win-x64-01`, `HPS_BENCHMARK_RUNNER_KIND=local`로
+    `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/session-01/`에 raw report 6개를 생성했다.
+  - 같은 session 에 `summary.json`/`summary.md`를 생성하고, runner/date root 에 `history.json`/`history.md`를 생성했다.
+  - summary/history 는 `hard-passed=true`, `warning-count=0`, `comparison-compatible=true`, unknown runner 0, mismatch 0 이다.
+  - `docs/benchmarks/baselines/index.md`에 runner group, runner date-level history, session row 를 추가했다.
+  - 다음 단위는 같은 runner/date root 에 `session-02`를 수집하는 것이다.
+  - 검증: baseline suite pass, summary CLI source-report-count 6/hard-passed true/warning-count 0,
+    history CLI session-count 1/hard-passed true/warning-count 0.
+    runner artifact local absolute path 검색 결과 없음. `Hps.Benchmarks.Tests` 67개 통과,
+    `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 - 이번 단위 — explicit runner baseline 저장 구조와 수집 정책 설계
   - `docs/superpowers/specs/2026-06-24-explicit-runner-baseline-storage-policy-design.md`를 추가했다.
   - 명시적 runner baseline 저장 위치를 `docs/benchmarks/baselines/runners/<runner-id>/YYYY-MM-DD/session-NN/`로 정했다(D084).
@@ -620,18 +633,19 @@ Summary/history comparison signal 계획의 Task 1~5, benchmark writer metadata 
 2026-06-18 generated baseline artifact 재생성, 2026-06-24 current-schema baseline session-01/session-02/session-03 추가,
 D082 설계와 리뷰 보강, Phase 4 다음 후보 재평가는 완료됐다.
 
-다음 작업은 첫 explicit runner baseline 을 새 runner group 구조에 수집하는 것이다.
+다음 작업은 같은 explicit runner/date root 에 `session-02`를 수집하는 것이다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 explicit runner baseline 저장 구조와 수집 정책을 설계하고, 다음 수집 단위의 경계를 정한 뒤
+이번 cycle 은 첫 explicit runner baseline 을 새 runner group 구조에 수집하고, 다음 수집 단위의 경계를 정한 뒤
 최종 검증으로 마무리한다.
 
-- 범위: `docs/superpowers/specs/2026-06-24-explicit-runner-baseline-storage-policy-design.md`,
-  `docs/benchmarks/baselines/index.md`, `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`,
-  `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
-- 검증: D079/D080/D082/D083, `BaselineHistoryReader` directory 규칙, baseline index 운영 원칙을 대조한다.
-  신규 문서 임시 표기 검색, `git diff --check`, solution build/test 로 마무리한다.
+- 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/session-01/`,
+  `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/history.json`,
+  `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/history.md`,
+  `docs/benchmarks/baselines/index.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+- 검증: `--baseline-suite`, `--summarize-baseline`, `--summarize-baseline-history`, runner metadata 확인,
+  local absolute path 검색, `Hps.Benchmarks.Tests`, `git diff --check`, solution build/test 로 마무리한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

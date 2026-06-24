@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] 첫 explicit runner baseline 을 새 runner group 구조에 수집한다.
-  - 목적: D084 저장 정책이 실제 artifact 경로와 현재 history command 로 동작하는지 확인한다.
-  - 범위: `docs/benchmarks/baselines/runners/<runner-id>/<YYYY-MM-DD>/session-01/`,
+- [ ] 같은 explicit runner/date root 에 `session-02` baseline 을 수집한다.
+  - 목적: `local-win-x64-01/2026-06-24` date root 를 D082식 3-session 비교 후보로 확장한다.
+  - 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/session-02/`,
     해당 date root `history.json`/`history.md`, `docs/benchmarks/baselines/index.md`, root 상태 문서.
-  - 권장 runner id: `local-win-x64-01`. 실제 수집 전 privacy-safe stable token 인지 다시 확인한다.
+  - runner id: `local-win-x64-01`. `HPS_BENCHMARK_RUNNER_ID`와 path 가 계속 일치해야 한다.
   - 검증: `--baseline-suite`, `--summarize-baseline`, `--summarize-baseline-history`, local absolute path 검색,
     `Hps.Benchmarks.Tests`, `git diff --check`, solution build/test.
 
@@ -30,6 +30,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 첫 explicit runner baseline 을 새 runner group 구조에 수집했다.
+  - 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/session-01/`,
+    `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/history.json`,
+    `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/history.md`,
+    `docs/benchmarks/baselines/index.md`, root 상태 문서.
+  - 결과: raw report 6개, `summary.json`, `summary.md`, date-level `history.json`, `history.md`를 생성했다.
+  - 비고: `runner-id=local-win-x64-01`, `runner-kind=local`, `comparison-compatible=true`, unknown runner 0, mismatch 0 이다.
+    첫 explicit runner baseline 은 저장 구조 검증 표본이며, 아직 D082 warning-as-failure 승격 표본은 아니다.
+  - 검증: baseline suite pass, summary CLI source-report-count 6/hard-passed true/warning-count 0,
+    history CLI session-count 1/hard-passed true/warning-count 0.
+    runner artifact local absolute path 검색 결과 없음. `Hps.Benchmarks.Tests` 67개 통과,
+    `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 
 - [x] explicit runner baseline 저장 구조와 수집 정책을 설계했다.
   - 범위: `docs/superpowers/specs/2026-06-24-explicit-runner-baseline-storage-policy-design.md`,
