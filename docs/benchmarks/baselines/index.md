@@ -11,7 +11,15 @@
 - raw JSON 은 원본 측정값으로 보존한다.
 - `summary.json`은 자동화와 추세 비교용 machine-readable artifact 다.
 - `summary.md`는 리뷰용 human-readable artifact 다.
+- `history.json`은 여러 session summary 를 묶은 date-level machine-readable artifact 다.
+- `history.md`는 date-level history 를 사람이 빠르게 확인하기 위한 보조 artifact 다.
 - `warning-count > 0`은 현재 hard failure 가 아니다. warning-as-failure 와 latency hard gate 는 별도 결정 전까지 보류한다.
+
+## Date-level History
+
+| 날짜 | history | human report | sessions | hard passed | warnings | comparison compatible |
+| --- | --- | --- | ---: | --- | ---: | --- |
+| 2026-06-18 | [history.json](2026-06-18/history.json) | [history.md](2026-06-18/history.md) | 3 | true | 0 | false |
 
 ## Baseline Sessions
 
@@ -27,7 +35,10 @@
 - 세 session 모두 warning 이 없다.
 - session-01 은 같은 날짜의 초기 baseline 이며, 이후 session 보다 p99 가 높게 관측됐다.
 - 현재 수치는 hard latency SLO 가 아니라 Phase 4 추세 관측값이다.
-- 서로 다른 장비나 CI runner 의 session 은 runner identity/environment metadata 설계 전까지 같은 latency envelope 으로 직접 비교하지 않는다.
+- 2026-06-18 raw report 는 D079 runner identity/environment metadata 도입 전 artifact 이므로
+  summary/history comparison 은 `unknown-runner` mismatch 로 `comparison-compatible=false`를 기록한다.
+  이 값은 hard gate 실패가 아니라 비교 가능성 신호다.
+- 서로 다른 장비나 CI runner 의 session 은 runner identity/environment metadata 가 있는 새 raw report 부터 같은 latency envelope 으로 비교한다.
 
 ## 다음 갱신 규칙
 
@@ -35,5 +46,6 @@
 
 1. raw JSON 6개 이상을 session directory 에 보존한다.
 2. `--summarize-baseline <session-dir> --summary <session-dir>/summary.json --summary-md <session-dir>/summary.md`로 summary artifact 를 생성한다.
-3. 이 index 에 session row 를 한 줄 추가한다.
-4. hard failure 또는 warning 이 있으면 `해석 메모`에 원인과 후속 판단을 짧게 남긴다.
+3. 날짜 root 에 대해 `--summarize-baseline-history <date-root> --history <date-root>/history.json --history-md <date-root>/history.md`를 실행한다.
+4. 이 index 에 session row 와 date-level history row 를 갱신한다.
+5. hard failure, warning, comparison mismatch 가 있으면 `해석 메모`에 원인과 후속 판단을 짧게 남긴다.

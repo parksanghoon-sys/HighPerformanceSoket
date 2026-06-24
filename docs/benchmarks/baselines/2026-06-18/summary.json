@@ -5,6 +5,54 @@
   "hard-passed": true,
   "hard-failure-count": 0,
   "warning-count": 0,
+  "comparison-compatible": false,
+  "comparison-key": null,
+  "unknown-runner-count": 6,
+  "comparison-mismatch-count": 6,
+  "comparison-mismatches": [
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "load-01.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "load-02.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "load-03.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "open-loop-01.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "open-loop-02.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "open-loop-03.json"
+    }
+  ],
   "warnings": [],
   "by-kind": {
     "load": {

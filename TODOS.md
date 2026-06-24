@@ -9,7 +9,7 @@
 
 ## Current TODOs
 
-- 없음. Summary/history comparison signal 구현 계획의 Task 1~5는 완료됐다.
+- 없음. Summary/history comparison signal 구현 계획의 Task 1~5와 2026-06-18 generated baseline artifact 재생성은 완료됐다.
   다음 작업은 새 검토 의견을 반영하거나, 사용자가 별도로 요청한 후속 정책/Artifact 재생성 범위가 생길 때 선택한다.
 
 ## Deferred Backlog
@@ -25,6 +25,28 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-24 2026-06-18 baseline summary/history artifact 를 현재 schema 로 재생성했다.
+  - 범위: `docs/benchmarks/baselines/2026-06-18/summary.json`,
+    `docs/benchmarks/baselines/2026-06-18/summary.md`,
+    `docs/benchmarks/baselines/2026-06-18/session-02/summary.json`,
+    `docs/benchmarks/baselines/2026-06-18/session-02/summary.md`,
+    `docs/benchmarks/baselines/2026-06-18/session-03/summary.json`,
+    `docs/benchmarks/baselines/2026-06-18/session-03/summary.md`,
+    `docs/benchmarks/baselines/2026-06-18/history.json`,
+    `docs/benchmarks/baselines/2026-06-18/history.md`,
+    `docs/benchmarks/baselines/index.md`, root 상태 문서.
+  - 결과: root/session-02/session-03 summary artifact 가 D080 comparison field 를 포함하고,
+    date-level history artifact 가 세 session 을 집계한다.
+  - 추가 보정: `BaselineReportReader`가 `SourcePath`를 입력 directory 기준 상대 경로로 보존하게 해
+    committed artifact 에 local workspace 절대 경로가 들어가지 않게 했다.
+  - 비고: 기존 raw report 는 D079 이전 artifact 라서 comparison 은 `unknown-runner` mismatch 로 false 이며,
+    이는 hard failure 나 warning 이 아니라 비교 가능성 신호다.
+  - 검증: summary CLI 3회 모두 source-report-count 6, hard-passed true, warning-count 0.
+    history CLI 1회는 session-count 3, hard-passed true, warning-count 0.
+    relative source-path focused test 는 Red/Green 을 확인했고, artifact 절대 경로 검색은 매칭 없음이다.
+    `Hps.Benchmarks.Tests` 67개 통과, `git diff --check` exit 0, solution build 경고 0/오류 0,
+    solution tests 269개 통과.
 
 - [x] 2026-06-24 benchmark writer metadata roundtrip test 를 보강했다.
   - 범위: `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`, root 상태 문서.

@@ -32,6 +32,10 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
+- 2026-06-18 baseline root, `session-02`, `session-03`의 `summary.json`/`summary.md`는 D079/D080 이후 현재 schema 로 재생성됐다.
+- 2026-06-18 date root 에는 세 session 을 묶는 `history.json`과 `history.md`가 생성되어 있다.
+  기존 raw report 는 D079 이전 artifact 이므로 comparison signal 은 `unknown-runner` mismatch 를 기록하지만,
+  hard gate 와 warning 은 계속 pass/0 상태다.
 - baseline summary 이후 report history 와 warning 승격 정책은
   `docs/superpowers/specs/2026-06-18-baseline-report-history-warning-policy-design.md`로 정리했다(D071).
 - 반복 baseline session 을 빠르게 찾기 위한 전역 index 는 `docs/benchmarks/baselines/index.md`에 둔다(D071).
@@ -79,6 +83,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - benchmark writer metadata roundtrip test-hardening 이 완료됐다.
   `TcpLoopbackReportWriter`가 쓴 raw report 를 `BaselineReportReader`로 다시 읽어 D079 runner/environment metadata 전체,
   특히 `os-architecture`와 `process-architecture` field 이름 drift 를 조기에 잡는다.
+- generated baseline summary/history artifact 재생성이 완료됐다.
+  2026-06-18 세 session summary artifact 와 date-level history artifact 가 현재 D080 comparison schema 를 포함한다.
+  재생성 중 발견한 local absolute source path 출력은 `BaselineReportReader`에서 입력 directory 기준 상대 경로로 보정했다.
 - summary/history comparison signal 설계를 완료했다.
   설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
   D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
@@ -170,6 +177,18 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — 2026-06-18 baseline summary/history artifact 재생성
+  - 기존 raw benchmark JSON은 원본 측정값으로 유지하고, 파생 artifact 만 현재 schema 로 다시 생성했다.
+  - summary/history mismatch `source-path`가 local workspace 절대 경로를 기록하지 않도록 `BaselineReportReader`를 상대 경로 기준으로 보정했다.
+  - `summary.json`/`summary.md`를 root, `session-02`, `session-03`에서 재생성했다.
+  - `history.json`/`history.md`를 2026-06-18 date root 에 새로 생성했다.
+  - `docs/benchmarks/baselines/index.md`에 date-level history 링크와 D079 이전 legacy raw report 의
+    `comparison-compatible=false` 해석을 기록했다.
+  - 검증: summary CLI 3회 모두 source-report-count 6, hard-passed true, warning-count 0.
+    history CLI 는 session-count 3, hard-passed true, warning-count 0.
+    `docs/benchmarks/baselines/2026-06-18` 아래 `D:/`, `D:\`, `C:/`, `C:\Users` 검색 결과는 없다.
+    `Hps.Benchmarks.Tests` 67개 통과, `git diff --check` exit 0, solution build 경고 0/오류 0,
+    solution tests 269개 통과.
 - 이번 단위 — Benchmark writer metadata roundtrip test 보강
   - `TODOS.md`의 P3_NICE benchmark writer metadata roundtrip test gap 을 해소했다.
   - `BaselineReportReaderWriterTests`에 실제 `TcpLoopbackReportWriter.Write(...)` output 을
@@ -507,18 +526,25 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Summary/history comparison signal 계획의 Task 1~5와 benchmark writer metadata roundtrip test-hardening 은 완료됐다.
+Summary/history comparison signal 계획의 Task 1~5, benchmark writer metadata roundtrip test-hardening,
+2026-06-18 generated baseline artifact 재생성은 완료됐다.
 
 다음 작업은 새 검토 의견을 반영하거나, 별도 요청 시 generated baseline artifact 재생성/후속 정책 설계로 넘어간다.
 현재 문맥에서 즉시 승격할 P0/P1 코드 작업은 없다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 benchmark writer metadata roundtrip test 보강을 완료한 뒤 최종 검증으로 마무리한다.
+이번 cycle 은 2026-06-18 baseline summary/history artifact 재생성을 완료한 뒤 최종 검증으로 마무리한다.
 
-- 범위: `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`, root 상태 문서.
-- 검증: `process-architecture` field 이름 변경 mutation Red 를 확인했다.
-  focused roundtrip test 1개, `Hps.Benchmarks.Tests` 66개, solution tests 268개가 통과했다.
+- 범위: `docs/benchmarks/baselines/2026-06-18/**/summary.json`,
+  `docs/benchmarks/baselines/2026-06-18/**/summary.md`,
+  `docs/benchmarks/baselines/2026-06-18/history.json`,
+  `docs/benchmarks/baselines/2026-06-18/history.md`,
+  `docs/benchmarks/baselines/index.md`, `tests/Hps.Benchmarks/BaselineReportReader.cs`,
+  `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`, root 상태 문서.
+- 검증: summary CLI 3회, history CLI 1회가 모두 exit 0이다.
+  relative source-path focused test 는 Red/Green 을 확인했다.
+  `Hps.Benchmarks.Tests` 67개와 solution tests 269개가 통과했다.
   `git diff --check`는 exit 0이고, solution build 는 경고 0/오류 0이다.
 
 ## 이번 작업에서 건드리지 않는 범위

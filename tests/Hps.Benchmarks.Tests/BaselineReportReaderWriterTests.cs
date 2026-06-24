@@ -25,6 +25,20 @@ namespace Hps.Benchmarks.Tests
             Assert.Contains(reports, report => report.ResultName == "open-loop");
         }
 
+        // source-path 는 committed summary/history artifact 에도 그대로 기록된다.
+        // reader 가 로컬 절대 경로를 보존하면 다른 작업자의 workspace 경로가 문서 artifact 에 섞이므로 입력 directory 기준 상대 경로로 고정한다.
+        [Fact]
+        public void ReadDirectory_WhenRunReportIsRead_UsesRelativeSourcePath()
+        {
+            string directory = CreateTempDirectory();
+            WriteRunJson(Path.Combine(directory, "load-01.json"), "load", 500.0, 1, 0, 3000);
+
+            BaselineReport report = BaselineReportReader.ReadDirectory(directory).Single();
+
+            Assert.Equal("load-01.json", report.SourcePath);
+            Assert.DoesNotContain(Path.GetFullPath(directory).Replace('\\', '/'), report.SourcePath);
+        }
+
         // writer 는 자동화가 읽을 수 있는 안정적인 key 집합을 만든다.
         // summary-version 과 by-kind 구조가 없으면 CI artifact 소비자가 schema 를 식별할 수 없다.
         [Fact]

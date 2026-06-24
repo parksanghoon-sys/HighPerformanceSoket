@@ -20,7 +20,7 @@ namespace Hps.Benchmarks
             List<BaselineReport> reports = new List<BaselineReport>();
             for (int i = 0; i < files.Length; i++)
             {
-                BaselineReport? report = TryReadReport(files[i]);
+                BaselineReport? report = TryReadReport(fullDirectory, files[i]);
                 if (report != null)
                     reports.Add(report);
             }
@@ -30,7 +30,7 @@ namespace Hps.Benchmarks
 
         // summary.json 같은 다른 artifact 는 `schema-version` 또는 `result-name`을 갖지 않는다.
         // run report 최소 식별 key 가 없으면 조용히 건너뛰어 summary command 반복 실행을 안전하게 만든다.
-        private static BaselineReport? TryReadReport(string path)
+        private static BaselineReport? TryReadReport(string sourceDirectory, string path)
         {
             using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(path)))
             {
@@ -47,7 +47,7 @@ namespace Hps.Benchmarks
                 BenchmarkRunIdentity identity = ReadIdentity(root);
 
                 return new BaselineReport(
-                    path.Replace('\\', '/'),
+                    CreateSourcePath(sourceDirectory, path),
                     resultNameElement.GetString()!,
                     GetString(root, "scenario"),
                     GetInt(root, "payload-bytes"),
@@ -67,6 +67,13 @@ namespace Hps.Benchmarks
                     GetInt(root, "udp-pending-send-queue-high-watermark"),
                     identity);
             }
+        }
+
+        // source-path 는 summary/history artifact 에 그대로 쓰인다.
+        // 로컬 workspace 절대 경로를 남기면 committed artifact 가 재현 불가능해지므로 입력 directory 기준 상대 경로만 보존한다.
+        private static string CreateSourcePath(string sourceDirectory, string path)
+        {
+            return Path.GetRelativePath(sourceDirectory, path).Replace('\\', '/');
         }
 
         private static BenchmarkRunIdentity ReadIdentity(JsonElement root)

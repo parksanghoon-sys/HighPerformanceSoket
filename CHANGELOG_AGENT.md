@@ -5,6 +5,43 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - baseline generated artifact refresh)
+
+### 작업 단위
+- 2026-06-18 baseline 의 파생 summary/history artifact 를 현재 D079/D080 schema 로 재생성했다.
+- raw 측정 JSON은 원본 artifact 로 보존하고, summary/history 산출물과 index 해석만 갱신했다.
+- 재생성 중 발견한 local absolute `source-path` 출력은 reader 단계에서 입력 directory 기준 상대 경로로 보정했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/BaselineReportReader.cs`:
+  `BaselineReport.SourcePath`를 `ReadDirectory(...)` 입력 directory 기준 상대 경로로 보존하게 했다.
+- `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`:
+  reader 가 local absolute path 대신 상대 source path 를 반환하는지 검증했다.
+- `docs/benchmarks/baselines/2026-06-18/summary.json`, `summary.md`:
+  root session summary 를 현재 schema 로 재생성해 comparison field 를 포함했다.
+- `docs/benchmarks/baselines/2026-06-18/session-02/summary.json`, `summary.md`,
+  `docs/benchmarks/baselines/2026-06-18/session-03/summary.json`, `summary.md`:
+  session summary artifact 를 현재 schema 로 재생성했다.
+- `docs/benchmarks/baselines/2026-06-18/history.json`, `history.md`:
+  세 session 을 묶는 date-level history artifact 를 새로 생성했다.
+- `docs/benchmarks/baselines/index.md`:
+  date-level history 링크와 D079 이전 raw report 의 `unknown-runner` comparison mismatch 해석을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: artifact 재생성 완료 상태와 다음 실행 지점을 반영했다.
+
+### 검증
+- Red: 기존 reader 에서 `ReadDirectory_WhenRunReportIsRead_UsesRelativeSourcePath`가
+  `Expected: "load-01.json"` / `Actual: "C:/Users/ADMIN/.../load-01.json"` assertion failure 로 실패함을 확인했다.
+- Green: reader 를 상대 path 기준으로 보정한 뒤 focused test 1개 통과.
+- root summary CLI: source-report-count 6, hard-passed true, warning-count 0.
+- session-02 summary CLI: source-report-count 6, hard-passed true, warning-count 0.
+- session-03 summary CLI: source-report-count 6, hard-passed true, warning-count 0.
+- history CLI: session-count 3, hard-passed true, warning-count 0.
+- `docs/benchmarks/baselines/2026-06-18` 아래 local absolute path 검색(`D:/`, `D:\`, `C:/`, `C:\Users`)은 매칭 없음.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 67개 통과/실패 0.
+- `git diff --check` exit 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 269개 통과/실패 0.
+
 ## 2026-06-24 (Codex - benchmark writer metadata roundtrip test hardening)
 
 ### 작업 단위

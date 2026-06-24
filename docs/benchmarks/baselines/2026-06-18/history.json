@@ -1,0 +1,223 @@
+{
+  "history-version": 1,
+  "source-root": "docs\\benchmarks\\baselines\\2026-06-18",
+  "session-count": 3,
+  "hard-passed": true,
+  "failed-session-count": 0,
+  "warning-count": 0,
+  "comparison-compatible": false,
+  "comparison-key": null,
+  "unknown-runner-count": 18,
+  "comparison-mismatch-count": 18,
+  "comparison-mismatches": [
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "load-01.json",
+      "session": "session-01(root)",
+      "summary-path": "summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "load-02.json",
+      "session": "session-01(root)",
+      "summary-path": "summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "load-03.json",
+      "session": "session-01(root)",
+      "summary-path": "summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "open-loop-01.json",
+      "session": "session-01(root)",
+      "summary-path": "summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "open-loop-02.json",
+      "session": "session-01(root)",
+      "summary-path": "summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "open-loop-03.json",
+      "session": "session-01(root)",
+      "summary-path": "summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "load-01.json",
+      "session": "session-02",
+      "summary-path": "session-02/summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "load-02.json",
+      "session": "session-02",
+      "summary-path": "session-02/summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "load-03.json",
+      "session": "session-02",
+      "summary-path": "session-02/summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "open-loop-01.json",
+      "session": "session-02",
+      "summary-path": "session-02/summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "open-loop-02.json",
+      "session": "session-02",
+      "summary-path": "session-02/summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "open-loop-03.json",
+      "session": "session-02",
+      "summary-path": "session-02/summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "load-01.json",
+      "session": "session-03",
+      "summary-path": "session-03/summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "load-02.json",
+      "session": "session-03",
+      "summary-path": "session-03/summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "load-03.json",
+      "session": "session-03",
+      "summary-path": "session-03/summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "open-loop-01.json",
+      "session": "session-03",
+      "summary-path": "session-03/summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "open-loop-02.json",
+      "session": "session-03",
+      "summary-path": "session-03/summary.json"
+    },
+    {
+      "code": "unknown-runner",
+      "field": "runner-identity",
+      "expected": "known",
+      "actual": "unknown",
+      "source-path": "open-loop-03.json",
+      "session": "session-03",
+      "summary-path": "session-03/summary.json"
+    }
+  ],
+  "sessions": [
+    {
+      "date": "2026-06-18",
+      "session": "session-01(root)",
+      "summary-path": "summary.json",
+      "human-report-path": "summary.md",
+      "source-report-count": 6,
+      "hard-passed": true,
+      "warning-count": 0,
+      "load-p99-max-us": 924.1,
+      "open-loop-p99-max-us": 1005.5,
+      "tcp-hwm-max": 2,
+      "comparison-compatible": false,
+      "unknown-runner-count": 6,
+      "comparison-mismatch-count": 6
+    },
+    {
+      "date": "2026-06-18",
+      "session": "session-02",
+      "summary-path": "session-02/summary.json",
+      "human-report-path": "session-02/summary.md",
+      "source-report-count": 6,
+      "hard-passed": true,
+      "warning-count": 0,
+      "load-p99-max-us": 512.1,
+      "open-loop-p99-max-us": 643.3,
+      "tcp-hwm-max": 3,
+      "comparison-compatible": false,
+      "unknown-runner-count": 6,
+      "comparison-mismatch-count": 6
+    },
+    {
+      "date": "2026-06-18",
+      "session": "session-03",
+      "summary-path": "session-03/summary.json",
+      "human-report-path": "session-03/summary.md",
+      "source-report-count": 6,
+      "hard-passed": true,
+      "warning-count": 0,
+      "load-p99-max-us": 489.9,
+      "open-loop-p99-max-us": 587.8,
+      "tcp-hwm-max": 3,
+      "comparison-compatible": false,
+      "unknown-runner-count": 6,
+      "comparison-mismatch-count": 6
+    }
+  ]
+}
