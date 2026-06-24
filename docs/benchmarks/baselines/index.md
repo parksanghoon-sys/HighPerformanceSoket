@@ -8,12 +8,25 @@
 
 - session 단위는 `docs/benchmarks/baselines/YYYY-MM-DD/session-NN/`을 기본으로 한다.
 - 2026-06-18 root directory 는 초기 구현 흐름 때문에 `session-01` 역할을 겸한다.
+- 명시적 `HPS_BENCHMARK_RUNNER_ID`로 생성한 baseline 은
+  `docs/benchmarks/baselines/runners/<runner-id>/YYYY-MM-DD/session-NN/` 아래에 둔다.
+- top-level `YYYY-MM-DD` roots 는 legacy 또는 `local-unspecified` baseline 으로 보존하고, 명시 runner session 을 섞지 않는다.
+- `runner-id`는 path 와 raw report metadata 가 같아야 하며, host name, user name, IP address, 내부 자산 번호를 쓰지 않는다.
 - raw JSON 은 원본 측정값으로 보존한다.
 - `summary.json`은 자동화와 추세 비교용 machine-readable artifact 다.
 - `summary.md`는 리뷰용 human-readable artifact 다.
 - `history.json`은 여러 session summary 를 묶은 date-level machine-readable artifact 다.
 - `history.md`는 date-level history 를 사람이 빠르게 확인하기 위한 보조 artifact 다.
 - `warning-count > 0`은 현재 hard failure 가 아니다. warning-as-failure 와 latency hard gate 는 별도 결정 전까지 보류한다.
+
+## Runner Groups
+
+아직 명시적 runner baseline 은 수집하지 않았다.
+첫 runner group 은 D084 기준으로 `docs/benchmarks/baselines/runners/<runner-id>/YYYY-MM-DD/session-NN/` 구조를 사용한다.
+
+| runner id | runner kind | profile | transport backend | latest date root | 비고 |
+| --- | --- | --- | --- | --- | --- |
+| 없음 | 없음 | 없음 | 없음 | 없음 | explicit runner baseline 수집 전 |
 
 ## Date-level History
 
@@ -75,8 +88,11 @@ latency, growth, HWM 은 max, actual rate 는 min 을 사용한다.
 
 새 baseline session 을 추가할 때는 다음 순서로 갱신한다.
 
-1. raw JSON 6개 이상을 session directory 에 보존한다.
-2. `--summarize-baseline <session-dir> --summary <session-dir>/summary.json --summary-md <session-dir>/summary.md`로 summary artifact 를 생성한다.
-3. 날짜 root 에 대해 `--summarize-baseline-history <date-root> --history <date-root>/history.json --history-md <date-root>/history.md`를 실행한다.
-4. 이 index 에 session row 와 date-level history row 를 갱신한다.
-5. hard failure, warning, comparison mismatch 가 있으면 `해석 메모`에 원인과 후속 판단을 짧게 남긴다.
+1. 명시적 runner baseline 이면 `runners/<runner-id>/YYYY-MM-DD/session-NN/` 아래에 session directory 를 만들고,
+   top-level `YYYY-MM-DD` root 에 섞지 않는다.
+2. raw JSON 6개 이상을 session directory 에 보존한다.
+3. `--summarize-baseline <session-dir> --summary <session-dir>/summary.json --summary-md <session-dir>/summary.md`로 summary artifact 를 생성한다.
+4. 날짜 root 에 대해 `--summarize-baseline-history <date-root> --history <date-root>/history.json --history-md <date-root>/history.md`를 실행한다.
+5. 같은 runner 에 여러 날짜 root 가 생기면 runner root 에 대해 `--summarize-baseline-history <runner-root>`도 실행할 수 있다.
+6. 이 index 에 runner group, session row, date-level history row 를 갱신한다.
+7. hard failure, warning, comparison mismatch 가 있으면 `해석 메모`에 원인과 후속 판단을 짧게 남긴다.

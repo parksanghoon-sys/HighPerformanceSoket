@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - explicit runner baseline storage policy)
+
+### 작업 단위
+- D083 이후 explicit runner baseline 저장 구조와 수집 정책을 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-24-explicit-runner-baseline-storage-policy-design.md`:
+  runner group 아래 date/session 구조, runner id naming guide, history 입력 규칙, index 운영 정책을 작성했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D084를 추가했다.
+- `docs/benchmarks/baselines/index.md`:
+  명시 runner baseline 운영 원칙과 runner group 섹션을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 진입점을 첫 explicit runner baseline 수집으로 갱신했다.
+
+### 검증
+- D079/D080/D082/D083과 `BaselineHistoryReader` directory 규칙을 대조했다.
+- 신규 설계/결정/index 문서 임시 표기 검색 결과 없음.
+- `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
+
 ## 2026-06-24 (Codex - Phase 4 next candidate reassessment)
 
 ### 작업 단위

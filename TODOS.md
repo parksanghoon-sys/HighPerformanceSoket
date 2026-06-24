@@ -9,12 +9,13 @@
 
 ## Current TODOs
 
-- [ ] explicit runner baseline 저장 구조와 수집 정책을 설계한다.
-  - 목적: D082/D083 이후 명시적 runner baseline 을 어디에 보존하고, 어떤 history root 로 집계할지 먼저 정한다.
-  - 범위: `docs/superpowers/specs/2026-06-24-explicit-runner-baseline-storage-policy-design.md`,
-    `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, 필요 시 `docs/benchmarks/baselines/index.md`.
-  - 검증: D079/D080/D082/D083, `BaselineHistoryReader` directory 규칙, baseline index 운영 원칙 대조,
-    임시 표기 검색, `git diff --check`, solution build/test.
+- [ ] 첫 explicit runner baseline 을 새 runner group 구조에 수집한다.
+  - 목적: D084 저장 정책이 실제 artifact 경로와 현재 history command 로 동작하는지 확인한다.
+  - 범위: `docs/benchmarks/baselines/runners/<runner-id>/<YYYY-MM-DD>/session-01/`,
+    해당 date root `history.json`/`history.md`, `docs/benchmarks/baselines/index.md`, root 상태 문서.
+  - 권장 runner id: `local-win-x64-01`. 실제 수집 전 privacy-safe stable token 인지 다시 확인한다.
+  - 검증: `--baseline-suite`, `--summarize-baseline`, `--summarize-baseline-history`, local absolute path 검색,
+    `Hps.Benchmarks.Tests`, `git diff --check`, solution build/test.
 
 ## Deferred Backlog
 
@@ -29,6 +30,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] explicit runner baseline 저장 구조와 수집 정책을 설계했다.
+  - 범위: `docs/superpowers/specs/2026-06-24-explicit-runner-baseline-storage-policy-design.md`,
+    `docs/benchmarks/baselines/index.md`, `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: 명시적 runner baseline 은 `docs/benchmarks/baselines/runners/<runner-id>/YYYY-MM-DD/session-NN/`
+    구조에 저장하기로 했다(D084).
+  - 비고: 현재 `BaselineHistoryReader`는 runner root 를 parent root 로 받아 바로 아래 `YYYY-MM-DD` directories 를 읽을 수 있다.
+    기존 top-level date roots 는 legacy/local-unspecified baseline 으로 보존한다.
+  - 검증: D079/D080/D082/D083과 `BaselineHistoryReader` directory 규칙 대조 완료.
+    신규 설계/결정/index 문서 임시 표기 검색 결과 없음.
+    `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 
 - [x] D082 이후 Phase 4 다음 실행 후보를 재평가하고 단일 작업 단위를 선정했다.
   - 범위: `docs/superpowers/specs/2026-06-24-phase4-next-candidate-reassessment.md`,
