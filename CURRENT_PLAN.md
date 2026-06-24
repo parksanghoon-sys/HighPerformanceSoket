@@ -29,6 +29,8 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - drop 관측은 transport/endpoint snapshot 기반 pull diagnostics 로 유지한다(D062, D066).
 - Phase 4 benchmark 는 delivery/drop/leak hard gate 와 latency/HWM 관측값을 분리한다(D063).
 - latency hard gate 전에는 반복 baseline artifact 와 summary/soft warning 을 우선한다(D069, D070).
+- 문서 전용 작업은 D081 기준으로 관련 설계/상태/결정 문서를 한 coherent documentation cycle 에서 같이 정렬한다.
+  코드/테스트 구현 변경은 계속 작은 기능 단위로 분리한다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
@@ -180,6 +182,12 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — 문서 전용 작업 batch 규칙 명시
+  - 구현/테스트/리팩터링 작업은 계속 작은 reviewable 기능 단위로 분리한다.
+  - 문서 전용 작업은 설계/상태/결정/검토 문서의 정합성을 위해 관련 문서를 한 번에 갱신한다.
+  - 문서 batch 에 코드/테스트 구현 변경은 섞지 않는다고 명시했다.
+  - 검증: 관련 root 문서 용어 대조, `git diff --check` exit 0, solution build 경고 0/오류 0,
+    solution tests 269개 통과.
 - 이번 단위 — 2026-06-24 current-schema baseline session-03 추가
   - `--baseline-suite`로 2026-06-24 `session-03` raw report 6개(load 3회/open-loop 3회)를 새로 생성했다.
   - 같은 session 에 `summary.json`/`summary.md`를 생성하고, 2026-06-24 date root 의 `history.json`/`history.md`를
@@ -572,16 +580,11 @@ warning-as-failure/CI gate 보류 조건 재검토 설계를 작성하는 것이
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 2026-06-24 current-schema baseline `session-03` artifact 추가를 완료한 뒤 최종 검증으로 마무리한다.
+이번 cycle 은 문서 전용 작업 batch 규칙을 root 상태 문서에 반영한 뒤 최종 검증으로 마무리한다.
 
-- 범위: `docs/benchmarks/baselines/2026-06-24/session-03/*.json`,
-  `docs/benchmarks/baselines/2026-06-24/session-03/summary.md`,
-  `docs/benchmarks/baselines/2026-06-24/history.json`,
-  `docs/benchmarks/baselines/2026-06-24/history.md`,
-  `docs/benchmarks/baselines/index.md`, root 상태 문서.
-- 검증: baseline suite, summary CLI, history CLI 가 모두 exit 0이다.
-  `docs/benchmarks/baselines/2026-06-24` 아래 local absolute path 검색 결과가 없어야 한다.
-  `Hps.Benchmarks.Tests`, `git diff --check`, solution build/test 로 마무리한다.
+- 범위: `AGENT_RULES.md`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+- 검증: 관련 root 문서에서 `문서 전용`, `D081`, `coherent documentation cycle` 용어 정합성을 대조했다.
+  `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 
 ## 이번 작업에서 건드리지 않는 범위
 

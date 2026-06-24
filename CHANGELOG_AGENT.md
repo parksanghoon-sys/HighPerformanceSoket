@@ -5,6 +5,22 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - document work batching rule)
+
+### 작업 단위
+- 문서 전용 작업은 관련 문서를 한 번에 정렬하고, 코드/테스트 구현 작업은 계속 작은 기능 단위로 유지한다는 실행 규칙을 명시했다.
+
+### 변경 내용
+- `AGENT_RULES.md`: 문서 전용 batch 예외와 코드/테스트 변경 분리 경계를 추가했다.
+- `DECISIONS.md`: D081을 추가하고 현재 판단 기준에 문서 전용 작업 정렬 원칙을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: 이번 문서 규칙 단위 완료 상태와 다음 작업 진입점을 유지했다.
+
+### 검증
+- 관련 root 문서에서 `문서 전용`, `D081`, `coherent documentation cycle` 용어 정합성을 대조했다.
+- `git diff --check` 통과. whitespace 오류 없음.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 269개 통과/실패 0.
+
 ## 2026-06-24 (Codex - current schema baseline session-03)
 
 ### 작업 단위

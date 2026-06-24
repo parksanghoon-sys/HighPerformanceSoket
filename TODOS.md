@@ -29,6 +29,14 @@
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
 
+- [x] 2026-06-24 문서 전용 작업 batch 규칙을 명시했다.
+  - 범위: `AGENT_RULES.md`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결과: 구현/테스트/리팩터링은 계속 작은 기능 단위로 유지하고, 문서 전용 작업은 관련 설계/상태/결정/검토 문서를
+    한 coherent documentation cycle 에서 같이 정렬하는 기준을 추가했다.
+  - 비고: 문서 batch 에 코드/테스트 구현 변경을 섞지 않는 경계도 함께 기록했다.
+  - 검증: 관련 root 문서 용어 대조, `git diff --check` exit 0, solution build 경고 0/오류 0,
+    solution tests 269개 통과.
+
 - [x] 2026-06-24 current-schema baseline session-03 을 추가했다.
   - 범위: `docs/benchmarks/baselines/2026-06-24/session-03/*.json`,
     `docs/benchmarks/baselines/2026-06-24/session-03/summary.md`,
