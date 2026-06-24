@@ -1,0 +1,77 @@
+{
+  "summary-version": 1,
+  "source-directory": "docs\\benchmarks\\baselines\\2026-06-24\\session-02",
+  "source-report-count": 6,
+  "hard-passed": true,
+  "hard-failure-count": 0,
+  "warning-count": 0,
+  "comparison-compatible": true,
+  "comparison-key": {
+    "benchmark-profile": "tcp-loopback-saea-v1",
+    "runner-id": "local-unspecified",
+    "runner-kind": "local",
+    "transport-backend": "SaeaTransport",
+    "os-description": "Microsoft Windows 10.0.26200",
+    "os-architecture": "X64",
+    "process-architecture": "X64",
+    "framework-description": ".NET 9.0.16",
+    "cases": [
+      {
+        "result-name": "load",
+        "scenario": "tcp-loopback-saea-baseline",
+        "payload-bytes": 4096,
+        "target-rate-hz": 100,
+        "target-duration-seconds": 30
+      },
+      {
+        "result-name": "open-loop",
+        "scenario": "tcp-loopback-saea-baseline-open-loop",
+        "payload-bytes": 4096,
+        "target-rate-hz": 100,
+        "target-duration-seconds": 30
+      }
+    ]
+  },
+  "unknown-runner-count": 0,
+  "comparison-mismatch-count": 0,
+  "comparison-mismatches": [],
+  "warnings": [],
+  "by-kind": {
+    "load": {
+      "run-count": 3,
+      "p50-min-us": 201.1,
+      "p50-max-us": 257.2,
+      "p50-median-us": 247.8,
+      "p99-min-us": 826.5,
+      "p99-max-us": 1020.4,
+      "p99-median-us": 967.5,
+      "p99-growth-ratio-min": 1,
+      "p99-growth-ratio-max": 1.23,
+      "actual-rate-min-hz": 99.9,
+      "actual-rate-max-hz": 100,
+      "tcp-hwm-min": 1,
+      "tcp-hwm-max": 1,
+      "dropped-total": 0,
+      "payload-error-total": 0,
+      "pool-rented-max": 0
+    },
+    "open-loop": {
+      "run-count": 3,
+      "p50-min-us": 256.7,
+      "p50-max-us": 281.7,
+      "p50-median-us": 259.4,
+      "p99-min-us": 925,
+      "p99-max-us": 1006.5,
+      "p99-median-us": 994.4,
+      "p99-growth-ratio-min": 0.92,
+      "p99-growth-ratio-max": 1.05,
+      "actual-rate-min-hz": 100,
+      "actual-rate-max-hz": 100,
+      "tcp-hwm-min": 2,
+      "tcp-hwm-max": 2,
+      "dropped-total": 0,
+      "payload-error-total": 0,
+      "pool-rented-max": 0
+    }
+  }
+}

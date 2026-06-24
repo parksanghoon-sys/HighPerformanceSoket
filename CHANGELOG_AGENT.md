@@ -5,6 +5,38 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - current schema baseline session-02)
+
+### 작업 단위
+- D079/D080 이후 schema 로 2026-06-24 두 번째 compatible baseline session 을 생성했다.
+- 이 단위는 새 기능 구현이 아니라, latency envelope 재산정 전 필요한 동일 runner baseline 표본을 하나 더 쌓는 artifact 수집이다.
+
+### 변경 내용
+- `docs/benchmarks/baselines/2026-06-24/session-02/`:
+  `load-01..03.json`, `open-loop-01..03.json` raw report 6개를 생성했다.
+- `docs/benchmarks/baselines/2026-06-24/session-02/summary.json`, `summary.md`:
+  current schema summary artifact 를 생성했다.
+- `docs/benchmarks/baselines/2026-06-24/history.json`, `history.md`:
+  2026-06-24 date-level history artifact 를 2개 session 기준으로 재생성했다.
+- `docs/benchmarks/baselines/index.md`:
+  2026-06-24 history session count 와 `session-02` row 를 갱신했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: 이번 artifact 단위 완료 상태와 다음 `session-03` 수집 지점을 반영했다.
+
+### 검증
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --baseline-suite docs\benchmarks\baselines\2026-06-24\session-02 --runs 3`
+  결과: baseline-suite-result pass, raw report 6개 생성.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --summarize-baseline docs\benchmarks\baselines\2026-06-24\session-02 --summary docs\benchmarks\baselines\2026-06-24\session-02\summary.json --summary-md docs\benchmarks\baselines\2026-06-24\session-02\summary.md`
+  결과: source-report-count 6, hard-passed true, warning-count 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --summarize-baseline-history docs\benchmarks\baselines\2026-06-24 --history docs\benchmarks\baselines\2026-06-24\history.json --history-md docs\benchmarks\baselines\2026-06-24\history.md`
+  결과: session-count 2, hard-passed true, warning-count 0.
+- `summary.json` 확인 결과: `comparison-compatible=true`, `unknown-runner-count=0`, `comparison-mismatch-count=0`.
+- `docs/benchmarks/baselines/2026-06-24` 아래 local absolute path 검색은 매칭 없음.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 67개 통과/실패 0.
+- `git diff --check` exit 0.
+- 첫 solution build 는 직전 testhost 파일 잠금으로 MSB3026 warning 이 있었고, testhost 종료 후 재실행한
+  `dotnet build HighPerformanceSocket.slnx --no-restore`는 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 269개 통과/실패 0.
+
 ## 2026-06-24 (Codex - current schema baseline session)
 
 ### 작업 단위
