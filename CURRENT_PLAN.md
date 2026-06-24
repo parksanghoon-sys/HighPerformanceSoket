@@ -84,6 +84,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   계획은 `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`에 있고,
   `BaselineReport` payload/target settings, summary comparison 계산, summary 출력, history 집계, history 출력/CLI smoke 의
   5개 커밋 단위로 나뉜다.
+- summary/history comparison signal Task 1이 완료됐다.
+  `BaselineReport`와 `BaselineReportReader`가 raw report 의 `payload-bytes`, `target-rate-hz`,
+  `target-duration-seconds`를 보존한다. 이 값은 다음 Task 2에서 summary comparison key 의 workload case 입력으로 사용한다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -147,6 +150,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Summary/history comparison signal Task 1
+  - `BaselineReport`에 `PayloadBytes`, `TargetRateHz`, `TargetDurationSeconds`를 추가했다.
+  - `BaselineReportReader`가 raw report JSON의 `payload-bytes`, `target-rate-hz`, `target-duration-seconds`를 읽어 model 로 전달하게 했다.
+  - direct `BaselineReport` 테스트 helper 호출부에는 현재 baseline 기본값 `4096`, `100.0`, `30`을 명시했다.
+  - Red: `BaselineReport` payload/target property 부재로 contract test 가 `Assert.NotNull()` 실패함을 확인했다.
+  - Red: reader behavior test 가 `Expected: 4096, Actual: 0`으로 실패함을 확인했다.
+  - Green/검증: focused `BaselineReportReaderWriterTests` 8개 통과, focused `BaselineSummary*` 6개 통과,
+    `Hps.Benchmarks.Tests` 46개 통과.
 - 이번 단위 — Summary/history comparison signal 구현 계획
   - D080 설계를 실제 구현 가능한 5개 Task 로 분해했다.
   - Task 1은 `BaselineReport`/reader payload·target settings 전파만 다룬다.
@@ -424,26 +435,27 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Summary/history comparison signal Task 1을 구현한다.
+Summary/history comparison signal Task 2를 구현한다.
 
-다음 작업은 `BaselineReport`와 `BaselineReportReader`가 raw report 의 `payload-bytes`, `target-rate-hz`,
-`target-duration-seconds`를 보존하게 하는 선행 구현 단위다. summary comparison 계산은 Task 2로 분리한다.
+다음 작업은 summary comparison model/generator 를 추가하는 단위다.
+`BaselineComparisonCase`, `BaselineComparisonKey`, `BaselineComparisonMismatch`, `BaselineComparisonResult`를 추가하고,
+`BaselineSummaryGenerator`가 source report 목록에서 compatible 여부, unknown runner count, mismatch 목록을 계산하게 한다.
 
 ## 이번 단위의 검증 경로
 
-다음 단위는 구현 Task 1이다.
+다음 단위는 구현 Task 2다.
 
 - 범위: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
   `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`,
-  `tests/Hps.Benchmarks/BaselineReport.cs`, `tests/Hps.Benchmarks/BaselineReportReader.cs`,
-  `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`, direct `BaselineReport` helper call sites.
-- 검증: assertion-failure Red 로 `BaselineReport` payload/target property 부재와 reader 누락을 확인하고,
-  focused benchmark tests, `git diff --check`, solution build/test 를 수행한다.
+  `tests/Hps.Benchmarks/BaselineSummary.cs`, `tests/Hps.Benchmarks/BaselineSummaryGenerator.cs`,
+  신규 comparison model 파일들, `tests/Hps.Benchmarks.Tests/BaselineSummaryGeneratorTests.cs`.
+- 검증: assertion-failure Red 로 `BaselineSummary.Comparison` 부재를 확인하고,
+  behavior Red 로 compatible/unknown/mismatch/no-source cases 를 확인한 뒤 focused benchmark tests,
+  `git diff --check`, solution build/test 를 수행한다.
 - 완료 후 root 상태 문서 갱신과 단일 커밋을 진행한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
-- summary comparison model/generator 구현
 - summary JSON/Markdown comparison output 구현
 - history comparison reader/generator/writer 구현
 - generated baseline artifact 재생성

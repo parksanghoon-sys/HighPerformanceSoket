@@ -6,6 +6,9 @@ namespace Hps.Benchmarks
             string sourcePath,
             string resultName,
             string scenario,
+            int payloadBytes,
+            double targetRateHz,
+            int targetDurationSeconds,
             int plannedMessageCount,
             int sent,
             int received,
@@ -23,6 +26,9 @@ namespace Hps.Benchmarks
             SourcePath = sourcePath;
             ResultName = resultName;
             Scenario = scenario;
+            PayloadBytes = payloadBytes;
+            TargetRateHz = targetRateHz;
+            TargetDurationSeconds = targetDurationSeconds;
             PlannedMessageCount = plannedMessageCount;
             Sent = sent;
             Received = received;
@@ -43,6 +49,21 @@ namespace Hps.Benchmarks
         public string ResultName { get; }
 
         public string Scenario { get; }
+
+        /// <summary>
+        /// raw report 의 payload 크기다. comparison key 는 같은 runner 여도 payload 크기가 다르면 별도 부하 조건으로 본다.
+        /// </summary>
+        public int PayloadBytes { get; }
+
+        /// <summary>
+        /// raw report 의 목표 발행 rate 다. summary 비교 가능성 판단에서 같은 workload 인지 확인하는 입력값이다.
+        /// </summary>
+        public double TargetRateHz { get; }
+
+        /// <summary>
+        /// raw report 의 목표 지속 시간이다. planned count 만으로는 open-loop/closed-loop 설정 차이를 충분히 설명할 수 없다.
+        /// </summary>
+        public int TargetDurationSeconds { get; }
 
         public int PlannedMessageCount { get; }
 

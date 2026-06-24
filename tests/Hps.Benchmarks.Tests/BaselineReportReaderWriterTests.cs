@@ -34,7 +34,25 @@ namespace Hps.Benchmarks.Tests
             string path = Path.Combine(directory, "summary.json");
             BaselineReport[] reports =
             {
-                new BaselineReport("open-loop-01.json", "open-loop", "scenario", 3000, 3000, 3000, 0, 0, 0, 94.0, 240.0, 1600.0, 2.1, 8, 0)
+                new BaselineReport(
+                    "open-loop-01.json",
+                    "open-loop",
+                    "scenario",
+                    4096,
+                    100.0,
+                    30,
+                    3000,
+                    3000,
+                    3000,
+                    0,
+                    0,
+                    0,
+                    94.0,
+                    240.0,
+                    1600.0,
+                    2.1,
+                    8,
+                    0)
             };
             BaselineSummary summary = BaselineSummaryGenerator.Generate(directory, reports);
 
@@ -122,6 +140,16 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal(typeof(BenchmarkRunIdentity), property!.PropertyType);
         }
 
+        // comparison key 는 payload size 와 target rate/duration 없이는 같은 부하 조건인지 판단할 수 없다.
+        // BaselineReport 가 이 값을 노출해야 summary 단계가 raw JSON을 다시 열지 않고 comparison signal 을 계산할 수 있다.
+        [Fact]
+        public void Contract_BaselineReportExposesPayloadAndTargetSettings()
+        {
+            Assert.NotNull(typeof(BaselineReport).GetProperty("PayloadBytes"));
+            Assert.NotNull(typeof(BaselineReport).GetProperty("TargetRateHz"));
+            Assert.NotNull(typeof(BaselineReport).GetProperty("TargetDurationSeconds"));
+        }
+
         // reader 는 신규 raw report 의 runner metadata 를 보존해야 한다.
         // 이 값이 사라지면 summary/history 단계에서 서로 다른 runner 의 baseline 을 같은 비교군으로 착각할 수 있다.
         [Fact]
@@ -141,6 +169,21 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal("X64", report.Identity.ProcessArchitecture);
             Assert.Equal(".NET 9.0", report.Identity.FrameworkDescription);
             Assert.Equal(16, report.Identity.ProcessorCount);
+        }
+
+        // raw report writer 는 이미 payload/target field 를 기록한다.
+        // reader 가 값을 버리면 이후 summary comparison key 가 모든 run 을 같은 부하 조건으로 오판할 수 있다.
+        [Fact]
+        public void ReadDirectory_WhenRunReportHasPayloadAndTarget_ReadsSettings()
+        {
+            string directory = CreateTempDirectory();
+            WriteRunJson(Path.Combine(directory, "load-01.json"), "load", 500.0, 1, 0, 3000);
+
+            BaselineReport report = BaselineReportReader.ReadDirectory(directory).Single();
+
+            Assert.Equal(4096, report.PayloadBytes);
+            Assert.Equal(100.0, report.TargetRateHz);
+            Assert.Equal(30, report.TargetDurationSeconds);
         }
 
         // 과거 baseline artifact 에는 metadata field 가 없다.

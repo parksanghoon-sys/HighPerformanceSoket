@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - summary/history comparison signal Task 1)
+
+### 작업 단위
+- D080 구현 계획의 첫 번째 단위로 raw report payload/target settings 를 `BaselineReport`까지 전파했다.
+- summary comparison model/generator 와 JSON/Markdown 출력은 다음 Task 로 분리했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/BaselineReport.cs`: `PayloadBytes`, `TargetRateHz`, `TargetDurationSeconds` property 를 추가했다.
+- `tests/Hps.Benchmarks/BaselineReportReader.cs`: raw report 의 `payload-bytes`, `target-rate-hz`,
+  `target-duration-seconds` field 를 읽어 `BaselineReport` 생성자로 전달한다.
+- `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`: payload/target property contract 와 reader behavior test 를 추가했다.
+- `tests/Hps.Benchmarks.Tests/BaselineSummaryGeneratorTests.cs`,
+  `tests/Hps.Benchmarks.Tests/BaselineSummaryMarkdownWriterTests.cs`: direct `BaselineReport` helper 생성자 호출에
+  현재 benchmark 기본값 `4096`, `100.0`, `30`을 명시했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: Task 1 완료와 다음 Task 2 summary comparison model/generator 진입점을 반영했다.
+
+### 검증
+- Red 1: focused contract test 가 `BaselineReport` payload/target property 부재로 `Assert.NotNull()` 실패함을 확인했다.
+- Contract Green: property surface 추가 후 focused contract test 1개 통과.
+- Red 2: reader behavior test 가 `Expected: 4096, Actual: 0`으로 실패함을 확인했다.
+- Green: focused reader behavior test 1개 통과.
+- Refactor 검증: focused `BaselineReportReaderWriterTests` 8개 통과, focused `BaselineSummary*` 6개 통과.
+  같은 csproj 대상 focused tests 를 병렬 실행했을 때 DLL lock 이 발생해, 두 번째 focused test 는 `--no-build --no-restore`로 순차 재실행했다.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 46개 통과/실패 0.
+
 ## 2026-06-24 (Codex - summary/history comparison signal implementation plan)
 
 ### 작업 단위
