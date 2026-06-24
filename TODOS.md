@@ -9,7 +9,8 @@
 
 ## Current TODOs
 
-- 없음. Summary/history comparison signal 구현 계획의 Task 1~5와 2026-06-18 generated baseline artifact 재생성은 완료됐다.
+- 없음. Summary/history comparison signal 구현 계획의 Task 1~5, 2026-06-18 generated baseline artifact 재생성,
+  2026-06-24 current-schema baseline session 추가는 완료됐다.
   다음 작업은 새 검토 의견을 반영하거나, 사용자가 별도로 요청한 후속 정책/Artifact 재생성 범위가 생길 때 선택한다.
 
 ## Deferred Backlog
@@ -25,6 +26,21 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-24 current-schema baseline session 을 추가했다.
+  - 범위: `docs/benchmarks/baselines/2026-06-24/session-01/*.json`,
+    `docs/benchmarks/baselines/2026-06-24/session-01/summary.md`,
+    `docs/benchmarks/baselines/2026-06-24/history.json`,
+    `docs/benchmarks/baselines/2026-06-24/history.md`,
+    `docs/benchmarks/baselines/index.md`, root 상태 문서.
+  - 결과: D079 runner identity/environment metadata 를 포함한 raw report 6개(load 3회/open-loop 3회)와
+    D080 comparison field 를 포함한 summary/history artifact 를 추가했다.
+  - 비고: 이번 session 의 summary/history comparison 은 `comparison-compatible=true`, unknown runner 0, mismatch 0 이다.
+  - 검증: baseline suite pass, summary CLI source-report-count 6/hard-passed true/warning-count 0,
+    history CLI session-count 1/hard-passed true/warning-count 0.
+    `docs/benchmarks/baselines/2026-06-24` 아래 local absolute path 검색은 매칭 없음이다.
+    `Hps.Benchmarks.Tests` 67개 통과, `git diff --check` exit 0, solution build 경고 0/오류 0,
+    solution tests 269개 통과.
 
 - [x] 2026-06-24 2026-06-18 baseline summary/history artifact 를 현재 schema 로 재생성했다.
   - 범위: `docs/benchmarks/baselines/2026-06-18/summary.json`,

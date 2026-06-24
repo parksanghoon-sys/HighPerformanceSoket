@@ -86,6 +86,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 - generated baseline summary/history artifact 재생성이 완료됐다.
   2026-06-18 세 session summary artifact 와 date-level history artifact 가 현재 D080 comparison schema 를 포함한다.
   재생성 중 발견한 local absolute source path 출력은 `BaselineReportReader`에서 입력 directory 기준 상대 경로로 보정했다.
+- 2026-06-24 `session-01` baseline artifact 를 현재 D079/D080 schema 로 새로 생성했다.
+  raw report 6개, `summary.json`/`summary.md`, date-level `history.json`/`history.md`가 있으며,
+  comparison-compatible true, unknown runner 0, mismatch 0 이다.
 - summary/history comparison signal 설계를 완료했다.
   설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
   D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
@@ -177,6 +180,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — 2026-06-24 current-schema baseline session 추가
+  - `--baseline-suite`로 2026-06-24 `session-01` raw report 6개(load 3회/open-loop 3회)를 새로 생성했다.
+  - 같은 session 에 `summary.json`/`summary.md`를 생성하고, 2026-06-24 date root 에 `history.json`/`history.md`를 생성했다.
+  - 이번 session 은 D079 runner identity/environment metadata 를 포함하므로 summary/history comparison 이
+    `comparison-compatible=true`, unknown runner 0, mismatch 0 으로 기록된다.
+  - `docs/benchmarks/baselines/index.md`에 date-level history row 와 session row 를 추가했다.
+  - 검증: baseline suite 는 pass, summary CLI 는 source-report-count 6, hard-passed true, warning-count 0.
+    history CLI 는 session-count 1, hard-passed true, warning-count 0.
+    `docs/benchmarks/baselines/2026-06-24` 아래 local absolute path 검색은 매칭 없음이다.
+    `Hps.Benchmarks.Tests` 67개 통과, `git diff --check` exit 0, solution build 경고 0/오류 0,
+    solution tests 269개 통과.
 - 이번 단위 — 2026-06-18 baseline summary/history artifact 재생성
   - 기존 raw benchmark JSON은 원본 측정값으로 유지하고, 파생 artifact 만 현재 schema 로 다시 생성했다.
   - summary/history mismatch `source-path`가 local workspace 절대 경로를 기록하지 않도록 `BaselineReportReader`를 상대 경로 기준으로 보정했다.
@@ -527,29 +541,29 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 
 Summary/history comparison signal 계획의 Task 1~5, benchmark writer metadata roundtrip test-hardening,
-2026-06-18 generated baseline artifact 재생성은 완료됐다.
+2026-06-18 generated baseline artifact 재생성, 2026-06-24 current-schema baseline session 추가는 완료됐다.
 
-다음 작업은 새 검토 의견을 반영하거나, 별도 요청 시 generated baseline artifact 재생성/후속 정책 설계로 넘어간다.
+다음 작업은 새 검토 의견을 반영하거나, 별도 요청 시 다음 Phase 4 정책 설계(예: latency envelope 재산정,
+warning-as-failure/CI gate 보류 조건 재검토)로 넘어간다.
 현재 문맥에서 즉시 승격할 P0/P1 코드 작업은 없다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 2026-06-18 baseline summary/history artifact 재생성을 완료한 뒤 최종 검증으로 마무리한다.
+이번 cycle 은 2026-06-24 current-schema baseline session artifact 추가를 완료한 뒤 최종 검증으로 마무리한다.
 
-- 범위: `docs/benchmarks/baselines/2026-06-18/**/summary.json`,
-  `docs/benchmarks/baselines/2026-06-18/**/summary.md`,
-  `docs/benchmarks/baselines/2026-06-18/history.json`,
-  `docs/benchmarks/baselines/2026-06-18/history.md`,
-  `docs/benchmarks/baselines/index.md`, `tests/Hps.Benchmarks/BaselineReportReader.cs`,
-  `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`, root 상태 문서.
-- 검증: summary CLI 3회, history CLI 1회가 모두 exit 0이다.
-  relative source-path focused test 는 Red/Green 을 확인했다.
-  `Hps.Benchmarks.Tests` 67개와 solution tests 269개가 통과했다.
-  `git diff --check`는 exit 0이고, solution build 는 경고 0/오류 0이다.
+- 범위: `docs/benchmarks/baselines/2026-06-24/session-01/*.json`,
+  `docs/benchmarks/baselines/2026-06-24/session-01/summary.md`,
+  `docs/benchmarks/baselines/2026-06-24/history.json`,
+  `docs/benchmarks/baselines/2026-06-24/history.md`,
+  `docs/benchmarks/baselines/index.md`, root 상태 문서.
+- 검증: baseline suite, summary CLI, history CLI 가 모두 exit 0이다.
+  `docs/benchmarks/baselines/2026-06-24` 아래 local absolute path 검색 결과가 없어야 한다.
+  `Hps.Benchmarks.Tests`, `git diff --check`, solution build/test 로 마무리한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
-- generated baseline artifact 재생성
+- 코드/테스트 구현 변경
+- 2026-06-18 legacy raw report 수정
 - CI workflow 또는 warning-as-failure 정책 구현
 - latency hard gate 확정
 - RIO/io_uring backend 구현

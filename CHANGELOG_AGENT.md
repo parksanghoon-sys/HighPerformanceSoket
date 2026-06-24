@@ -5,6 +5,37 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - current schema baseline session)
+
+### 작업 단위
+- D079/D080 이후 schema 로 새 baseline session 을 실제 생성했다.
+- 기존 2026-06-18 legacy raw report 는 수정하지 않고, 2026-06-24 date root 에 새 session 을 분리했다.
+
+### 변경 내용
+- `docs/benchmarks/baselines/2026-06-24/session-01/`:
+  `load-01..03.json`, `open-loop-01..03.json` raw report 6개를 생성했다.
+- `docs/benchmarks/baselines/2026-06-24/session-01/summary.json`, `summary.md`:
+  current schema summary artifact 를 생성했다.
+- `docs/benchmarks/baselines/2026-06-24/history.json`, `history.md`:
+  2026-06-24 date-level history artifact 를 생성했다.
+- `docs/benchmarks/baselines/index.md`:
+  2026-06-24 history row 와 session row 를 추가하고, D079 metadata 이후 첫 comparison-compatible baseline 임을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: 이번 artifact 단위 완료 상태와 다음 실행 지점을 반영했다.
+
+### 검증
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --baseline-suite docs\benchmarks\baselines\2026-06-24\session-01 --runs 3`
+  결과: baseline-suite-result pass, raw report 6개 생성.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --summarize-baseline docs\benchmarks\baselines\2026-06-24\session-01 --summary docs\benchmarks\baselines\2026-06-24\session-01\summary.json --summary-md docs\benchmarks\baselines\2026-06-24\session-01\summary.md`
+  결과: source-report-count 6, hard-passed true, warning-count 0.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-build -- --summarize-baseline-history docs\benchmarks\baselines\2026-06-24 --history docs\benchmarks\baselines\2026-06-24\history.json --history-md docs\benchmarks\baselines\2026-06-24\history.md`
+  결과: session-count 1, hard-passed true, warning-count 0.
+- `summary.json` 확인 결과: `comparison-compatible=true`, `unknown-runner-count=0`, `comparison-mismatch-count=0`.
+- `docs/benchmarks/baselines/2026-06-24` 아래 local absolute path 검색은 매칭 없음.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 67개 통과/실패 0.
+- `git diff --check` exit 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 269개 통과/실패 0.
+
 ## 2026-06-24 (Codex - baseline generated artifact refresh)
 
 ### 작업 단위
