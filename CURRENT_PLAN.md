@@ -96,6 +96,8 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   warning-as-failure 와 CI latency failure 는 명시적 runner id 와 여러 날짜 root 의 compatible baseline 이 쌓일 때까지 보류한다.
   현재 2026-06-24 baseline 은 `runner-id=local-unspecified`이므로 gate 승격 표본 count 에 산입하지 않고,
   envelope 초과 기록도 자동 failure 가 아니라 수동 리뷰 메모로 남긴다.
+- D082 이후 Phase 4 다음 후보를 재평가했고, D083으로 explicit runner baseline 을 기존 date root 에 바로 섞지 않기로 했다.
+  다음 단위는 explicit runner baseline 저장 구조와 수집 정책 설계다.
 - summary/history comparison signal 설계를 완료했다.
   설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
   D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
@@ -187,6 +189,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — D082 이후 Phase 4 다음 실행 후보 재평가
+  - `D082` 이후 남은 후보를 CI/warning-as-failure, explicit runner baseline 수집, runner baseline 저장 구조 설계,
+    RIO/io_uring 착수, server-level diagnostics 로 나눠 검토했다.
+  - `BaselineHistoryReader`가 `YYYY-MM-DD`/`session-NN` 구조만 읽고, 2026-06-24 date root 는 이미
+    `local-unspecified` session 3개로 history-compatible 하다는 점을 확인했다.
+  - 명시적 runner id session 을 기존 date root 에 바로 추가하지 않고, D083으로 저장 구조 정책을 먼저 설계하기로 했다.
+  - 다음 단위는 `docs/superpowers/specs/2026-06-24-explicit-runner-baseline-storage-policy-design.md` 작성이다.
+  - 검증: D082/D079/D080 및 `BaselineHistoryReader` directory 규칙 대조 완료.
+    신규 설계/결정 문서 임시 표기 검색 결과 없음.
+    `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 - 이번 단위 — D082 설계 리뷰 Low 명확성 보강
   - `.claude/review/2026-06-24-latency-envelope-and-gate-deferral-design-review.md`를 확인했다.
   - must-fix는 없고, Low 명확성 지적 2건과 info 1건을 문서 batch 로 반영했다.
@@ -594,20 +606,20 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 ## 다음 단일 작업 단위
 
 Summary/history comparison signal 계획의 Task 1~5, benchmark writer metadata roundtrip test-hardening,
-2026-06-18 generated baseline artifact 재생성, 2026-06-24 current-schema baseline session-01/session-02/session-03 추가는 완료됐다.
+2026-06-18 generated baseline artifact 재생성, 2026-06-24 current-schema baseline session-01/session-02/session-03 추가,
+D082 설계와 리뷰 보강, Phase 4 다음 후보 재평가는 완료됐다.
 
-다음 작업은 D082 이후 Phase 4 다음 실행 후보를 재평가하고, 가장 안전한 단일 작업 단위를 선정하는 것이다.
+다음 작업은 explicit runner baseline 저장 구조와 수집 정책을 설계하는 것이다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 D082 설계 리뷰의 Low 명확성 의견을 문서 batch 로 반영한 뒤 최종 검증으로 마무리한다.
+이번 cycle 은 D082 이후 Phase 4 다음 후보를 재평가하고, 다음 단일 작업 단위를 선정한 뒤
+최종 검증으로 마무리한다.
 
-- 범위: `docs/superpowers/specs/2026-06-24-latency-envelope-and-gate-deferral-design.md`,
-  `docs/benchmarks/baselines/index.md`, `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`,
-  `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
-- 검증: D082 review finding 1/2와 info 3 반영 여부를 대조했다.
-  신규 설계/결정/index 문서 임시 표기 검색 결과 없음.
-  `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
+- 범위: `docs/superpowers/specs/2026-06-24-phase4-next-candidate-reassessment.md`, `DECISIONS.md`,
+  `docs/agent-state/decisions/2026-06.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+- 검증: D082/D079/D080, `BaselineHistoryReader` directory 규칙, `.claude/review/review-status-2026-06-18.md`의
+  남은 비차단 후속을 대조한다. 임시 표기 검색, `git diff --check`, solution build/test 로 마무리한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
