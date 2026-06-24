@@ -33,6 +33,24 @@
 | 2026-06-18 | session-02 | local Windows TCP loopback SAEA | [summary.json](2026-06-18/session-02/summary.json) | [summary.md](2026-06-18/session-02/summary.md) | 6 | true | 0 | 512.1 | 643.3 | 3 |
 | 2026-06-18 | session-03 | local Windows TCP loopback SAEA | [summary.json](2026-06-18/session-03/summary.json) | [summary.md](2026-06-18/session-03/summary.md) | 6 | true | 0 | 489.9 | 587.8 | 3 |
 
+## 2026-06-24 Reference Latency Envelope
+
+이 표는 D082 기준의 non-failing reference envelope 다. 자동 실패 조건이 아니라 후속 baseline 리뷰 기준으로만 사용한다.
+
+| 항목 | load | open-loop |
+| --- | ---: | ---: |
+| compatible sessions | 3 | 3 |
+| raw runs | 9 | 9 |
+| p50 max us | 257.2 | 281.7 |
+| p99 max us | 1020.4 | 1006.5 |
+| p99 median max us | 967.5 | 994.4 |
+| p99 growth ratio max | 1.23 | 1.06 |
+| actual rate min hz | 99.8 | 99.9 |
+| TCP HWM max | 1 | 2 |
+| dropped total | 0 | 0 |
+| payload error total | 0 | 0 |
+| pool rented max | 0 | 0 |
+
 ## 해석 메모
 
 - 2026-06-18 세 session 과 2026-06-24 세 session 모두 delivery/drop/leak hard gate 를 통과했다.
@@ -41,6 +59,9 @@
 - 현재 수치는 hard latency SLO 가 아니라 Phase 4 추세 관측값이다.
 - 2026-06-24 session-01/session-02/session-03 은 D079 runner identity/environment metadata 도입 후 생성한 baseline 이다.
   summary/history comparison 은 `comparison-compatible=true`, unknown runner 0, mismatch 0 이다.
+- D082 기준으로 2026-06-24 compatible baseline 3개는 reference latency envelope 로 채택하지만,
+  hard latency gate, warning-as-failure, CI latency failure 로 승격하지 않는다.
+  현재 p99 max 가 load 1020.4 us, open-loop 1006.5 us 까지 관측되어 1 ms hard SLO 는 현 baseline 과 맞지 않는다.
 - 2026-06-18 raw report 는 D079 runner identity/environment metadata 도입 전 artifact 이므로
   summary/history comparison 은 `unknown-runner` mismatch 로 `comparison-compatible=false`를 기록한다.
   이 값은 hard gate 실패가 아니라 비교 가능성 신호다.

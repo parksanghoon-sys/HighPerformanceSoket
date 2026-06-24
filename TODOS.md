@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] 2026-06-24 compatible baseline 3개를 근거로 latency envelope 재산정과 warning-as-failure/CI gate 보류 조건을 설계한다.
-  - 목적: D070 이후 보류한 latency hard gate/warning 승격 판단을 새 D079/D080 compatible baseline 표본 기준으로 재검토한다.
-  - 범위: `docs/superpowers/specs/`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, 필요 시 `docs/benchmarks/baselines/index.md`.
-  - 검증: 2026-06-24 session-01~03 summary/history 수치 대조, placeholder/self-review, `git diff --check`,
-    solution build/test.
+- [ ] D082 latency envelope/gate 보류 설계를 검토받고, must-fix 의견이 있으면 문서 batch 로 반영한다.
+  - 목적: 2026-06-24 compatible baseline 3개를 reference envelope 로만 쓰고 hard latency/CI gate 를 보류하는 결정이
+    설계 검토에서도 타당한지 확인한다.
+  - 범위: `docs/superpowers/specs/2026-06-24-latency-envelope-and-gate-deferral-design.md`, D082 관련 root 상태 문서.
+  - 검증: 검토 의견 대조, 필요 시 문서 self-review, `git diff --check`, solution build/test.
 
 ## Deferred Backlog
 
@@ -28,6 +28,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 2026-06-24 compatible baseline 3개를 근거로 latency envelope 재산정과 warning-as-failure/CI gate 보류 조건을 설계했다.
+  - 범위: `docs/superpowers/specs/2026-06-24-latency-envelope-and-gate-deferral-design.md`,
+    `docs/benchmarks/baselines/index.md`, `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: D082로 2026-06-24 compatible baseline 3개를 reference latency envelope 로 채택하되,
+    hard latency gate, warning-as-failure, CI latency failure 는 계속 보류한다고 정리했다.
+  - 비고: 현 envelope 는 load p99 max 1020.4 us, open-loop p99 max 1006.5 us 이므로 1 ms hard SLO 는 현 baseline 과 맞지 않는다.
+  - 검증: 2026-06-24 history/session summary 수치 대조 완료.
+    신규 설계/결정/index 문서 임시 표기 검색 결과 없음.
+    `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 
 - [x] 2026-06-24 문서 전용 작업 batch 규칙을 명시했다.
   - 범위: `AGENT_RULES.md`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.

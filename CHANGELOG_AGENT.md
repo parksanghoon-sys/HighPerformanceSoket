@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - latency envelope and gate deferral design)
+
+### 작업 단위
+- 2026-06-24 compatible baseline 3개를 근거로 reference latency envelope 를 재산정하고, warning-as-failure/CI latency gate 보류 조건을 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-24-latency-envelope-and-gate-deferral-design.md`:
+  D082 설계 문서를 추가했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D082를 추가했다.
+- `docs/benchmarks/baselines/index.md`:
+  2026-06-24 reference latency envelope 표와 해석 메모를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  이번 설계 완료 상태와 다음 검토 진입점을 반영했다.
+
+### 검증
+- 2026-06-24 `history.json`과 `session-01`/`session-02`/`session-03` `summary.json` 수치를 대조했다.
+- 신규 설계/결정/index 문서 임시 표기 검색 결과 없음.
+- `git diff --check` 통과. whitespace 오류 없음.
+- `dotnet build HighPerformanceSocket.slnx --no-restore` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore` 통과, 269개 통과/실패 0.
+
 ## 2026-06-24 (Codex - document work batching rule)
 
 ### 작업 단위
