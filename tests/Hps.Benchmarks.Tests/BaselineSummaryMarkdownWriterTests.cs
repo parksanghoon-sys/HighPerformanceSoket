@@ -51,6 +51,28 @@ namespace Hps.Benchmarks.Tests
             Assert.Contains("| open-loop-tcp-hwm-high | open-loop | tcp-pending-send-queue-high-watermark | 8 | 8 | `baseline/open-loop-01.json` |", markdown);
         }
 
+        // Markdown 은 리뷰 보조 artifact 이므로 comparison 여부와 기준 key 를 사람이 바로 볼 수 있어야 한다.
+        // JSON 값과 달라지지 않도록 같은 BaselineSummary.Comparison 에서 출력한다.
+        [Fact]
+        public void Write_WhenSummaryHasComparison_WritesComparisonSection()
+        {
+            BaselineReport[] reports =
+            {
+                CreateReport("baseline/load-01.json", "load", 230.0, 500.0, 1.0, 99.9, 1, CreateIdentity("runner-a"))
+            };
+            BaselineSummary summary = BaselineSummaryGenerator.Generate("baseline", reports);
+
+            string markdown = WriteMarkdown(summary);
+
+            Assert.Contains("## Comparison", markdown);
+            Assert.Contains("- compatible: true", markdown);
+            Assert.Contains("- runner-id: runner-a", markdown);
+            Assert.Contains("- runner-kind: local", markdown);
+            Assert.Contains("| result | scenario | payload bytes | target rate hz | target duration seconds |", markdown);
+            Assert.Contains("| load | tcp-loopback-saea-baseline | 4096 | 100 | 30 |", markdown);
+            Assert.Contains("- mismatch: 없음", markdown);
+        }
+
         private static string WriteMarkdown(BaselineSummary summary)
         {
             using (StringWriter writer = new StringWriter(CultureInfo.InvariantCulture))
@@ -67,7 +89,8 @@ namespace Hps.Benchmarks.Tests
             double p99,
             double growth,
             double actualRate,
-            int tcpHwm)
+            int tcpHwm,
+            BenchmarkRunIdentity? identity = null)
         {
             return new BaselineReport(
                 sourcePath,
@@ -87,7 +110,22 @@ namespace Hps.Benchmarks.Tests
                 p99,
                 growth,
                 tcpHwm,
-                0);
+                0,
+                identity);
+        }
+
+        private static BenchmarkRunIdentity CreateIdentity(string runnerId)
+        {
+            return new BenchmarkRunIdentity(
+                BenchmarkRunIdentity.DefaultBenchmarkProfile,
+                runnerId,
+                BenchmarkRunIdentity.DefaultRunnerKind,
+                BenchmarkRunIdentity.DefaultTransportBackend,
+                "Windows",
+                "X64",
+                "X64",
+                ".NET 9.0",
+                16);
         }
     }
 }

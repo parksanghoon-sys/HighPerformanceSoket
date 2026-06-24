@@ -91,6 +91,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   `BaselineComparisonCase`, `BaselineComparisonKey`, `BaselineComparisonMismatch`, `BaselineComparisonResult`를 추가했고,
   `BaselineSummaryGenerator`가 source report 목록에서 compatible 여부, unknown runner count, mismatch 목록,
   result-name별 canonical cases 를 계산한다.
+- summary/history comparison signal Task 3이 완료됐다.
+  `BaselineSummaryWriter`는 summary JSON top-level 에 comparison-compatible/key/mismatch field 를 쓰고,
+  `BaselineSummaryMarkdownWriter`는 사람이 비교 기준과 mismatch 를 바로 볼 수 있는 `## Comparison` section 을 출력한다.
 - UDP stale remote cleanup 은 Broker/Server 소유의 선택적 lease cleanup 으로 설계했고, 기본 idle expiry 는 비활성화한다(D072).
 - `SubscriptionTable.UnsubscribeAll(IUdpEndpoint, EndPoint)`로 특정 UDP remote target 만 모든 topic 에서 제거할 수 있다(D072).
 - UDP idle lease tracker/sweep 은 Broker 소유·Server timer 트리거, 내부 options(기본 비활성), `TimeProvider` 시간 소스로
@@ -154,6 +157,14 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 최근 완료 단위
 
+- 이번 단위 — Summary/history comparison signal Task 3
+  - summary JSON/Markdown output 에 Task 2에서 계산한 `BaselineSummary.Comparison`을 기록한다.
+  - `BaselineSummaryWriter`가 `comparison-compatible`, `comparison-key`, `unknown-runner-count`,
+    `comparison-mismatch-count`, `comparison-mismatches`를 canonical JSON artifact 로 출력한다.
+  - `BaselineSummaryMarkdownWriter`가 `## Comparison` section 과 result-name별 workload case table 을 출력한다.
+  - Red: summary JSON writer test 가 `comparison-compatible` field 부재로 `KeyNotFoundException`을 냄을 확인했다.
+  - Red: Markdown writer test 가 `## Comparison` section 부재로 `Assert.Contains()` 실패함을 확인했다.
+  - Green/검증: focused JSON writer test 1개, focused Markdown writer tests 3개, `Hps.Benchmarks.Tests` 53개 통과.
 - 이번 단위 — Summary/history comparison signal Task 2
   - summary comparison 내부 model 4종을 추가했다.
   - `BaselineSummary`가 `Comparison`을 보존하고, `BaselineSummaryGenerator`가 D080 compatible/unknown/mismatch/no-source 규칙을 계산한다.
@@ -447,28 +458,29 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Summary/history comparison signal Task 3을 구현한다.
+Summary/history comparison signal Task 4를 구현한다.
 
-다음 작업은 summary JSON/Markdown output 에 comparison field 와 `## Comparison` section 을 추가하는 단위다.
-계산은 Task 2의 `BaselineSummary.Comparison`을 그대로 사용하고, writer 에서 다시 계산하지 않는다.
+다음 작업은 history reader/generator 가 각 session `summary.json`의 comparison field 를 읽고,
+history 전체의 comparison compatibility 를 집계하는 단위다.
+JSON/Markdown history output 은 Task 5로 분리한다.
 
 ## 이번 단위의 검증 경로
 
-다음 단위는 구현 Task 3이다.
+다음 단위는 구현 Task 4다.
 
 - 범위: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
   `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`,
-  `tests/Hps.Benchmarks/BaselineSummaryWriter.cs`, `tests/Hps.Benchmarks/BaselineSummaryMarkdownWriter.cs`,
-  `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`,
-  `tests/Hps.Benchmarks.Tests/BaselineSummaryMarkdownWriterTests.cs`.
-- 검증: JSON writer field 부재 Red 와 Markdown `## Comparison` section 부재 Red 를 확인한 뒤 focused benchmark tests,
-  `git diff --check`, solution build/test 를 수행한다.
+  `tests/Hps.Benchmarks/BaselineHistorySession.cs`, `tests/Hps.Benchmarks/BaselineHistory.cs`,
+  `tests/Hps.Benchmarks/BaselineHistoryReader.cs`, `tests/Hps.Benchmarks/BaselineHistoryGenerator.cs`,
+  `tests/Hps.Benchmarks.Tests/BaselineHistoryReaderTests.cs`,
+  `tests/Hps.Benchmarks.Tests/BaselineHistoryGeneratorWriterTests.cs`.
+- 검증: history session/history comparison property contract Red, summary comparison read Red,
+  session mismatch aggregate Red 를 확인한 뒤 focused benchmark tests, `git diff --check`, solution build/test 를 수행한다.
 - 완료 후 root 상태 문서 갱신과 단일 커밋을 진행한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
-- summary JSON/Markdown comparison output 구현
-- history comparison reader/generator/writer 구현
+- history JSON/Markdown comparison output 구현
 - generated baseline artifact 재생성
 - CI workflow 또는 warning-as-failure 정책 구현
 - latency hard gate 확정

@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-24 (Codex - summary/history comparison signal Task 3)
+
+### 작업 단위
+- D080 구현 계획의 세 번째 단위로 summary JSON/Markdown output 에 comparison signal 을 기록했다.
+- history reader/generator aggregate 와 history output 은 다음 Task 로 분리했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/BaselineSummaryWriter.cs`: summary JSON top-level 에 `comparison-compatible`,
+  `comparison-key`, `unknown-runner-count`, `comparison-mismatch-count`, `comparison-mismatches`를 기록한다.
+- `tests/Hps.Benchmarks/BaselineSummaryMarkdownWriter.cs`: 사람이 runner/case 기준과 mismatch 를 바로 볼 수 있도록
+  `## Comparison` section 과 workload case table 을 출력한다.
+- `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`: JSON writer comparison field shape 를 검증했다.
+- `tests/Hps.Benchmarks.Tests/BaselineSummaryMarkdownWriterTests.cs`: Markdown comparison section 출력과 핵심 key field 를 검증했다.
+- `CURRENT_PLAN.md`, `TODOS.md`: Task 3 완료와 다음 Task 4 history reader/generator 진입점을 반영했다.
+
+### 검증
+- Red 1: summary JSON writer test 가 `comparison-compatible` field 부재로 `KeyNotFoundException`을 냄을 확인했다.
+- Green 1: focused JSON writer test 1개 통과.
+- Red 2: Markdown writer test 가 `## Comparison` section 부재로 `Assert.Contains()` 실패함을 확인했다.
+- Green 2: focused Markdown writer tests 3개 통과.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore` 통과, 53개 통과/실패 0.
+
 ## 2026-06-24 (Codex - summary/history comparison signal Task 2)
 
 ### 작업 단위

@@ -9,19 +9,22 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` summary/history comparison signal Task 3: summary JSON/Markdown output 을 구현한다.
-  - 무엇이 남았는지: Task 2에서 `BaselineSummary.Comparison` 계산까지 완료했다.
-    아직 `BaselineSummaryWriter`와 `BaselineSummaryMarkdownWriter`가 comparison field/section 을 출력하지 않는다.
-  - 왜 지금 해야 하는지: summary JSON은 downstream script 의 canonical artifact 이고, Markdown 은 사람이 비교 가능성 문제를 빠르게 보는 보조 artifact 다.
-    계산 결과가 output 으로 남아야 history reader/generator Task 4가 summary comparison 을 읽을 수 있다.
-  - objective: summary JSON top-level 에 `comparison-compatible`, `comparison-key`, `unknown-runner-count`,
-    `comparison-mismatch-count`, `comparison-mismatches`를 쓰고, summary Markdown 에 `## Comparison` section 을 추가한다.
+- [ ] `P1_SOON` summary/history comparison signal Task 4: history reader/generator comparison 집계를 구현한다.
+  - 무엇이 남았는지: Task 3에서 summary JSON/Markdown comparison output 까지 완료했다.
+    아직 `BaselineHistoryReader`가 session `summary.json`의 comparison field 를 읽지 않고,
+    `BaselineHistoryGenerator`도 session 간 compatible 여부를 집계하지 않는다.
+  - 왜 지금 해야 하는지: history command 는 여러 baseline session 을 비교하는 entry point 이므로,
+    summary 단위의 비교 가능성 신호를 history artifact 로 끌어올려야 runner/session 혼합을 식별할 수 있다.
+  - objective: `BaselineHistorySession`과 `BaselineHistory`에 comparison result 를 보존하고,
+    legacy summary 누락 field 는 incompatible compatibility signal 로 표시하며,
+    session comparison mismatch 는 기존 hard gate/warning-count 를 바꾸지 않는 별도 aggregate 로 계산한다.
   - 관련 파일: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,
     `docs/superpowers/plans/2026-06-24-summary-history-comparison-signal.md`,
-    `tests/Hps.Benchmarks/BaselineSummaryWriter.cs`, `tests/Hps.Benchmarks/BaselineSummaryMarkdownWriter.cs`,
-    `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`,
-    `tests/Hps.Benchmarks.Tests/BaselineSummaryMarkdownWriterTests.cs`.
-  - next step: JSON writer field 부재 Red 를 먼저 만들고, 이어서 Markdown `## Comparison` section 부재 Red 를 닫는다.
+    `tests/Hps.Benchmarks/BaselineHistorySession.cs`, `tests/Hps.Benchmarks/BaselineHistory.cs`,
+    `tests/Hps.Benchmarks/BaselineHistoryReader.cs`, `tests/Hps.Benchmarks/BaselineHistoryGenerator.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineHistoryReaderTests.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineHistoryGeneratorWriterTests.cs`.
+  - next step: comparison property contract Red 를 먼저 만들고, reader behavior 와 generator aggregate Red 를 순서대로 닫는다.
 
 ## Deferred Backlog
 
@@ -48,6 +51,30 @@
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
 
+- [x] 2026-06-24 summary/history comparison signal Task 3을 구현했다.
+  - 범위: `tests/Hps.Benchmarks/BaselineSummaryWriter.cs`,
+    `tests/Hps.Benchmarks/BaselineSummaryMarkdownWriter.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineSummaryMarkdownWriterTests.cs`, root 상태 문서.
+  - 결과: summary JSON top-level 에 comparison-compatible/key/mismatch field 를 쓰고,
+    summary Markdown 에 `## Comparison` section 과 workload case table 을 출력한다.
+  - 비고: output 은 Task 2에서 계산한 `BaselineSummary.Comparison`을 그대로 사용하며 writer 에서 재계산하지 않는다.
+  - Red: JSON writer test 가 `comparison-compatible` field 부재로 `KeyNotFoundException`을 냄을 확인했다.
+    Markdown writer test 는 `## Comparison` section 부재로 `Assert.Contains()` 실패함을 확인했다.
+  - Green/검증: focused JSON writer test 1개 통과, focused Markdown writer tests 3개 통과,
+    `Hps.Benchmarks.Tests` 53개 통과.
+
+- [x] 2026-06-24 summary/history comparison signal Task 2를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/BaselineComparisonCase.cs`, `BaselineComparisonKey.cs`,
+    `BaselineComparisonMismatch.cs`, `BaselineComparisonResult.cs`, `BaselineSummary.cs`, `BaselineSummaryGenerator.cs`,
+    `tests/Hps.Benchmarks.Tests/BaselineSummaryGeneratorTests.cs`, root 상태 문서.
+  - 결과: `BaselineSummary.Comparison`과 내부 comparison model 을 추가했고, summary generator 가 compatible 여부,
+    key, unknown runner count, mismatch 목록을 계산한다.
+  - 비고: `processor-count`는 D080대로 comparison key 에 넣지 않고, `load`/`open-loop`은 `result-name`별 case 로 분리한다.
+  - Red: `BaselineSummary.Comparison` property 부재 contract test 가 `Assert.NotNull()` 실패함을 확인했다.
+    compatible behavior test 는 stub comparison 에서 `Expected: True, Actual: False`로 실패함을 확인했다.
+  - Green/검증: focused `BaselineSummaryGeneratorTests` 8개 통과, `Hps.Benchmarks.Tests` 51개 통과.
+
 - [x] 2026-06-24 summary/history comparison signal Task 1을 구현했다.
   - 범위: `tests/Hps.Benchmarks/BaselineReport.cs`, `tests/Hps.Benchmarks/BaselineReportReader.cs`,
     `tests/Hps.Benchmarks.Tests/BaselineReportReaderWriterTests.cs`,
@@ -60,17 +87,6 @@
     reader behavior test 는 `Expected: 4096, Actual: 0`으로 실패함을 확인했다.
   - Green/검증: focused `BaselineReportReaderWriterTests` 8개 통과, focused `BaselineSummary*` 6개 통과,
     `Hps.Benchmarks.Tests` 46개 통과.
-
-- [x] 2026-06-24 summary/history comparison signal Task 2를 구현했다.
-  - 범위: `tests/Hps.Benchmarks/BaselineComparisonCase.cs`, `BaselineComparisonKey.cs`,
-    `BaselineComparisonMismatch.cs`, `BaselineComparisonResult.cs`, `BaselineSummary.cs`, `BaselineSummaryGenerator.cs`,
-    `tests/Hps.Benchmarks.Tests/BaselineSummaryGeneratorTests.cs`, root 상태 문서.
-  - 결과: `BaselineSummary.Comparison`과 내부 comparison model 을 추가했고, summary generator 가 compatible 여부,
-    key, unknown runner count, mismatch 목록을 계산한다.
-  - 비고: `processor-count`는 D080대로 comparison key 에 넣지 않고, `load`/`open-loop`은 `result-name`별 case 로 분리한다.
-  - Red: `BaselineSummary.Comparison` property 부재 contract test 가 `Assert.NotNull()` 실패함을 확인했다.
-    compatible behavior test 는 stub comparison 에서 `Expected: True, Actual: False`로 실패함을 확인했다.
-  - Green/검증: focused `BaselineSummaryGeneratorTests` 8개 통과, `Hps.Benchmarks.Tests` 51개 통과.
 
 - [x] 2026-06-24 summary/history comparison signal 구현 계획을 작성했다.
   - 범위: `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`,

@@ -72,6 +72,60 @@ namespace Hps.Benchmarks.Tests
             }
         }
 
+        // summary JSON 은 downstream script 가 읽는 canonical artifact 다.
+        // comparison field 가 JSON 에 없으면 사람이 Markdown 을 봐야만 비교 가능성 문제를 알 수 있다.
+        [Fact]
+        public void Write_WhenSummaryHasComparison_WritesComparisonFields()
+        {
+            string directory = CreateTempDirectory();
+            string path = Path.Combine(directory, "summary.json");
+            BaselineReport[] reports =
+            {
+                new BaselineReport(
+                    "load-01.json",
+                    "load",
+                    "tcp-loopback-saea-baseline",
+                    4096,
+                    100.0,
+                    30,
+                    3000,
+                    3000,
+                    3000,
+                    0,
+                    0,
+                    0,
+                    100.0,
+                    240.0,
+                    500.0,
+                    1.0,
+                    1,
+                    0,
+                    CreateIdentity("runner-a"))
+            };
+            BaselineSummary summary = BaselineSummaryGenerator.Generate(directory, reports);
+
+            BaselineSummaryWriter.Write(path, summary);
+
+            using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                JsonElement root = document.RootElement;
+                Assert.True(root.GetProperty("comparison-compatible").GetBoolean());
+                Assert.Equal(0, root.GetProperty("unknown-runner-count").GetInt32());
+                Assert.Equal(0, root.GetProperty("comparison-mismatch-count").GetInt32());
+                Assert.Equal(0, root.GetProperty("comparison-mismatches").GetArrayLength());
+
+                JsonElement key = root.GetProperty("comparison-key");
+                Assert.Equal("runner-a", key.GetProperty("runner-id").GetString());
+                Assert.Equal(BenchmarkRunIdentity.DefaultBenchmarkProfile, key.GetProperty("benchmark-profile").GetString());
+                JsonElement runCase = key.GetProperty("cases")[0];
+                Assert.Equal("load", runCase.GetProperty("result-name").GetString());
+                Assert.Equal("tcp-loopback-saea-baseline", runCase.GetProperty("scenario").GetString());
+                Assert.Equal(4096, runCase.GetProperty("payload-bytes").GetInt32());
+                Assert.Equal(100.0, runCase.GetProperty("target-rate-hz").GetDouble());
+                Assert.Equal(30, runCase.GetProperty("target-duration-seconds").GetInt32());
+            }
+        }
+
         // raw report 가 runner identity 를 원천 artifact 로 남겨야 summary/history 단계가 비교 가능성을 판단할 수 있다.
         // schema-version 은 그대로 1이고 metadata 는 기존 reader 를 깨지 않는 top-level additive field 로만 추가한다.
         [Fact]
@@ -274,6 +328,20 @@ namespace Hps.Benchmarks.Tests
                 + "\"elapsed-ms\":30000"
                 + "}";
             File.WriteAllText(path, json);
+        }
+
+        private static BenchmarkRunIdentity CreateIdentity(string runnerId)
+        {
+            return new BenchmarkRunIdentity(
+                BenchmarkRunIdentity.DefaultBenchmarkProfile,
+                runnerId,
+                BenchmarkRunIdentity.DefaultRunnerKind,
+                BenchmarkRunIdentity.DefaultTransportBackend,
+                "Windows",
+                "X64",
+                "X64",
+                ".NET 9.0",
+                16);
         }
     }
 }

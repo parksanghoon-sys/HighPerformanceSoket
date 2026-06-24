@@ -35,11 +35,78 @@ namespace Hps.Benchmarks
                     writer.WriteBoolean("hard-passed", summary.HardPassed);
                     writer.WriteNumber("hard-failure-count", summary.HardFailureCount);
                     writer.WriteNumber("warning-count", summary.WarningCount);
+                    WriteComparison(writer, summary.Comparison);
                     WriteWarnings(writer, summary);
                     WriteByKind(writer, summary);
                     writer.WriteEndObject();
                 }
             }
+        }
+
+        private static void WriteComparison(Utf8JsonWriter writer, BaselineComparisonResult comparison)
+        {
+            writer.WriteBoolean("comparison-compatible", comparison.Compatible);
+            WriteComparisonKey(writer, comparison.Key);
+            writer.WriteNumber("unknown-runner-count", comparison.UnknownRunnerCount);
+            writer.WriteNumber("comparison-mismatch-count", comparison.MismatchCount);
+            writer.WritePropertyName("comparison-mismatches");
+            writer.WriteStartArray();
+            for (int i = 0; i < comparison.Mismatches.Count; i++)
+                WriteComparisonMismatch(writer, comparison.Mismatches[i]);
+            writer.WriteEndArray();
+        }
+
+        private static void WriteComparisonKey(Utf8JsonWriter writer, BaselineComparisonKey? key)
+        {
+            writer.WritePropertyName("comparison-key");
+            if (key == null)
+            {
+                writer.WriteNullValue();
+                return;
+            }
+
+            writer.WriteStartObject();
+            writer.WriteString("benchmark-profile", key.BenchmarkProfile);
+            writer.WriteString("runner-id", key.RunnerId);
+            writer.WriteString("runner-kind", key.RunnerKind);
+            writer.WriteString("transport-backend", key.TransportBackend);
+            writer.WriteString("os-description", key.OsDescription);
+            writer.WriteString("os-architecture", key.OsArchitecture);
+            writer.WriteString("process-architecture", key.ProcessArchitecture);
+            writer.WriteString("framework-description", key.FrameworkDescription);
+            writer.WritePropertyName("cases");
+            writer.WriteStartArray();
+            for (int i = 0; i < key.Cases.Count; i++)
+                WriteComparisonCase(writer, key.Cases[i]);
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
+
+        private static void WriteComparisonCase(Utf8JsonWriter writer, BaselineComparisonCase runCase)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("result-name", runCase.ResultName);
+            writer.WriteString("scenario", runCase.Scenario);
+            writer.WriteNumber("payload-bytes", runCase.PayloadBytes);
+            writer.WriteNumber("target-rate-hz", runCase.TargetRateHz);
+            writer.WriteNumber("target-duration-seconds", runCase.TargetDurationSeconds);
+            writer.WriteEndObject();
+        }
+
+        private static void WriteComparisonMismatch(Utf8JsonWriter writer, BaselineComparisonMismatch mismatch)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("code", mismatch.Code);
+            writer.WriteString("field", mismatch.Field);
+            writer.WriteString("expected", mismatch.Expected);
+            writer.WriteString("actual", mismatch.Actual);
+            if (mismatch.SourcePath != null)
+                writer.WriteString("source-path", mismatch.SourcePath);
+            if (mismatch.Session != null)
+                writer.WriteString("session", mismatch.Session);
+            if (mismatch.SummaryPath != null)
+                writer.WriteString("summary-path", mismatch.SummaryPath);
+            writer.WriteEndObject();
         }
 
         private static void WriteWarnings(Utf8JsonWriter writer, BaselineSummary summary)
