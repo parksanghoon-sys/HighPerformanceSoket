@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Hps.Buffers;
@@ -51,6 +52,24 @@ namespace Hps.Transport.Rio.Tests
             Assert.Equal(new byte[] { 11, 22 }, received);
         }
 
+        // 같은 RIO connection 에서 receive block 은 connection resource lifetime 동안 한 번만 등록되어야 한다.
+        // 첫 payload 처리 뒤 두 번째 receive 를 다시 post 할 때 registration counter 가 늘어나면,
+        // receive path 가 아직 per-operation RegisterBuffer/DeregisterBuffer 비용을 내고 있다는 뜻이다.
+        [Fact]
+        public async Task TcpLoopback_WhenRioAvailable_ReusesReceiveBufferRegistrationAcrossPayloads()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioBufferRegistrationDiagnostics diagnostics = GetRioBufferRegistrationDiagnostics();
+            long registrations = await SendTwoSingleBytePayloadsAsync(prependLengthPrefix: false, expectedReceiveLength: 2, diagnostics);
+
+            Assert.Equal(2, registrations);
+        }
+
         // RIO send path 가 작은 smoke payload 뿐 아니라 receive block 크기에 가까운 payload 도 그대로 전달하는지 확인한다.
         // partial completion 을 강제하지는 못하지만, byte-count loop 보강 후 큰 payload 경로가 회귀하지 않도록 잡는다.
         [Fact]
@@ -85,6 +104,24 @@ namespace Hps.Transport.Rio.Tests
             byte[] received = await SendAndReceiveAsync(new byte[] { 5, 6, 7 }, prependLengthPrefix: true, expectedReceiveLength: 7);
 
             Assert.Equal(new byte[] { 0, 0, 0, 3, 5, 6, 7 }, received);
+        }
+
+        // TCP outbound frame 의 4-byte length prefix 는 send pump 전용 scratch buffer 이므로
+        // connection resource lifetime 에 한 번 등록해 재사용할 수 있다.
+        // 이 테스트는 payload 두 번 전송에서 payload registration 두 번만 남고 prefix registration 이 반복되지 않는지 검증한다.
+        [Fact]
+        public async Task TcpLoopback_WhenRioAvailable_ReusesLengthPrefixRegistrationAcrossPayloads()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioBufferRegistrationDiagnostics diagnostics = GetRioBufferRegistrationDiagnostics();
+            long registrations = await SendTwoSingleBytePayloadsAsync(prependLengthPrefix: true, expectedReceiveLength: 10, diagnostics);
+
+            Assert.Equal(2, registrations);
         }
 
         // RIO close 경로는 receive pump 가 이미 RIOReceive 를 post 한 상태에서 socket/CQ 정리와 경합할 수 있다.
@@ -149,9 +186,7 @@ namespace Hps.Transport.Rio.Tests
                 Assert.True(transport.TrySend(client, new TransportSendBuffer(buffer, 0, 1)));
                 buffer.Release();
 
-                IConnection closedConnection = await WaitForClosedConnectionAsync(handler.ClosedTask);
-
-                Assert.Same(server, closedConnection);
+                await handler.WaitUntilClosedAsync(server);
                 Assert.Equal(1, handler.GetClosedCallCount(server));
 
                 client.Close();
@@ -224,6 +259,66 @@ namespace Hps.Transport.Rio.Tests
             }
         }
 
+        private static async Task<long> SendTwoSingleBytePayloadsAsync(
+            bool prependLengthPrefix,
+            int expectedReceiveLength,
+            RioBufferRegistrationDiagnostics diagnostics)
+        {
+            RecordingReceiveHandler handler = new RecordingReceiveHandler(expectedReceiveLength);
+            using (RioTransport transport = new RioTransport())
+            {
+                transport.SetReceiveHandler(handler);
+                await transport.StartAsync();
+
+                IConnectionListener listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                IConnection client = await transport.ConnectTcpAsync(listener.LocalEndPoint);
+                IConnection server = await listener.AcceptAsync();
+
+                // connection setup 시점의 receive/prefix resource 등록은 이번 검증 범위가 아니다.
+                // reset 뒤에는 실제 payload send 와 receive 재등록 여부만 관측한다.
+                diagnostics.Reset();
+
+                PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                RefCountedBuffer first = CreateSingleByteBuffer(pool, 31);
+                RefCountedBuffer second = CreateSingleByteBuffer(pool, 32);
+
+                TransportSendBuffer firstSend = new TransportSendBuffer(first, 0, 1);
+                TransportSendBuffer secondSend = new TransportSendBuffer(second, 0, 1);
+                if (prependLengthPrefix)
+                {
+                    firstSend = firstSend.WithLengthPrefix();
+                    secondSend = secondSend.WithLengthPrefix();
+                }
+
+                Assert.True(transport.TrySend(client, firstSend));
+                first.Release();
+
+                await handler.WaitUntilAtLeastAsync(prependLengthPrefix ? 5 : 1);
+                await Task.Delay(TimeSpan.FromMilliseconds(20)).ConfigureAwait(false);
+
+                Assert.True(transport.TrySend(client, secondSend));
+                second.Release();
+
+                await handler.ReceiveAsync();
+
+                client.Close();
+                server.Close();
+                listener.Close();
+                await transport.StopAsync();
+                await WaitForPoolDrainedAsync(pool);
+                return diagnostics.RegistrationCount;
+            }
+        }
+
+        private static RefCountedBuffer CreateSingleByteBuffer(PinnedBlockMemoryPool pool, byte value)
+        {
+            RefCountedBuffer buffer = pool.RentCounted();
+            buffer.Span[0] = value;
+            buffer.SetLength(1);
+            buffer.AddRef();
+            return buffer;
+        }
+
         private static async Task<TimeSpan> MeasureSinglePayloadDeliveryAsync()
         {
             RecordingReceiveHandler handler = new RecordingReceiveHandler(expectedLength: 1);
@@ -290,6 +385,7 @@ namespace Hps.Transport.Rio.Tests
             private readonly object _gate;
             private readonly byte[] _receivedBytes;
             private readonly TaskCompletionSource<byte[]> _received;
+            private readonly TaskCompletionSource<bool>[] _lengthReached;
             private int _receivedLength;
 
             internal RecordingReceiveHandler(int expectedLength)
@@ -297,6 +393,9 @@ namespace Hps.Transport.Rio.Tests
                 _gate = new object();
                 _receivedBytes = new byte[expectedLength];
                 _received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _lengthReached = new TaskCompletionSource<bool>[expectedLength + 1];
+                for (int i = 0; i < _lengthReached.Length; i++)
+                    _lengthReached[i] = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             }
 
             public void OnReceived(IConnection connection, TransportReceiveBuffer receiveBuffer)
@@ -306,6 +405,9 @@ namespace Hps.Transport.Rio.Tests
                     int copyLength = Math.Min(receiveBuffer.Length, _receivedBytes.Length - _receivedLength);
                     receiveBuffer.Span.Slice(0, copyLength).CopyTo(new Span<byte>(_receivedBytes, _receivedLength, copyLength));
                     _receivedLength += copyLength;
+
+                    for (int i = 0; i <= _receivedLength; i++)
+                        _lengthReached[i].TrySetResult(true);
 
                     if (_receivedLength == _receivedBytes.Length)
                         _received.TrySetResult((byte[])_receivedBytes.Clone());
@@ -324,6 +426,59 @@ namespace Hps.Transport.Rio.Tests
 
                 return await _received.Task.ConfigureAwait(false);
             }
+
+            internal async Task WaitUntilAtLeastAsync(int length)
+            {
+                Task<bool> waitTask;
+                lock (_gate)
+                {
+                    if (_receivedLength >= length)
+                        return;
+
+                    waitTask = _lengthReached[length].Task;
+                }
+
+                Task completed = await Task.WhenAny(waitTask, Task.Delay(TimeSpan.FromSeconds(5))).ConfigureAwait(false);
+                if (!object.ReferenceEquals(completed, waitTask))
+                    throw new TimeoutException("RIO TCP loopback receive progress 를 제한 시간 안에 관측하지 못했습니다.");
+            }
+        }
+
+        private static RioBufferRegistrationDiagnostics GetRioBufferRegistrationDiagnostics()
+        {
+            Type nativeType = typeof(RioCapabilityProbe).Assembly.GetType("Hps.Transport.RioNative")!;
+            PropertyInfo? registrationCount = nativeType.GetProperty(
+                "BufferRegistrationCount",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo? reset = nativeType.GetMethod(
+                "ResetBufferRegistrationDiagnostics",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            Assert.NotNull(registrationCount);
+            Assert.NotNull(reset);
+            return new RioBufferRegistrationDiagnostics(registrationCount!, reset!);
+        }
+
+        private sealed class RioBufferRegistrationDiagnostics
+        {
+            private readonly PropertyInfo _registrationCount;
+            private readonly MethodInfo _reset;
+
+            internal RioBufferRegistrationDiagnostics(PropertyInfo registrationCount, MethodInfo reset)
+            {
+                _registrationCount = registrationCount;
+                _reset = reset;
+            }
+
+            internal long RegistrationCount
+            {
+                get { return (long)_registrationCount.GetValue(null)!; }
+            }
+
+            internal void Reset()
+            {
+                _reset.Invoke(null, Array.Empty<object>());
+            }
         }
 
         private static async Task<IConnection> WaitForClosedConnectionAsync(Task<IConnection> closedTask)
@@ -340,12 +495,14 @@ namespace Hps.Transport.Rio.Tests
             private readonly object _gate;
             private readonly List<IConnection> _closedConnections;
             private readonly TaskCompletionSource<IConnection> _closed;
+            private readonly Dictionary<IConnection, TaskCompletionSource<bool>> _closedWaiters;
 
             internal ThrowingReceiveHandler()
             {
                 _gate = new object();
                 _closedConnections = new List<IConnection>();
                 _closed = new TaskCompletionSource<IConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _closedWaiters = new Dictionary<IConnection, TaskCompletionSource<bool>>();
             }
 
             internal Task<IConnection> ClosedTask
@@ -375,12 +532,40 @@ namespace Hps.Transport.Rio.Tests
 
             public void OnConnectionClosed(IConnection connection)
             {
+                TaskCompletionSource<bool>? waiter = null;
                 lock (_gate)
                 {
                     _closedConnections.Add(connection);
+                    _closedWaiters.TryGetValue(connection, out waiter);
                 }
 
+                if (waiter != null)
+                    waiter.TrySetResult(true);
+
                 _closed.TrySetResult(connection);
+            }
+
+            internal async Task WaitUntilClosedAsync(IConnection connection)
+            {
+                TaskCompletionSource<bool> waiter;
+                lock (_gate)
+                {
+                    for (int i = 0; i < _closedConnections.Count; i++)
+                    {
+                        if (object.ReferenceEquals(_closedConnections[i], connection))
+                            return;
+                    }
+
+                    if (!_closedWaiters.TryGetValue(connection, out waiter!))
+                    {
+                        waiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                        _closedWaiters.Add(connection, waiter);
+                    }
+                }
+
+                Task completed = await Task.WhenAny(waiter.Task, Task.Delay(TimeSpan.FromSeconds(5))).ConfigureAwait(false);
+                if (!object.ReferenceEquals(completed, waiter.Task))
+                    throw new TimeoutException("RIO TCP server connection close notification 을 제한 시간 안에 관측하지 못했습니다.");
             }
         }
     }

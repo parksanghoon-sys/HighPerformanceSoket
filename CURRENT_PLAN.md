@@ -1008,13 +1008,28 @@ verification/benchmark observation 의 3개 task 로 나뉜다.
 먼저 receive block 을 `RioConnectionResource` lifetime 에 대여/등록하고,
 그 다음 length-prefix block 을 resource lifetime 에 등록한다.
 
+RIO registered buffer reuse Task A 구현을 완료했다.
+`RioConnectionResource`는 이제 receive block 과 TCP length-prefix block 을 connection resource lifetime 에서 한 번만
+`RIORegisterBuffer`로 등록하고, dispose 시 `RIODeregisterBuffer`와 receive pool 반환을 수행한다.
+payload `RefCountedBuffer` send path 는 D106에 따라 per-operation registration 을 유지한다.
+Red evidence 는 신규 RIO loopback diagnostic tests 2개가 `RioNative` registration diagnostic 경계 부재로
+`Assert.NotNull` 실패한 것이다.
+Task A 이후 session-05 RIO benchmark 는 load actual-rate 99.8 Hz/p50 281.6 us/p99 866.6 us,
+open-loop actual-rate 99.8 Hz/p50 315.8 us/p99 936.4 us 다.
+
+다음 작업은 payload `RefCountedBuffer` registration cache 설계 여부를 재평가하는 것이다.
+receive/prefix 쪽 per-operation registration 은 제거됐으므로, 남은 register/deregister 비용은 payload send path 에 집중된다.
+단, payload cache 는 pool/array/native provider lifetime 과 fan-out ownership 경계가 얽히므로 바로 구현하지 않고
+D106 Task B 설계로 먼저 닫는다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO registered buffer reuse Task A 구현을 준비한다.
+이번 cycle 은 RIO payload registration cache 설계를 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.
-- 검증: current state/review/spec 대조, focused RIO tests, solution build/test, `git diff --check`.
+- 검증: current state/review/spec 대조, Microsoft RIO buffer lifetime 문서 재확인, 현 payload ownership 코드 대조,
+  설계 self-review, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 

@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO registered buffer reuse Task A)
+
+### 작업 단위
+- RIO registered buffer reuse Task A 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  `RioConnectionResource`가 receive block 과 TCP length-prefix block 을 connection resource lifetime 에서 한 번 등록해 재사용한다.
+  payload `RefCountedBuffer` send path 는 D106에 따라 기존 per-operation registration 을 유지한다.
+- `src/Hps.Transport.Rio/RioNative.cs`:
+  RIO buffer registration 재사용 여부를 테스트에서만 관측할 수 있는 internal diagnostic counter 를 추가했다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`:
+  같은 connection 에서 receive/prefix registration 이 payload send 두 번 동안 반복되지 않는지 검증하는 loopback tests 를 추가했다.
+  handler exception close notify test 는 peer close notify 순서에 의존하지 않고 server connection close 를 기다리도록 보정했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task A 완료와 다음 후보인 payload registration cache 설계 진입점을 기록했다.
+
+### 검증/관측
+- Red: 신규 diagnostic tests 2개가 `RioNative` registration diagnostic 경계 부재로 `Assert.NotNull` 실패.
+- Green: focused diagnostic tests 2개 통과, focused RIO tests 29개 통과.
+- close/wake 핵심 RIO tests 10회 반복 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-restore`: 통과.
+- benchmark session-05:
+  RIO load actual-rate 99.8 Hz, p50 281.6 us, p99 866.6 us.
+  RIO open-loop actual-rate 99.8 Hz, p50 315.8 us, p99 936.4 us.
+
 ## 2026-06-25 (Codex - RIO registered buffer reuse Task A plan)
 
 ### 작업 단위

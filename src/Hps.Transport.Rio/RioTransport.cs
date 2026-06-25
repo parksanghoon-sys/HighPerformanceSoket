@@ -236,15 +236,12 @@ namespace Hps.Transport
         {
             while (!connection.IsClosed)
             {
-                byte[] receiveBlock = resource.ReceivePool.Rent();
-                IntPtr bufferId = IntPtr.Zero;
-
                 try
                 {
-                    bufferId = RegisterPinnedArray(resource.Native, receiveBlock);
+                    byte[] receiveBlock = resource.ReceiveBlock;
                     RioBufferSegment[] segments = new RioBufferSegment[]
                     {
-                        new RioBufferSegment(bufferId, 0, receiveBlock.Length)
+                        new RioBufferSegment(resource.ReceiveBufferId, 0, receiveBlock.Length)
                     };
 
                     if (!resource.Native.Receive(resource.RequestQueue, segments, IntPtr.Zero))
@@ -280,20 +277,11 @@ namespace Hps.Transport
                     NotifyConnectionClosed(connection);
                     return;
                 }
-                finally
-                {
-                    if (bufferId != IntPtr.Zero)
-                        resource.Native.DeregisterBuffer(bufferId);
-
-                    resource.ReceivePool.Return(receiveBlock);
-                }
             }
         }
 
         private async Task SendLoopAsync(TransportConnection connection, RioConnectionResource resource)
         {
-            byte[] lengthPrefixBuffer = GC.AllocateUninitializedArray<byte>(TcpLengthPrefixSize, pinned: true);
-
             while (true)
             {
                 await connection.WaitForSendSignalAsync().ConfigureAwait(false);
@@ -306,7 +294,7 @@ namespace Hps.Transport
                     {
                         try
                         {
-                            await SendInFlightAsync(resource, connection, inFlight.SendBuffer, lengthPrefixBuffer).ConfigureAwait(false);
+                            await SendInFlightAsync(resource, connection, inFlight.SendBuffer).ConfigureAwait(false);
                             inFlight.Complete();
                         }
                         catch (ObjectDisposedException)
@@ -329,13 +317,17 @@ namespace Hps.Transport
         private async Task SendInFlightAsync(
             RioConnectionResource resource,
             TransportConnection connection,
-            TransportSendBuffer sendBuffer,
-            byte[] lengthPrefixBuffer)
+            TransportSendBuffer sendBuffer)
         {
             if (sendBuffer.PrependLengthPrefix)
             {
-                WriteBigEndianLength(lengthPrefixBuffer, sendBuffer.Length);
-                await SendRegisteredArrayAsync(resource, connection, lengthPrefixBuffer, 0, TcpLengthPrefixSize).ConfigureAwait(false);
+                WriteBigEndianLength(resource.LengthPrefixBlock, sendBuffer.Length);
+                await SendRegisteredBufferAsync(
+                    resource,
+                    connection,
+                    resource.LengthPrefixBufferId,
+                    0,
+                    TcpLengthPrefixSize).ConfigureAwait(false);
             }
 
             if (sendBuffer.Length != 0)
@@ -368,37 +360,47 @@ namespace Hps.Transport
             try
             {
                 bufferId = RegisterPinnedArray(resource.Native, block);
-                int currentOffset = offset;
-                int remaining = length;
-
-                while (remaining != 0)
-                {
-                    RioBufferSegment[] segments = new RioBufferSegment[]
-                    {
-                        new RioBufferSegment(bufferId, currentOffset, remaining)
-                    };
-
-                    if (!resource.Native.Send(resource.RequestQueue, segments, IntPtr.Zero))
-                        throw new SocketException((int)SocketError.ConnectionReset);
-
-                    RioResult completion = await WaitForCompletionAsync(
-                        resource,
-                        resource.SendCompletionQueue,
-                        resource.SendSignal,
-                        connection).ConfigureAwait(false);
-
-                    if (completion.Status != 0 || completion.BytesTransferred == 0 || completion.BytesTransferred > remaining)
-                        throw new SocketException((int)SocketError.ConnectionReset);
-
-                    int sent = checked((int)completion.BytesTransferred);
-                    currentOffset += sent;
-                    remaining -= sent;
-                }
+                await SendRegisteredBufferAsync(resource, connection, bufferId, offset, length).ConfigureAwait(false);
             }
             finally
             {
                 if (bufferId != IntPtr.Zero)
                     resource.Native.DeregisterBuffer(bufferId);
+            }
+        }
+
+        private static async Task SendRegisteredBufferAsync(
+            RioConnectionResource resource,
+            TransportConnection connection,
+            IntPtr bufferId,
+            int offset,
+            int length)
+        {
+            int currentOffset = offset;
+            int remaining = length;
+
+            while (remaining != 0)
+            {
+                RioBufferSegment[] segments = new RioBufferSegment[]
+                {
+                    new RioBufferSegment(bufferId, currentOffset, remaining)
+                };
+
+                if (!resource.Native.Send(resource.RequestQueue, segments, IntPtr.Zero))
+                    throw new SocketException((int)SocketError.ConnectionReset);
+
+                RioResult completion = await WaitForCompletionAsync(
+                    resource,
+                    resource.SendCompletionQueue,
+                    resource.SendSignal,
+                    connection).ConfigureAwait(false);
+
+                if (completion.Status != 0 || completion.BytesTransferred == 0 || completion.BytesTransferred > remaining)
+                    throw new SocketException((int)SocketError.ConnectionReset);
+
+                int sent = checked((int)completion.BytesTransferred);
+                currentOffset += sent;
+                remaining -= sent;
             }
         }
 
@@ -489,6 +491,8 @@ namespace Hps.Transport
         private sealed class RioConnectionResource : IDisposable
         {
             private readonly object _completionGate;
+            private byte[]? _receiveBlock;
+            private byte[]? _lengthPrefixBlock;
             private int _disposed;
 
             internal RioConnectionResource(RioNative native, Socket socket, RioCompletionPort completionPort)
@@ -500,6 +504,10 @@ namespace Hps.Transport
 
                 _completionGate = new object();
                 ReceivePool = new PinnedBlockMemoryPool(ReceiveBlockSize);
+                _receiveBlock = null;
+                _lengthPrefixBlock = null;
+                ReceiveBufferId = IntPtr.Zero;
+                LengthPrefixBufferId = IntPtr.Zero;
                 ReceiveCompletionQueue = IntPtr.Zero;
                 SendCompletionQueue = IntPtr.Zero;
                 RequestQueue = IntPtr.Zero;
@@ -508,6 +516,16 @@ namespace Hps.Transport
 
                 try
                 {
+                    // receive pump 는 MaxOutstandingReceive=1 로 직렬화되어 있으므로 connection 마다 receive block 하나만
+                    // 등록해도 다음 receive post 에 같은 buffer id 를 안전하게 재사용할 수 있다.
+                    _receiveBlock = ReceivePool.Rent();
+                    ReceiveBufferId = RegisterPinnedArray(Native, _receiveBlock);
+
+                    // TCP outbound length prefix 는 send pump 전용 4-byte scratch 이다.
+                    // prefix completion 뒤에만 payload send 로 넘어가므로 같은 registered block 을 반복 사용한다.
+                    _lengthPrefixBlock = GC.AllocateUninitializedArray<byte>(TcpLengthPrefixSize, pinned: true);
+                    LengthPrefixBufferId = RegisterPinnedArray(Native, _lengthPrefixBlock);
+
                     ReceiveCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize, ReceiveSignal.NotificationCompletionPointer);
                     SendCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize, SendSignal.NotificationCompletionPointer);
                     RequestQueue = Native.CreateRequestQueue(
@@ -534,6 +552,34 @@ namespace Hps.Transport
             internal Socket Socket { get; }
 
             internal PinnedBlockMemoryPool ReceivePool { get; }
+
+            internal byte[] ReceiveBlock
+            {
+                get
+                {
+                    byte[]? receiveBlock = _receiveBlock;
+                    if (receiveBlock == null)
+                        throw new ObjectDisposedException(nameof(RioConnectionResource));
+
+                    return receiveBlock;
+                }
+            }
+
+            internal IntPtr ReceiveBufferId { get; private set; }
+
+            internal byte[] LengthPrefixBlock
+            {
+                get
+                {
+                    byte[]? lengthPrefixBlock = _lengthPrefixBlock;
+                    if (lengthPrefixBlock == null)
+                        throw new ObjectDisposedException(nameof(RioConnectionResource));
+
+                    return lengthPrefixBlock;
+                }
+            }
+
+            internal IntPtr LengthPrefixBufferId { get; private set; }
 
             internal IntPtr ReceiveCompletionQueue { get; private set; }
 
@@ -602,6 +648,23 @@ namespace Hps.Transport
                     if (sendCompletionQueue != IntPtr.Zero)
                         Native.CloseCompletionQueue(sendCompletionQueue);
                 }
+
+                IntPtr receiveBufferId = ReceiveBufferId;
+                ReceiveBufferId = IntPtr.Zero;
+                if (receiveBufferId != IntPtr.Zero)
+                    Native.DeregisterBuffer(receiveBufferId);
+
+                IntPtr lengthPrefixBufferId = LengthPrefixBufferId;
+                LengthPrefixBufferId = IntPtr.Zero;
+                if (lengthPrefixBufferId != IntPtr.Zero)
+                    Native.DeregisterBuffer(lengthPrefixBufferId);
+
+                byte[]? receiveBlock = _receiveBlock;
+                _receiveBlock = null;
+                if (receiveBlock != null)
+                    ReceivePool.Return(receiveBlock);
+
+                _lengthPrefixBlock = null;
 
                 ReceiveSignal.Dispose();
                 SendSignal.Dispose();

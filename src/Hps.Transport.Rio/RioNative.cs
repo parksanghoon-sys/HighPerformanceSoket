@@ -38,6 +38,7 @@ namespace Hps.Transport
         private readonly RioRegisterBufferDelegate _registerBuffer;
         private readonly RioDeregisterBufferDelegate _deregisterBuffer;
         private readonly RioNotifyDelegate _notify;
+        private static long _bufferRegistrationCount;
 
         private RioNative(RioExtensionFunctionTable functionTable)
         {
@@ -56,6 +57,16 @@ namespace Hps.Transport
         internal bool SupportsCompletionNotification
         {
             get { return _functionTable.Notify != IntPtr.Zero; }
+        }
+
+        internal static long BufferRegistrationCount
+        {
+            get { return System.Threading.Volatile.Read(ref _bufferRegistrationCount); }
+        }
+
+        internal static void ResetBufferRegistrationDiagnostics()
+        {
+            System.Threading.Volatile.Write(ref _bufferRegistrationCount, 0);
         }
 
         internal IntPtr CreateCompletionQueue(int queueSize)
@@ -224,7 +235,11 @@ namespace Hps.Transport
             if (dataLength <= 0)
                 throw new ArgumentOutOfRangeException(nameof(dataLength), "RIO register buffer 길이는 1 이상이어야 합니다.");
 
-            return _registerBuffer(dataBuffer, (uint)dataLength);
+            IntPtr bufferId = _registerBuffer(dataBuffer, (uint)dataLength);
+            if (bufferId != IntPtr.Zero)
+                System.Threading.Interlocked.Increment(ref _bufferRegistrationCount);
+
+            return bufferId;
         }
 
         internal void DeregisterBuffer(IntPtr bufferId)
