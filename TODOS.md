@@ -9,13 +9,12 @@
 
 ## Current TODOs
 
-- [ ] RIO payload registration cache 구현 계획을 작성한다.
-  - 목적: D107 connection resource bounded cache 설계를 TDD 가능한 task 로 나눈다.
-  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/`, root 상태 문서.
-  - 현재 판단: payload cache 는 `RioConnectionResource` 소유 bounded cache 로 먼저 구현하고,
-    transport-wide shared cache 는 fan-out evidence 이후 별도 설계로 둔다.
-  - 다음 자연스러운 step: pure owner tests, resource wiring, payload send path 전환, benchmark observation 순서로 계획을 작성한다.
-  - 검증: D107 spec coverage self-review, placeholder scan, `git diff --check`.
+- [ ] RIO payload registration cache Task 1 pure owner 를 구현한다.
+  - 목적: backing `byte[]` identity cache, outstanding lease count, idle eviction, dispose-delayed deregister 규칙을 production RIO loopback 전 pure model 로 고정한다.
+  - 범위: `src/Hps.Transport.Rio/RioPayloadRegistrationCache.cs`, `tests/Hps.Transport.Rio.Tests/RioPayloadRegistrationCacheTests.cs`.
+  - 현재 판단: 구현 계획은 `docs/superpowers/plans/2026-06-25-rio-payload-registration-cache.md`에 있다.
+  - 다음 자연스러운 step: fake registrar 기반 Red tests 를 먼저 작성하고 focused cache owner tests 로 Green 을 확인한다.
+  - 검증: focused cache owner tests, focused RIO tests, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -30,6 +29,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO payload registration cache 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-25-rio-payload-registration-cache.md`, root 상태 문서.
+  - 결과: D107 설계를 pure owner, send path cache lease, verification/benchmark/state update 의 3개 task 로 분해했다.
+  - 검증: D107 spec coverage self-review, placeholder scan, type consistency scan, `git diff --check`.
+  - 비고: 다음 실행은 Task 1 pure cache owner 다.
 
 - [x] RIO payload `RefCountedBuffer` registration cache 설계를 작성했다.
   - 범위: `docs/superpowers/specs/2026-06-25-rio-payload-registration-cache-design.md`,

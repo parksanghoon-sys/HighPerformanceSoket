@@ -1032,13 +1032,21 @@ fan-out 최적화 폭은 작지만 close/dispose owner 가 명확하고, outstan
 `RioPayloadRegistrationCache` pure owner, connection resource wiring, payload send path cache lease 전환,
 verification/benchmark observation 을 TDD 가능한 task 로 나눈다.
 
+D107 구현 계획을 완료했다.
+계획 문서는 `docs/superpowers/plans/2026-06-25-rio-payload-registration-cache.md`다.
+작업은 pure payload registration cache owner, payload send path cache lease, verification/benchmark/state update 의
+3개 task 로 나뉜다.
+
+다음 작업은 계획 Task 1인 `RioPayloadRegistrationCache` pure owner 구현이다.
+먼저 fake registrar 기반 Red tests 로 cache hit, idle eviction, outstanding dispose delay, fallback lease 를 고정한다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO payload registration cache 구현 계획을 준비한다.
+이번 cycle 은 RIO payload registration cache Task 1 pure owner 구현을 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.
-- 검증: D107 spec coverage self-review, current RIO code/test 대조, placeholder scan, `git diff --check`.
+- 검증: focused cache owner Red/Green tests, focused RIO tests, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
