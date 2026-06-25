@@ -20,6 +20,7 @@ namespace Hps.Transport
         private const uint WsaFlagRegisteredIo = 0x100;
         private const uint IocInOut = 0xC0000000;
         private const uint IocWs2 = 0x08000000;
+        internal const int RioIocpCompletion = 2;
         // Windows SDK ws2def.h 기준 SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER 값이다.
         // RIO 함수들은 일반 DLL export 가 아니라 provider extension table 로 런타임 조회해야 한다.
         private const uint SioGetMultipleExtensionFunctionPointer = IocInOut | IocWs2 | 36;
@@ -36,6 +37,7 @@ namespace Hps.Transport
         private readonly RioPostBufferDelegate _send;
         private readonly RioRegisterBufferDelegate _registerBuffer;
         private readonly RioDeregisterBufferDelegate _deregisterBuffer;
+        private readonly RioNotifyDelegate _notify;
 
         private RioNative(RioExtensionFunctionTable functionTable)
         {
@@ -48,16 +50,27 @@ namespace Hps.Transport
             _send = Marshal.GetDelegateForFunctionPointer<RioPostBufferDelegate>(functionTable.Send);
             _registerBuffer = Marshal.GetDelegateForFunctionPointer<RioRegisterBufferDelegate>(functionTable.RegisterBuffer);
             _deregisterBuffer = Marshal.GetDelegateForFunctionPointer<RioDeregisterBufferDelegate>(functionTable.DeregisterBuffer);
+            _notify = Marshal.GetDelegateForFunctionPointer<RioNotifyDelegate>(functionTable.Notify);
+        }
+
+        internal bool SupportsCompletionNotification
+        {
+            get { return _functionTable.Notify != IntPtr.Zero; }
         }
 
         internal IntPtr CreateCompletionQueue(int queueSize)
+        {
+            return CreateCompletionQueue(queueSize, IntPtr.Zero);
+        }
+
+        internal IntPtr CreateCompletionQueue(int queueSize, IntPtr notificationCompletion)
         {
             if (queueSize <= 0)
                 throw new ArgumentOutOfRangeException(nameof(queueSize), "RIO completion queue 크기는 1 이상이어야 합니다.");
 
             // NotificationCompletion 을 null 로 두면 별도 event/IOCP notification 없이 poll/dequeue 방식으로 사용한다.
-            // 초기 pump 는 명시 notification 을 붙이기 전 단일 worker polling 모델로 검증한다.
-            return _createCompletionQueue((uint)queueSize, IntPtr.Zero);
+            // IOCP 전환 뒤에는 caller 가 수명 보장된 RIO_NOTIFICATION_COMPLETION pointer 를 넘긴다.
+            return _createCompletionQueue((uint)queueSize, notificationCompletion);
         }
 
         internal void CloseCompletionQueue(IntPtr completionQueue)
@@ -122,6 +135,74 @@ namespace Hps.Transport
             {
                 handle.Free();
             }
+        }
+
+        internal int Notify(IntPtr completionQueue)
+        {
+            if (completionQueue == IntPtr.Zero)
+                throw new ArgumentException("RIO completion queue handle 은 null 일 수 없습니다.", nameof(completionQueue));
+
+            return _notify(completionQueue);
+        }
+
+        internal static IntPtr CreateIoCompletionPortHandle(uint concurrentThreadCount)
+        {
+            IntPtr handle = CreateIoCompletionPort(new IntPtr(-1), IntPtr.Zero, UIntPtr.Zero, concurrentThreadCount);
+            if (handle == IntPtr.Zero)
+                throw new SocketException(Marshal.GetLastWin32Error());
+
+            return handle;
+        }
+
+        internal static uint GetQueuedCompletionStatusEx(
+            IntPtr completionPort,
+            NativeOverlappedEntry[] entries,
+            uint milliseconds)
+        {
+            if (completionPort == IntPtr.Zero)
+                throw new ArgumentException("IOCP handle 은 null 일 수 없습니다.", nameof(completionPort));
+            if (entries == null)
+                throw new ArgumentNullException(nameof(entries));
+            if (entries.Length == 0)
+                throw new ArgumentException("IOCP completion entry 배열은 비어 있을 수 없습니다.", nameof(entries));
+
+            uint removed;
+            bool ok = GetQueuedCompletionStatusEx(
+                completionPort,
+                entries,
+                (uint)entries.Length,
+                out removed,
+                milliseconds,
+                false);
+
+            if (!ok)
+            {
+                int error = Marshal.GetLastWin32Error();
+                if (error == 258)
+                    return 0;
+
+                throw new SocketException(error);
+            }
+
+            return removed;
+        }
+
+        internal static void PostQueuedCompletionStatus(IntPtr completionPort, UIntPtr completionKey, IntPtr overlapped)
+        {
+            if (completionPort == IntPtr.Zero)
+                throw new ArgumentException("IOCP handle 은 null 일 수 없습니다.", nameof(completionPort));
+
+            if (!PostQueuedCompletionStatus(completionPort, 0, completionKey, overlapped))
+                throw new SocketException(Marshal.GetLastWin32Error());
+        }
+
+        internal static void CloseNativeHandle(IntPtr handle)
+        {
+            if (handle == IntPtr.Zero)
+                return;
+
+            if (!CloseHandle(handle))
+                throw new SocketException(Marshal.GetLastWin32Error());
         }
 
         internal bool Receive(IntPtr requestQueue, RioBufferSegment[] buffers, IntPtr requestContext)
@@ -275,6 +356,32 @@ namespace Hps.Transport
             uint group,
             uint flags);
 
+        [DllImport("Kernel32.dll", ExactSpelling = true, SetLastError = true)]
+        private static extern IntPtr CreateIoCompletionPort(
+            IntPtr fileHandle,
+            IntPtr existingCompletionPort,
+            UIntPtr completionKey,
+            uint numberOfConcurrentThreads);
+
+        [DllImport("Kernel32.dll", ExactSpelling = true, SetLastError = true)]
+        private static extern bool GetQueuedCompletionStatusEx(
+            IntPtr completionPort,
+            [Out] NativeOverlappedEntry[] completionPortEntries,
+            uint count,
+            out uint entriesRemoved,
+            uint milliseconds,
+            bool alertable);
+
+        [DllImport("Kernel32.dll", ExactSpelling = true, SetLastError = true)]
+        private static extern bool PostQueuedCompletionStatus(
+            IntPtr completionPort,
+            uint numberOfBytesTransferred,
+            UIntPtr completionKey,
+            IntPtr overlapped);
+
+        [DllImport("Kernel32.dll", ExactSpelling = true, SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr handle);
+
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate IntPtr RioCreateCompletionQueueDelegate(uint queueSize, IntPtr notificationCompletion);
 
@@ -308,6 +415,9 @@ namespace Hps.Transport
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate void RioDeregisterBufferDelegate(IntPtr bufferId);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate int RioNotifyDelegate(IntPtr completionQueue);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct RioExtensionFunctionTable
@@ -374,5 +484,59 @@ namespace Hps.Transport
             Offset = (uint)offset;
             Length = (uint)length;
         }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct RioNotificationCompletion
+    {
+        internal int Type;
+        internal RioNotificationIocp Iocp;
+
+        internal static RioNotificationCompletion ForIocp(IntPtr iocpHandle, UIntPtr completionKey, IntPtr overlapped)
+        {
+            if (iocpHandle == IntPtr.Zero)
+                throw new ArgumentException("IOCP handle 은 null 일 수 없습니다.", nameof(iocpHandle));
+            if (overlapped == IntPtr.Zero)
+                throw new ArgumentException("RIO notification OVERLAPPED pointer 는 null 일 수 없습니다.", nameof(overlapped));
+
+            RioNotificationCompletion completion = new RioNotificationCompletion();
+            completion.Type = RioNative.RioIocpCompletion;
+            completion.Iocp = new RioNotificationIocp(iocpHandle, completionKey, overlapped);
+            return completion;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct RioNotificationIocp
+    {
+        internal IntPtr IocpHandle;
+        internal UIntPtr CompletionKey;
+        internal IntPtr Overlapped;
+
+        internal RioNotificationIocp(IntPtr iocpHandle, UIntPtr completionKey, IntPtr overlapped)
+        {
+            IocpHandle = iocpHandle;
+            CompletionKey = completionKey;
+            Overlapped = overlapped;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct NativeOverlapped64
+    {
+        internal UIntPtr Internal;
+        internal UIntPtr InternalHigh;
+        internal uint Offset;
+        internal uint OffsetHigh;
+        internal IntPtr EventHandle;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct NativeOverlappedEntry
+    {
+        internal UIntPtr CompletionKey;
+        internal IntPtr Overlapped;
+        internal UIntPtr Internal;
+        internal uint NumberOfBytesTransferred;
     }
 }

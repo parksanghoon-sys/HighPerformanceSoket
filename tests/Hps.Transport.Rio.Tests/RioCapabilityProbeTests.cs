@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -68,6 +69,29 @@ namespace Hps.Transport.Rio.Tests
             bool loaded = RioNative.TryLoadFunctionTable(out native);
 
             Assert.True(loaded || native == null);
+        }
+
+        // RIONotify 는 polling-only completion wait 를 IOCP notification wait 로 바꾸기 위한 필수 native entry point 다.
+        // capability probe 가 Available 이면 notification 함수도 함께 노출되어야 후속 completion pump 가 안전하게 진입할 수 있다.
+        [Fact]
+        public void TryLoadFunctionTable_WhenRioAvailable_ExposesNotificationFunctions()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioNative? native;
+            Assert.True(RioNative.TryLoadFunctionTable(out native));
+            Assert.NotNull(native);
+
+            PropertyInfo? property = typeof(RioNative).GetProperty(
+                "SupportsCompletionNotification",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(property);
+            Assert.True((bool)property!.GetValue(native)!);
         }
 
         // function table pointer 를 얻는 것만으로는 충분하지 않다.

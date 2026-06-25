@@ -950,9 +950,20 @@ benchmark observation/state update 의 4개 커밋 단위로 나뉜다.
 먼저 RIO available 환경에서 `RioNative`가 notification function 을 노출하는지 실패 테스트로 고정한 뒤,
 `RIONotify`, notification CQ creation, IOCP P/Invoke shape 를 추가한다.
 
+D104 구현 계획 Task 1 native notification shape 를 완료했다.
+`RioNative`는 이제 `RIONotify` delegate, notification CQ creation overload,
+IOCP 관련 P/Invoke/struct shape, `SupportsCompletionNotification` probe 를 가진다.
+Red는 `TryLoadFunctionTable_WhenRioAvailable_ExposesNotificationFunctions`가
+`SupportsCompletionNotification` property 부재로 assertion failure 를 낸 것이다.
+focused RIO tests 25개와 solution build 0경고/0오류를 확인했다.
+
+다음 작업은 계획 Task 2 completion port/signal owner 구현이다.
+아직 RIO native wait 에 연결하지 말고, 먼저 `RioCompletionPort`/`RioCompletionSignal`의 managed lifecycle,
+wait wake, dispose wake 를 테스트로 고정한다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO IOCP/RIONotify completion wait Task 1 구현을 준비한다.
+이번 cycle 은 RIO IOCP/RIONotify completion wait Task 2 구현을 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.

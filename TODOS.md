@@ -9,13 +9,14 @@
 
 ## Current TODOs
 
-- [ ] RIO IOCP/RIONotify completion wait Task 1 native notification shape 를 구현한다.
-  - 목적: `RioNative`가 RIONotify/notification CQ/IOCP native shape 를 노출해 이후 shared IOCP pump 구현을 가능하게 한다.
-  - 범위: `src/Hps.Transport.Rio/RioNative.cs`, `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`.
-  - 현재 판단: 구현 계획은 `docs/superpowers/plans/2026-06-25-rio-iocp-notification-completion-wait.md`에 있으며,
-    Task 1은 native shape 와 focused capability test 만 다룬다.
-  - 다음 자연스러운 step: `SupportsCompletionNotification` 실패 테스트를 먼저 추가하고 Red를 확인한다.
-  - 검증: focused RIO capability test, focused RIO suite, solution build, `git diff --check`.
+- [ ] RIO IOCP/RIONotify completion wait Task 2 completion port/signal owner 를 구현한다.
+  - 목적: native wait wiring 전에 CQ별 signal owner 의 wait wake, dispose wake, fault 수명 경계를 managed test 로 고정한다.
+  - 범위: 새 `src/Hps.Transport.Rio/RioCompletionPort.cs`,
+    새 `src/Hps.Transport.Rio/RioCompletionSignal.cs`,
+    새 `tests/Hps.Transport.Rio.Tests/RioCompletionPortTests.cs`.
+  - 현재 판단: Task 1 native shape 는 완료됐고, Task 2는 아직 실제 RIONotify/IOCP pump 에 연결하지 않는다.
+  - 다음 자연스러운 step: `RioCompletionPortTests` Red를 먼저 작성한다.
+  - 검증: focused completion port tests, solution build, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -114,6 +115,14 @@
     RIONotify+IOCP wiring, benchmark observation/state update 의 4개 task 로 분해했다.
   - 검증: spec coverage self-review, placeholder scan, `git diff --check`.
   - 비고: 다음 실행은 Task 1 `RioNative` notification shape 다.
+
+- [x] RIO IOCP/RIONotify completion wait Task 1 native notification shape 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioNative.cs`, `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
+  - 결과: `RioNative`가 `RIONotify`, notification CQ overload, IOCP P/Invoke/struct shape,
+    `SupportsCompletionNotification` probe 를 노출한다.
+  - 검증: Red `SupportsCompletionNotification` assertion failure 확인,
+    focused test green, focused RIO tests 25개 통과, solution build 0경고/0오류.
+  - 비고: 실제 shared IOCP pump wiring 은 Task 3이며, Task 2는 managed signal owner lifecycle 을 먼저 고정한다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,

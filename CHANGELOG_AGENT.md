@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO IOCP native notification shape)
+
+### 작업 단위
+- RIO IOCP/RIONotify completion wait Task 1 native notification shape 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioNative.cs`:
+  `RIONotify` delegate, notification CQ creation overload, IOCP P/Invoke/struct shape,
+  `SupportsCompletionNotification` probe 를 추가했다.
+- `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`:
+  RIO available function table 이 notification function 을 노출하는지 검증하는 테스트를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 Task 2 completion port/signal owner 구현으로 이동했다.
+
+### 검증
+- Red: `TryLoadFunctionTable_WhenRioAvailable_ExposesNotificationFunctions`가
+  `SupportsCompletionNotification` property 부재로 assertion failure 를 냈다.
+- focused test green.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 25개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+
 ## 2026-06-25 (Codex - RIO IOCP notification wait plan)
 
 ### 작업 단위
