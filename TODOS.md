@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] Phase 5 Windows RIO backend 구현 계획을 작성한다.
-  - 목적: D097 TCP-first RIO boundary 설계를 Red-Green 구현 가능한 commit 단위로 분해한다.
-  - 범위: project skeleton/probe/native wrapper, registered buffer owner, TCP queue owner,
-    TCP connect/listen/accept, TCP send/receive pump, 기존 tests 재사용.
-  - 현재 판단: 기본 `TransportFactory.CreateDefault()`는 SAEA를 유지하고, RIO는 명시 opt-in/test path 로 먼저 검증한다.
-  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`를 작성한다.
-  - 검증: 계획 self-review, placeholder scan, `git diff --check`, 필요 시 solution build/test.
+- [ ] RIO Task 1 project skeleton 과 capability probe 를 구현한다.
+  - 목적: `Hps.Transport.Rio`와 `Hps.Transport.Rio.Tests`를 추가하고, Windows/RIO availability probe 의 첫 public surface 를 만든다.
+  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/`, `HighPerformanceSocket.slnx`,
+    `TransportFactory.CreateDefault()` SAEA 유지 확인, root 상태 문서.
+  - 현재 판단: RIO는 TCP-first opt-in backend 이며, Task 1에서는 실제 TCP pump 를 만들지 않는다.
+  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md` Task 1을 Red-Green으로 실행한다.
+  - 검증: reflection 기반 Red assertion failure, focused RIO tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -49,6 +49,13 @@
   - 비고: 기본 `TransportFactory.CreateDefault()`는 SAEA를 유지하고, RIO는 명시 opt-in/test path 로 먼저 검증한다.
     UDP RIO, batching, automatic default backend selection 은 후속으로 둔다.
   - 검증: current transport 구조, 빈 RIO project 상태, Microsoft RIO 문서를 대조했다.
+
+- [x] Phase 5 Windows RIO backend 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`, root 상태 문서.
+  - 결과: D097 설계를 project skeleton/capability probe, native function table loader,
+    registered buffer owner, TCP queue owner, TCP opt-in guard, TCP pump/contract test reuse 의 6개 task 로 나눴다.
+  - 비고: Task 1 Red는 production type 부재를 reflection assertion failure 로 검증하도록 보정했다.
+  - 검증: plan self-review, placeholder scan, current transport 구조 대조.
 
 - [x] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,

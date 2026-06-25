@@ -733,18 +733,21 @@ RIO backend 는 TCP-first 로 진행하되, 첫 구현 task 는 TCP pump 가 아
 Windows capability probe, native function table wrapper 로 분리한다.
 기본 `TransportFactory.CreateDefault()`는 SAEA를 유지하고, RIO는 명시 opt-in/test path 로 먼저 검증한다.
 
-다음 작업은 `docs/superpowers/plans/2026-06-25-windows-rio-backend.md` 구현 계획 작성이다.
-계획은 D097 설계를 다음 커밋 단위로 쪼갠다: probe/wrapper, registered buffer owner,
-TCP queue owner, TCP connect/listen/accept, TCP send/receive pump, 기존 tests 재사용.
+RIO 구현 계획을 `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`에 작성했다.
+계획은 D097 설계를 6개 task 로 쪼갠다: project skeleton/capability probe, native function table loader,
+registered buffer owner, TCP queue owner, TCP opt-in guard, TCP pump/contract test reuse.
+
+다음 작업은 계획 Task 1인 RIO project skeleton 과 capability probe 구현이다.
+첫 Red는 production project/type 부재를 reflection assertion failure 로 잡고,
+기본 `TransportFactory.CreateDefault()`가 SAEA를 유지하는지 함께 검증한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 Phase 5 RIO backend 구현 계획 문서를 작성한다.
+이번 cycle 은 RIO 구현 계획 Task 1을 실행한다.
 
-- 범위: `docs/superpowers/specs/2026-06-25-windows-rio-backend-boundary-design.md`,
-  `PLAN.md`, Transport abstraction/runtime/SAEA 구조, 현재 빈 RIO project 상태,
-  Phase 2/3 transport/server tests, Phase 4 benchmark artifact 정책.
-- 검증: 설계 self-review, placeholder scan, `git diff --check`, 필요 시 solution build/test.
+- 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/`, `HighPerformanceSocket.slnx`,
+  `TransportFactory` default 유지 확인, root 상태 문서.
+- 검증: Red assertion failure 확인, focused RIO tests, solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 

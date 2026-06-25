@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - Windows RIO backend implementation plan)
+
+### 작업 단위
+- D097 Windows RIO backend boundary 설계를 구현 가능한 계획으로 분해했다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`:
+  RIO project skeleton/probe, native function table loader, registered buffer owner,
+  TCP queue owner, TCP opt-in guard, TCP pump/contract test reuse 의 6개 task 를 작성했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  계획 작성 완료 상태와 다음 실행 단위인 RIO Task 1 skeleton/probe 구현을 반영했다.
+
+### 검증
+- 계획 self-review 로 D097 spec coverage, task boundary, type naming consistency 를 확인했다.
+- placeholder scan 결과 신규 plan 에 미정 항목 없음. 검색에 잡힌 항목은 파일명 문자열 또는 기존 archive/changelog 문맥이다.
+- `git diff --check`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+
 ## 2026-06-25 (Codex - Windows RIO backend boundary design)
 
 ### 작업 단위
