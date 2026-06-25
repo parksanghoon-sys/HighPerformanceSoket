@@ -5,6 +5,24 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO IOCP notification wait design)
+
+### 작업 단위
+- RIO IOCP/RIONotify completion wait 설계를 완료했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-rio-iocp-notification-completion-wait-design.md`:
+  D102 이후에도 남은 16ms대 p99 tail 을 제거하기 위한 native notification wait 설계를 작성했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D104로 CQ별 event handle 이 아니라 `RioTransport`당 shared IOCP pump 를 채택한다고 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 작업을 D104 구현 계획 작성으로 이동했다.
+
+### 검증
+- Microsoft `RIONotify`, `RIO_NOTIFICATION_COMPLETION`, `RIOCreateCompletionQueue`,
+  `RIODequeueCompletion` 문서와 current `RioNative`/`RioConnectionResource` 구조를 대조했다.
+- spec placeholder scan 에서 작업용 placeholder 는 발견하지 못했다.
+
 ## 2026-06-25 (Codex - RIO completion wake bounded polling)
 
 ### 작업 단위

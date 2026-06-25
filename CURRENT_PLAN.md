@@ -931,9 +931,19 @@ Red evidence 는 RIO small payload wake 테스트가 기존 구현에서 16.199/
 bounded polling 을 더 키우는 방식은 idle CPU 비용을 키우므로, p99 tail 을 제거하려면 native notification 기반 wait 로 전환할지,
 전용 completion pump/thread 모델을 둘지 설계에서 결정한다.
 
+RIO IOCP/RIONotify completion wait 설계를 완료했다(D104).
+설계 문서는 `docs/superpowers/specs/2026-06-25-rio-iocp-notification-completion-wait-design.md`다.
+결정은 CQ별 event handle 이 아니라 `RioTransport`당 shared IOCP pump 를 두고,
+receive/send CQ별 `RioCompletionSignal`만 깨우는 구조다.
+이 방향은 per-connection event handle 증가를 피하고, RIO p99 tail 제거와 후속 shared completion pump 확장에 맞다.
+
+다음 작업은 D104 구현 계획 작성이다.
+`RioNative` notification/IOCP P/Invoke, `RioCompletionPort`, `RioCompletionSignal`,
+`RioConnectionResource` wiring, hardening/benchmark 를 TDD 가능한 task 로 나눈다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO IOCP/RIONotify completion wait 설계를 준비한다.
+이번 cycle 은 RIO IOCP/RIONotify completion wait 구현 계획을 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.

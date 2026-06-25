@@ -9,14 +9,14 @@
 
 ## Current TODOs
 
-- [ ] RIO IOCP/RIONotify completion wait 를 설계한다.
-  - 목적: bounded yield polling 이후에도 남은 RIO p99 약 16ms tail 을 native notification 기반 wait 로 제거할 수 있는지 판단한다.
-  - 범위: `src/Hps.Transport.Rio/`, RIO native wrapper, CQ/RQ resource lifetime, completion pump/thread 모델, benchmark artifact.
-  - 현재 판단: D102 bounded polling 은 RIO load actual-rate 를 99.8 Hz, p50 을 198.8 us 로 개선했지만 p99 는 16689.0 us 로 남았다.
-    polling budget 을 더 키우는 방식은 idle CPU 비용을 키우므로 다음 단계는 `RIONotify`/IOCP 또는 dedicated completion wait 구조 설계다.
-  - 다음 자연스러운 step: Microsoft RIO completion notification 계약과 현재 `RioConnectionResource` close/dequeue gate 를 대조해
-    최소 변경 구조를 설계 문서로 고정한다.
-  - 검증: native API contract 대조, current RIO tests 영향 범위 검토, benchmark evidence 정리, `git diff --check`.
+- [ ] RIO IOCP/RIONotify completion wait 구현 계획을 작성한다.
+  - 목적: D104 shared IOCP pump 설계를 TDD 가능한 task 단위로 쪼갠다.
+  - 범위: `src/Hps.Transport.Rio/RioNative.cs`, 새 `RioCompletionPort`/`RioCompletionSignal`,
+    `RioTransport.RioConnectionResource`, `tests/Hps.Transport.Rio.Tests/`, benchmark artifact.
+  - 현재 판단: CQ별 event handle 방식은 C10K 방향과 맞지 않아 보류했고, `RioTransport`당 shared IOCP pump 를 채택했다(D104).
+  - 다음 자연스러운 step: native shape, completion signal, resource wiring, hardening/benchmark task 를
+    `docs/superpowers/plans/`에 구현 계획으로 작성한다.
+  - 검증: spec coverage self-review, placeholder scan, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -100,6 +100,14 @@
     4096 budget 후 RIO load actual-rate 99.8 Hz/p50 198.8 us/p99 16689.0 us,
     RIO open-loop p50 397.2 us/p99 16736.2 us.
   - 비고: p50/throughput 은 개선됐지만 p99 tail 은 남았으므로 IOCP/RIONotify completion wait 설계로 후속화한다.
+
+- [x] RIO IOCP/RIONotify completion wait 를 설계했다.
+  - 범위: `docs/superpowers/specs/2026-06-25-rio-iocp-notification-completion-wait-design.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: CQ별 event handle 대신 `RioTransport`당 shared IOCP pump 와 CQ별 `RioCompletionSignal` 구조를 채택했다(D104).
+  - 검증: Microsoft RIO notification 문서, current RIO native wrapper/resource gate,
+    D102 benchmark evidence 대조, placeholder scan, `git diff --check`.
+  - 비고: 구현은 native shape, completion signal, resource wiring, hardening/benchmark task 로 계획을 먼저 작성한다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,
