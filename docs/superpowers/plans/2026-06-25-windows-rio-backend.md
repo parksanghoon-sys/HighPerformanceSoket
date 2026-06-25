@@ -1262,6 +1262,14 @@ git commit -m "test: verify rio native posting completion"
 
 ### Task 6: TCP Pump And Contract Test Reuse
 
+**Result (2026-06-25):** 완료. 실제 구현은 별도 `RioConnection.cs`를 만들지 않고
+`RioTransport` 내부 resource owner 와 `RioConnectionListener`로 구성했다.
+기존 `TransportConnection` pending queue/refcount 규칙을 재사용하기 위해 `Hps.Transport`에서
+`Hps.Transport.Rio`로 `InternalsVisibleTo`를 열었다.
+일반 accepted socket 은 RIO request queue 생성이 실패하므로, accept 대상 socket 을
+`RioNative.CreateTcpSocket()`으로 미리 만든 뒤 `AcceptAsync(Socket, CancellationToken)`에 전달한다(D099).
+검증은 RIO available Windows loopback 에서 `TrySend` payload 가 peer receive handler 로 도착하는 테스트로 수행했다.
+
 **Files:**
 - Modify: `src/Hps.Transport.Rio/RioTransport.cs`
 - Modify: `src/Hps.Transport.Rio/RioConnection.cs`

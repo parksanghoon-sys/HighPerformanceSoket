@@ -9,15 +9,17 @@
 
 ## Current TODOs
 
-- [ ] RIO Task 6 TCP pump/contract test reuse 를 구현한다.
-  - 목적: RIO available Windows 환경에서 opt-in `RioTransport`가 실제 TCP listen/connect/accept/receive/send loopback 을 만족하게 한다.
-  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
-  - 현재 판단: Task 5.6~5.11로 native function table, registered I/O socket, CQ/RQ, buffer registration,
-    dequeue, receive/send posting completion 이 모두 focused 테스트로 검증됐다.
-  - 다음 자연스러운 step: `RioTransportTcpTests`에 RIO available TCP loopback Red를 추가하고,
-    `RioTransport` listen/connect/accept 와 receive/send pump 를 최소 contract 로 연결한다.
-  - 검증: RIO TCP loopback Red/Green, focused RIO tests, transport/server regression subset,
-    solution build/test, `git diff --check`.
+- [ ] RIO Task 6 구현을 self-review 하고 다음 hardening 단위를 확정한다.
+  - 목적: 새로 연결된 `RioTransport` TCP listen/connect/accept/receive/send pump 가 SAEA 기준선과 충돌하지 않는지,
+    수명/소유권/테스트 범위 관점에서 다음에 바로 고쳐야 할 결함이 있는지 확인한다.
+  - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
+    `tests/Hps.Transport.Rio.Tests/`, RIO 구현 계획/상태 문서.
+  - 현재 판단: RIO available Windows 환경에서 native RQ/CQ 기반 TCP loopback Red-Green은 통과했다.
+    일반 accept socket 에서는 RQ 생성이 실패해 registered accept socket 제공 정책을 D099로 확정했다.
+  - 다음 자연스러운 step: Task 6 diff 를 SAEA receive/send pump 계약과 대조하고,
+    length-prefix send, close notify, completion polling, receive pool 반환, internal friend assembly 경계 중
+    즉시 보강할 항목과 defer 할 항목을 분리한다.
+  - 검증: focused RIO tests, transport/server regression subset, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -32,6 +34,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO Task 6 TCP pump/contract test reuse 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioConnectionListener.cs`,
+    `src/Hps.Transport/Properties/AssemblyInfo.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
+  - 결과: RIO available Windows 환경에서 opt-in `RioTransport`가 실제 TCP listen/connect/accept 후
+    `TrySend` payload 를 peer receive handler 로 전달한다.
+  - 비고: accepted socket 은 일반 `AcceptAsync()` 반환값으로는 RIO RQ 생성이 실패하므로,
+    `RioNative.CreateTcpSocket()`으로 만든 registered accept socket 을 `AcceptAsync(Socket, CancellationToken)`에 전달한다(D099).
+  - 검증: Red `NotSupportedException` 실패 확인, 일반 accept socket RQ 생성 실패 확인 후 registered accept socket 으로 보정했다.
+    전체 테스트 1차 실행 중 CQ close/dequeue 경합으로 `RIODequeueCompletion` access violation 이 발생해
+    resource gate 로 직렬화했고, focused RIO tests 19개와 solution tests 288개 통과를 확인했다.
 
 - [x] CI baseline adoption 이후 Phase 4 다음 후보를 재평가했다.
   - 범위: `docs/superpowers/specs/2026-06-25-after-ci-baseline-adoption-reassessment-design.md`,

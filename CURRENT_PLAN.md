@@ -799,21 +799,34 @@ registered I/O TCP socket 과 일반 peer socket 을 loopback 으로 연결해 `
 `RIOSend` post→CQ completion→peer receive 경로가 모두 동작함을 focused 테스트로 검증했다.
 production 변경 없이 Task 5.6~5.10 native operation boundary 가 함께 맞물리는지 확인한 test-hardening 단위다.
 
-다음 작업은 계획 Task 6인 `RioTransport` TCP pump/contract test reuse 다.
+직전 작업은 계획 Task 6인 `RioTransport` TCP pump/contract test reuse 다.
 native function table, registered I/O socket, CQ/RQ, buffer registration, dequeue, receive/send posting completion 이 모두 검증됐으므로,
-이제 `RioTransport.ListenTcpAsync`/`ConnectTcpAsync`와 receive/send pump 를 실제 transport contract 에 연결한다.
+`RioTransport.ListenTcpAsync`/`ConnectTcpAsync`와 receive/send pump 를 실제 transport contract 에 연결했다.
+
+RIO 구현 계획 Task 6(TCP pump/contract test reuse)을 완료했다.
+`RioTransport`는 opt-in backend 로 TCP listen/connect/accept 를 만들고, 각 connection 에 RIO CQ/RQ 기반 receive/send pump 를 붙인다.
+`TransportConnection` pending send queue 를 재사용하기 위해 `Hps.Transport`는 `Hps.Transport.Rio`에 internal 접근을 허용한다.
+일반 accepted socket 은 RIO request queue 생성이 실패하므로, listener 는 registered I/O accept socket 을 미리 만들어
+`AcceptAsync(Socket, CancellationToken)`에 전달한다(D099).
+RIO available Windows 환경에서 `TrySend` payload 가 peer receive handler 로 도착하는 loopback test 로 검증했다.
+전체 테스트 1차 실행 중 CQ close 와 background dequeue 경합이 native access violation 으로 드러났고,
+`RioConnectionResource`가 `RIODequeueCompletion`과 `RIOCloseCompletionQueue`를 같은 gate 로 직렬화하도록 보정했다.
+
+다음 작업은 RIO Task 6 구현 self-review 와 hardening 단위 확정이다.
+방금 추가한 pump 를 SAEA 기준선의 close notify, length-prefix send, pending/in-flight release, receive block 반환,
+completion polling 수명과 대조해 즉시 보강할 항목과 deferred 항목을 분리한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO 구현 계획 Task 6인 TCP pump/contract test reuse 를 실행한다.
+이번 cycle 은 RIO Task 6 구현 self-review 와 hardening 단위 확정을 실행한다.
 
-- 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
-- 검증: RIO available TCP loopback Red-Green, focused RIO tests, transport/server regression subset,
-  solution build/test, `git diff --check`.
+- 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
+  `tests/Hps.Transport.Rio.Tests/`, root 상태 문서.
+- 검증: focused RIO tests, transport/server regression subset, solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
-- RIO P/Invoke 구현 코드
+- RIO UDP 구현 코드
 - `TransportFactory` runtime 선택 코드 변경
 - SAEA transport 동작 변경
 - latency hard gate 또는 warning-as-failure 정책 구현

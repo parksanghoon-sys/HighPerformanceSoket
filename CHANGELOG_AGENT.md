@@ -5,6 +5,39 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO Task 6 TCP pump/contract path)
+
+### 작업 단위
+- Windows RIO backend Task 6으로 opt-in `RioTransport` TCP listen/connect/accept/receive/send pump 를 실제 transport contract 에 연결했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  RIO TCP listen/connect, per-connection CQ/RQ resource, receive pump, send pump, length-prefix send 보조 경로,
+  close notification, pending send queue drain 연계를 추가했다.
+  전체 테스트 중 connection close 가 CQ close 와 background dequeue 사이에서 경합하면 native access violation 이 날 수 있어,
+  `RioConnectionResource`가 dequeue 와 CQ close 를 같은 gate 로 직렬화하도록 보정했다.
+- `src/Hps.Transport.Rio/RioConnectionListener.cs`:
+  RIO listener accept 경계를 추가했다. 일반 accepted socket 은 RIO RQ 생성이 실패하므로,
+  `RioNative.CreateTcpSocket()`으로 만든 registered accept socket 을 `AcceptAsync(Socket, CancellationToken)`에 전달한다(D099).
+- `src/Hps.Transport/Properties/AssemblyInfo.cs`:
+  RIO backend 가 기존 `TransportConnection` pending queue/refcount 규칙을 재사용할 수 있도록 `Hps.Transport.Rio` friend assembly 를 추가했다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`:
+  RIO available Windows 환경에서 `TrySend` payload 가 peer receive handler 로 도착하는 TCP loopback 테스트를 추가했다.
+  receive helper 는 completion 누락을 무한 대기로 숨기지 않도록 timeout 을 둔다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, `CURRENT_PLAN.md`, `TODOS.md`,
+  `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`:
+  Task 6 완료, D099, 다음 self-review/hardening 진입점을 기록했다.
+
+### 검증
+- Red: `TcpLoopback_WhenRioAvailable_DeliversPayload`가 기존 `ListenTcpAsync` 미구현 `NotSupportedException`으로 실패함을 확인했다.
+- Green 중 일반 accepted socket 에서는 RIO request queue handle 이 0으로 실패함을 확인했고,
+  registered accept socket 제공 경로로 보정했다.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 19개 통과.
+- 전체 테스트 1차 실행 중 `RIODequeueCompletion` access violation 을 확인했고,
+  CQ close/dequeue 직렬화 후 `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 288개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `git diff --check`: 통과.
+
 ## 2026-06-25 (Codex - RIO Task 5.11 connected posting verification)
 
 ### 작업 단위
