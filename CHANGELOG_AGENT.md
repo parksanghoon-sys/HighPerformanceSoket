@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO Task 1 skeleton/probe)
+
+### 작업 단위
+- Windows RIO backend Task 1로 project skeleton 과 capability probe public surface 를 추가했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/`:
+  `Hps.Transport.Rio.csproj`, `RioCapabilityStatus`, `RioCapabilityProbe`, `RioTransport` skeleton 을 추가했다.
+- `tests/Hps.Transport.Rio.Tests/`:
+  reflection 기반 Red를 사용하는 capability probe tests 를 추가했다.
+- `HighPerformanceSocket.slnx`:
+  RIO source/test projects 를 solution 에 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 1 완료와 다음 Task 2 native function table loader 진입점을 반영했다.
+
+### 검증
+- Red: `RioCapabilityProbe_TypeExists`가 `Assert.NotNull() Failure: Value is null`로 실패함을 확인했다.
+- Green: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 4개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 273개 통과, 실패 0.
+- `git diff --check`: 통과.
+
 ## 2026-06-25 (Codex - Windows RIO backend implementation plan)
 
 ### 작업 단위

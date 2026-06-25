@@ -5,6 +5,7 @@
     <Project Path="src/Hps.Protocol/Hps.Protocol.csproj" />
     <Project Path="src/Hps.Server/Hps.Server.csproj" />
     <Project Path="src/Hps.Transport/Hps.Transport.csproj" />
+    <Project Path="src/Hps.Transport.Rio/Hps.Transport.Rio.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj" />
@@ -18,6 +19,7 @@
     <Project Path="tests/Hps.Buffers.Tests/Hps.Buffers.Tests.csproj" />
     <Project Path="tests/Hps.Protocol.Tests/Hps.Protocol.Tests.csproj" />
     <Project Path="tests/Hps.Server.Tests/Hps.Server.Tests.csproj" />
+    <Project Path="tests/Hps.Transport.Rio.Tests/Hps.Transport.Rio.Tests.csproj" />
     <Project Path="tests/Hps.Transport.Tests/Hps.Transport.Tests.csproj" />
   </Folder>
 </Solution>

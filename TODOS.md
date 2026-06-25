@@ -9,12 +9,12 @@
 
 ## Current TODOs
 
-- [ ] RIO Task 1 project skeleton 과 capability probe 를 구현한다.
-  - 목적: `Hps.Transport.Rio`와 `Hps.Transport.Rio.Tests`를 추가하고, Windows/RIO availability probe 의 첫 public surface 를 만든다.
-  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/`, `HighPerformanceSocket.slnx`,
-    `TransportFactory.CreateDefault()` SAEA 유지 확인, root 상태 문서.
-  - 현재 판단: RIO는 TCP-first opt-in backend 이며, Task 1에서는 실제 TCP pump 를 만들지 않는다.
-  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md` Task 1을 Red-Green으로 실행한다.
+- [ ] RIO Task 2 native function table loader 를 구현한다.
+  - 목적: Windows RIO function table load 경계를 `RioNative` 뒤에 만들고, capability probe 가 예외 없이 availability 를 보고하게 한다.
+  - 범위: `src/Hps.Transport.Rio/RioNative.cs`, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
+  - 현재 판단: Task 2는 실제 RIO send/receive 를 만들지 않고, probe/fallback 가능한 native 경계만 만든다.
+  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md` Task 2를 Red-Green으로 실행한다.
   - 검증: reflection 기반 Red assertion failure, focused RIO tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
@@ -56,6 +56,14 @@
     registered buffer owner, TCP queue owner, TCP opt-in guard, TCP pump/contract test reuse 의 6개 task 로 나눴다.
   - 비고: Task 1 Red는 production type 부재를 reflection assertion failure 로 검증하도록 보정했다.
   - 검증: plan self-review, placeholder scan, current transport 구조 대조.
+
+- [x] RIO Task 1 project skeleton 과 capability probe 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/`, `HighPerformanceSocket.slnx`, root 상태 문서.
+  - 결과: `RioCapabilityStatus`, `RioCapabilityProbe.GetStatus()`, `RioTransport` skeleton 을 추가했다.
+    non-Windows 는 `UnsupportedOperatingSystem`, Windows 는 native loader 구현 전까지 `Unavailable`로 보고한다.
+  - 비고: 기본 `TransportFactory.CreateDefault()`는 계속 `SaeaTransport`를 반환한다.
+  - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
+    focused RIO tests 4개 통과, solution build 경고 0/오류 0.
 
 - [x] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,
