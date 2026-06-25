@@ -5,6 +5,21 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO IOCP notification wait plan)
+
+### 작업 단위
+- RIO IOCP/RIONotify completion wait 구현 계획을 작성했다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-06-25-rio-iocp-notification-completion-wait.md`:
+  D104 shared IOCP pump 설계를 native notification shape, completion port/signal owner,
+  RIONotify+IOCP wiring, benchmark observation/state update 의 4개 task 로 분해했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 Task 1 `RioNative` notification shape 구현으로 이동했다.
+
+### 검증
+- plan placeholder scan 을 수행했고, 실제 placeholder 는 발견하지 못했다.
+
 ## 2026-06-25 (Codex - RIO IOCP notification wait design)
 
 ### 작업 단위

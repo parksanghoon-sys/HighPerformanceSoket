@@ -941,9 +941,18 @@ receive/send CQ별 `RioCompletionSignal`만 깨우는 구조다.
 `RioNative` notification/IOCP P/Invoke, `RioCompletionPort`, `RioCompletionSignal`,
 `RioConnectionResource` wiring, hardening/benchmark 를 TDD 가능한 task 로 나눈다.
 
+D104 구현 계획을 완료했다.
+계획 문서는 `docs/superpowers/plans/2026-06-25-rio-iocp-notification-completion-wait.md`다.
+Task 는 native notification shape, completion port/signal owner, RIONotify+IOCP wiring,
+benchmark observation/state update 의 4개 커밋 단위로 나뉜다.
+
+다음 작업은 계획 Task 1인 native notification shape 구현이다.
+먼저 RIO available 환경에서 `RioNative`가 notification function 을 노출하는지 실패 테스트로 고정한 뒤,
+`RIONotify`, notification CQ creation, IOCP P/Invoke shape 를 추가한다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO IOCP/RIONotify completion wait 구현 계획을 준비한다.
+이번 cycle 은 RIO IOCP/RIONotify completion wait Task 1 구현을 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.

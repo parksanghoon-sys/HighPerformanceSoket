@@ -9,14 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO IOCP/RIONotify completion wait 구현 계획을 작성한다.
-  - 목적: D104 shared IOCP pump 설계를 TDD 가능한 task 단위로 쪼갠다.
-  - 범위: `src/Hps.Transport.Rio/RioNative.cs`, 새 `RioCompletionPort`/`RioCompletionSignal`,
-    `RioTransport.RioConnectionResource`, `tests/Hps.Transport.Rio.Tests/`, benchmark artifact.
-  - 현재 판단: CQ별 event handle 방식은 C10K 방향과 맞지 않아 보류했고, `RioTransport`당 shared IOCP pump 를 채택했다(D104).
-  - 다음 자연스러운 step: native shape, completion signal, resource wiring, hardening/benchmark task 를
-    `docs/superpowers/plans/`에 구현 계획으로 작성한다.
-  - 검증: spec coverage self-review, placeholder scan, `git diff --check`.
+- [ ] RIO IOCP/RIONotify completion wait Task 1 native notification shape 를 구현한다.
+  - 목적: `RioNative`가 RIONotify/notification CQ/IOCP native shape 를 노출해 이후 shared IOCP pump 구현을 가능하게 한다.
+  - 범위: `src/Hps.Transport.Rio/RioNative.cs`, `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`.
+  - 현재 판단: 구현 계획은 `docs/superpowers/plans/2026-06-25-rio-iocp-notification-completion-wait.md`에 있으며,
+    Task 1은 native shape 와 focused capability test 만 다룬다.
+  - 다음 자연스러운 step: `SupportsCompletionNotification` 실패 테스트를 먼저 추가하고 Red를 확인한다.
+  - 검증: focused RIO capability test, focused RIO suite, solution build, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -108,6 +107,13 @@
   - 검증: Microsoft RIO notification 문서, current RIO native wrapper/resource gate,
     D102 benchmark evidence 대조, placeholder scan, `git diff --check`.
   - 비고: 구현은 native shape, completion signal, resource wiring, hardening/benchmark task 로 계획을 먼저 작성한다.
+
+- [x] RIO IOCP/RIONotify completion wait 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-25-rio-iocp-notification-completion-wait.md`, root 상태 문서.
+  - 결과: D104 설계를 native notification shape, completion port/signal owner,
+    RIONotify+IOCP wiring, benchmark observation/state update 의 4개 task 로 분해했다.
+  - 검증: spec coverage self-review, placeholder scan, `git diff --check`.
+  - 비고: 다음 실행은 Task 1 `RioNative` notification shape 다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,
