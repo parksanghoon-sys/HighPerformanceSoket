@@ -21,10 +21,32 @@ namespace Hps.Transport
         // GUID 가 틀리면 WSAIoctl 은 성공하지 못하거나 다른 extension table 을 돌려줄 수 있다.
         private static readonly Guid WsaIdMultipleRio = new Guid("8509e081-96dd-4005-b165-9e2ee8c79e3f");
         private readonly RioExtensionFunctionTable _functionTable;
+        private readonly RioRegisterBufferDelegate _registerBuffer;
+        private readonly RioDeregisterBufferDelegate _deregisterBuffer;
 
         private RioNative(RioExtensionFunctionTable functionTable)
         {
             _functionTable = functionTable;
+            _registerBuffer = Marshal.GetDelegateForFunctionPointer<RioRegisterBufferDelegate>(functionTable.RegisterBuffer);
+            _deregisterBuffer = Marshal.GetDelegateForFunctionPointer<RioDeregisterBufferDelegate>(functionTable.DeregisterBuffer);
+        }
+
+        internal IntPtr RegisterBuffer(IntPtr dataBuffer, int dataLength)
+        {
+            if (dataBuffer == IntPtr.Zero)
+                throw new ArgumentException("RIO register buffer pointer 는 null 일 수 없습니다.", nameof(dataBuffer));
+            if (dataLength <= 0)
+                throw new ArgumentOutOfRangeException(nameof(dataLength), "RIO register buffer 길이는 1 이상이어야 합니다.");
+
+            return _registerBuffer(dataBuffer, (uint)dataLength);
+        }
+
+        internal void DeregisterBuffer(IntPtr bufferId)
+        {
+            if (bufferId == IntPtr.Zero)
+                throw new ArgumentException("RIO buffer id 는 null 일 수 없습니다.", nameof(bufferId));
+
+            _deregisterBuffer(bufferId);
         }
 
         internal static bool TryLoadFunctionTable(out RioNative? native)
@@ -94,6 +116,12 @@ namespace Hps.Transport
             out uint bytesReturned,
             IntPtr overlapped,
             IntPtr completionRoutine);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate IntPtr RioRegisterBufferDelegate(IntPtr dataBuffer, uint dataLength);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate void RioDeregisterBufferDelegate(IntPtr bufferId);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct RioExtensionFunctionTable

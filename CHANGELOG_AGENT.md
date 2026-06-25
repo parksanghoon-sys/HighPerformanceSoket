@@ -5,6 +5,29 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO Task 5.6 buffer registration delegates)
+
+### 작업 단위
+- Windows RIO TCP pump 선행 하위 단위로 native buffer registration delegate 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioNative.cs`:
+  loaded RIO function table 의 `RIORegisterBuffer`/`RIODeregisterBuffer` pointer 를 delegate 로 marshal 하고,
+  `RegisterBuffer(...)`/`DeregisterBuffer(...)` internal operation 으로 노출했다.
+- `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`:
+  RIO available 환경에서 `PinnedBlockMemoryPool` block 을 실제 RIO buffer 로 등록/해제하는 테스트를 추가했다.
+- `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`:
+  TCP pump 전에 buffer registration delegate 를 검증하는 Task 5.6을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 5.6 완료와 다음 CQ/RQ native delegate boundary 진입점을 반영했다.
+
+### 검증
+- Red: `RegisterBuffer` operation boundary 부재로 `Assert.NotNull() Failure: Value is null`을 확인했다.
+- Green/refactor: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 12개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 281개 통과, 실패 0.
+- `git diff --check`: 통과.
+
 ## 2026-06-25 (Codex - RIO Task 5.5 native loader hardening)
 
 ### 작업 단위

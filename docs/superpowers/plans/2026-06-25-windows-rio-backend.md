@@ -1020,6 +1020,60 @@ git commit -m "feat: load rio function table"
 
 ---
 
+### Task 5.6: Native Buffer Registration Delegate
+
+**Files:**
+- Modify: `src/Hps.Transport.Rio/RioNative.cs`
+- Modify: `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`
+- Modify: root state docs
+
+**Interfaces:**
+- Produces: `internal IntPtr RegisterBuffer(IntPtr dataBuffer, int dataLength)`
+- Produces: `internal void DeregisterBuffer(IntPtr bufferId)`
+
+- [ ] **Step 1: Write the failing test**
+
+Add a Windows/RIO-available test that pins a `PinnedBlockMemoryPool` block and expects `RioNative`
+to expose register/deregister operations. Use reflection only for the initial Red so the absence of
+the operation boundary is an assertion failure rather than a compile failure.
+
+- [ ] **Step 2: Run and verify Red**
+
+Run:
+
+```powershell
+dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore
+```
+
+Expected on the current Windows development machine: `Assert.NotNull()` failure for the missing
+`RegisterBuffer` operation boundary.
+
+- [ ] **Step 3: Implement and refactor**
+
+Marshal `RIORegisterBuffer` and `RIODeregisterBuffer` from the loaded function table using
+`UnmanagedFunctionPointer(CallingConvention.StdCall)`.
+After Green, refactor the test from reflection to direct internal API calls through `InternalsVisibleTo`.
+
+- [ ] **Step 4: Verify and commit**
+
+Run:
+
+```powershell
+dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore
+dotnet build HighPerformanceSocket.slnx --no-restore
+dotnet test HighPerformanceSocket.slnx --no-build --no-restore
+git diff --check
+```
+
+Commit:
+
+```powershell
+git add src/Hps.Transport.Rio/RioNative.cs tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs docs/superpowers/plans/2026-06-25-windows-rio-backend.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md
+git commit -m "feat: add rio buffer registration delegates"
+```
+
+---
+
 ### Task 6: TCP Pump And Contract Test Reuse
 
 **Files:**

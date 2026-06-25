@@ -1,5 +1,7 @@
+using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Hps.Buffers;
 using Hps.Transport;
 using Xunit;
 
@@ -63,6 +65,42 @@ namespace Hps.Transport.Rio.Tests
             bool loaded = RioNative.TryLoadFunctionTable(out native);
 
             Assert.True(loaded || native == null);
+        }
+
+        // function table pointer 를 얻는 것만으로는 충분하지 않다.
+        // pump 가 쓰기 전 최소 buffer registration delegate 를 실제 pinned block 에 대해 호출할 수 있어야 한다.
+        [Fact]
+        public unsafe void RegisterBuffer_WhenRioAvailable_ReturnsBufferIdAndDeregisters()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioNative? native;
+            Assert.True(RioNative.TryLoadFunctionTable(out native));
+            Assert.NotNull(native);
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+            byte[] block = pool.Rent();
+
+            try
+            {
+                fixed (byte* pointer = block)
+                {
+                    IntPtr bufferId = native.RegisterBuffer((IntPtr)pointer, block.Length);
+
+                    Assert.NotEqual(IntPtr.Zero, bufferId);
+                    native.DeregisterBuffer(bufferId);
+                }
+            }
+            finally
+            {
+                pool.Return(block);
+            }
+
+            Assert.Equal(0, pool.RentedCount);
         }
 
         // skeleton transport는 아직 opt-in construction만 허용한다.
