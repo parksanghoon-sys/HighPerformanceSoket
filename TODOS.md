@@ -9,14 +9,12 @@
 
 ## Current TODOs
 
-- [ ] RIO completion wake/latency 개선 설계를 작성한다.
-  - 목적: SAEA/RIO comparison artifact 에서 관측된 RIO p99 약 16ms 및 closed-loop actual-rate 저하의 원인 후보를 정리하고, 다음 구현 단위를 정한다.
-  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `docs/superpowers/specs/`, benchmark comparison artifact 결과.
-  - 현재 판단: RIO delivery/drop/leak hard gate 는 pass 했지만, RIO load p99 16654.0 us,
-    RIO open-loop p99 16826.6 us, RIO closed-loop actual-rate 64.5 Hz 로 SAEA 대비 성능이 낮다.
-    현재 RIO pump 는 notification 없이 `RIODequeueCompletion` polling + `Task.Delay(1)`을 사용한다.
-  - 다음 자연스러운 step: IOCP/RIONotify 기반 wake 모델, tighter polling, dedicated completion pump 중 어떤 방향이 최소 안전 변경인지 설계한다.
-  - 검증: 설계 self-review, current RIO code/benchmark evidence 대조, `git diff --check`.
+- [ ] RIO completion wake bounded yield polling 을 구현한다.
+  - 목적: `WaitForCompletionAsync(...)`의 hot path 에서 `Task.Delay(1)` timer wake 를 피하고 RIO p99 약 16ms 병목을 줄인다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/`, benchmark comparison artifact.
+  - 현재 판단: D102는 IOCP/RIONotify 전에 bounded `Task.Yield()` polling 후 `Task.Delay(1)` fallback 을 적용하기로 했다.
+  - 다음 자연스러운 step: `FastCompletionPollYieldCount`를 추가하고 completion 없음 경로에서 제한 횟수까지 `Task.Yield()`로 재시도한다.
+  - 검증: focused RIO tests, close/churn 반복, solution build/test, SAEA/RIO smoke 및 comparison benchmark 재수집, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -81,6 +79,13 @@
     mixed summary `hard-passed=true`, `warning-count=3`, `comparison-compatible=false`, comparison mismatch 6개 확인.
   - 비고: 주요 성능 신호는 SAEA load p99 890.8 us, SAEA open-loop p99 872.7 us,
     RIO load p99 16654.0 us, RIO open-loop p99 16826.6 us, RIO load actual-rate 64.5 Hz 다.
+
+- [x] RIO completion wake/latency 개선 설계를 완료했다.
+  - 범위: `docs/superpowers/specs/2026-06-25-rio-completion-wake-latency-design.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: IOCP/RIONotify 재구조화 전에 bounded `Task.Yield()` polling 으로 `Task.Delay(1)` timer granularity 병목을 먼저 줄이기로 했다(D102).
+  - 검증: current RIO code, hardening design, comparison artifact evidence 대조, `git diff --check`.
+  - 비고: IOCP/RIONotify, per-operation register buffer 비용, RIO repository baseline 채택 구조는 후속이다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,

@@ -5,6 +5,23 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO completion wake design)
+
+### 작업 단위
+- RIO completion wake latency 개선 설계를 완료했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-rio-completion-wake-latency-design.md`:
+  SAEA/RIO comparison artifact 의 RIO p99 약 16 ms 병목을 바탕으로,
+  bounded `Task.Yield()` polling 후 `Task.Delay(1)` fallback 을 적용하는 최소 개선안을 설계했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D102로 IOCP/RIONotify 전면 재구조화 전에 bounded yield polling 을 먼저 적용한다고 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 구현 단위를 `RioTransport.WaitForCompletionAsync(...)` bounded yield polling 으로 이동했다.
+
+### 검증
+- current RIO code, 기존 pump hardening design, SAEA/RIO comparison artifact evidence 를 대조했다.
+
 ## 2026-06-25 (Codex - SAEA/RIO comparison artifact)
 
 ### 작업 단위
