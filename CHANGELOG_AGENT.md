@@ -5,6 +5,23 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO factory opt-in policy)
+
+### 작업 단위
+- RIO default factory opt-in policy 정합성을 재확인했다.
+
+### 변경 내용
+- `src/Hps.Transport/Runtime/TransportFactory.cs`,
+  `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`:
+  기본 factory 가 계속 `SaeaTransport`를 반환하고, RIO는 명시 opt-in/test path 로 유지됨을 확인했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  factory policy 항목을 완료하고 다음 진입점을 SAEA vs RIO benchmark comparison 설계로 이동했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-build --no-restore`: 23개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 292개 통과.
+
 ## 2026-06-25 (Codex - RIO drop-oldest contract decision)
 
 ### 작업 단위

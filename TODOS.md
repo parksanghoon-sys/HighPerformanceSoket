@@ -9,14 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO default factory opt-in policy 문서/테스트 정합성을 재평가한다.
-  - 목적: RIO TCP pump 가 opt-in backend 로 충분히 검증됐더라도 `TransportFactory.CreateDefault()`를 아직 SAEA로 유지한다는 정책이 테스트와 문서에 일관되게 남아 있는지 확인한다.
-  - 범위: `src/Hps.Transport/Runtime/TransportFactory.cs`, `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, `CURRENT_PLAN.md`, `DECISIONS.md`, 관련 archive 문서.
-  - 현재 판단: RIO delivery/large payload/length-prefix/handler exception/close churn 은 보강됐고,
-    drop-oldest ownership 은 D100에 따라 shared `TransportConnection` runtime 계약 테스트를 source of truth 로 둔다.
-  - 다음 자연스러운 step: factory 기본값을 바꾸는 코드가 없는지 확인하고, 이미 존재하는
-    `CreateDefault_DuringRioOptInPhase_ReturnsSaeaTransport` 테스트와 decision 문구가 충분하면 문서 정합성만 닫는다.
-  - 검증: focused factory/RIO tests, solution build/test, `git diff --check`.
+- [ ] SAEA vs RIO benchmark comparison 설계를 작성한다.
+  - 목적: Phase 5 완료 기준인 SAEA 대비 RIO 성능 비교를 기존 Phase 4 benchmark artifact 체계와 충돌하지 않게 설계한다.
+  - 범위: `tests/Hps.Benchmarks/`, `docs/benchmarks/`, `docs/superpowers/specs/`, `CURRENT_PLAN.md`, `DECISIONS.md`.
+  - 현재 판단: RIO는 아직 default factory 가 아니며 명시 opt-in/test path 로 유지한다.
+    기존 benchmark report schema/runner/baseline 정책은 SAEA 기준선 중심이므로 backend 비교 필드/명령/저장 위치를 먼저 정해야 한다.
+  - 다음 자연스러운 step: 현재 benchmark CLI 와 result schema 를 읽고, SAEA/RIO backend 선택을 public 계약 확장 없이 넣을 수 있는 최소 설계를 문서화한다.
+  - 검증: benchmark source/spec 대조, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -49,6 +48,14 @@
   - 결과: RIO는 shared `TransportConnection` pending queue 를 그대로 쓰므로 drop-oldest ownership 은 공통 runtime 계약 테스트를 기준으로 검증한다.
   - 검증: 문서 정합성 검토, `TransportSendQueueTests` coverage 확인.
   - 비고: live RIO loopback queue saturation 은 OS socket drain 속도에 의존해 flake 가능성이 높으므로 별도 테스트로 추가하지 않는다.
+
+- [x] RIO default factory opt-in policy 정합성을 재확인했다.
+  - 범위: `src/Hps.Transport/Runtime/TransportFactory.cs`, `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
+  - 결과: 기본 `TransportFactory.CreateDefault()`는 계속 `SaeaTransport`를 반환하고,
+    RIO는 D097/D098/D100에 따라 명시 opt-in/test path 로 유지한다.
+  - 검증: factory 코드와 `CreateDefault_DuringRioOptInPhase_ReturnsSaeaTransport` 테스트 확인,
+    focused RIO tests 23개 통과, solution build/test 292개 통과.
+  - 비고: production 변경은 필요 없었다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,
