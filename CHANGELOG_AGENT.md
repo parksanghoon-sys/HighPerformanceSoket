@@ -5,6 +5,24 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO UDP backend boundary)
+
+### 작업 단위
+- RIO UDP backend boundary 를 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-rio-udp-backend-boundary-design.md`:
+  RIO UDP native operation shape, UDP endpoint owner, receive/send buffer lifetime,
+  backpressure/diagnostics parity, 구현 순서를 정리했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D109를 추가했다. RIO UDP는 TCP resource 를 재사용하지 않고 UDP endpoint owner 로 설계한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 RIO UDP Task 1 native Ex operation shape 구현 계획으로 이동했다.
+
+### 검증
+- SAEA UDP endpoint/handler 계약, RIO native function table shape, Microsoft Learn `RIOSendEx`/`RIOReceiveEx` 문서를 대조했다.
+- `git diff --check`: whitespace error 없음.
+
 ## 2026-06-25 (Codex - RIO default promotion readiness)
 
 ### 작업 단위

@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D109 — RIO UDP backend 는 TCP resource 를 재사용하지 않고 UDP endpoint owner 로 설계한다.
 - D108 — RIO는 아직 default backend 로 승격하지 않고, TCP/UDP parity readiness gate 를 먼저 닫는다.
 - D107 — RIO payload registration cache 는 connection resource bounded cache 로 먼저 구현한다.
 - D106 — RIO registered buffer reuse 는 receive/length-prefix 를 먼저 처리하고 payload cache 는 분리한다.

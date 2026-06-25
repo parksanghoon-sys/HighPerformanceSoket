@@ -1081,6 +1081,36 @@ open-loop actual-rate 99.8 Hz/p50 293.8 us/p99 920.5 us 다.
 - Linux io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay
 
+RIO UDP backend boundary 설계를 완료했다(D109).
+설계 문서는 `docs/superpowers/specs/2026-06-25-rio-udp-backend-boundary-design.md`다.
+결정은 RIO UDP를 TCP `RioConnectionResource`에 끼워 넣지 않고 UDP 전용 `RioUdpEndpoint` owner 로 설계하는 것이다.
+`RIOSendEx`/`RIOReceiveEx`는 payload 뿐 아니라 local/remote address 도 registered buffer slice 로 다루므로,
+completion 전까지 data/address buffer id 와 backing memory 가 유효해야 한다.
+초기 v1은 SAEA UDP와 같은 no-prefetch receive, endpoint-local pending queue/drop-oldest,
+`MaxOutstandingSend = 1`을 유지한다.
+
+다음 작업은 RIO UDP Task 1 native Ex operation shape 구현 계획 작성이다.
+`RioNative`의 `ReceiveEx`/`SendEx` delegate, nullable `RIO_BUF` marshalling, `SupportsDatagramOperations`
+capability, capability tests 를 TDD 가능한 단위로 쪼갠다.
+
+## 이번 단위의 검증 경로
+
+이번 cycle 은 RIO UDP Task 1 native Ex operation shape 구현 계획을 작성한다.
+
+- 범위: `src/Hps.Transport.Rio/RioNative.cs`, `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`,
+  D109 설계 문서, root 상태 문서.
+- 검증: D109 coverage self-review, placeholder scan, `git diff --check`.
+
+## 이번 작업에서 건드리지 않는 범위
+
+- RIO UDP endpoint 구현 코드
+- `TransportFactory` 기본 선택 코드 변경
+- SAEA transport 동작 변경
+- latency hard gate 또는 warning-as-failure 정책 구현
+- CI artifact 자동 채택, pull_request trigger, schedule trigger
+- Linux io_uring backend 구현
+- stable identity 인증/권한 검증, persistence, payload replay
+
 RIO backend default promotion readiness 설계를 완료했다(D108).
 설계 문서는 `docs/superpowers/specs/2026-06-25-rio-default-promotion-readiness-design.md`다.
 결정은 `TransportFactory.CreateDefault()`를 RIO로 바꾸지 않는 것이다.

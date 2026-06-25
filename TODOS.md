@@ -9,14 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP backend boundary 를 설계한다.
-  - 목적: RIO default promotion Gate 1 기능 parity 를 닫기 위해 UDP datagram backend 의 owner, native surface,
-    backpressure, diagnostics 경계를 설계한다.
-  - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,
-    `src/Hps.Transport/Abstractions/IUdpEndpoint.cs`, SAEA UDP tests, 관련 decisions/state 문서.
-  - 현재 판단: D108 기준으로 RIO default 승격은 UDP parity 부재 때문에 보류됐다.
-  - 다음 자연스러운 step: SAEA UDP receive/send/close/drop 계약과 RIO datagram API shape 를 대조해 설계 문서를 작성한다.
-  - 검증: source/test/decision 대조, 설계 문서 placeholder scan, `git diff --check`.
+- [ ] RIO UDP Task 1 native Ex operation shape 구현 계획을 작성한다.
+  - 목적: `RioNative`의 `ReceiveEx`/`SendEx` wrapper 와 datagram capability tests 를 TDD 가능한 작은 단위로 분해한다.
+  - 범위: `src/Hps.Transport.Rio/RioNative.cs`, `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`,
+    D109 설계 문서, root 상태 문서.
+  - 현재 판단: D109 기준으로 RIO UDP는 전용 `RioUdpEndpoint` owner 로 설계하고, 첫 구현은 native Ex wrapper 다.
+  - 다음 자연스러운 step: nullable `RIO_BUF` marshalling, `SupportsDatagramOperations`, Red/Green 검증 명령을 계획 문서로 작성한다.
+  - 검증: D109 coverage self-review, placeholder scan, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -31,6 +30,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP backend boundary 설계를 완료했다.
+  - 범위: `docs/superpowers/specs/2026-06-25-rio-udp-backend-boundary-design.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: D109로 RIO UDP는 TCP resource 를 재사용하지 않고 UDP endpoint owner 로 설계한다.
+    구현 순서는 native Ex wrapper, endpoint skeleton, receive loop, send loop, diagnostics parity 로 잡았다.
+  - 검증: SAEA UDP endpoint/handler 계약, RIO native function table shape, Microsoft Learn `RIOSendEx`/`RIOReceiveEx` 문서 대조,
+    `git diff --check`.
+  - 비고: 다음 실행은 RIO UDP Task 1 native Ex operation shape 구현 계획이다.
 
 - [x] RIO backend default promotion readiness 설계를 완료했다.
   - 범위: `docs/superpowers/specs/2026-06-25-rio-default-promotion-readiness-design.md`,
