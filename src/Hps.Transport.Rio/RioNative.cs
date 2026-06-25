@@ -1,6 +1,7 @@
 using System;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 namespace Hps.Transport
 {
@@ -11,7 +12,12 @@ namespace Hps.Transport
     internal sealed class RioNative
     {
         private const int SocketError = -1;
+        private const int AddressFamilyInterNetwork = 2;
+        private const int SocketTypeStream = 1;
+        private const int ProtocolTypeTcp = 6;
         private const int GuidByteLength = 16;
+        private const uint WsaFlagOverlapped = 0x1;
+        private const uint WsaFlagRegisteredIo = 0x100;
         private const uint IocInOut = 0xC0000000;
         private const uint IocWs2 = 0x08000000;
         // Windows SDK ws2def.h 기준 SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER 값이다.
@@ -20,9 +26,11 @@ namespace Hps.Transport
         // Windows SDK MSWSock.h 의 WSAID_MULTIPLE_RIO GUID 와 맞춘다.
         // GUID 가 틀리면 WSAIoctl 은 성공하지 못하거나 다른 extension table 을 돌려줄 수 있다.
         private static readonly Guid WsaIdMultipleRio = new Guid("8509e081-96dd-4005-b165-9e2ee8c79e3f");
+        private static readonly IntPtr InvalidSocket = new IntPtr(-1);
         private readonly RioExtensionFunctionTable _functionTable;
         private readonly RioCreateCompletionQueueDelegate _createCompletionQueue;
         private readonly RioCloseCompletionQueueDelegate _closeCompletionQueue;
+        private readonly RioCreateRequestQueueDelegate _createRequestQueue;
         private readonly RioRegisterBufferDelegate _registerBuffer;
         private readonly RioDeregisterBufferDelegate _deregisterBuffer;
 
@@ -31,6 +39,7 @@ namespace Hps.Transport
             _functionTable = functionTable;
             _createCompletionQueue = Marshal.GetDelegateForFunctionPointer<RioCreateCompletionQueueDelegate>(functionTable.CreateCompletionQueue);
             _closeCompletionQueue = Marshal.GetDelegateForFunctionPointer<RioCloseCompletionQueueDelegate>(functionTable.CloseCompletionQueue);
+            _createRequestQueue = Marshal.GetDelegateForFunctionPointer<RioCreateRequestQueueDelegate>(functionTable.CreateRequestQueue);
             _registerBuffer = Marshal.GetDelegateForFunctionPointer<RioRegisterBufferDelegate>(functionTable.RegisterBuffer);
             _deregisterBuffer = Marshal.GetDelegateForFunctionPointer<RioDeregisterBufferDelegate>(functionTable.DeregisterBuffer);
         }
@@ -51,6 +60,42 @@ namespace Hps.Transport
                 throw new ArgumentException("RIO completion queue handle 은 null 일 수 없습니다.", nameof(completionQueue));
 
             _closeCompletionQueue(completionQueue);
+        }
+
+        internal IntPtr CreateRequestQueue(
+            Socket socket,
+            int maxOutstandingReceive,
+            int maxReceiveDataBuffers,
+            int maxOutstandingSend,
+            int maxSendDataBuffers,
+            IntPtr receiveCompletionQueue,
+            IntPtr sendCompletionQueue)
+        {
+            if (socket == null)
+                throw new ArgumentNullException(nameof(socket));
+            if (maxOutstandingReceive <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxOutstandingReceive), "RIO receive outstanding 값은 1 이상이어야 합니다.");
+            if (maxReceiveDataBuffers <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxReceiveDataBuffers), "RIO receive data buffer 수는 1 이상이어야 합니다.");
+            if (maxOutstandingSend <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxOutstandingSend), "RIO send outstanding 값은 1 이상이어야 합니다.");
+            if (maxSendDataBuffers <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxSendDataBuffers), "RIO send data buffer 수는 1 이상이어야 합니다.");
+            if (receiveCompletionQueue == IntPtr.Zero)
+                throw new ArgumentException("RIO receive completion queue handle 은 null 일 수 없습니다.", nameof(receiveCompletionQueue));
+            if (sendCompletionQueue == IntPtr.Zero)
+                throw new ArgumentException("RIO send completion queue handle 은 null 일 수 없습니다.", nameof(sendCompletionQueue));
+
+            // RIO_RQ 는 socket 과 CQ pair 에 묶인다. 별도 close 함수가 없으므로 socket 수명이 RQ 수명 경계가 된다.
+            return _createRequestQueue(
+                socket.SafeHandle.DangerousGetHandle(),
+                (uint)maxOutstandingReceive,
+                (uint)maxReceiveDataBuffers,
+                (uint)maxOutstandingSend,
+                (uint)maxSendDataBuffers,
+                receiveCompletionQueue,
+                sendCompletionQueue,
+                IntPtr.Zero);
         }
 
         internal IntPtr RegisterBuffer(IntPtr dataBuffer, int dataLength)
@@ -84,6 +129,27 @@ namespace Hps.Transport
                 // 실패는 fallback 가능한 capability miss로 취급하고 예외를 밖으로 내보내지 않는다.
                 return TryLoadFunctionTableCore(socket, out native);
             }
+        }
+
+        internal static Socket CreateTcpSocket()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                throw new PlatformNotSupportedException("RIO socket 은 Windows 에서만 생성할 수 있습니다.");
+
+            // RIO request queue 는 WSA_FLAG_REGISTERED_IO 로 생성된 socket 에만 붙일 수 있다.
+            // .NET Socket 생성자는 이 flag 를 노출하지 않으므로 WSASocketW 로 handle 을 만들고 Socket 이 소유하게 한다.
+            IntPtr handle = WSASocketW(
+                AddressFamilyInterNetwork,
+                SocketTypeStream,
+                ProtocolTypeTcp,
+                IntPtr.Zero,
+                0,
+                WsaFlagOverlapped | WsaFlagRegisteredIo);
+
+            if (handle == InvalidSocket)
+                throw new SocketException(Marshal.GetLastWin32Error());
+
+            return new Socket(new SafeSocketHandle(handle, ownsHandle: true));
         }
 
         private static bool TryLoadFunctionTableCore(Socket socket, out RioNative? native)
@@ -139,11 +205,31 @@ namespace Hps.Transport
             IntPtr overlapped,
             IntPtr completionRoutine);
 
+        [DllImport("Ws2_32.dll", ExactSpelling = true, SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern IntPtr WSASocketW(
+            int addressFamily,
+            int socketType,
+            int protocolType,
+            IntPtr protocolInfo,
+            uint group,
+            uint flags);
+
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate IntPtr RioCreateCompletionQueueDelegate(uint queueSize, IntPtr notificationCompletion);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate void RioCloseCompletionQueueDelegate(IntPtr completionQueue);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate IntPtr RioCreateRequestQueueDelegate(
+            IntPtr socket,
+            uint maxOutstandingReceive,
+            uint maxReceiveDataBuffers,
+            uint maxOutstandingSend,
+            uint maxSendDataBuffers,
+            IntPtr receiveCompletionQueue,
+            IntPtr sendCompletionQueue,
+            IntPtr socketContext);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate IntPtr RioRegisterBufferDelegate(IntPtr dataBuffer, uint dataLength);

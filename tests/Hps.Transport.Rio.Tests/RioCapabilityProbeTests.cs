@@ -1,4 +1,5 @@
 using System;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Hps.Buffers;
@@ -122,6 +123,38 @@ namespace Hps.Transport.Rio.Tests
 
             Assert.NotEqual(IntPtr.Zero, completionQueue);
             native.CloseCompletionQueue(completionQueue);
+        }
+
+        // request queue 는 socket 과 completion queue 를 연결하는 RIO send/receive posting 지점이다.
+        // pump 구현 전 socket 하나에 RQ handle 을 만들 수 있어야 이후 receive/send delegate 를 검증할 수 있다.
+        [Fact]
+        public void CreateRequestQueue_WhenRioAvailable_ReturnsQueue()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioNative? native;
+            Assert.True(RioNative.TryLoadFunctionTable(out native));
+            Assert.NotNull(native);
+
+            using (Socket socket = RioNative.CreateTcpSocket())
+            {
+                IntPtr completionQueue = native.CreateCompletionQueue(8);
+
+                try
+                {
+                    IntPtr requestQueue = native.CreateRequestQueue(socket, 1, 1, 1, 1, completionQueue, completionQueue);
+
+                    Assert.NotEqual(IntPtr.Zero, requestQueue);
+                }
+                finally
+                {
+                    native.CloseCompletionQueue(completionQueue);
+                }
+            }
         }
 
         // skeleton transport는 아직 opt-in construction만 허용한다.

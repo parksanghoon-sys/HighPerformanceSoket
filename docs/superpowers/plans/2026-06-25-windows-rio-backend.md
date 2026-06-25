@@ -1113,6 +1113,46 @@ git commit -m "feat: add rio completion queue delegates"
 
 ---
 
+### Task 5.8: Native Request Queue Delegate
+
+**Files:**
+- Modify: `src/Hps.Transport.Rio/RioNative.cs`
+- Modify: `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`
+- Modify: root state docs
+
+**Interfaces:**
+- Produces: `internal static Socket CreateTcpSocket()`
+- Produces: `internal IntPtr CreateRequestQueue(Socket socket, int maxOutstandingReceive, int maxReceiveDataBuffers, int maxOutstandingSend, int maxSendDataBuffers, IntPtr receiveCompletionQueue, IntPtr sendCompletionQueue)`
+
+- [ ] **Step 1: Write the failing test**
+
+Add a Windows/RIO-available test that creates a CQ and expects `RioNative` to expose a request queue
+creation operation for a TCP socket.
+
+- [ ] **Step 2: Run and verify Red**
+
+Expected first Red: missing `CreateRequestQueue` operation boundary.
+If RQ creation returns null with a regular .NET socket, correct the socket creation path to use
+`WSASocketW` with `WSA_FLAG_OVERLAPPED | WSA_FLAG_REGISTERED_IO`.
+
+- [ ] **Step 3: Implement and refactor**
+
+Marshal `RIOCreateRequestQueue` and add a Windows-only `CreateTcpSocket()` helper that owns a
+`WSASocketW` handle through `SafeSocketHandle`. After Green, refactor the test to direct internal API calls.
+
+- [ ] **Step 4: Verify and commit**
+
+Run focused RIO tests, solution build/test, and `git diff --check`.
+
+Commit:
+
+```powershell
+git add src/Hps.Transport.Rio/RioNative.cs tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs docs/superpowers/plans/2026-06-25-windows-rio-backend.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md
+git commit -m "feat: add rio request queue delegate"
+```
+
+---
+
 ### Task 6: TCP Pump And Contract Test Reuse
 
 **Files:**

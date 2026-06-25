@@ -778,17 +778,23 @@ RIO 구현 계획 Task 5.7(native completion queue delegate)를 완료했다.
 `RIOCreateCompletionQueue`/`RIOCloseCompletionQueue` delegate 를 호출하며, null notification completion 기반
 polling CQ 생성/해제를 focused 테스트로 검증했다.
 
-다음 작업은 계획 Task 6에 들어가기 위한 RQ native delegate boundary 다.
-buffer registration 과 CQ 생성/해제는 검증됐지만, TCP pump 는 request queue 생성과 이후 receive/send posting delegate 가 더 필요하다.
-이를 한 번에 pump 로 묶지 말고 먼저 native operation boundary 로 나눈다.
+RIO 구현 계획 Task 5.8(native request queue delegate)를 완료했다.
+`RioNative.CreateTcpSocket()`은 `WSASocketW`에 `WSA_FLAG_OVERLAPPED | WSA_FLAG_REGISTERED_IO`를 지정해
+RIO request queue 가 붙을 수 있는 TCP socket 을 만들고, `RioNative.CreateRequestQueue(...)`는
+`RIOCreateRequestQueue` delegate 를 호출한다. 일반 .NET `Socket`으로는 RQ handle 이 0으로 실패함을 확인하고
+registered I/O socket 생성 경계로 보정했다.
+
+다음 작업은 계획 Task 6에 들어가기 위한 receive/send posting 과 completion dequeue native delegate boundary 다.
+socket, CQ, RQ, buffer registration 은 검증됐지만, pump 는 `RIOReceive`/`RIOSend` posting 과
+`RIODequeueCompletion` 결과 해석이 더 필요하다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO TCP pump 선행 하위 단위로 RQ native delegate boundary 를 구현한다.
+이번 cycle 은 RIO TCP pump 선행 하위 단위로 receive/send posting 과 completion dequeue native delegate boundary 를 구현한다.
 
 - 범위: `src/Hps.Transport.Rio/RioNative.cs`,
   `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
-- 검증: RIO available 환경에서 RQ creation Red-Green, focused RIO tests,
+- 검증: RIO available 환경에서 receive/send/dequeue delegate Red-Green, focused RIO tests,
   solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
