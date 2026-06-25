@@ -5,6 +5,23 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - SAEA/RIO benchmark comparison design)
+
+### 작업 단위
+- SAEA vs RIO benchmark comparison 설계를 완료했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-saea-rio-benchmark-comparison-design.md`:
+  benchmark 내부 `--backend <saea|rio>` selector, backend 별 report identity/scenario,
+  RIO unavailable 처리, schema 유지 정책을 설계했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D101로 SAEA/RIO benchmark 비교는 benchmark 전용 backend selector 로 수행하고 default factory 는 유지한다고 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 구현 단위를 benchmark backend selector parser/options 로 좁혔다.
+
+### 검증
+- benchmark CLI, result identity, report writer, summary/history comparison source 를 대조했다.
+
 ## 2026-06-25 (Codex - RIO factory opt-in policy)
 
 ### 작업 단위

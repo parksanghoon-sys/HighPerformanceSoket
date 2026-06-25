@@ -9,13 +9,15 @@
 
 ## Current TODOs
 
-- [ ] SAEA vs RIO benchmark comparison 설계를 작성한다.
-  - 목적: Phase 5 완료 기준인 SAEA 대비 RIO 성능 비교를 기존 Phase 4 benchmark artifact 체계와 충돌하지 않게 설계한다.
-  - 범위: `tests/Hps.Benchmarks/`, `docs/benchmarks/`, `docs/superpowers/specs/`, `CURRENT_PLAN.md`, `DECISIONS.md`.
-  - 현재 판단: RIO는 아직 default factory 가 아니며 명시 opt-in/test path 로 유지한다.
-    기존 benchmark report schema/runner/baseline 정책은 SAEA 기준선 중심이므로 backend 비교 필드/명령/저장 위치를 먼저 정해야 한다.
-  - 다음 자연스러운 step: 현재 benchmark CLI 와 result schema 를 읽고, SAEA/RIO backend 선택을 public 계약 확장 없이 넣을 수 있는 최소 설계를 문서화한다.
-  - 검증: benchmark source/spec 대조, `git diff --check`.
+- [ ] benchmark backend selector parser/options 를 TDD로 구현한다.
+  - 목적: `--backend <saea|rio>`를 runner/baseline-suite 명령에만 허용하고, 선택값을 command line model 에 보존한다.
+  - 범위: `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`, `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`,
+    `tests/Hps.Benchmarks.Tests/`, `docs/superpowers/specs/2026-06-25-saea-rio-benchmark-comparison-design.md`.
+  - 현재 판단: D101에 따라 public `TransportFactory`는 유지하고 benchmark 내부 selector 만 추가한다.
+    첫 구현 단위는 실제 RIO transport 생성 전 parser/options/identity boundary 로 제한한다.
+  - 다음 자연스러운 step: parser Red 테스트를 먼저 추가한다.
+    예: `--load --backend rio --report x` 성공, summary/history 에 `--backend` 사용 시 usage error.
+  - 검증: focused benchmark tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -56,6 +58,13 @@
   - 검증: factory 코드와 `CreateDefault_DuringRioOptInPhase_ReturnsSaeaTransport` 테스트 확인,
     focused RIO tests 23개 통과, solution build/test 292개 통과.
   - 비고: production 변경은 필요 없었다.
+
+- [x] SAEA vs RIO benchmark comparison 설계를 완료했다.
+  - 범위: `docs/superpowers/specs/2026-06-25-saea-rio-benchmark-comparison-design.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: benchmark 내부 `--backend <saea|rio>` selector 로 비교하고, raw report schema 는 backend 별 identity/scenario 값으로 구분한다.
+  - 검증: benchmark CLI/result/summary/history source 대조, `git diff --check`.
+  - 비고: repository RIO baseline 채택 구조, 비교 Markdown, latency hard gate 는 후속으로 둔다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,
