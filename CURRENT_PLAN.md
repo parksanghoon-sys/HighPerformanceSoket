@@ -837,9 +837,18 @@ close-drain full owner 재구조화는 현재 반복 테스트에서 flake/crash
 다음 작업은 RIO TCP close/churn stress 또는 default factory 승격 전 contract suite 확장 중 우선순위를 재평가하는 것이다.
 현재 evidence 기준으로는 factory default 변경보다 close/churn stress test 와 outstanding request owner 설계를 먼저 보는 편이 안전하다.
 
+RIO TCP close/churn stress coverage 를 추가했다.
+`TcpLoopback_WhenRioAvailable_RepeatedCloseAfterAcceptDoesNotCrash`는 connect/accept 직후 close 를 25회 반복해
+receive pump 가 outstanding RIOReceive 를 가진 상태에서 socket/CQ 정리와 경합해도 testhost crash 없이 끝나는지 검증한다.
+focused RIO tests 22개와 10회 반복 실행이 모두 통과했으므로, full outstanding request owner 재구조화는 현재는 deferred 로 유지한다.
+
+다음 작업은 RIO default factory 승격이 아니라 RIO contract suite 확장 여부 재평가다.
+구체적으로는 send queue ownership/drop-oldest, handler exception close notify, unavailable fallback 정책을 RIO 전용 테스트로
+더 고정할지 판단한다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO TCP hardening 이후 다음 후보를 재평가한다.
+이번 cycle 은 RIO contract suite 확장 후보를 재평가한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.

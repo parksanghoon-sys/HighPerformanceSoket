@@ -85,6 +85,38 @@ namespace Hps.Transport.Rio.Tests
             Assert.Equal(new byte[] { 0, 0, 0, 3, 5, 6, 7 }, received);
         }
 
+        // RIO close 경로는 receive pump 가 이미 RIOReceive 를 post 한 상태에서 socket/CQ 정리와 경합할 수 있다.
+        // 이 테스트는 짧은 connect/accept/close churn 을 반복해 testhost crash 없이 모든 resource close 가 끝나는지 검증한다.
+        [Fact]
+        public async Task TcpLoopback_WhenRioAvailable_RepeatedCloseAfterAcceptDoesNotCrash()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            for (int i = 0; i < 25; i++)
+            {
+                using (RioTransport transport = new RioTransport())
+                {
+                    transport.SetReceiveHandler(new RecordingReceiveHandler(expectedLength: 1));
+                    await transport.StartAsync();
+
+                    IConnectionListener listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IConnection client = await transport.ConnectTcpAsync(listener.LocalEndPoint);
+                    IConnection server = await listener.AcceptAsync();
+
+                    client.Close();
+                    server.Close();
+                    listener.Close();
+                    await transport.StopAsync();
+                }
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(25));
+        }
+
         private static async Task<byte[]> SendAndReceiveAsync(byte[] payload, bool prependLengthPrefix, int expectedReceiveLength)
         {
             RecordingReceiveHandler handler = new RecordingReceiveHandler(expectedReceiveLength);

@@ -9,16 +9,14 @@
 
 ## Current TODOs
 
-- [ ] RIO TCP close/churn stress 와 outstanding request owner 설계 우선순위를 재평가한다.
-  - 목적: RIO TCP pump 를 default factory 후보로 올리기 전에 close/send/receive 경합을 더 강하게 검증할지 결정한다.
+- [ ] RIO contract suite 확장 후보를 재평가한다.
+  - 목적: RIO TCP pump 를 default factory 후보로 올리기 전에 transport 계약 테스트를 어디까지 RIO 전용으로 고정할지 결정한다.
   - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/`, `docs/agent-state/reviews/2026-06-25-rio-task6-self-review.md`.
-  - 현재 판단: send partial completion loop 와 length-prefix/larger-payload coverage 는 보강됐다.
-    CQ close/dequeue 경합 crash 는 gate 로 해소됐고, focused RIO tests 10회 반복은 통과했다.
-    다만 full close-drain owner 는 아직 deferred 상태다.
-  - 다음 자연스러운 step: close/churn stress Red를 먼저 만들 수 있는지 확인하고,
-    재현 가능한 failure 가 있으면 outstanding request owner 를 구현한다. 재현되지 않으면 deferred backlog 로 명시하고
-    다음 RIO contract suite 확장 또는 factory opt-in policy 설계로 이동한다.
-  - 검증: focused RIO stress, solution build/test, `git diff --check`.
+  - 현재 판단: send partial completion loop, length-prefix/larger-payload coverage, close/churn stress 는 보강됐다.
+    close/churn stress 10회 반복 실행이 통과했으므로 full outstanding request owner 재구조화는 아직 증거 부족으로 deferred 다.
+  - 다음 자연스러운 step: RIO 전용으로 추가할 가치가 높은 계약 테스트를 고른다.
+    후보는 send queue ownership/drop-oldest, handler exception close notify, unavailable fallback policy, default factory non-selection 이다.
+  - 검증: focused RIO tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -33,6 +31,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO TCP close/churn stress coverage 를 추가했다.
+  - 범위: `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
+  - 결과: connect/accept 직후 close 를 25회 반복해 receive pump 와 socket/CQ 정리 경합이 testhost crash 없이 끝나는지 검증한다.
+  - 검증: focused RIO tests 22개 통과, focused RIO tests 10회 반복 통과.
+  - 비고: full outstanding request owner 재구조화는 현재 반복 stress 에서 failure 가 재현되지 않아 deferred 로 유지한다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,

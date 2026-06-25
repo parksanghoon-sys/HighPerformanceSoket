@@ -5,6 +5,23 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO TCP close churn stress)
+
+### 작업 단위
+- RIO TCP pump close/churn stress coverage 를 추가했다.
+
+### 변경 내용
+- `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`:
+  RIO available 환경에서 connect/accept 직후 close 를 25회 반복하는 테스트를 추가했다.
+  이 테스트는 receive pump 가 outstanding `RIOReceive`를 가진 상태에서 socket/CQ 정리와 경합해도
+  testhost crash 없이 끝나는지 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  close/churn stress 완료와 다음 후보인 RIO contract suite 확장 재평가를 반영했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 22개 통과.
+- focused RIO tests 10회 반복 통과.
+
 ## 2026-06-25 (Codex - RIO TCP pump hardening)
 
 ### 작업 단위
