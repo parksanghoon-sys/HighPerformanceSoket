@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO TCP pump hardening)
+
+### 작업 단위
+- RIO Task 6 self-review 후 send completion byte-count loop 와 contract coverage 를 보강했다.
+
+### 변경 내용
+- `docs/agent-state/reviews/2026-06-25-rio-task6-self-review.md`:
+  Task 6 구현을 SAEA 기준선과 대조하고, send partial completion 과 close-drain owner 를 hardening 후보로 기록했다.
+- `docs/superpowers/specs/2026-06-25-rio-tcp-pump-hardening-design.md`,
+  `docs/superpowers/plans/2026-06-25-rio-tcp-pump-hardening.md`:
+  send completion byte-count loop 를 이번 구현 범위로 정하고, full close-drain owner 는 반복 테스트 증거가 생길 때 별도 승격하기로 정리했다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`:
+  raw payload helper 를 expected length 누적 방식으로 바꾸고,
+  4096-byte payload 와 length-prefixed stream send loopback coverage 를 추가했다.
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  RIO send completion 의 `BytesTransferred`를 기준으로 `remaining`이 0이 될 때까지 반복 send 한다.
+  0 byte, error status, requested remaining 초과 completion 은 connection close 경로로 수렴한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  hardening 완료와 다음 후보인 close/churn stress 재평가를 반영했다.
+
+### 검증
+- Red: length-prefixed loopback 이 첫 callback 에서 prefix 4 bytes 만 받아 `Assert.Equal()` mismatch 로 실패함을 확인했다.
+- Green: receive helper 를 expected length 누적 방식으로 보정하고 focused RIO tests 21개 통과.
+- Repetition: focused RIO tests 10회 반복 통과.
+
 ## 2026-06-25 (Codex - RIO Task 6 TCP pump/contract path)
 
 ### 작업 단위

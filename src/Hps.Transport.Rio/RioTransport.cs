@@ -352,21 +352,31 @@ namespace Hps.Transport
             try
             {
                 bufferId = RegisterPinnedArray(resource.Native, block);
-                RioBufferSegment[] segments = new RioBufferSegment[]
+                int currentOffset = offset;
+                int remaining = length;
+
+                while (remaining != 0)
                 {
-                    new RioBufferSegment(bufferId, offset, length)
-                };
+                    RioBufferSegment[] segments = new RioBufferSegment[]
+                    {
+                        new RioBufferSegment(bufferId, currentOffset, remaining)
+                    };
 
-                if (!resource.Native.Send(resource.RequestQueue, segments, IntPtr.Zero))
-                    throw new SocketException((int)SocketError.ConnectionReset);
+                    if (!resource.Native.Send(resource.RequestQueue, segments, IntPtr.Zero))
+                        throw new SocketException((int)SocketError.ConnectionReset);
 
-                RioResult completion = await WaitForCompletionAsync(
-                    resource,
-                    resource.SendCompletionQueue,
-                    connection).ConfigureAwait(false);
+                    RioResult completion = await WaitForCompletionAsync(
+                        resource,
+                        resource.SendCompletionQueue,
+                        connection).ConfigureAwait(false);
 
-                if (completion.Status != 0 || completion.BytesTransferred == 0)
-                    throw new SocketException((int)SocketError.ConnectionReset);
+                    if (completion.Status != 0 || completion.BytesTransferred == 0 || completion.BytesTransferred > remaining)
+                        throw new SocketException((int)SocketError.ConnectionReset);
+
+                    int sent = checked((int)completion.BytesTransferred);
+                    currentOffset += sent;
+                    remaining -= sent;
+                }
             }
             finally
             {

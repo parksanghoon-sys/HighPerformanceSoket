@@ -44,7 +44,50 @@ namespace Hps.Transport.Rio.Tests
                 return;
             }
 
-            RecordingReceiveHandler handler = new RecordingReceiveHandler();
+            byte[] received = await SendAndReceiveAsync(new byte[] { 11, 22 }, prependLengthPrefix: false, expectedReceiveLength: 2);
+
+            Assert.Equal(new byte[] { 11, 22 }, received);
+        }
+
+        // RIO send path 가 작은 smoke payload 뿐 아니라 receive block 크기에 가까운 payload 도 그대로 전달하는지 확인한다.
+        // partial completion 을 강제하지는 못하지만, byte-count loop 보강 후 큰 payload 경로가 회귀하지 않도록 잡는다.
+        [Fact]
+        public async Task TcpLoopback_WhenRioAvailable_DeliversLargePayload()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            byte[] payload = new byte[4096];
+            for (int i = 0; i < payload.Length; i++)
+                payload[i] = (byte)(i % 251);
+
+            byte[] received = await SendAndReceiveAsync(payload, prependLengthPrefix: false, expectedReceiveLength: payload.Length);
+
+            Assert.Equal(payload, received);
+        }
+
+        // Broker TCP outbound 는 D065에 따라 length prefix 를 붙여 보낸다.
+        // RIO opt-in backend 도 같은 TransportSendBuffer metadata 를 해석해야 상위 Broker 경로를 나중에 재사용할 수 있다.
+        [Fact]
+        public async Task TcpLoopback_WhenRioAvailable_DeliversLengthPrefixedPayload()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            byte[] received = await SendAndReceiveAsync(new byte[] { 5, 6, 7 }, prependLengthPrefix: true, expectedReceiveLength: 7);
+
+            Assert.Equal(new byte[] { 0, 0, 0, 3, 5, 6, 7 }, received);
+        }
+
+        private static async Task<byte[]> SendAndReceiveAsync(byte[] payload, bool prependLengthPrefix, int expectedReceiveLength)
+        {
+            RecordingReceiveHandler handler = new RecordingReceiveHandler(expectedReceiveLength);
             using (RioTransport transport = new RioTransport())
             {
                 transport.SetReceiveHandler(handler);
@@ -54,40 +97,55 @@ namespace Hps.Transport.Rio.Tests
                 IConnection client = await transport.ConnectTcpAsync(listener.LocalEndPoint);
                 IConnection server = await listener.AcceptAsync();
 
-                PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(Math.Max(16, payload.Length));
                 RefCountedBuffer buffer = pool.RentCounted();
-                buffer.Span[0] = 11;
-                buffer.Span[1] = 22;
-                buffer.SetLength(2);
+                payload.CopyTo(buffer.Span);
+                buffer.SetLength(payload.Length);
                 buffer.AddRef();
 
-                Assert.True(transport.TrySend(client, new TransportSendBuffer(buffer, 0, 2)));
+                TransportSendBuffer sendBuffer = new TransportSendBuffer(buffer, 0, payload.Length);
+                if (prependLengthPrefix)
+                    sendBuffer = sendBuffer.WithLengthPrefix();
+
+                Assert.True(transport.TrySend(client, sendBuffer));
                 buffer.Release();
 
                 byte[] received = await handler.ReceiveAsync();
 
-                Assert.Equal(new byte[] { 11, 22 }, received);
                 client.Close();
                 server.Close();
                 listener.Close();
                 await transport.StopAsync();
                 Assert.Equal(0, pool.RentedCount);
+                return received;
             }
         }
 
         private sealed class RecordingReceiveHandler : ITransportReceiveHandler
         {
+            private readonly object _gate;
+            private readonly byte[] _receivedBytes;
             private readonly TaskCompletionSource<byte[]> _received;
+            private int _receivedLength;
 
-            internal RecordingReceiveHandler()
+            internal RecordingReceiveHandler(int expectedLength)
             {
+                _gate = new object();
+                _receivedBytes = new byte[expectedLength];
                 _received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
             }
 
             public void OnReceived(IConnection connection, TransportReceiveBuffer receiveBuffer)
             {
-                byte[] payload = receiveBuffer.Span.ToArray();
-                _received.TrySetResult(payload);
+                lock (_gate)
+                {
+                    int copyLength = Math.Min(receiveBuffer.Length, _receivedBytes.Length - _receivedLength);
+                    receiveBuffer.Span.Slice(0, copyLength).CopyTo(new Span<byte>(_receivedBytes, _receivedLength, copyLength));
+                    _receivedLength += copyLength;
+
+                    if (_receivedLength == _receivedBytes.Length)
+                        _received.TrySetResult((byte[])_receivedBytes.Clone());
+                }
             }
 
             public void OnConnectionClosed(IConnection connection)

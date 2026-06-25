@@ -9,17 +9,16 @@
 
 ## Current TODOs
 
-- [ ] RIO Task 6 구현을 self-review 하고 다음 hardening 단위를 확정한다.
-  - 목적: 새로 연결된 `RioTransport` TCP listen/connect/accept/receive/send pump 가 SAEA 기준선과 충돌하지 않는지,
-    수명/소유권/테스트 범위 관점에서 다음에 바로 고쳐야 할 결함이 있는지 확인한다.
-  - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
-    `tests/Hps.Transport.Rio.Tests/`, RIO 구현 계획/상태 문서.
-  - 현재 판단: RIO available Windows 환경에서 native RQ/CQ 기반 TCP loopback Red-Green은 통과했다.
-    일반 accept socket 에서는 RQ 생성이 실패해 registered accept socket 제공 정책을 D099로 확정했다.
-  - 다음 자연스러운 step: Task 6 diff 를 SAEA receive/send pump 계약과 대조하고,
-    length-prefix send, close notify, completion polling, receive pool 반환, internal friend assembly 경계 중
-    즉시 보강할 항목과 defer 할 항목을 분리한다.
-  - 검증: focused RIO tests, transport/server regression subset, solution build/test, `git diff --check`.
+- [ ] RIO TCP close/churn stress 와 outstanding request owner 설계 우선순위를 재평가한다.
+  - 목적: RIO TCP pump 를 default factory 후보로 올리기 전에 close/send/receive 경합을 더 강하게 검증할지 결정한다.
+  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/`, `docs/agent-state/reviews/2026-06-25-rio-task6-self-review.md`.
+  - 현재 판단: send partial completion loop 와 length-prefix/larger-payload coverage 는 보강됐다.
+    CQ close/dequeue 경합 crash 는 gate 로 해소됐고, focused RIO tests 10회 반복은 통과했다.
+    다만 full close-drain owner 는 아직 deferred 상태다.
+  - 다음 자연스러운 step: close/churn stress Red를 먼저 만들 수 있는지 확인하고,
+    재현 가능한 failure 가 있으면 outstanding request owner 를 구현한다. 재현되지 않으면 deferred backlog 로 명시하고
+    다음 RIO contract suite 확장 또는 factory opt-in policy 설계로 이동한다.
+  - 검증: focused RIO stress, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -34,6 +33,23 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,
+    `docs/superpowers/specs/2026-06-25-rio-tcp-pump-hardening-design.md`,
+    `docs/superpowers/plans/2026-06-25-rio-tcp-pump-hardening.md`, root 상태 문서.
+  - 결과: RIO send path 가 completion byte count 를 기준으로 remaining loop 를 돌며,
+    length prefix 와 payload 모두 같은 helper 를 사용한다.
+  - 테스트: raw payload, 4096-byte payload, length-prefixed stream send 를 RIO available loopback 으로 검증한다.
+    length-prefix Red 에서 TCP stream 이 prefix 와 payload 를 별도 callback 으로 전달할 수 있음을 확인하고,
+    test receive helper 를 expected length 누적 방식으로 보정했다.
+  - 검증: focused RIO tests 21개 통과, focused RIO tests 10회 반복 통과.
+
+- [x] RIO Task 6 구현 self-review 를 완료했다.
+  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/`, `docs/agent-state/reviews/2026-06-25-rio-task6-self-review.md`, root 상태 문서.
+  - 결과: Task 6 구현은 최소 opt-in RIO TCP loopback 계약을 만족하지만, send partial completion loop 와
+    outstanding request close-drain 모델은 factory default 승격 전에 hardening 이 필요하다고 정리했다.
+  - 검증: focused RIO tests 10회 반복 실행 모두 통과.
 
 - [x] RIO Task 6 TCP pump/contract test reuse 를 구현했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioConnectionListener.cs`,
