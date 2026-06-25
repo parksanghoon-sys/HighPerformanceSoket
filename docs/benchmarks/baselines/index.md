@@ -26,13 +26,13 @@
 
 | runner id | runner kind | profile | transport backend | latest date root | 비고 |
 | --- | --- | --- | --- | --- | --- |
-| local-win-x64-01 | local | tcp-loopback-saea-v1 | SaeaTransport | [2026-06-25](runners/local-win-x64-01/2026-06-25/history.json) | explicit runner 2-date-root 표본 진행 중, runner root [history.json](runners/local-win-x64-01/history.json) |
+| local-win-x64-01 | local | tcp-loopback-saea-v1 | SaeaTransport | [2026-06-25](runners/local-win-x64-01/2026-06-25/history.json) | explicit runner 2-date-root reference 완료, runner root [history.json](runners/local-win-x64-01/history.json) |
 
 ## Runner Date-level History
 
 | runner id | 날짜 | history | human report | sessions | hard passed | warnings | comparison compatible |
 | --- | --- | --- | --- | ---: | --- | ---: | --- |
-| local-win-x64-01 | 2026-06-25 | [history.json](runners/local-win-x64-01/2026-06-25/history.json) | [history.md](runners/local-win-x64-01/2026-06-25/history.md) | 2 | true | 0 | true |
+| local-win-x64-01 | 2026-06-25 | [history.json](runners/local-win-x64-01/2026-06-25/history.json) | [history.md](runners/local-win-x64-01/2026-06-25/history.md) | 3 | true | 0 | true |
 | local-win-x64-01 | 2026-06-24 | [history.json](runners/local-win-x64-01/2026-06-24/history.json) | [history.md](runners/local-win-x64-01/2026-06-24/history.md) | 3 | true | 0 | true |
 
 ## Date-level History
@@ -48,6 +48,7 @@
 | --- | --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
 | 2026-06-25 | session-01 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-25/session-01/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-25/session-01/summary.md) | 6 | true | 0 | 921.1 | 1077.4 | 2 |
 | 2026-06-25 | session-02 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-25/session-02/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-25/session-02/summary.md) | 6 | true | 0 | 935.6 | 1013.1 | 2 |
+| 2026-06-25 | session-03 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-25/session-03/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-25/session-03/summary.md) | 6 | true | 0 | 842 | 975.6 | 2 |
 | 2026-06-24 | session-01 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-24/session-01/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-24/session-01/summary.md) | 6 | true | 0 | 870.7 | 844.7 | 2 |
 | 2026-06-24 | session-02 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-24/session-02/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-24/session-02/summary.md) | 6 | true | 0 | 821.4 | 893 | 2 |
 | 2026-06-24 | session-03 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-24/session-03/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-24/session-03/summary.md) | 6 | true | 0 | 806.9 | 1051.5 | 2 |
@@ -81,17 +82,18 @@ latency, growth, HWM 은 max, actual rate 는 min 을 사용한다.
 ## local-win-x64-01 Explicit Runner Reference Latency Envelope
 
 이 표는 D084 저장 구조 아래에서 수집한 explicit runner reference 다.
-2026-06-25 session-01/session-02 추가로 같은 runner 의 date root 가 2개가 됐지만,
-두 번째 date root 는 아직 2-session 뿐이므로 D082 기준의 warning-as-failure 또는 CI latency gate 로 승격하지 않는다.
+2026-06-25 session-03 추가로 같은 runner 의 두 date root 가 각각 3-session reference 를 갖췄다.
+다만 이 표는 아직 D082 기준의 warning-as-failure 또는 CI latency gate 로 자동 승격하지 않고,
+다음 단위에서 gate 후보를 재평가하기 위한 입력으로만 사용한다.
 
 | 항목 | load | open-loop |
 | --- | ---: | ---: |
-| compatible sessions | 5 | 5 |
-| raw runs | 15 | 15 |
+| compatible sessions | 6 | 6 |
+| raw runs | 18 | 18 |
 | p50 max us | 268.1 | 322.6 |
 | p99 max us | 935.6 | 1077.4 |
 | p99 median max us | 903.9 | 1048.9 |
-| p99 growth ratio max | 1.2 | 1.14 |
+| p99 growth ratio max | 1.2 | 1.18 |
 | actual rate min hz | 99.1 | 99.9 |
 | TCP HWM max | 1 | 2 |
 | dropped total | 0 | 0 |
@@ -112,8 +114,8 @@ latency, growth, HWM 은 max, actual rate 는 min 을 사용한다.
 - 2026-06-24 baseline 은 `runner-id=local-unspecified`이므로 gate 승격 조건의 날짜 root count 에 산입하지 않는다.
   이 표본은 reference envelope 의 근거이며, envelope 초과 여부는 현재 자동 failure 가 아니라 수동 리뷰 메모로만 기록한다.
 - `local-win-x64-01` runner group 은 첫 explicit runner 3-session baseline 이며, D084 저장 구조와 history command 경로 검증 표본이다.
-  2026-06-25 session-02 추가 후 runner root history 는 5-session 을 묶고 hard gate 와 comparison compatibility 를 통과한다.
-  다만 두 번째 date root 는 아직 2-session 뿐이므로 D082 warning-as-failure 승격 조건에는 산입하지 않는다.
+  2026-06-25 session-03 추가 후 runner root history 는 6-session 을 묶고 hard gate 와 comparison compatibility 를 통과한다.
+  같은 runner 의 두 date root 가 각각 3-session reference 를 갖췄으므로 다음 단위는 D082 warning-as-failure/CI gate 후보 재평가다.
 - 2026-06-18 raw report 는 D079 runner identity/environment metadata 도입 전 artifact 이므로
   summary/history comparison 은 `unknown-runner` mismatch 로 `comparison-compatible=false`를 기록한다.
   이 값은 hard gate 실패가 아니라 비교 가능성 신호다.

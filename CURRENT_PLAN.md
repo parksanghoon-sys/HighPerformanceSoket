@@ -117,6 +117,12 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   runner root history 는 5-session, hard-passed true, warning-count 0, comparison-compatible true 다.
   explicit runner envelope 는 load p99 max 935.6 us, open-loop p99 max 1077.4 us 이며,
   두 번째 date root 는 아직 2-session 뿐이므로 D082 warning-as-failure 승격 조건에는 산입하지 않는다(D087).
+- `local-win-x64-01/2026-06-25/session-03` explicit runner baseline 을 수집했다.
+  2026-06-25 date root 는 session-count 3, hard-passed true, warning-count 0, comparison-compatible true 다.
+  runner root history 는 6-session, hard-passed true, warning-count 0, comparison-compatible true 다.
+  explicit runner envelope 는 load p99 max 935.6 us, open-loop p99 max 1077.4 us 이며,
+  같은 runner 의 두 date root 가 각각 3-session reference 를 갖췄다(D088).
+  gate 구현은 자동 진행하지 않고 다음 단위에서 D082 warning-as-failure/CI gate 후보를 재평가한다.
 - summary/history comparison signal 설계를 완료했다.
   설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
   D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
@@ -709,16 +715,17 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 Summary/history comparison signal 계획의 Task 1~5, benchmark writer metadata roundtrip test-hardening,
 2026-06-18 generated baseline artifact 재생성, 2026-06-24 current-schema baseline session-01/session-02/session-03 추가,
 D082 설계와 리뷰 보강, Phase 4 다음 후보 재평가, explicit runner 3-session reference 수집,
-explicit runner 3-session 이후 다음 후보 재평가, 2026-06-25 explicit runner session-01/session-02 수집은 완료됐다.
+explicit runner 3-session 이후 다음 후보 재평가, 2026-06-25 explicit runner session-01/session-02/session-03 수집은 완료됐다.
 
-다음 작업은 `local-win-x64-01/2026-06-25/session-03` explicit runner baseline 을 수집하는 것이다.
+다음 작업은 explicit runner 2-date-root reference 이후 D082 warning-as-failure/CI latency gate 승격 후보를 재평가하는 것이다.
+이 재평가는 gate 구현이 아니라 정책/설계 단위이며, false failure 비용, runner 재현성, CI artifact 보존 정책을 먼저 닫는다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 `local-win-x64-01/2026-06-25/session-02` explicit runner baseline 을 수집하고
+이번 cycle 은 `local-win-x64-01/2026-06-25/session-03` explicit runner baseline 을 수집하고
 파생 summary/history/index 문서를 갱신한다.
 
-- 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/session-02/`,
+- 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/session-03/`,
   `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/history.json`,
   `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/history.md`,
   `docs/benchmarks/baselines/runners/local-win-x64-01/history.json`,
