@@ -1040,13 +1040,23 @@ D107 구현 계획을 완료했다.
 다음 작업은 계획 Task 1인 `RioPayloadRegistrationCache` pure owner 구현이다.
 먼저 fake registrar 기반 Red tests 로 cache hit, idle eviction, outstanding dispose delay, fallback lease 를 고정한다.
 
+RIO payload registration cache Task 1 pure owner 구현을 완료했다.
+`RioPayloadRegistrationCache`는 backing `byte[]` object identity 로 buffer id 를 cache 하고,
+idle LRU eviction, outstanding lease dispose 지연, all-outstanding capacity fallback lease 를 처리한다.
+Red evidence 는 reflection 기반 type boundary test 가 `Assert.NotNull` 실패한 것이다.
+Green 이후 direct internal API tests 로 cache hit/eviction/dispose/fallback 4개 behavior 를 고정했다.
+
+다음 작업은 계획 Task 2 payload send path cache lease 전환이다.
+`RioConnectionResource`에 payload cache 를 소유시키고, `SendInFlightAsync(...)` payload 경로가
+`RioPayloadRegistrationCache.Acquire(...)` lease 로 `SendRegisteredBufferAsync(...)`를 호출하게 한다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO payload registration cache Task 1 pure owner 구현을 준비한다.
+이번 cycle 은 RIO payload registration cache Task 2 send path cache lease 전환을 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.
-- 검증: focused cache owner Red/Green tests, focused RIO tests, `git diff --check`.
+- 검증: focused payload reuse Red/Green test, focused RIO tests, close/wake 반복, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 

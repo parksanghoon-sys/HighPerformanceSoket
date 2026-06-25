@@ -9,12 +9,12 @@
 
 ## Current TODOs
 
-- [ ] RIO payload registration cache Task 1 pure owner 를 구현한다.
-  - 목적: backing `byte[]` identity cache, outstanding lease count, idle eviction, dispose-delayed deregister 규칙을 production RIO loopback 전 pure model 로 고정한다.
-  - 범위: `src/Hps.Transport.Rio/RioPayloadRegistrationCache.cs`, `tests/Hps.Transport.Rio.Tests/RioPayloadRegistrationCacheTests.cs`.
+- [ ] RIO payload registration cache Task 2 send path cache lease 를 구현한다.
+  - 목적: RIO payload send path 가 cache hit 에서 per-operation `RIORegisterBuffer`/`RIODeregisterBuffer`를 호출하지 않게 한다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`.
   - 현재 판단: 구현 계획은 `docs/superpowers/plans/2026-06-25-rio-payload-registration-cache.md`에 있다.
-  - 다음 자연스러운 step: fake registrar 기반 Red tests 를 먼저 작성하고 focused cache owner tests 로 Green 을 확인한다.
-  - 검증: focused cache owner tests, focused RIO tests, `git diff --check`.
+  - 다음 자연스러운 step: 같은 backing payload block 을 두 번 보내는 RIO loopback Red test 를 추가하고 send path 를 cache lease 로 전환한다.
+  - 검증: focused payload reuse Red/Green test, focused RIO tests, close/wake 반복, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -29,6 +29,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO payload registration cache Task 1 pure owner 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioPayloadRegistrationCache.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioPayloadRegistrationCacheTests.cs`, root 상태 문서.
+  - 결과: backing `byte[]` identity cache, idle LRU eviction, outstanding dispose-delayed deregister,
+    all-outstanding capacity fallback lease 를 구현했다.
+  - 검증: Red type boundary assertion failure 확인, focused cache owner tests 4개 통과, focused RIO tests 33개 통과.
+  - 비고: 실제 RIO payload send path 연결은 Task 2 범위다.
 
 - [x] RIO payload registration cache 구현 계획을 작성했다.
   - 범위: `docs/superpowers/plans/2026-06-25-rio-payload-registration-cache.md`, root 상태 문서.

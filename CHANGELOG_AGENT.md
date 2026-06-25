@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO payload registration cache owner)
+
+### 작업 단위
+- RIO payload registration cache Task 1 pure owner 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioPayloadRegistrationCache.cs`:
+  backing `byte[]` object identity 기반 cache, outstanding lease count, idle LRU eviction,
+  dispose-delayed deregister, all-outstanding capacity fallback lease 를 추가했다.
+- `tests/Hps.Transport.Rio.Tests/RioPayloadRegistrationCacheTests.cs`:
+  cache hit, idle eviction, outstanding dispose 지연, fallback lease 를 fake registrar 로 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 Task 2 payload send path cache lease 전환으로 이동했다.
+
+### 검증
+- Red: type boundary reflection test 가 `RioPayloadRegistrationCache` 부재로 `Assert.NotNull` 실패.
+- Green/Refactor: direct internal API 기반 focused cache owner tests 4개 통과.
+- focused RIO tests 33개 통과.
+
 ## 2026-06-25 (Codex - RIO payload registration cache plan)
 
 ### 작업 단위
