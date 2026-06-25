@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Hps.Buffers;
 using Xunit;
@@ -117,6 +118,49 @@ namespace Hps.Transport.Rio.Tests
             await Task.Delay(TimeSpan.FromMilliseconds(25));
         }
 
+        // Receive handler 예외는 상위 broker cleanup 을 끊지 않도록 connection close 알림으로 수렴해야 한다.
+        // SAEA와 같은 handler-failure 계약을 RIO receive pump 에도 고정해 backend 별 비대칭을 막는다.
+        [Fact]
+        public async Task ReceivePump_WhenRioAvailable_HandlerThrowsClosesConnectionAndNotifiesHandler()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            ThrowingReceiveHandler handler = new ThrowingReceiveHandler();
+            using (RioTransport transport = new RioTransport())
+            {
+                transport.SetReceiveHandler(handler);
+                await transport.StartAsync();
+
+                IConnectionListener listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                IConnection client = await transport.ConnectTcpAsync(listener.LocalEndPoint);
+                IConnection server = await listener.AcceptAsync();
+
+                PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                RefCountedBuffer buffer = pool.RentCounted();
+                buffer.Span[0] = 41;
+                buffer.SetLength(1);
+                buffer.AddRef();
+
+                Assert.True(transport.TrySend(client, new TransportSendBuffer(buffer, 0, 1)));
+                buffer.Release();
+
+                IConnection closedConnection = await WaitForClosedConnectionAsync(handler.ClosedTask);
+
+                Assert.Same(server, closedConnection);
+                Assert.Equal(1, handler.ClosedCallCount);
+
+                client.Close();
+                server.Close();
+                listener.Close();
+                await transport.StopAsync();
+                Assert.Equal(0, pool.RentedCount);
+            }
+        }
+
         private static async Task<byte[]> SendAndReceiveAsync(byte[] payload, bool prependLengthPrefix, int expectedReceiveLength)
         {
             RecordingReceiveHandler handler = new RecordingReceiveHandler(expectedReceiveLength);
@@ -191,6 +235,47 @@ namespace Hps.Transport.Rio.Tests
                     throw new TimeoutException("RIO TCP loopback receive completion을 제한 시간 안에 관측하지 못했습니다.");
 
                 return await _received.Task.ConfigureAwait(false);
+            }
+        }
+
+        private static async Task<IConnection> WaitForClosedConnectionAsync(Task<IConnection> closedTask)
+        {
+            Task completed = await Task.WhenAny(closedTask, Task.Delay(TimeSpan.FromSeconds(5))).ConfigureAwait(false);
+            if (!object.ReferenceEquals(completed, closedTask))
+                throw new TimeoutException("RIO TCP handler 예외 후 close notification 을 제한 시간 안에 관측하지 못했습니다.");
+
+            return await closedTask.ConfigureAwait(false);
+        }
+
+        private sealed class ThrowingReceiveHandler : ITransportReceiveHandler
+        {
+            private readonly TaskCompletionSource<IConnection> _closed;
+            private int _closedCallCount;
+
+            internal ThrowingReceiveHandler()
+            {
+                _closed = new TaskCompletionSource<IConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            internal Task<IConnection> ClosedTask
+            {
+                get { return _closed.Task; }
+            }
+
+            internal int ClosedCallCount
+            {
+                get { return Volatile.Read(ref _closedCallCount); }
+            }
+
+            public void OnReceived(IConnection connection, TransportReceiveBuffer receiveBuffer)
+            {
+                throw new InvalidOperationException("테스트용 receive handler failure 입니다.");
+            }
+
+            public void OnConnectionClosed(IConnection connection)
+            {
+                Interlocked.Increment(ref _closedCallCount);
+                _closed.TrySetResult(connection);
             }
         }
     }

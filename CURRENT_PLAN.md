@@ -846,9 +846,18 @@ focused RIO tests 22개와 10회 반복 실행이 모두 통과했으므로, ful
 구체적으로는 send queue ownership/drop-oldest, handler exception close notify, unavailable fallback 정책을 RIO 전용 테스트로
 더 고정할지 판단한다.
 
+RIO handler exception close notify 계약은 테스트로 고정했다.
+`ReceivePump_WhenRioAvailable_HandlerThrowsClosesConnectionAndNotifiesHandler`는 client 가 payload 를 보내고
+server receive handler 가 예외를 던질 때 RIO receive pump 가 해당 connection close notification 으로 수렴하는지 검증한다.
+현재 RIO 구현은 이미 UDP/SAEA와 같은 정책을 만족해 production 변경 없이 focused RIO tests 23개가 통과했다.
+
+다음 작업은 RIO send queue ownership/drop-oldest 계약을 live loopback 으로 의미 있게 검증할 수 있는지 확인하는 것이다.
+실제 socket pump 가 빠르게 drain 하면 queue saturation 을 재현하기 어려우므로, 테스트가 brittle 해질 경우 forced queue owner 나
+runtime 공통 계약 테스트 재사용으로 범위를 줄인다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO contract suite 확장 후보를 재평가한다.
+이번 cycle 은 RIO send queue/drop-oldest contract 검증 후보를 재평가한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.

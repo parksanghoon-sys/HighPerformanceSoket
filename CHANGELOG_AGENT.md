@@ -5,6 +5,21 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO handler exception contract)
+
+### 작업 단위
+- RIO TCP receive handler 예외 close-notify 계약을 테스트로 고정했다.
+
+### 변경 내용
+- `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`:
+  RIO available 환경에서 client payload 수신 중 handler 가 예외를 던지면,
+  receive pump 가 server connection close notification 으로 수렴하는지 검증하는 테스트를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  handler exception close notify 보강 완료와 다음 후보인 RIO send queue/drop-oldest contract 재평가를 반영했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 23개 통과.
+
 ## 2026-06-25 (Codex - RIO TCP close churn stress)
 
 ### 작업 단위

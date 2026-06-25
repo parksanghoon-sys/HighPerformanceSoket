@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO contract suite 확장 후보를 재평가한다.
-  - 목적: RIO TCP pump 를 default factory 후보로 올리기 전에 transport 계약 테스트를 어디까지 RIO 전용으로 고정할지 결정한다.
+- [ ] RIO send queue/drop-oldest contract 검증 후보를 재평가한다.
+  - 목적: RIO TCP pump 를 default factory 후보로 올리기 전에 live RIO loopback 에서 send queue ownership/drop-oldest 를 의미 있게 검증할 수 있는지 판단한다.
   - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/`, `docs/agent-state/reviews/2026-06-25-rio-task6-self-review.md`.
-  - 현재 판단: send partial completion loop, length-prefix/larger-payload coverage, close/churn stress 는 보강됐다.
+  - 현재 판단: send partial completion loop, length-prefix/larger-payload coverage, close/churn stress, handler exception close notify 는 보강됐다.
     close/churn stress 10회 반복 실행이 통과했으므로 full outstanding request owner 재구조화는 아직 증거 부족으로 deferred 다.
-  - 다음 자연스러운 step: RIO 전용으로 추가할 가치가 높은 계약 테스트를 고른다.
-    후보는 send queue ownership/drop-oldest, handler exception close notify, unavailable fallback policy, default factory non-selection 이다.
+  - 다음 자연스러운 step: RIO live loopback 으로 queue saturation 을 안정적으로 만들 수 있는지 먼저 확인한다.
+    socket pump 가 너무 빨라 brittle 하면 forced queue owner 나 runtime 공통 계약 테스트 재사용으로 범위를 줄인다.
   - 검증: focused RIO tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
@@ -37,6 +37,12 @@
   - 결과: connect/accept 직후 close 를 25회 반복해 receive pump 와 socket/CQ 정리 경합이 testhost crash 없이 끝나는지 검증한다.
   - 검증: focused RIO tests 22개 통과, focused RIO tests 10회 반복 통과.
   - 비고: full outstanding request owner 재구조화는 현재 반복 stress 에서 failure 가 재현되지 않아 deferred 로 유지한다.
+
+- [x] RIO handler exception close notify 계약을 고정했다.
+  - 범위: `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
+  - 결과: receive handler 예외가 background task fault 로 남지 않고 connection close notification 으로 수렴하는지 RIO loopback 에서 검증한다.
+  - 검증: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 23개 통과.
+  - 비고: 기존 RIO 구현이 이미 close notification 정책을 만족해 production 변경은 없었다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,
