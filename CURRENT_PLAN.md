@@ -1081,6 +1081,37 @@ open-loop actual-rate 99.8 Hz/p50 293.8 us/p99 920.5 us 다.
 - Linux io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay
 
+RIO UDP Task 1 native Ex operation shape 구현을 완료했다.
+`RioNative`는 이제 `SupportsDatagramOperations` capability 와 `ReceiveEx`/`SendEx` wrapper 를 제공한다.
+Ex wrapper 는 optional `RioBufferSegment`를 pinned `RIO_BUF` pointer 또는 null 로 marshalling 하고,
+초기 범위에서는 control context, flags buffer, RIO flags 를 null/0 으로 고정한다.
+Red evidence 는 focused tests 2개가 각각 `SupportsDatagramOperations` property 및 `ReceiveEx` method 부재로
+`Assert.NotNull()` 실패한 것이다.
+Green 이후 Ex argument validation test 를 추가해 null request queue 가 managed boundary 에서 `ArgumentException`으로 차단됨을 확인했다.
+
+다음 작업은 RIO UDP Task 2 endpoint owner skeleton 계획 또는 구현이다.
+`BindUdpAsync_WhenRioAvailable_ReturnsEndpointWithLocalEndPoint` Red 로 시작해 registered UDP socket bind,
+endpoint tracking, close/unregister, unsupported 환경 명시 실패를 작은 단위로 닫는다.
+
+## 이번 단위의 검증 경로
+
+이번 cycle 은 RIO UDP Task 2 endpoint owner skeleton 을 계획하거나 바로 TDD 구현한다.
+
+- 범위: `src/Hps.Transport.Rio/RioTransport.cs`, 신규 `RioUdpEndpoint` 후보,
+  `tests/Hps.Transport.Rio.Tests/`, root 상태 문서.
+- 검증: focused RIO UDP tests, focused RIO tests 전체, solution build/test, `git diff --check`.
+
+## 이번 작업에서 건드리지 않는 범위
+
+- RIO UDP receive/send loopback
+- RIO UDP diagnostics parity 전체
+- `TransportFactory` 기본 선택 코드 변경
+- SAEA transport 동작 변경
+- latency hard gate 또는 warning-as-failure 정책 구현
+- CI artifact 자동 채택, pull_request trigger, schedule trigger
+- Linux io_uring backend 구현
+- stable identity 인증/권한 검증, persistence, payload replay
+
 RIO UDP Task 1 native Ex operation shape 구현 계획을 완료했다.
 계획 문서는 `docs/superpowers/plans/2026-06-25-rio-udp-native-ex-operation-shape.md`다.
 범위는 `RioNative`의 `ReceiveEx`/`SendEx` delegate binding, `SupportsDatagramOperations`,

@@ -96,6 +96,78 @@ namespace Hps.Transport.Rio.Tests
 
         // function table pointer 를 얻는 것만으로는 충분하지 않다.
         // pump 가 쓰기 전 최소 buffer registration delegate 를 실제 pinned block 에 대해 호출할 수 있어야 한다.
+        // UDP RIO는 RIOSendEx/RIOReceiveEx가 별도 pointer 이므로 TCP availability 와 분리해 관측해야 한다.
+        // 이 Red 테스트는 endpoint 구현 전에 native datagram operation capability 경계를 먼저 고정한다.
+        [Fact]
+        public void TryLoadFunctionTable_WhenRioAvailable_ExposesDatagramOperationCapability()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioNative? native;
+            Assert.True(RioNative.TryLoadFunctionTable(out native));
+            Assert.NotNull(native);
+
+            PropertyInfo? property = typeof(RioNative).GetProperty(
+                "SupportsDatagramOperations",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(property);
+            Assert.True((bool)property!.GetValue(native)!);
+        }
+
+        // endpoint 구현 전에 ReceiveEx/SendEx wrapper method shape 를 먼저 고정한다.
+        // 이 경계가 없으면 UDP endpoint 구현이 native function pointer 를 직접 만지게 되어 책임이 흐려진다.
+        [Fact]
+        public void ReceiveSendExOperations_WhenMissing_AreDetectedBeforeUdpEndpoint()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            MethodInfo? receiveEx = typeof(RioNative).GetMethod(
+                "ReceiveEx",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            MethodInfo? sendEx = typeof(RioNative).GetMethod(
+                "SendEx",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(receiveEx);
+            Assert.NotNull(sendEx);
+        }
+
+        // Ex wrapper 는 UDP endpoint 가 생기기 전에도 기본 argument validation 을 가져야 한다.
+        // null RQ 를 native call 로 흘리면 provider 오류가 불명확해지므로 managed boundary 에서 먼저 차단한다.
+        [Fact]
+        public void ReceiveSendExOperations_WhenRequestQueueIsNull_ThrowArgumentException()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioNative? native;
+            Assert.True(RioNative.TryLoadFunctionTable(out native));
+            Assert.NotNull(native);
+            if (!native!.SupportsDatagramOperations)
+                return;
+
+            Assert.Throws<ArgumentException>(delegate()
+            {
+                native.ReceiveEx(IntPtr.Zero, null, null, null, IntPtr.Zero);
+            });
+            Assert.Throws<ArgumentException>(delegate()
+            {
+                native.SendEx(IntPtr.Zero, null, null, IntPtr.Zero);
+            });
+        }
+
         [Fact]
         public unsafe void RegisterBuffer_WhenRioAvailable_ReturnsBufferIdAndDeregisters()
         {

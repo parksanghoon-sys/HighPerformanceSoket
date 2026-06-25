@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO UDP native Ex shape)
+
+### 작업 단위
+- RIO UDP Task 1 native Ex operation shape 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioNative.cs`:
+  `SupportsDatagramOperations`, `ReceiveEx`, `SendEx`, optional `RioBufferSegment` pinning helper 를 추가했다.
+  control context, flags buffer, RIO flags 는 초기 UDP parity 범위에서 null/0 으로 고정한다.
+- `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`:
+  datagram capability property, Ex wrapper method shape, null request queue validation 을 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 RIO UDP Task 2 endpoint owner skeleton 으로 이동했다.
+
+### 검증
+- Red: focused tests 2개가 property/method 부재로 `Assert.NotNull()` 실패.
+- Green: focused Ex tests 3개 통과.
+- focused RIO tests 37개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build`: 통과.
+
 ## 2026-06-25 (Codex - RIO UDP native Ex plan)
 
 ### 작업 단위

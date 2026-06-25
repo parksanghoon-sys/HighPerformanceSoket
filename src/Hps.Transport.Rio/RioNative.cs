@@ -35,6 +35,8 @@ namespace Hps.Transport
         private readonly RioDequeueCompletionDelegate _dequeueCompletion;
         private readonly RioPostBufferDelegate _receive;
         private readonly RioPostBufferDelegate _send;
+        private readonly RioPostBufferExDelegate? _receiveEx;
+        private readonly RioPostBufferExDelegate? _sendEx;
         private readonly RioRegisterBufferDelegate _registerBuffer;
         private readonly RioDeregisterBufferDelegate _deregisterBuffer;
         private readonly RioNotifyDelegate _notify;
@@ -49,6 +51,10 @@ namespace Hps.Transport
             _dequeueCompletion = Marshal.GetDelegateForFunctionPointer<RioDequeueCompletionDelegate>(functionTable.DequeueCompletion);
             _receive = Marshal.GetDelegateForFunctionPointer<RioPostBufferDelegate>(functionTable.Receive);
             _send = Marshal.GetDelegateForFunctionPointer<RioPostBufferDelegate>(functionTable.Send);
+            if (functionTable.ReceiveEx != IntPtr.Zero)
+                _receiveEx = Marshal.GetDelegateForFunctionPointer<RioPostBufferExDelegate>(functionTable.ReceiveEx);
+            if (functionTable.SendEx != IntPtr.Zero)
+                _sendEx = Marshal.GetDelegateForFunctionPointer<RioPostBufferExDelegate>(functionTable.SendEx);
             _registerBuffer = Marshal.GetDelegateForFunctionPointer<RioRegisterBufferDelegate>(functionTable.RegisterBuffer);
             _deregisterBuffer = Marshal.GetDelegateForFunctionPointer<RioDeregisterBufferDelegate>(functionTable.DeregisterBuffer);
             _notify = Marshal.GetDelegateForFunctionPointer<RioNotifyDelegate>(functionTable.Notify);
@@ -57,6 +63,11 @@ namespace Hps.Transport
         internal bool SupportsCompletionNotification
         {
             get { return _functionTable.Notify != IntPtr.Zero; }
+        }
+
+        internal bool SupportsDatagramOperations
+        {
+            get { return _receiveEx != null && _sendEx != null; }
         }
 
         internal static long BufferRegistrationCount
@@ -228,6 +239,33 @@ namespace Hps.Transport
             return PostBuffers(_send, requestQueue, buffers, requestContext);
         }
 
+        internal bool ReceiveEx(
+            IntPtr requestQueue,
+            RioBufferSegment? data,
+            RioBufferSegment? localAddress,
+            RioBufferSegment? remoteAddress,
+            IntPtr requestContext)
+        {
+            ValidateExPostingArguments(requestQueue);
+            if (_receiveEx == null)
+                throw new NotSupportedException("현재 RIO provider 는 RIOReceiveEx 를 제공하지 않습니다.");
+
+            return PostBuffersEx(_receiveEx, requestQueue, data, localAddress, remoteAddress, requestContext);
+        }
+
+        internal bool SendEx(
+            IntPtr requestQueue,
+            RioBufferSegment? data,
+            RioBufferSegment? remoteAddress,
+            IntPtr requestContext)
+        {
+            ValidateExPostingArguments(requestQueue);
+            if (_sendEx == null)
+                throw new NotSupportedException("현재 RIO provider 는 RIOSendEx 를 제공하지 않습니다.");
+
+            return PostBuffersEx(_sendEx, requestQueue, data, null, remoteAddress, requestContext);
+        }
+
         internal IntPtr RegisterBuffer(IntPtr dataBuffer, int dataLength)
         {
             if (dataBuffer == IntPtr.Zero)
@@ -271,6 +309,76 @@ namespace Hps.Transport
             {
                 handle.Free();
             }
+        }
+
+        private static void ValidateExPostingArguments(IntPtr requestQueue)
+        {
+            if (requestQueue == IntPtr.Zero)
+                throw new ArgumentException("RIO request queue handle 은 null 일 수 없습니다.", nameof(requestQueue));
+        }
+
+        private static bool PostBuffersEx(
+            RioPostBufferExDelegate post,
+            IntPtr requestQueue,
+            RioBufferSegment? data,
+            RioBufferSegment? localAddress,
+            RioBufferSegment? remoteAddress,
+            IntPtr requestContext)
+        {
+            GCHandle dataHandle;
+            GCHandle localAddressHandle;
+            GCHandle remoteAddressHandle;
+            uint dataBufferCount;
+
+            IntPtr dataPointer = PinOptionalSegment(data, out dataHandle, out dataBufferCount);
+            IntPtr localAddressPointer = PinOptionalSegment(localAddress, out localAddressHandle);
+            IntPtr remoteAddressPointer = PinOptionalSegment(remoteAddress, out remoteAddressHandle);
+
+            try
+            {
+                return post(
+                    requestQueue,
+                    dataPointer,
+                    dataBufferCount,
+                    localAddressPointer,
+                    remoteAddressPointer,
+                    IntPtr.Zero,
+                    IntPtr.Zero,
+                    0,
+                    requestContext) != 0;
+            }
+            finally
+            {
+                FreeIfAllocated(dataHandle);
+                FreeIfAllocated(localAddressHandle);
+                FreeIfAllocated(remoteAddressHandle);
+            }
+        }
+
+        private static IntPtr PinOptionalSegment(RioBufferSegment? segment, out GCHandle handle)
+        {
+            uint ignored;
+            return PinOptionalSegment(segment, out handle, out ignored);
+        }
+
+        private static IntPtr PinOptionalSegment(RioBufferSegment? segment, out GCHandle handle, out uint dataBufferCount)
+        {
+            handle = default(GCHandle);
+            dataBufferCount = 0;
+
+            if (!segment.HasValue)
+                return IntPtr.Zero;
+
+            RioBufferSegment[] buffer = new RioBufferSegment[] { segment.Value };
+            handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+            dataBufferCount = 1;
+            return handle.AddrOfPinnedObject();
+        }
+
+        private static void FreeIfAllocated(GCHandle handle)
+        {
+            if (handle.IsAllocated)
+                handle.Free();
         }
 
         internal static bool TryLoadFunctionTable(out RioNative? native)
@@ -422,6 +530,18 @@ namespace Hps.Transport
             IntPtr requestQueue,
             IntPtr buffers,
             uint bufferCount,
+            uint flags,
+            IntPtr requestContext);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate int RioPostBufferExDelegate(
+            IntPtr requestQueue,
+            IntPtr data,
+            uint dataBufferCount,
+            IntPtr localAddress,
+            IntPtr remoteAddress,
+            IntPtr controlContext,
+            IntPtr flagsBuffer,
             uint flags,
             IntPtr requestContext);
 

@@ -9,12 +9,14 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP Task 1 Red tests 를 작성하고 실패를 확인한다.
-  - 목적: `RioNative`가 datagram native operation capability 를 노출해야 한다는 요구를 실패 테스트로 고정한다.
-  - 범위: `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
-  - 현재 판단: 구현 계획은 `docs/superpowers/plans/2026-06-25-rio-udp-native-ex-operation-shape.md`에 작성됐다.
-  - 다음 자연스러운 step: reflection 기반 `SupportsDatagramOperations` shape test 를 추가하고 focused test 실패를 확인한다.
-  - 검증: focused Red command 로 `Assert.NotNull(property)` 실패 확인.
+- [ ] RIO UDP Task 2 endpoint owner skeleton 을 계획하거나 바로 TDD 구현한다.
+  - 목적: RIO UDP `BindUdpAsync(...)`가 endpoint owner 를 만들 수 있는 최소 skeleton 을 고정한다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, 신규 `RioUdpEndpoint` 후보,
+    `tests/Hps.Transport.Rio.Tests/`, root 상태 문서.
+  - 현재 판단: Task 1 native Ex wrapper 는 완료됐고, 아직 UDP endpoint/receive/send loop 는 없다.
+  - 다음 자연스러운 step: `BindUdpAsync_WhenRioAvailable_ReturnsEndpointWithLocalEndPoint` Red 를 작성하고,
+    registered UDP socket bind, endpoint tracking, close/unregister 까지만 구현한다.
+  - 검증: focused RIO UDP tests, focused RIO tests 전체, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -29,6 +31,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP Task 1 native Ex operation shape 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioNative.cs`, `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`,
+    root 상태 문서.
+  - 결과: `SupportsDatagramOperations`, `ReceiveEx`, `SendEx`, optional `RioBufferSegment` pinning helper 를 추가했다.
+  - Red: focused tests 2개가 property/method 부재로 `Assert.NotNull()` 실패.
+  - Green/검증: focused Ex tests 3개 통과, focused RIO tests 37개 통과,
+    solution build 0경고/0오류, solution tests 통과.
+  - 비고: UDP endpoint, sockaddr encode/decode, live datagram loopback 은 Task 2 이후 범위다.
 
 - [x] RIO UDP Task 1 native Ex operation shape 구현 계획을 작성했다.
   - 범위: `docs/superpowers/plans/2026-06-25-rio-udp-native-ex-operation-shape.md`, root 상태 문서.
