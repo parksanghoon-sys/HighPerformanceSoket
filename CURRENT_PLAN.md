@@ -961,9 +961,20 @@ focused RIO tests 25개와 solution build 0경고/0오류를 확인했다.
 아직 RIO native wait 에 연결하지 말고, 먼저 `RioCompletionPort`/`RioCompletionSignal`의 managed lifecycle,
 wait wake, dispose wake 를 테스트로 고정한다.
 
+D104 구현 계획 Task 2 completion port/signal owner 를 완료했다.
+`RioCompletionPort`는 signal registry 와 dispose wake 를 소유하고,
+`RioCompletionSignal`은 waiter wake, pump fault, dispose wake 를 관리한다.
+아직 native IOCP handle 과 `RIONotify`에는 연결하지 않았다.
+Red는 `RioCompletionPortTests`가 타입 부재 `Assert.NotNull` failure 를 낸 것이다.
+focused completion port tests 2개, focused RIO tests 27개, solution build 0경고/0오류를 확인했다.
+
+다음 작업은 계획 Task 3 RIONotify + IOCP wiring 구현이다.
+`RioCompletionPort`에 실제 IOCP handle/pump 를 붙이고,
+`RioConnectionResource`가 receive/send CQ를 notification CQ로 만들도록 연결한다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO IOCP/RIONotify completion wait Task 2 구현을 준비한다.
+이번 cycle 은 RIO IOCP/RIONotify completion wait Task 3 구현을 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.

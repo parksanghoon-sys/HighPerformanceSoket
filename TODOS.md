@@ -9,14 +9,15 @@
 
 ## Current TODOs
 
-- [ ] RIO IOCP/RIONotify completion wait Task 2 completion port/signal owner 를 구현한다.
-  - 목적: native wait wiring 전에 CQ별 signal owner 의 wait wake, dispose wake, fault 수명 경계를 managed test 로 고정한다.
-  - 범위: 새 `src/Hps.Transport.Rio/RioCompletionPort.cs`,
-    새 `src/Hps.Transport.Rio/RioCompletionSignal.cs`,
-    새 `tests/Hps.Transport.Rio.Tests/RioCompletionPortTests.cs`.
-  - 현재 판단: Task 1 native shape 는 완료됐고, Task 2는 아직 실제 RIONotify/IOCP pump 에 연결하지 않는다.
-  - 다음 자연스러운 step: `RioCompletionPortTests` Red를 먼저 작성한다.
-  - 검증: focused completion port tests, solution build, `git diff --check`.
+- [ ] RIO IOCP/RIONotify completion wait Task 3 RIONotify + IOCP wiring 을 구현한다.
+  - 목적: `RioCompletionPort` 실제 IOCP pump 와 `RioConnectionResource` notification CQ 를 연결해
+    `WaitForCompletionAsync(...)`의 timer polling fallback 을 native notification wait 로 교체한다.
+  - 범위: `src/Hps.Transport.Rio/RioCompletionPort.cs`, `src/Hps.Transport.Rio/RioCompletionSignal.cs`,
+    `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioNative.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`.
+  - 현재 판단: Task 1 native shape 와 Task 2 managed signal lifecycle 은 완료됐다.
+  - 다음 자연스러운 step: 기존 D102 latency test 를 regression guard 로 재확인한 뒤, IOCP pump wiring 을 구현한다.
+  - 검증: focused RIO tests, close/wake 반복, solution build/test.
 
 ## Deferred Backlog
 
@@ -123,6 +124,15 @@
   - 검증: Red `SupportsCompletionNotification` assertion failure 확인,
     focused test green, focused RIO tests 25개 통과, solution build 0경고/0오류.
   - 비고: 실제 shared IOCP pump wiring 은 Task 3이며, Task 2는 managed signal owner lifecycle 을 먼저 고정한다.
+
+- [x] RIO IOCP/RIONotify completion wait Task 2 completion port/signal owner 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioCompletionPort.cs`, `src/Hps.Transport.Rio/RioCompletionSignal.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioCompletionPortTests.cs`, root 상태 문서.
+  - 결과: managed signal registry, waiter wake, dispose wake, pump fault boundary 를 추가했다.
+    아직 실제 native IOCP handle 과 `RIONotify`에는 연결하지 않는다.
+  - 검증: Red type absence assertion failure 확인, focused completion port tests 2개 통과,
+    focused RIO tests 27개 통과, solution build 0경고/0오류.
+  - 비고: 다음 Task 3에서 notification CQ creation 과 IOCP pump 를 실제 transport resource 에 연결한다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,

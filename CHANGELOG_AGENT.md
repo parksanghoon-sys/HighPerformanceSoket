@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO completion signal owners)
+
+### 작업 단위
+- RIO IOCP/RIONotify completion wait Task 2 completion port/signal owner 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioCompletionPort.cs`:
+  transport-wide completion owner 의 signal registry 와 dispose wake 경계를 추가했다.
+- `src/Hps.Transport.Rio/RioCompletionSignal.cs`:
+  CQ별 waiter wake, pump fault, dispose wake 를 관리하는 signal owner 를 추가했다.
+- `tests/Hps.Transport.Rio.Tests/RioCompletionPortTests.cs`:
+  signal completion wake 와 dispose wake 를 managed lifecycle 테스트로 고정했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 Task 3 RIONotify + IOCP wiring 으로 이동했다.
+
+### 검증
+- Red: `RioCompletionPortTests`가 타입 부재 `Assert.NotNull` failure 를 냈다.
+- focused completion port tests 2개 통과.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 27개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+
 ## 2026-06-25 (Codex - RIO IOCP native notification shape)
 
 ### 작업 단위
