@@ -9,13 +9,21 @@
 
 ## Current TODOs
 
-- [ ] CI artifact-only workflow skeleton 을 검토하거나 첫 manual run 결과를 반영한다.
-  - 목적: `.github/workflows/benchmark-artifacts.yml`가 GitHub Actions 환경에서 실제로 artifact 를 생성하는지 확인한다.
-  - 범위: workflow 검토 결과, 첫 `workflow_dispatch` run log/artifact 결과, 필요 시 workflow 후속 보정.
-  - 현재 판단: local static check 와 local command sequence smoke 는 통과했지만 GitHub-hosted runner 실행은 아직 검증하지 않았다.
-  - 검증: manual run 결과의 raw/summary/history artifact, exit code, upload artifact 이름/path 확인.
+- [ ] 첫 CI artifact 결과 이후 Phase 4 다음 후보를 재평가한다.
+  - 목적: `ci-windows-x64-01` 첫 artifact-only run 결과를 기준으로 다음 실행 후보를 정한다.
+  - 범위: CI artifact warning 해석, GitHub Actions annotation, baseline 채택 여부, 다음 Phase 4 작업 후보.
+  - 현재 판단: 첫 manual run 은 hard pass 했고 artifact upload 도 성공했지만, `warning-count=1`과 Node 20 deprecation annotation 이 남았다.
+  - 검증: run `28143728630` log/artifact, D090/D091 정책, `docs/benchmarks/baselines/index.md`, current backlog 대조.
 
 ## Deferred Backlog
+
+- [ ] `P2_LATER` GitHub Actions Node 20 deprecation annotation 대응을 검토한다.
+  - 무엇이 남았는지: 첫 manual run에서 `actions/checkout@v4`, `actions/setup-dotnet@v4`, `actions/upload-artifact@v4`가
+    Node.js 20 target action 이라 GitHub가 Node 24로 강제 실행한다는 annotation 이 발생했다.
+  - 왜 defer 되었는지: workflow 는 성공했고 artifact 생성/업로드도 정상이다. action major version 변경 가능 여부는 별도 확인이 필요하다.
+  - objective: 사용 가능한 상위 action major version 이 있으면 workflow action version 을 갱신하고, 없으면 현 상태를 명시적으로 유지한다.
+  - relevant context: `.github/workflows/benchmark-artifacts.yml`, GitHub Actions run `28143728630`.
+  - next step: GitHub Actions marketplace/release 또는 `gh` 기반으로 각 action 의 현재 권장 major version 을 확인한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -28,6 +36,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] CI artifact-only workflow 첫 manual run 결과를 확인했다.
+  - 범위: GitHub Actions run `28143728630`, artifact
+    `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28143728630-1`, root 상태 문서.
+  - 결과: workflow 는 성공했다. restore/build/test, `baseline-suite`, `summary`, `history`, artifact upload 단계가 모두 통과했다.
+  - 비고: artifact 는 raw report 6개, `summary.json`, `summary.md`, `history.json`, `history.md` 총 10개 파일을 포함한다.
+    `summary.json`은 `source-report-count=6`, `hard-passed=true`, `warning-count=1`,
+    `comparison-compatible=true`, `unknown-runner-count=0`이다.
+    `history.json`은 `session-count=1`, `hard-passed=true`, `warning-count=1`, `comparison-compatible=true`다.
+    warning 은 `open-loop-01.json`의 `p99-growth-ratio-high`이며 D090 기준 report-only 다.
+  - 검증: `gh workflow run`, `gh run watch --exit-status`, `gh run download`로 run 성공과 artifact 내용을 확인했다.
+    `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 
 - [x] CI workflow benchmark command sequence 를 local smoke 로 검증하고 no-restore 로 보정했다.
   - 범위: `.github/workflows/benchmark-artifacts.yml`,

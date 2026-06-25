@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - CI workflow first manual run)
+
+### 작업 단위
+- 원격 push 이후 `Benchmark Artifacts` workflow 를 manual `workflow_dispatch`로 실행하고 artifact 결과를 확인했다.
+
+### 변경 내용
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  첫 GitHub Actions run 결과, artifact 이름, summary/history 핵심 값, 남은 follow-up 을 기록했다.
+
+### 검증
+- `gh workflow list`: `Benchmark Artifacts` active, workflow id `301858085`.
+- `gh workflow run "Benchmark Artifacts" --ref master`: run `28143728630` 생성.
+- `gh run watch 28143728630 --exit-status`: 성공, job duration 약 4분 5초.
+- artifact upload: `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28143728630-1`,
+  artifact id `7867724437`, uploaded files 10개, final size 6576 bytes.
+- downloaded artifact 확인: raw report 6개, `summary.json`, `summary.md`, `history.json`, `history.md`.
+- `summary.json`: source-report-count 6, hard-passed true, warning-count 1,
+  comparison-compatible true, unknown-runner-count 0.
+- `history.json`: session-count 1, hard-passed true, warning-count 1, comparison-compatible true.
+- warning detail: `open-loop-01.json`의 `p99-growth-ratio-high`이며 D090 기준 report-only 다.
+- non-blocking annotation: Node.js 20 deprecation 안내가 `actions/checkout@v4`, `actions/setup-dotnet@v4`,
+  `actions/upload-artifact@v4`에 발생했다. workflow는 Node 24 강제 실행으로 성공했다.
+- `git diff --check`: exit 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+
 ## 2026-06-25 (Codex - CI workflow command sequence smoke)
 
 ### 작업 단위

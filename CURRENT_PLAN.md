@@ -728,23 +728,24 @@ D082 설계와 리뷰 보강, Phase 4 다음 후보 재평가, explicit runner 3
 explicit runner 3-session 이후 다음 후보 재평가, 2026-06-25 explicit runner session-01/session-02/session-03 수집,
 explicit runner 2-date-root reference 이후 gate 승격 후보 재평가, CI artifact-only benchmark 정책 설계,
 CI artifact-only workflow skeleton 구현 계획, CI artifact-only workflow skeleton 구현,
-CI workflow command sequence local smoke 는 완료됐다.
+CI workflow command sequence local smoke, 첫 GitHub Actions manual run 검증은 완료됐다.
 
-다음 작업은 CI artifact-only workflow skeleton 검토 또는 첫 manual `workflow_dispatch` 실행 결과 반영이다.
+다음 작업은 첫 CI artifact 결과를 기준으로 Phase 4 다음 후보를 재평가하는 것이다.
 workflow 는 `.github/workflows/benchmark-artifacts.yml`에 있으며 D090/D091에 따라 latency warning 을 실패로 올리지 않고
-artifact upload 만 구성한다. 첫 skeleton 은 `workflow_dispatch` 전용이고, GitHub run id 는 upload artifact 이름에만 넣으며,
+artifact upload 만 구성한다. 첫 manual run `28143728630`은 성공했고, artifact 이름은
+`benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28143728630-1`이다. GitHub run id 는 upload artifact 이름에만 넣으며,
 업로드 내부 디렉터리는 `artifacts/benchmarks/runners/ci-windows-x64-01/<yyyy-mm-dd>/session-01/` 구조를 유지한다.
 benchmark CLI command 는 workflow 앞단 restore/build/test 결과를 재사용하도록 모두 `--no-build --no-restore`로 고정했다.
+첫 run summary/history 는 `hard-passed=true`, `comparison-compatible=true`, `unknown-runner-count=0`,
+`warning-count=1`이다. warning 은 `open-loop-01.json`의 `p99-growth-ratio-high`이며 D090 기준 report-only 다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 CI artifact-only workflow skeleton 의 benchmark command sequence 를 로컬 임시 artifact root 로 smoke 하고,
-restore/build/test 이후 benchmark CLI는 `--no-build --no-restore`를 사용하도록 workflow 와 계획 문서를 보정한다.
+이번 cycle 은 첫 GitHub Actions manual `workflow_dispatch` run 결과를 확인하고,
+summary/history artifact, warning semantics, upload artifact 이름/path 를 상태 문서에 반영한다.
 
-- 범위: `.github/workflows/benchmark-artifacts.yml`,
-  `docs/superpowers/plans/2026-06-25-ci-artifact-only-workflow-skeleton.md`,
-  `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
-- 검증: workflow static marker scan, local benchmark command sequence smoke,
+- 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+- 검증: `gh workflow run`, `gh run watch --exit-status`, downloaded artifact summary/history JSON 확인,
   `git diff --check`, solution build/test.
 
 ## 이번 작업에서 건드리지 않는 범위
