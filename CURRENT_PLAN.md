@@ -1022,14 +1022,23 @@ receive/prefix 쪽 per-operation registration 은 제거됐으므로, 남은 reg
 단, payload cache 는 pool/array/native provider lifetime 과 fan-out ownership 경계가 얽히므로 바로 구현하지 않고
 D106 Task B 설계로 먼저 닫는다.
 
+RIO payload registration cache 설계를 완료했다(D107).
+설계 문서는 `docs/superpowers/specs/2026-06-25-rio-payload-registration-cache-design.md`다.
+결정은 transport-wide shared cache 가 아니라 `RioConnectionResource`가 소유하는 bounded cache 로 먼저 구현하는 것이다.
+fan-out 최적화 폭은 작지만 close/dispose owner 가 명확하고, outstanding send 중 deregister 하지 않는 규칙을 작은 owner tests 로
+검증할 수 있다. transport-wide shared cache 는 fan-out evidence 가 더 쌓인 뒤 별도 설계로 승격한다.
+
+다음 작업은 D107 구현 계획 작성이다.
+`RioPayloadRegistrationCache` pure owner, connection resource wiring, payload send path cache lease 전환,
+verification/benchmark observation 을 TDD 가능한 task 로 나눈다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO payload registration cache 설계를 준비한다.
+이번 cycle 은 RIO payload registration cache 구현 계획을 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.
-- 검증: current state/review/spec 대조, Microsoft RIO buffer lifetime 문서 재확인, 현 payload ownership 코드 대조,
-  설계 self-review, `git diff --check`.
+- 검증: D107 spec coverage self-review, current RIO code/test 대조, placeholder scan, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 

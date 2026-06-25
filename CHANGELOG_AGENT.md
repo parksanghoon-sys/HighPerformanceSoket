@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO payload registration cache design)
+
+### 작업 단위
+- RIO payload `RefCountedBuffer` registration cache 를 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-rio-payload-registration-cache-design.md`:
+  payload backing `byte[]` object identity 기반 cache, outstanding lease, dispose-delayed deregister,
+  capacity fallback 정책을 설계했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D107로 connection resource bounded cache 를 먼저 구현하고 transport-wide shared cache 는 후속으로 둔다고 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 D107 구현 계획 작성으로 이동했다.
+
+### 검증
+- current payload send path, `RefCountedBuffer` release/pool return, `PinnedBlockMemoryPool` array reuse,
+  D106 Task A 결과를 대조했다.
+- placeholder scan 과 `git diff --check`로 문서 품질을 확인한다.
+
 ## 2026-06-25 (Codex - RIO registered buffer reuse Task A)
 
 ### 작업 단위
