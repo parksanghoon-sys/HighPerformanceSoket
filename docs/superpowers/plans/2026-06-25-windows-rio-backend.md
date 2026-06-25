@@ -1153,6 +1153,43 @@ git commit -m "feat: add rio request queue delegate"
 
 ---
 
+### Task 5.9: Native Completion Dequeue Delegate
+
+**Files:**
+- Modify: `src/Hps.Transport.Rio/RioNative.cs`
+- Modify: `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`
+- Modify: root state docs
+
+**Interfaces:**
+- Produces: `internal uint DequeueCompletion(IntPtr completionQueue, RioResult[] results)`
+- Produces: `internal struct RioResult`
+
+- [ ] **Step 1: Write the failing test**
+
+Add a Windows/RIO-available test that first asserts the dequeue operation boundary exists.
+
+- [ ] **Step 2: Run and verify Red**
+
+Expected: missing `DequeueCompletion` operation boundary assertion failure.
+
+- [ ] **Step 3: Implement and refactor**
+
+Marshal `RIODequeueCompletion` and add a blittable `RioResult` struct matching SDK `RIORESULT`.
+After Green, refactor the test to directly create a CQ and assert an empty CQ returns 0 completions.
+
+- [ ] **Step 4: Verify and commit**
+
+Run focused RIO tests, solution build/test, and `git diff --check`.
+
+Commit:
+
+```powershell
+git add src/Hps.Transport.Rio/RioNative.cs tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs docs/superpowers/plans/2026-06-25-windows-rio-backend.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md
+git commit -m "feat: add rio completion dequeue delegate"
+```
+
+---
+
 ### Task 6: TCP Pump And Contract Test Reuse
 
 **Files:**

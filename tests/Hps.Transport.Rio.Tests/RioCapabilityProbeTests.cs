@@ -159,6 +159,36 @@ namespace Hps.Transport.Rio.Tests
 
         // skeleton transport는 아직 opt-in construction만 허용한다.
         // StartAsync가 예외 없이 끝나면 후속 task가 같은 root type 위에 queue/resource를 붙일 수 있다.
+        // dequeue delegate 는 RIO pump 가 CQ에서 완료 이벤트를 읽는 마지막 native boundary 다.
+        // 우선 method boundary 를 Red로 잡고, Green 뒤 빈 CQ에서 0개 completion 반환까지 직접 검증한다.
+        [Fact]
+        public void DequeueCompletion_WhenQueueIsEmpty_ReturnsZero()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioNative? native;
+            Assert.True(RioNative.TryLoadFunctionTable(out native));
+            Assert.NotNull(native);
+
+            IntPtr completionQueue = native.CreateCompletionQueue(8);
+
+            try
+            {
+                RioResult[] results = new RioResult[1];
+                uint count = native.DequeueCompletion(completionQueue, results);
+
+                Assert.Equal(0u, count);
+            }
+            finally
+            {
+                native.CloseCompletionQueue(completionQueue);
+            }
+        }
+
         [Fact]
         public async Task RioTransport_WhenConstructed_StartStopDoesNotThrow()
         {

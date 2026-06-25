@@ -31,6 +31,7 @@ namespace Hps.Transport
         private readonly RioCreateCompletionQueueDelegate _createCompletionQueue;
         private readonly RioCloseCompletionQueueDelegate _closeCompletionQueue;
         private readonly RioCreateRequestQueueDelegate _createRequestQueue;
+        private readonly RioDequeueCompletionDelegate _dequeueCompletion;
         private readonly RioRegisterBufferDelegate _registerBuffer;
         private readonly RioDeregisterBufferDelegate _deregisterBuffer;
 
@@ -40,6 +41,7 @@ namespace Hps.Transport
             _createCompletionQueue = Marshal.GetDelegateForFunctionPointer<RioCreateCompletionQueueDelegate>(functionTable.CreateCompletionQueue);
             _closeCompletionQueue = Marshal.GetDelegateForFunctionPointer<RioCloseCompletionQueueDelegate>(functionTable.CloseCompletionQueue);
             _createRequestQueue = Marshal.GetDelegateForFunctionPointer<RioCreateRequestQueueDelegate>(functionTable.CreateRequestQueue);
+            _dequeueCompletion = Marshal.GetDelegateForFunctionPointer<RioDequeueCompletionDelegate>(functionTable.DequeueCompletion);
             _registerBuffer = Marshal.GetDelegateForFunctionPointer<RioRegisterBufferDelegate>(functionTable.RegisterBuffer);
             _deregisterBuffer = Marshal.GetDelegateForFunctionPointer<RioDeregisterBufferDelegate>(functionTable.DeregisterBuffer);
         }
@@ -96,6 +98,26 @@ namespace Hps.Transport
                 receiveCompletionQueue,
                 sendCompletionQueue,
                 IntPtr.Zero);
+        }
+
+        internal uint DequeueCompletion(IntPtr completionQueue, RioResult[] results)
+        {
+            if (completionQueue == IntPtr.Zero)
+                throw new ArgumentException("RIO completion queue handle 은 null 일 수 없습니다.", nameof(completionQueue));
+            if (results == null)
+                throw new ArgumentNullException(nameof(results));
+            if (results.Length == 0)
+                throw new ArgumentException("RIO completion 결과 배열은 비어 있을 수 없습니다.", nameof(results));
+
+            GCHandle handle = GCHandle.Alloc(results, GCHandleType.Pinned);
+            try
+            {
+                return _dequeueCompletion(completionQueue, handle.AddrOfPinnedObject(), (uint)results.Length);
+            }
+            finally
+            {
+                handle.Free();
+            }
         }
 
         internal IntPtr RegisterBuffer(IntPtr dataBuffer, int dataLength)
@@ -232,6 +254,9 @@ namespace Hps.Transport
             IntPtr socketContext);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate uint RioDequeueCompletionDelegate(IntPtr completionQueue, IntPtr results, uint resultCount);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate IntPtr RioRegisterBufferDelegate(IntPtr dataBuffer, uint dataLength);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
@@ -271,5 +296,14 @@ namespace Hps.Transport
                     RegisterBuffer != IntPtr.Zero;
             }
         }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct RioResult
+    {
+        internal int Status;
+        internal uint BytesTransferred;
+        internal ulong SocketContext;
+        internal ulong RequestContext;
     }
 }

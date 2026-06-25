@@ -5,6 +5,29 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO Task 5.9 completion dequeue delegate)
+
+### 작업 단위
+- Windows RIO TCP pump 선행 하위 단위로 native completion dequeue delegate 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioNative.cs`:
+  loaded RIO function table 의 `RIODequeueCompletion` pointer 를 delegate 로 marshal 하고,
+  SDK `RIORESULT` layout 에 맞춘 `RioResult` struct 와 `DequeueCompletion(...)` operation 을 추가했다.
+- `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`:
+  RIO available 환경에서 빈 CQ를 dequeue 하면 0개 completion 이 반환되는지 검증한다.
+- `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`:
+  TCP pump 전에 dequeue delegate 를 검증하는 Task 5.9를 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 5.9 완료와 다음 receive/send posting native delegate boundary 진입점을 반영했다.
+
+### 검증
+- Red: `DequeueCompletion` operation boundary 부재로 `Assert.NotNull() Failure: Value is null`을 확인했다.
+- Green/refactor: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 15개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 284개 통과, 실패 0.
+- `git diff --check`: 통과.
+
 ## 2026-06-25 (Codex - RIO Task 5.8 request queue delegate)
 
 ### 작업 단위

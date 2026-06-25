@@ -9,14 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO TCP pump 선행 하위 단위로 receive/send/dequeue native delegate boundary 를 구현한다.
-  - 목적: 실제 TCP pump 전에 `RIOReceive`/`RIOSend` posting 과 `RIODequeueCompletion` 결과 해석을
-    호출 가능한 internal operation 으로 좁혀 검증한다.
+- [ ] RIO TCP pump 선행 하위 단위로 receive/send posting native delegate boundary 를 구현한다.
+  - 목적: 실제 TCP pump 전에 `RIOReceive`/`RIOSend` posting 을 호출 가능한 internal operation 으로 좁혀 검증한다.
   - 범위: `src/Hps.Transport.Rio/RioNative.cs`,
     `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
   - 현재 판단: Task 5.6에서 buffer registration, Task 5.7에서 CQ, Task 5.8에서 registered I/O socket + RQ 생성은
-    실제 native 호출로 검증됐다.
-  - 다음 자연스러운 step: RIO_BUF/RIORESULT marshalling 과 receive/send/dequeue delegate 를 Red-Green으로 고정한다.
+    실제 native 호출로 검증됐고, Task 5.9에서 dequeue/RIORESULT marshalling 도 검증됐다.
+  - 다음 자연스러운 step: RIO_BUF marshalling 과 receive/send posting delegate 를 Red-Green으로 고정한다.
   - 검증: focused RIO tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
@@ -142,6 +141,15 @@
   - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
     Green 중 일반 socket RQ null handle 실패를 확인한 뒤 registered I/O socket 으로 보정,
     focused RIO tests 14개 통과, solution build 경고 0/오류 0, solution tests 283개 통과.
+
+- [x] RIO Task 5.9 native completion dequeue delegate 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioNative.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`,
+    `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`, root 상태 문서.
+  - 결과: `RIODequeueCompletion` delegate 와 SDK `RIORESULT`에 맞춘 `RioResult` marshalling 을 추가했다.
+  - 비고: 빈 CQ에서 0개 completion 을 반환하는 경계로 dequeue 호출을 검증했다.
+  - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
+    focused RIO tests 15개 통과, solution build 경고 0/오류 0, solution tests 284개 통과.
 
 - [x] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,
