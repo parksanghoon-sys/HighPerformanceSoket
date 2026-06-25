@@ -112,6 +112,11 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   runner root history 는 4-session, hard-passed true, warning-count 0, comparison-compatible true 다.
   explicit runner envelope 는 load p99 max 921.1 us, open-loop p99 max 1077.4 us 이며,
   두 번째 date root 는 아직 1-session 뿐이므로 D082 warning-as-failure 승격 조건에는 산입하지 않는다(D086).
+- `local-win-x64-01/2026-06-25/session-02` explicit runner baseline 을 수집했다.
+  2026-06-25 date root 는 session-count 2, hard-passed true, warning-count 0, comparison-compatible true 다.
+  runner root history 는 5-session, hard-passed true, warning-count 0, comparison-compatible true 다.
+  explicit runner envelope 는 load p99 max 935.6 us, open-loop p99 max 1077.4 us 이며,
+  두 번째 date root 는 아직 2-session 뿐이므로 D082 warning-as-failure 승격 조건에는 산입하지 않는다(D087).
 - summary/history comparison signal 설계를 완료했다.
   설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
   D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
@@ -202,6 +207,23 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   상세는 `docs/agent-state/reviews/2026-06-23-udp-lease-sweep-race-guard-review.md`를 본다.
 
 ## 최근 완료 단위
+
+- 이번 단위 — 2026-06-25 explicit runner baseline session-02 수집
+  - `HPS_BENCHMARK_RUNNER_ID=local-win-x64-01`, `HPS_BENCHMARK_RUNNER_KIND=local`로
+    `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/session-02/`에 raw report 6개를 생성했다.
+  - 같은 session 에 `summary.json`/`summary.md`를 생성하고,
+    2026-06-25 date root 의 `history.json`/`history.md`와 runner root `history.json`/`history.md`를 재생성했다.
+  - date history 는 `session-count=2`, runner root history 는 `session-count=5`이며,
+    둘 다 `hard-passed=true`, `warning-count=0`, `comparison-compatible=true`다.
+  - `docs/benchmarks/baselines/index.md`의 runner date-level history, session row,
+    explicit runner latency envelope 를 갱신했다.
+  - D087로 두 번째 date root 2-session 표본과 gate 승격 보류 판단을 기록했다.
+  - 검증: baseline suite pass, summary CLI source-report-count 6/hard-passed true/warning-count 0,
+    date history CLI session-count 2/hard-passed true/warning-count 0,
+    runner history CLI session-count 5/hard-passed true/warning-count 0.
+    runner artifact local absolute path 검색 결과 없음. `Hps.Benchmarks.Tests` 67개 통과,
+    `git diff --check` exit 0, restore asset 재생성 후 solution build 경고 0/오류 0,
+    solution tests 269개 통과.
 
 - 이번 단위 — 2026-06-25 explicit runner baseline session-01 수집
   - `HPS_BENCHMARK_RUNNER_ID=local-win-x64-01`, `HPS_BENCHMARK_RUNNER_KIND=local`로
@@ -687,16 +709,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 Summary/history comparison signal 계획의 Task 1~5, benchmark writer metadata roundtrip test-hardening,
 2026-06-18 generated baseline artifact 재생성, 2026-06-24 current-schema baseline session-01/session-02/session-03 추가,
 D082 설계와 리뷰 보강, Phase 4 다음 후보 재평가, explicit runner 3-session reference 수집,
-explicit runner 3-session 이후 다음 후보 재평가, 2026-06-25 explicit runner session-01 수집은 완료됐다.
+explicit runner 3-session 이후 다음 후보 재평가, 2026-06-25 explicit runner session-01/session-02 수집은 완료됐다.
 
-다음 작업은 `local-win-x64-01/2026-06-25/session-02` explicit runner baseline 을 수집하는 것이다.
+다음 작업은 `local-win-x64-01/2026-06-25/session-03` explicit runner baseline 을 수집하는 것이다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 `local-win-x64-01/2026-06-25/session-01` explicit runner baseline 을 수집하고
+이번 cycle 은 `local-win-x64-01/2026-06-25/session-02` explicit runner baseline 을 수집하고
 파생 summary/history/index 문서를 갱신한다.
 
-- 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/session-01/`,
+- 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/session-02/`,
   `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/history.json`,
   `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/history.md`,
   `docs/benchmarks/baselines/runners/local-win-x64-01/history.json`,

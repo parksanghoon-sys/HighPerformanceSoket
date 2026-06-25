@@ -1,8 +1,9 @@
-# Baseline History
+# Baseline Summary
 
-- source root: `docs\benchmarks\baselines\runners\local-win-x64-01\2026-06-25`
-- session count: 2
+- 입력 directory: `docs\benchmarks\baselines\runners\local-win-x64-01\2026-06-25\session-02`
+- source report count: 6
 - hard gate: PASS
+- hard failure count: 0
 - warning count: 0
 
 ## Comparison
@@ -25,11 +26,13 @@
 
 - mismatch: 없음
 
-| 날짜 | session | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | TCP HWM max |
-| --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
-| 2026-06-25 | session-01 | `session-01/summary.json` | `session-01/summary.md` | 6 | true | 0 | 921.1 | 1077.4 | 2 |
-| 2026-06-25 | session-02 | `session-02/summary.json` | `session-02/summary.md` | 6 | true | 0 | 935.6 | 1013.1 | 2 |
+## 종류별 요약
 
-## warning 이 있는 session
+| kind | runs | p50 median us | p99 median us | p99 max us | TCP HWM max | dropped total | pool rented max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| load | 3 | 237.7 | 820.9 | 935.6 | 1 | 0 | 0 |
+| open-loop | 3 | 291.2 | 920.7 | 1013.1 | 2 | 0 | 0 |
+
+## Warnings
 
 - 없음
