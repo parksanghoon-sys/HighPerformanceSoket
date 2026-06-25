@@ -1,0 +1,37 @@
+# Baseline History
+
+- source root: `docs\benchmarks\baselines\runners\local-win-x64-01`
+- session count: 4
+- hard gate: PASS
+- warning count: 0
+
+## Comparison
+
+- compatible: true
+- unknown-runner-count: 0
+- mismatch-count: 0
+- benchmark-profile: tcp-loopback-saea-v1
+- runner-id: local-win-x64-01
+- runner-kind: local
+- transport-backend: SaeaTransport
+- os-architecture: X64
+- process-architecture: X64
+- framework-description: .NET 9.0.16
+
+| result | scenario | payload bytes | target rate hz | target duration seconds |
+| --- | --- | ---: | ---: | ---: |
+| load | tcp-loopback-saea-baseline | 4096 | 100 | 30 |
+| open-loop | tcp-loopback-saea-baseline-open-loop | 4096 | 100 | 30 |
+
+- mismatch: 없음
+
+| 날짜 | session | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | TCP HWM max |
+| --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
+| 2026-06-24 | session-01 | `2026-06-24/session-01/summary.json` | `2026-06-24/session-01/summary.md` | 6 | true | 0 | 870.7 | 844.7 | 2 |
+| 2026-06-24 | session-02 | `2026-06-24/session-02/summary.json` | `2026-06-24/session-02/summary.md` | 6 | true | 0 | 821.4 | 893 | 2 |
+| 2026-06-24 | session-03 | `2026-06-24/session-03/summary.json` | `2026-06-24/session-03/summary.md` | 6 | true | 0 | 806.9 | 1051.5 | 2 |
+| 2026-06-25 | session-01 | `2026-06-25/session-01/summary.json` | `2026-06-25/session-01/summary.md` | 6 | true | 0 | 921.1 | 1077.4 | 2 |
+
+## warning 이 있는 session
+
+- 없음

@@ -9,9 +9,9 @@
 
 ## Current TODOs
 
-- [ ] `local-win-x64-01/2026-06-25/session-01` explicit runner baseline 을 수집한다.
-  - 목적: 같은 runner 의 두 번째 date root 를 만들기 시작해 D082 gate 승격 판단에 필요한 날짜 다양성을 늘린다.
-  - 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/session-01/`,
+- [ ] `local-win-x64-01/2026-06-25/session-02` explicit runner baseline 을 수집한다.
+  - 목적: 두 번째 date root 를 3-session reference 로 확장하기 위한 다음 표본을 추가한다.
+  - 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/session-02/`,
     해당 date root `history.json`/`history.md`, `docs/benchmarks/baselines/index.md`, root 상태 문서.
   - runner id: `local-win-x64-01`. `HPS_BENCHMARK_RUNNER_ID`와 path 가 계속 일치해야 한다.
   - 검증: `--baseline-suite`, `--summarize-baseline`, `--summarize-baseline-history`, local absolute path 검색,
@@ -30,6 +30,24 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] `local-win-x64-01/2026-06-25/session-01` explicit runner baseline 을 수집했다.
+  - 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/session-01/`,
+    `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/history.json`,
+    `docs/benchmarks/baselines/runners/local-win-x64-01/history.json`,
+    `docs/benchmarks/baselines/index.md`, root 상태 문서.
+  - 결과: raw report 6개, `summary.json`, `summary.md`, date-level `history.json`/`history.md`,
+    runner root `history.json`/`history.md`를 생성했다.
+  - 비고: 2026-06-25 date root 는 session-count 1, hard-passed true, warning-count 0,
+    comparison-compatible true 다. runner root 는 session-count 4, hard-passed true,
+    warning-count 0, comparison-compatible true 다. explicit runner envelope 는 load p99 max 921.1 us,
+    open-loop p99 max 1077.4 us 이다. 두 번째 date root 가 아직 1-session 이므로 gate 승격은 보류한다.
+  - 검증: baseline suite pass, summary CLI source-report-count 6/hard-passed true/warning-count 0,
+    date history CLI session-count 1/hard-passed true/warning-count 0,
+    runner history CLI session-count 4/hard-passed true/warning-count 0.
+    runner artifact local absolute path 검색 결과 없음. `Hps.Benchmarks.Tests` 67개 통과,
+    `git diff --check` exit 0, restore asset 재생성 후 solution build 경고 0/오류 0,
+    solution tests 269개 통과.
 
 - [x] explicit runner 3-session 이후 Phase 4 다음 후보를 재평가했다.
   - 범위: `docs/superpowers/specs/2026-06-25-phase4-after-explicit-runner-reference-reassessment.md`,

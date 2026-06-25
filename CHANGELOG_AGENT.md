@@ -5,6 +5,38 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - explicit runner baseline date root 02 session 01)
+
+### 작업 단위
+- `local-win-x64-01/2026-06-25/session-01` explicit runner baseline 을 수집하고, 파생 문서를 갱신했다.
+
+### 변경 내용
+- `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/session-01/`:
+  `load-01..03.json`, `open-loop-01..03.json` raw report 6개를 생성했다.
+- `session-01/summary.json`, `session-01/summary.md`:
+  explicit runner summary artifact 를 생성했다.
+- `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/history.json`, `history.md`:
+  2026-06-25 date-level history artifact 를 생성했다.
+- `docs/benchmarks/baselines/runners/local-win-x64-01/history.json`, `history.md`:
+  두 date root 를 묶는 runner root history artifact 를 생성했다.
+- `docs/benchmarks/baselines/index.md`:
+  runner group latest date root, runner date-level history, session row, explicit runner reference latency envelope 를 갱신했다.
+- `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`:
+  D086과 다음 `session-02` 수집 진입점을 반영했다.
+
+### 검증
+- `--baseline-suite`: baseline-suite-result pass, raw report 6개 생성.
+- `--summarize-baseline`: source-report-count 6, hard-passed true, warning-count 0.
+- date root `--summarize-baseline-history`: session-count 1, hard-passed true, warning-count 0.
+- runner root `--summarize-baseline-history`: session-count 4, hard-passed true, warning-count 0.
+- `summary.json`/`history.json`: `comparison-compatible=true`, unknown runner 0, mismatch 0.
+- runner artifact local absolute path 검색 결과 없음.
+- `Hps.Benchmarks.Tests`: 67개 통과, 실패 0.
+- `git diff --check`: exit 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 최초 실행은 stale restore asset 때문에
+  `Microsoft.CodeAnalysis.Analyzers.dll` 경로 오류로 실패했고, `dotnet restore HighPerformanceSocket.slnx` 후 재실행해 경고 0, 오류 0으로 통과.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+
 ## 2026-06-25 (Codex - Phase 4 next candidate after explicit runner reference)
 
 ### 작업 단위

@@ -1,0 +1,100 @@
+{
+  "history-version": 1,
+  "source-root": "docs\\benchmarks\\baselines\\runners\\local-win-x64-01",
+  "session-count": 4,
+  "hard-passed": true,
+  "failed-session-count": 0,
+  "warning-count": 0,
+  "comparison-compatible": true,
+  "comparison-key": {
+    "benchmark-profile": "tcp-loopback-saea-v1",
+    "runner-id": "local-win-x64-01",
+    "runner-kind": "local",
+    "transport-backend": "SaeaTransport",
+    "os-description": "Microsoft Windows 10.0.26200",
+    "os-architecture": "X64",
+    "process-architecture": "X64",
+    "framework-description": ".NET 9.0.16",
+    "cases": [
+      {
+        "result-name": "load",
+        "scenario": "tcp-loopback-saea-baseline",
+        "payload-bytes": 4096,
+        "target-rate-hz": 100,
+        "target-duration-seconds": 30
+      },
+      {
+        "result-name": "open-loop",
+        "scenario": "tcp-loopback-saea-baseline-open-loop",
+        "payload-bytes": 4096,
+        "target-rate-hz": 100,
+        "target-duration-seconds": 30
+      }
+    ]
+  },
+  "unknown-runner-count": 0,
+  "comparison-mismatch-count": 0,
+  "comparison-mismatches": [],
+  "sessions": [
+    {
+      "date": "2026-06-24",
+      "session": "session-01",
+      "summary-path": "2026-06-24/session-01/summary.json",
+      "human-report-path": "2026-06-24/session-01/summary.md",
+      "source-report-count": 6,
+      "hard-passed": true,
+      "warning-count": 0,
+      "load-p99-max-us": 870.7,
+      "open-loop-p99-max-us": 844.7,
+      "tcp-hwm-max": 2,
+      "comparison-compatible": true,
+      "unknown-runner-count": 0,
+      "comparison-mismatch-count": 0
+    },
+    {
+      "date": "2026-06-24",
+      "session": "session-02",
+      "summary-path": "2026-06-24/session-02/summary.json",
+      "human-report-path": "2026-06-24/session-02/summary.md",
+      "source-report-count": 6,
+      "hard-passed": true,
+      "warning-count": 0,
+      "load-p99-max-us": 821.4,
+      "open-loop-p99-max-us": 893,
+      "tcp-hwm-max": 2,
+      "comparison-compatible": true,
+      "unknown-runner-count": 0,
+      "comparison-mismatch-count": 0
+    },
+    {
+      "date": "2026-06-24",
+      "session": "session-03",
+      "summary-path": "2026-06-24/session-03/summary.json",
+      "human-report-path": "2026-06-24/session-03/summary.md",
+      "source-report-count": 6,
+      "hard-passed": true,
+      "warning-count": 0,
+      "load-p99-max-us": 806.9,
+      "open-loop-p99-max-us": 1051.5,
+      "tcp-hwm-max": 2,
+      "comparison-compatible": true,
+      "unknown-runner-count": 0,
+      "comparison-mismatch-count": 0
+    },
+    {
+      "date": "2026-06-25",
+      "session": "session-01",
+      "summary-path": "2026-06-25/session-01/summary.json",
+      "human-report-path": "2026-06-25/session-01/summary.md",
+      "source-report-count": 6,
+      "hard-passed": true,
+      "warning-count": 0,
+      "load-p99-max-us": 921.1,
+      "open-loop-p99-max-us": 1077.4,
+      "tcp-hwm-max": 2,
+      "comparison-compatible": true,
+      "unknown-runner-count": 0,
+      "comparison-mismatch-count": 0
+    }
+  ]
+}
