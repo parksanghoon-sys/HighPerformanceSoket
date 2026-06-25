@@ -104,6 +104,10 @@ CI hosted runner evidence ?대?濡?local runner envelope ? 吏곸젒 鍮꾧탳
 | payload error total | 0 | 0 |
 | pool rented max | 0 | 0 |
 
+이 CI envelope 는 D096 기준으로 1-session reference signal 이다. 값은 artifact chain 과 D095 수동 채택 절차가
+동작함을 보여주지만, date root 1개/session 1개뿐이므로 latency hard gate 또는 warning-as-failure 조건으로
+승격하지 않는다.
+
 ## local-win-x64-01 Explicit Runner Reference Latency Envelope
 
 이 표는 D084 저장 구조 아래에서 수집한 explicit runner reference 다.

@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - after CI baseline adoption reassessment)
+
+### 작업 단위
+- 첫 CI repository baseline 채택 이후 Phase 4 다음 후보를 재평가했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-after-ci-baseline-adoption-reassessment-design.md`:
+  CI baseline adoption 이후 gate 승격 보류와 Phase 5 RIO 설계 진입 판단을 기록했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D096으로 첫 CI baseline 이후에도 latency hard gate, warning-as-failure, CI artifact 자동 채택을 승격하지 않는다고 기록했다.
+- `docs/benchmarks/baselines/index.md`:
+  CI runner envelope 가 1-session reference signal 이며 gate 조건이 아님을 명시했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  완료된 Phase 4 재평가를 정리하고 다음 실행 단위를 Phase 5 Windows RIO backend 설계로 갱신했다.
+
+### 검증
+- CI runner root history 와 session summary 를 대조했다.
+- D082/D090/D095와 D096 판단이 충돌하지 않는지 확인했다.
+- `git diff --check`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+
 ## 2026-06-25 (Codex - CI artifact baseline adoption)
 
 ### 작업 단위

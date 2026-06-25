@@ -722,68 +722,40 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 ## 다음 단일 작업 단위
 
-Summary/history comparison signal 계획의 Task 1~5, benchmark writer metadata roundtrip test-hardening,
-2026-06-18 generated baseline artifact 재생성, 2026-06-24 current-schema baseline session-01/session-02/session-03 추가,
-D082 설계와 리뷰 보강, Phase 4 다음 후보 재평가, explicit runner 3-session reference 수집,
-explicit runner 3-session 이후 다음 후보 재평가, 2026-06-25 explicit runner session-01/session-02/session-03 수집,
-explicit runner 2-date-root reference 이후 gate 승격 후보 재평가, CI artifact-only benchmark 정책 설계,
-CI artifact-only workflow skeleton 구현 계획, CI artifact-only workflow skeleton 구현,
-CI workflow command sequence local smoke, 첫 GitHub Actions manual run 검증, Node 24 action version 갱신,
-갱신 후 두 번째 GitHub Actions manual run 검증, manual run 2회 이후 Phase 4 재평가,
-CI artifact trigger policy 설계/구현, D094 push trigger 원격 검증, CI artifact adoption 정책 설계,
-첫 CI push-triggered artifact repository baseline 채택은 완료됐다.
+첫 CI artifact repository baseline 채택 이후 Phase 4 재평가를 완료했다(D096).
+`ci-windows-x64-01/2026-06-25/session-01`은 hard-passed true, warning-count 0,
+comparison-compatible true 인 좋은 reference signal 이지만, date root 1개/session 1개뿐이므로
+latency hard gate 또는 warning-as-failure 로 승격하지 않는다.
+CI runner evidence 는 future push-triggered run 이 더 쌓일 때 D095 checklist 로 수동 채택 여부를 다시 판단한다.
 
-다음 작업은 첫 CI artifact 결과를 기준으로 Phase 4 다음 후보를 재평가하는 것이다.
-workflow 는 `.github/workflows/benchmark-artifacts.yml`에 있으며 D090/D091/D092에 따라 latency warning 을 실패로 올리지 않고
-artifact upload 만 구성한다. 첫 manual run `28143728630`은 성공했고, artifact 이름은
-`benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28143728630-1`이다. GitHub run id 는 upload artifact 이름에만 넣으며,
-업로드 내부 디렉터리는 `artifacts/benchmarks/runners/ci-windows-x64-01/<yyyy-mm-dd>/session-01/` 구조를 유지한다.
-benchmark CLI command 는 workflow 앞단 restore/build/test 결과를 재사용하도록 모두 `--no-build --no-restore`로 고정했다.
-첫 run summary/history 는 `hard-passed=true`, `comparison-compatible=true`, `unknown-runner-count=0`,
-`warning-count=1`이다. warning 은 `open-loop-01.json`의 `p99-growth-ratio-high`이며 D090 기준 report-only 다.
-첫 run 의 Node.js 20 deprecation annotation 은 `actions/checkout@v7`, `actions/setup-dotnet@v5.3.0`,
-`actions/upload-artifact@v7.0.1`로 갱신해 처리했다. 갱신 후 manual run `28144480160`도 성공했고,
-artifact 이름은 `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28144480160-1`이다.
-로그에서 Node deprecation 또는 이전 `actions/*@v4` 문자열은 확인되지 않았다.
-두 번째 run summary/history 는 `hard-passed=true`, `comparison-compatible=true`, `unknown-runner-count=0`,
-`warning-count=0`이다. 이 결과도 D090 기준으로 docs baseline 에 자동 채택하지 않고 CI artifact evidence 로만 둔다.
+다음 작업은 Phase 5 Windows RIO backend 설계다.
+바로 P/Invoke 구현을 시작하지 않고, 먼저 `ITransport` 뒤에 붙일 RIO backend 의 책임 경계와
+SAEA 기준선 재사용 방식을 확정한다.
 
-두 번의 CI artifact-only manual run 이후에도 즉시 gate 로 올릴 근거는 아직 부족하다고 판단했다(D093).
-CI runner 는 같은 날짜의 artifact-only evidence 만 있고, D082의 latency gate 승격 조건은 여전히 충족하지 않는다.
-따라서 latency gate, warning-as-failure, docs baseline 자동 채택, push/PR 자동 trigger 는 승격하지 않는다.
+설계에서 확인할 항목은 다음이다.
 
-workflow 는 `workflow_dispatch`를 유지하고, `push` to `master` 중 code/benchmark/build 관련 path 변경에만 자동 실행한다.
-`pull_request`와 `schedule`은 아직 추가하지 않는다. D094 커밋 push 후 자동 run `28145025444`가 생성됐고 성공했다.
-artifact 이름은 `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28145025444-1`이다.
-summary/history 는 `hard-passed=true`, `comparison-compatible=true`, `unknown-runner-count=0`, `warning-count=0`이다.
-로그에서 Node deprecation 또는 이전 `actions/*@v4` 문자열은 확인되지 않았다.
-
-run `28145025444` artifact 는 D095 절차에 따라
-`docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`로 수동 채택했다.
-artifact zip/root directory 는 커밋하지 않았고 raw report 6개만 복사했다.
-summary/history/index 는 repository 경로 기준으로 재생성했다.
-CI runner root history 는 session-count 1, hard-passed true, warning-count 0, comparison-compatible true 다.
-CI runner first reference envelope 는 load p99 max 275.3 us, open-loop p99 max 322.9 us, TCP HWM max 2 다.
-
-다음 작업은 CI baseline adoption 이후 Phase 4 다음 후보를 재평가하는 것이다.
-현재 CI runner 는 date root 1개/session 1개뿐이므로 latency gate 승격 근거로는 부족하다.
-후보는 CI runner 추가 session 수집, CI baseline history/index 문서 보강, 또는 Phase 4 이후 transport/backend 작업 재개다.
+- `src/Hps.Transport.Rio/`의 public/internal 책임 경계.
+- Windows capability probe 와 `TransportFactory` 선택 정책.
+- RIO P/Invoke surface 최소 범위.
+- `PinnedBlockMemoryPool` block 등록과 수명 관리 책임.
+- TCP 우선 구현 여부와 UDP/RIO send zero-copy defer 범위.
+- 기존 Phase 2/3 transport/server integration test 재사용 방식.
+- Windows-only test skip 정책과 Phase 4 benchmark 비교 방식.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 D095 절차에 따라 run `28145025444` artifact 를 repository baseline 으로 채택한다.
+이번 cycle 은 Phase 5 RIO backend 설계 문서를 작성한다.
 
-- 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,
-  `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/history.*`,
-  `docs/benchmarks/baselines/runners/ci-windows-x64-01/history.*`,
-  `docs/benchmarks/baselines/index.md`, root 상태 문서.
-- 검증: D095 checklist, summary/history 재생성, absolute path scan, `git diff --check`, benchmark tests, solution build/test.
+- 범위: `PLAN.md`, `AGENTS.md`, Transport abstraction/runtime/SAEA 구조, 빈 `src/Hps.Transport.Rio/` project 상태,
+  Phase 2/3 transport/server tests, Phase 4 benchmark artifact 정책.
+- 검증: 설계 self-review, placeholder scan, `git diff --check`, 필요 시 solution build/test.
 
 ## 이번 작업에서 건드리지 않는 범위
 
-- 코드/테스트 구현 변경
-- 2026-06-18 legacy raw report 수정
-- warning-as-failure 정책 구현
-- latency hard gate 확정
-- RIO/io_uring backend 구현
-- stable identity 인증/권한 검증, persistence, payload replay, diagnostics friendly-name 노출
+- RIO P/Invoke 구현 코드
+- `TransportFactory` runtime 선택 코드 변경
+- SAEA transport 동작 변경
+- latency hard gate 또는 warning-as-failure 정책 구현
+- CI artifact 자동 채택, pull_request trigger, schedule trigger
+- Linux io_uring backend 구현
+- stable identity 인증/권한 검증, persistence, payload replay
