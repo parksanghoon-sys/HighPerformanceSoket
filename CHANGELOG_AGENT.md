@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - CI artifact push trigger verification)
+
+### 작업 단위
+- D094 `push` to `master` path trigger 가 원격에서 자동으로 `Benchmark Artifacts` run 을 생성하는지 확인했다.
+
+### 변경 내용
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  push-triggered run `28145025444` 결과와 다음 실행 후보를 기록했다.
+
+### 검증
+- `git status -sb`: local `master`와 `origin/master`가 일치함을 확인했다.
+- `gh run list --workflow "Benchmark Artifacts" --limit 5`:
+  push event run `28145025444`가 생성됐음을 확인했다.
+- `gh run watch 28145025444 --exit-status`: 성공, job duration 약 4분 7초.
+- 로그 확인:
+  `actions/checkout@v7`, `actions/setup-dotnet@v5.3.0`, `actions/upload-artifact@v7.0.1` 다운로드 및 실행을 확인했다.
+- Node annotation 확인:
+  `deprecation`, `Node.js 20`, `node20`, 이전 `actions/*@v4` 문자열 검색 결과 없음.
+- artifact upload:
+  `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28145025444-1`,
+  artifact id `7868207312`, uploaded files 10개, final size 6407 bytes.
+- downloaded artifact 확인:
+  raw report 6개, `summary.json`, `summary.md`, `history.json`, `history.md`.
+- `summary.json`: source-report-count 6, hard-passed true, warning-count 0,
+  comparison-compatible true, unknown-runner-count 0.
+- `history.json`: session-count 1, hard-passed true, warning-count 0, comparison-compatible true.
+
 ## 2026-06-25 (Codex - CI artifact trigger policy)
 
 ### 작업 단위

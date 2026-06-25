@@ -9,13 +9,15 @@
 
 ## Current TODOs
 
-- [ ] D094 trigger policy push 후 자동 CI artifact run 을 검증한다.
-  - 목적: `Benchmark Artifacts` workflow 의 `push` to `master` + path filter trigger 가 원격에서 실제 run 을 생성하는지 확인한다.
-  - 범위: 이번 D094 workflow 변경 push 이후 GitHub Actions run 생성 여부, artifact upload, warning/report-only semantics.
-  - 현재 판단: workflow 는 `workflow_dispatch`와 제한된 `push` trigger 를 가진다. 이번 커밋은 workflow 파일을 바꾸므로
-    원격 push 시 path filter 에 걸려 자동 run 이 생성되어야 한다.
-  - 다음 자연스러운 step: 커밋 push 후 생성된 push-triggered run 을 `gh run watch --exit-status`로 확인하고 artifact 를 검증한다.
-  - 검증: `gh run list`, `gh run watch --exit-status`, `gh run view --log`, `gh run download`.
+- [ ] CI artifact adoption 절차를 설계한다.
+  - 목적: 자동 생성된 CI artifact 를 어떤 조건에서 사람이 검토해 repository baseline 으로 채택할지 정한다.
+  - 범위: artifact download/source verification, runner metadata, comparison compatibility, warning/hard gate,
+    path hygiene, `docs/benchmarks/baselines/runners/<runner-id>/...` 반영 절차, index 갱신 절차.
+  - 현재 판단: D090/D093에 따라 CI artifact 는 docs baseline 에 자동 채택하지 않는다.
+    다만 push-triggered evidence 까지 확보했으므로 수동 채택 절차를 정할 수 있다.
+  - 다음 자연스러운 step: run `28143728630`, `28144480160`, `28145025444` artifact 결과와
+    `docs/benchmarks/baselines/index.md` 규칙을 대조해 adoption checklist 를 설계한다.
+  - 검증: D090/D093/D094, `docs/benchmarks/baselines/index.md`, downloaded artifact 구조 대조.
 
 ## Deferred Backlog
 
@@ -30,6 +32,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D094 trigger policy push 후 자동 CI artifact run 을 검증했다.
+  - 범위: GitHub Actions run `28145025444`, artifact
+    `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28145025444-1`, root 상태 문서.
+  - 결과: `push` event 로 `Benchmark Artifacts` run 이 자동 생성됐고 성공했다.
+  - 비고: 로그에서 `actions/checkout@v7`, `actions/setup-dotnet@v5.3.0`, `actions/upload-artifact@v7.0.1` 다운로드/실행을 확인했다.
+    `deprecation`, `Node.js 20`, `node20`, 이전 `actions/*@v4` 문자열 검색 결과는 없었다.
+    artifact 는 raw report 6개, `summary.json`, `summary.md`, `history.json`, `history.md` 총 10개 파일을 포함한다.
+    `summary.json`은 `source-report-count=6`, `hard-passed=true`, `warning-count=0`,
+    `comparison-compatible=true`, `unknown-runner-count=0`이다.
+    `history.json`은 `session-count=1`, `hard-passed=true`, `warning-count=0`, `comparison-compatible=true`다.
+  - 검증: `gh run list`, `gh run watch --exit-status`, `gh run view --log`, `gh run download`로
+    push-triggered run 성공과 artifact 내용을 확인했다.
 
 - [x] CI artifact trigger policy 를 설계하고 workflow 에 반영했다.
   - 범위: `.github/workflows/benchmark-artifacts.yml`,
