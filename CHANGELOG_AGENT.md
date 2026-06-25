@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - CI artifact-only workflow skeleton plan)
+
+### 작업 단위
+- D090 정책을 실제 GitHub Actions workflow skeleton 으로 옮기기 위한 구현 계획을 작성했다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-06-25-ci-artifact-only-workflow-skeleton.md`:
+  workflow trigger, runner identity, artifact path, benchmark CLI command sequence, upload policy 를 구현 단계로 정리했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D091로 GitHub run id 는 upload artifact 이름에 두고 내부 history-compatible directory 는 `session-01`로 유지하는 결정을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 workflow skeleton 구현으로 갱신했다.
+
+### 검증
+- D090 spec 의 artifact-only failure policy 와 runner identity 를 계획에 반영했다.
+- `BaselineHistoryReader`가 date root 와 `session-NN` children 만 history source 로 읽는 현재 제약을 확인했다.
+- `.github/workflows`가 아직 없음을 확인했다.
+- placeholder scan 은 과거 archive 문구와 plan 내부 검증 스크립트 literal 만 잡았고, 신규 미정 항목은 없었다.
+- `git diff --check`: exit 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+
 ## 2026-06-25 (Codex - CI artifact-only benchmark policy)
 
 ### 작업 단위

@@ -9,13 +9,11 @@
 
 ## Current TODOs
 
-- [ ] CI artifact-only workflow skeleton 구현 계획을 작성한다.
-  - 목적: D090 정책을 실제 `.github/workflows/benchmark-artifacts.yml` 구현 단위로 쪼개기 전에, command sequence,
-    artifact upload 경로, env var, exit code 기대값을 작은 구현 계획으로 고정한다.
-  - 범위: workflow 구현 계획 문서, D090, `tests/Hps.Benchmarks/Program.cs`, benchmark CLI command.
-    실제 workflow 파일 작성은 다음 구현 단위로 분리한다.
-  - 현재 판단: workflow 는 latency warning 을 실패로 올리지 않고, `baseline-suite`/`summary`/`history` artifact 를 업로드하는 skeleton 으로 시작한다.
-  - 검증: D090 policy coverage, placeholder 검색, `git diff --check`, solution build/test.
+- [ ] CI artifact-only workflow skeleton 을 구현한다.
+  - 목적: D090/D091 정책대로 GitHub Actions에서 benchmark raw/summary/history artifact 를 생성하고 업로드한다.
+  - 범위: `.github/workflows/benchmark-artifacts.yml`, root 상태 문서, D091 decision 기록.
+  - 현재 판단: 자동 push/PR trigger 없이 `workflow_dispatch` 전용으로 시작한다.
+  - 검증: workflow static marker scan, `git diff --check`, solution build/test.
 
 ## Deferred Backlog
 
@@ -30,6 +28,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] CI artifact-only workflow skeleton 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-25-ci-artifact-only-workflow-skeleton.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: workflow trigger 는 `workflow_dispatch` 전용으로 시작하고,
+    `HPS_BENCHMARK_RUNNER_ID=ci-windows-x64-01`, `HPS_BENCHMARK_RUNNER_KIND=ci`를 job env 로 둔다.
+  - 비고: 현재 `BaselineHistoryReader`가 `session-NN`만 history session 으로 읽기 때문에,
+    GitHub run id 는 upload artifact 이름에만 넣고 내부 디렉터리는 `<yyyy-mm-dd>/session-01/`로 유지한다(D091).
+  - 검증: D090 spec, benchmark CLI, `BaselineHistoryReader`, `.github/workflows` 부재를 대조했다.
+    placeholder scan 신규 미정 항목 없음, `git diff --check` exit 0, solution build 경고 0/오류 0,
+    solution tests 269개 통과.
 
 - [x] CI artifact-only benchmark 정책을 설계했다.
   - 범위: `docs/superpowers/specs/2026-06-25-ci-artifact-only-benchmark-policy-design.md`,

@@ -726,28 +726,30 @@ Summary/history comparison signal 계획의 Task 1~5, benchmark writer metadata 
 2026-06-18 generated baseline artifact 재생성, 2026-06-24 current-schema baseline session-01/session-02/session-03 추가,
 D082 설계와 리뷰 보강, Phase 4 다음 후보 재평가, explicit runner 3-session reference 수집,
 explicit runner 3-session 이후 다음 후보 재평가, 2026-06-25 explicit runner session-01/session-02/session-03 수집,
-explicit runner 2-date-root reference 이후 gate 승격 후보 재평가, CI artifact-only benchmark 정책 설계는 완료됐다.
+explicit runner 2-date-root reference 이후 gate 승격 후보 재평가, CI artifact-only benchmark 정책 설계,
+CI artifact-only workflow skeleton 구현 계획은 완료됐다.
 
-다음 작업은 CI artifact-only workflow skeleton 구현 계획 또는 구현 착수다.
-권장 순서는 먼저 작은 구현 계획을 작성한 뒤, 별도 단위에서 `.github/workflows/benchmark-artifacts.yml` 같은
-workflow 를 추가하는 것이다. workflow 는 D090에 따라 latency warning 을 실패로 올리지 않고 artifact upload 만 구성한다.
+다음 작업은 CI artifact-only workflow skeleton 구현이다.
+workflow 는 D090/D091에 따라 latency warning 을 실패로 올리지 않고 artifact upload 만 구성한다.
+첫 skeleton 은 `workflow_dispatch` 전용으로 시작하고, GitHub run id 는 upload artifact 이름에만 넣으며,
+업로드 내부 디렉터리는 `artifacts/benchmarks/runners/ci-windows-x64-01/<yyyy-mm-dd>/session-01/` 구조를 유지한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 CI artifact-only benchmark 정책을 설계하고, CI workflow 구현 전 runner id, artifact 위치,
-local/CI baseline 분리, exit code 정책을 문서화한다.
+이번 cycle 은 CI artifact-only workflow skeleton 구현 계획을 작성하고, 실제 workflow 파일 작성 전 trigger,
+runner identity, artifact upload 경로, benchmark command sequence, D091 directory 호환성 결정을 문서화한다.
 
-- 범위: `docs/superpowers/specs/2026-06-25-ci-artifact-only-benchmark-policy-design.md`,
+- 범위: `docs/superpowers/plans/2026-06-25-ci-artifact-only-workflow-skeleton.md`,
   `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`,
-  `docs/benchmarks/baselines/index.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
-- 검증: benchmark Program exit code 규칙, runner identity 환경 변수, `.github/workflows` 부재,
-  신규 설계/결정 문서 placeholder 검색, `git diff --check`, solution build/test.
+  `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+- 검증: D090 spec, `BaselineHistoryReader` date/session discovery, `.github/workflows` 부재,
+  신규 계획/결정 문서 placeholder 검색, `git diff --check`, solution build/test.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - 코드/테스트 구현 변경
 - 2026-06-18 legacy raw report 수정
-- CI workflow 또는 warning-as-failure 정책 구현
+- CI workflow 파일 작성 또는 warning-as-failure 정책 구현
 - latency hard gate 확정
 - RIO/io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay, diagnostics friendly-name 노출
