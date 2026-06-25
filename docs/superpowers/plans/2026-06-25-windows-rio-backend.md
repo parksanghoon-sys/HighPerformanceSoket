@@ -1229,6 +1229,37 @@ git commit -m "feat: add rio send receive delegates"
 
 ---
 
+### Task 5.11: Connected Native Posting Completion Verification
+
+**Files:**
+- Modify: `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`
+- Modify: root state docs
+
+**Interfaces:**
+- Verifies: `RIOReceive` post -> peer send -> CQ completion -> registered buffer write
+- Verifies: `RIOSend` post -> CQ completion -> peer receive
+
+- [ ] **Step 1: Add connected posting tests**
+
+Use a registered-I/O TCP socket created by `RioNative.CreateTcpSocket()` and a normal peer socket
+connected over loopback. Register a pinned pool block, create CQ/RQ, post receive/send, and poll
+`DequeueCompletion(...)` until one completion appears.
+
+- [ ] **Step 2: Verify**
+
+Run focused RIO tests, solution build/test, and `git diff --check`.
+
+Expected: tests pass without additional production code if Task 5.6~5.10 native operation boundaries are correct.
+
+Commit:
+
+```powershell
+git add tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs docs/superpowers/plans/2026-06-25-windows-rio-backend.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md
+git commit -m "test: verify rio native posting completion"
+```
+
+---
+
 ### Task 6: TCP Pump And Contract Test Reuse
 
 **Files:**

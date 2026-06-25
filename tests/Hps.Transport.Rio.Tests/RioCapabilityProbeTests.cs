@@ -1,6 +1,8 @@
 using System;
+using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Hps.Buffers;
 using Hps.Transport;
@@ -216,6 +218,142 @@ namespace Hps.Transport.Rio.Tests
             });
         }
 
+        // 실제 connected socket 에 receive 를 post 하고 CQ 에서 completion 을 관측한다.
+        // Transport pump 를 만들기 전 native receive posting, buffer registration, dequeue 가 함께 맞물리는지 확인한다.
+        [Fact]
+        public unsafe void Receive_WhenPeerSendsByte_CompletesAndWritesIntoRegisteredBuffer()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioNative? native;
+            Assert.True(RioNative.TryLoadFunctionTable(out native));
+            Assert.NotNull(native);
+
+            using (Socket listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+            using (Socket client = RioNative.CreateTcpSocket())
+            {
+                listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                listener.Listen(1);
+
+                client.Connect(listener.LocalEndPoint!);
+                using (Socket server = listener.Accept())
+                {
+                    IntPtr completionQueue = native.CreateCompletionQueue(8);
+                    PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                    byte[] block = pool.Rent();
+
+                    try
+                    {
+                        IntPtr requestQueue = native.CreateRequestQueue(client, 1, 1, 1, 1, completionQueue, completionQueue);
+
+                        fixed (byte* pointer = block)
+                        {
+                            IntPtr bufferId = native.RegisterBuffer((IntPtr)pointer, block.Length);
+
+                            try
+                            {
+                                RioBufferSegment[] buffers = new[] { new RioBufferSegment(bufferId, 0, 1) };
+
+                                Assert.True(native.Receive(requestQueue, buffers, new IntPtr(101)));
+                                Assert.Equal(1, server.Send(new byte[] { 42 }));
+
+                                RioResult completion = WaitForCompletion(native, completionQueue);
+
+                                Assert.Equal(0, completion.Status);
+                                Assert.Equal(1u, completion.BytesTransferred);
+                                Assert.Equal(101UL, completion.RequestContext);
+                                Assert.Equal(42, block[0]);
+                            }
+                            finally
+                            {
+                                native.DeregisterBuffer(bufferId);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        pool.Return(block);
+                        native.CloseCompletionQueue(completionQueue);
+                    }
+
+                    Assert.Equal(0, pool.RentedCount);
+                }
+            }
+        }
+
+        // 실제 connected socket 에 send 를 post 하고 CQ completion 과 peer receive 를 함께 확인한다.
+        // 이 경계가 green 이어야 이후 Transport send pump 가 native posting 결과를 in-flight 완료로 바꿀 수 있다.
+        [Fact]
+        public unsafe void Send_WhenPosted_CompletesAndPeerReceivesByte()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioNative? native;
+            Assert.True(RioNative.TryLoadFunctionTable(out native));
+            Assert.NotNull(native);
+
+            using (Socket listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+            using (Socket client = RioNative.CreateTcpSocket())
+            {
+                listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                listener.Listen(1);
+
+                client.Connect(listener.LocalEndPoint!);
+                using (Socket server = listener.Accept())
+                {
+                    IntPtr completionQueue = native.CreateCompletionQueue(8);
+                    PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                    byte[] block = pool.Rent();
+
+                    try
+                    {
+                        IntPtr requestQueue = native.CreateRequestQueue(client, 1, 1, 1, 1, completionQueue, completionQueue);
+                        block[0] = 77;
+
+                        fixed (byte* pointer = block)
+                        {
+                            IntPtr bufferId = native.RegisterBuffer((IntPtr)pointer, block.Length);
+
+                            try
+                            {
+                                RioBufferSegment[] buffers = new[] { new RioBufferSegment(bufferId, 0, 1) };
+
+                                Assert.True(native.Send(requestQueue, buffers, new IntPtr(202)));
+                                RioResult completion = WaitForCompletion(native, completionQueue);
+
+                                byte[] received = new byte[1];
+                                Assert.Equal(1, server.Receive(received));
+
+                                Assert.Equal(0, completion.Status);
+                                Assert.Equal(1u, completion.BytesTransferred);
+                                Assert.Equal(202UL, completion.RequestContext);
+                                Assert.Equal(77, received[0]);
+                            }
+                            finally
+                            {
+                                native.DeregisterBuffer(bufferId);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        pool.Return(block);
+                        native.CloseCompletionQueue(completionQueue);
+                    }
+
+                    Assert.Equal(0, pool.RentedCount);
+                }
+            }
+        }
+
         [Fact]
         public async Task RioTransport_WhenConstructed_StartStopDoesNotThrow()
         {
@@ -224,6 +362,22 @@ namespace Hps.Transport.Rio.Tests
                 await transport.StartAsync();
                 await transport.StopAsync();
             }
+        }
+
+        private static RioResult WaitForCompletion(RioNative native, IntPtr completionQueue)
+        {
+            RioResult[] results = new RioResult[1];
+
+            for (int attempt = 0; attempt < 100; attempt++)
+            {
+                uint count = native.DequeueCompletion(completionQueue, results);
+                if (count != 0)
+                    return results[0];
+
+                Thread.Sleep(10);
+            }
+
+            throw new TimeoutException("RIO completion 이 제한 시간 안에 관측되지 않았습니다.");
         }
     }
 }

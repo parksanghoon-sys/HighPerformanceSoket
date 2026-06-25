@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO Task 5.11 connected posting verification)
+
+### 작업 단위
+- Windows RIO TCP pump 선행 하위 단위로 connected native receive/send posting completion 을 검증했다.
+
+### 변경 내용
+- `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`:
+  registered I/O TCP socket 과 normal peer socket 을 loopback 으로 연결해
+  `RIOReceive` post→peer send→CQ completion→registered buffer write 경로를 검증했다.
+  같은 방식으로 `RIOSend` post→CQ completion→peer receive 경로도 검증했다.
+- `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`:
+  TCP pump 전에 native posting completion 을 검증하는 Task 5.11을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 5.11 완료와 다음 `RioTransport` TCP pump/contract test reuse 진입점을 반영했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 18개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 287개 통과, 실패 0.
+- `git diff --check`: 통과.
+
 ## 2026-06-25 (Codex - RIO Task 5.10 send/receive delegate surface)
 
 ### 작업 단위

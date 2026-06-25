@@ -794,17 +794,21 @@ RIO 구현 계획 Task 5.10(native receive/send posting delegate surface)를 완
 SDK `RIO_BUF`에 맞춘 `RioBufferSegment` struct 를 사용한다. 이번 단위는 operation surface 와 argument validation 만 고정했고,
 실제 connected posting completion 은 다음 단위로 분리한다.
 
-다음 작업은 계획 Task 6에 들어가기 위한 connected RIO send/receive posting completion 검증이다.
-socket, CQ, RQ, buffer registration, dequeue, receive/send delegate surface 는 준비됐으므로,
-이제 실제 loopback socket pair 에서 post→dequeue completion 이 관측되는지 검증한다.
+RIO 구현 계획 Task 5.11(connected native posting completion verification)을 완료했다.
+registered I/O TCP socket 과 일반 peer socket 을 loopback 으로 연결해 `RIOReceive` post→peer send→CQ completion→registered buffer write,
+`RIOSend` post→CQ completion→peer receive 경로가 모두 동작함을 focused 테스트로 검증했다.
+production 변경 없이 Task 5.6~5.10 native operation boundary 가 함께 맞물리는지 확인한 test-hardening 단위다.
+
+다음 작업은 계획 Task 6인 `RioTransport` TCP pump/contract test reuse 다.
+native function table, registered I/O socket, CQ/RQ, buffer registration, dequeue, receive/send posting completion 이 모두 검증됐으므로,
+이제 `RioTransport.ListenTcpAsync`/`ConnectTcpAsync`와 receive/send pump 를 실제 transport contract 에 연결한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO TCP pump 선행 하위 단위로 connected RIO send/receive posting completion 을 검증한다.
+이번 cycle 은 RIO 구현 계획 Task 6인 TCP pump/contract test reuse 를 실행한다.
 
-- 범위: `src/Hps.Transport.Rio/RioNative.cs`,
-  `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
-- 검증: RIO available 환경에서 connected send/receive post completion Red-Green, focused RIO tests,
+- 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
+- 검증: RIO available TCP loopback Red-Green, focused RIO tests, transport/server regression subset,
   solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위

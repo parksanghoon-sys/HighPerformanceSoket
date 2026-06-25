@@ -9,14 +9,15 @@
 
 ## Current TODOs
 
-- [ ] RIO TCP pump 선행 하위 단위로 connected RIO send/receive posting completion 을 검증한다.
-  - 목적: 실제 TCP pump 전에 connected loopback socket pair 에서 RIO post→completion dequeue 가 동작하는지 검증한다.
-  - 범위: `src/Hps.Transport.Rio/RioNative.cs`,
-    `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
-  - 현재 판단: Task 5.6에서 buffer registration, Task 5.7에서 CQ, Task 5.8에서 registered I/O socket + RQ 생성은
-    실제 native 호출로 검증됐고, Task 5.9에서 dequeue/RIORESULT, Task 5.10에서 RIO_BUF receive/send delegate surface 도 검증됐다.
-  - 다음 자연스러운 step: RIO socket 과 일반 peer socket 을 loopback 으로 연결하고 receive/send post completion 을 Red-Green으로 고정한다.
-  - 검증: focused RIO tests, solution build/test, `git diff --check`.
+- [ ] RIO Task 6 TCP pump/contract test reuse 를 구현한다.
+  - 목적: RIO available Windows 환경에서 opt-in `RioTransport`가 실제 TCP listen/connect/accept/receive/send loopback 을 만족하게 한다.
+  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
+  - 현재 판단: Task 5.6~5.11로 native function table, registered I/O socket, CQ/RQ, buffer registration,
+    dequeue, receive/send posting completion 이 모두 focused 테스트로 검증됐다.
+  - 다음 자연스러운 step: `RioTransportTcpTests`에 RIO available TCP loopback Red를 추가하고,
+    `RioTransport` listen/connect/accept 와 receive/send pump 를 최소 contract 로 연결한다.
+  - 검증: RIO TCP loopback Red/Green, focused RIO tests, transport/server regression subset,
+    solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -159,6 +160,14 @@
   - 비고: 이번 단위는 operation surface 와 argument validation 만 고정하고, 실제 connected post completion 은 다음 단위로 분리했다.
   - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
     focused RIO tests 16개 통과, solution build 경고 0/오류 0, solution tests 285개 통과.
+
+- [x] RIO Task 5.11 connected native posting completion 을 검증했다.
+  - 범위: `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`,
+    `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`, root 상태 문서.
+  - 결과: loopback peer 와 연결한 registered I/O socket 에서 `RIOReceive` post completion 과 registered buffer write,
+    `RIOSend` post completion 과 peer receive 를 모두 확인했다.
+  - 비고: production 변경 없이 Task 5.6~5.10 native operation boundary 의 통합 동작을 검증한 test-hardening 단위다.
+  - 검증: focused RIO tests 18개 통과, solution build 경고 0/오류 0, solution tests 287개 통과.
 
 - [x] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,
