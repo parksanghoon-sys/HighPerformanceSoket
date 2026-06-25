@@ -990,9 +990,18 @@ session-04 benchmark 결과와 D105 결정이 상태 문서에 기록됐고, p99
 현재 RIO receive/send path 는 operation 마다 `RIORegisterBuffer`/`RIODeregisterBuffer`를 호출하므로,
 completion wait 다음 병목 후보를 buffer registration lifetime 으로 좁혀 설계한다.
 
+RIO registered buffer reuse 설계를 완료했다(D106).
+설계 문서는 `docs/superpowers/specs/2026-06-25-rio-registered-buffer-reuse-design.md`다.
+다음 구현은 receive block 과 length-prefix block 을 connection resource lifetime 에 등록하는 Task A로 제한한다.
+payload `RefCountedBuffer` registration cache 는 pool/array/native provider lifetime 이 얽히므로 별도 단위로 분리한다.
+
+다음 작업은 D106 Task A 구현 계획 작성이다.
+receive/prefix per-operation registration 제거를 TDD 가능한 task 로 나누고,
+payload path 는 per-operation registration 유지 또는 별도 cache task 로 명시한다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO registered buffer reuse 설계를 준비한다.
+이번 cycle 은 RIO registered buffer reuse Task A 구현 계획을 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.

@@ -9,14 +9,12 @@
 
 ## Current TODOs
 
-- [ ] RIO registered buffer reuse 를 설계한다.
-  - 목적: IOCP notification wait 이후 남은 RIO 최적화 후보인 per-operation `RIORegisterBuffer`/`RIODeregisterBuffer` 비용을 줄일 구조를 정한다.
-  - 범위: `src/Hps.Transport.Rio/RioRegisteredBufferPool.cs`, `RioConnectionResource`, receive pool, send buffer lifetime,
-    `RefCountedBuffer` ownership, RIO benchmark artifact.
-  - 현재 판단: D105로 completion wait p99 tail 은 해소됐고, 다음 병목 후보는 매 send/receive operation 의 buffer registration lifetime 이다.
-  - 다음 자연스러운 step: 현재 `RegisterPinnedArray(...)`, receive block pool, send `RefCountedBuffer` array extraction 경로를 대조해
-    어떤 buffer 를 connection/resource lifetime 에 등록해 둘 수 있는지 설계한다.
-  - 검증: current code inspection, ownership invariant review, `git diff --check`.
+- [ ] RIO registered buffer reuse Task A 구현 계획을 작성한다.
+  - 목적: receive block 과 length-prefix block 의 resource lifetime registration 을 구현 가능한 TDD task 로 나눈다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/`, benchmark observation.
+  - 현재 판단: D106은 receive/prefix 먼저, payload cache 별도 분리를 결정했다.
+  - 다음 자연스러운 step: `docs/superpowers/plans/`에 receive/prefix registration reuse 구현 계획을 작성한다.
+  - 검증: spec coverage self-review, placeholder scan, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -151,6 +149,14 @@
   - 검증: focused RIO tests 27개 통과, close/wake 핵심 테스트 10회 반복 통과,
     solution build 0경고/0오류, solution tests 통과, benchmark artifact 확인, `git diff --check`.
   - 비고: session-04 scratch artifact 는 ignored `artifacts/benchmarks/rio-comparison/2026-06-25/session-04/`에 남아 있다.
+
+- [x] RIO registered buffer reuse 를 설계했다.
+  - 범위: `docs/superpowers/specs/2026-06-25-rio-registered-buffer-reuse-design.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: receive block 과 length-prefix block 은 resource lifetime registration 으로 먼저 처리하고,
+    payload `RefCountedBuffer` registration cache 는 별도 단위로 분리하기로 했다(D106).
+  - 검증: Microsoft RIO register/deregister/send/receive 문서와 current code ownership 대조, `git diff --check`.
+  - 비고: 다음은 Task A 구현 계획 작성이다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,

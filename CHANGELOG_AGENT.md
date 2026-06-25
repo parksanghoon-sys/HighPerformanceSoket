@@ -5,6 +5,22 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO registered buffer reuse design)
+
+### 작업 단위
+- RIO registered buffer reuse 설계를 완료했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-rio-registered-buffer-reuse-design.md`:
+  receive/length-prefix resource lifetime registration 과 payload registration cache 분리를 설계했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D106으로 receive/prefix 먼저, payload cache 별도 단위 분리를 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 Task A 구현 계획 작성으로 이동했다.
+
+### 검증
+- Microsoft RIO register/deregister/send/receive 문서와 current RIO registration code 를 대조했다.
+
 ## 2026-06-25 (Codex - RIO next optimization entry)
 
 ### 작업 단위
