@@ -29,12 +29,14 @@
 
 | runner id | runner kind | profile | transport backend | latest date root | 비고 |
 | --- | --- | --- | --- | --- | --- |
+| ci-windows-x64-01 | ci | tcp-loopback-saea-v1 | SaeaTransport | [2026-06-25](runners/ci-windows-x64-01/2026-06-25/history.json) | CI push-triggered artifact adopted manually, runner root [history.json](runners/ci-windows-x64-01/history.json) |
 | local-win-x64-01 | local | tcp-loopback-saea-v1 | SaeaTransport | [2026-06-25](runners/local-win-x64-01/2026-06-25/history.json) | explicit runner 2-date-root reference 완료, runner root [history.json](runners/local-win-x64-01/history.json) |
 
 ## Runner Date-level History
 
 | runner id | 날짜 | history | human report | sessions | hard passed | warnings | comparison compatible |
 | --- | --- | --- | --- | ---: | --- | ---: | --- |
+| ci-windows-x64-01 | 2026-06-25 | [history.json](runners/ci-windows-x64-01/2026-06-25/history.json) | [history.md](runners/ci-windows-x64-01/2026-06-25/history.md) | 1 | true | 0 | true |
 | local-win-x64-01 | 2026-06-25 | [history.json](runners/local-win-x64-01/2026-06-25/history.json) | [history.md](runners/local-win-x64-01/2026-06-25/history.md) | 3 | true | 0 | true |
 | local-win-x64-01 | 2026-06-24 | [history.json](runners/local-win-x64-01/2026-06-24/history.json) | [history.md](runners/local-win-x64-01/2026-06-24/history.md) | 3 | true | 0 | true |
 
@@ -49,6 +51,7 @@
 
 | 날짜 | session | runner/scope | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | TCP HWM max |
 | --- | --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
+| 2026-06-25 | session-01 | ci-windows-x64-01 CI Windows TCP loopback SAEA, adopted from push run 28145025444 | [summary.json](runners/ci-windows-x64-01/2026-06-25/session-01/summary.json) | [summary.md](runners/ci-windows-x64-01/2026-06-25/session-01/summary.md) | 6 | true | 0 | 275.3 | 322.9 | 2 |
 | 2026-06-25 | session-01 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-25/session-01/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-25/session-01/summary.md) | 6 | true | 0 | 921.1 | 1077.4 | 2 |
 | 2026-06-25 | session-02 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-25/session-02/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-25/session-02/summary.md) | 6 | true | 0 | 935.6 | 1013.1 | 2 |
 | 2026-06-25 | session-03 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-25/session-03/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-25/session-03/summary.md) | 6 | true | 0 | 842 | 975.6 | 2 |
@@ -77,6 +80,25 @@ latency, growth, HWM 은 max, actual rate 는 min 을 사용한다.
 | p99 median max us | 967.5 | 994.4 |
 | p99 growth ratio max | 1.23 | 1.06 |
 | actual rate min hz | 99.8 | 99.9 |
+| TCP HWM max | 1 | 2 |
+| dropped total | 0 | 0 |
+| payload error total | 0 | 0 |
+| pool rented max | 0 | 0 |
+
+## ci-windows-x64-01 CI Runner Reference Latency Envelope
+
+???쒕뒗 D095 ?섎룞 梨꾪깮 ?덉감濡?repository baseline 援ъ“???ㅼ뼱??泥?CI runner reference ??
+CI hosted runner evidence ?대?濡?local runner envelope ? 吏곸젒 鍮꾧탳?섏? ?딄퀬, 媛숈? CI runner ?????꾩냽 session ??媛깆떊 湲곗??쇰줈留??ъ슜?쒕떎.
+
+| ??ぉ | load | open-loop |
+| --- | ---: | ---: |
+| compatible sessions | 1 | 1 |
+| raw runs | 3 | 3 |
+| p50 max us | 149 | 158.3 |
+| p99 max us | 275.3 | 322.9 |
+| p99 median max us | 262.5 | 263.3 |
+| p99 growth ratio max | 1.09 | 1.46 |
+| actual rate min hz | 99.9 | 100 |
 | TCP HWM max | 1 | 2 |
 | dropped total | 0 | 0 |
 | payload error total | 0 | 0 |

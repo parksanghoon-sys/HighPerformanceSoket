@@ -9,17 +9,14 @@
 
 ## Current TODOs
 
-- [ ] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택한다.
-  - 목적: D095 checklist 를 통과한 첫 CI artifact 를 `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`
-    구조로 보존한다.
-  - 범위: artifact download/source verification, raw report 6개 복사, summary/history 재생성,
-    `docs/benchmarks/baselines/index.md` 갱신, root 상태 문서 기록.
-  - 현재 판단: run `28145025444`는 push-triggered, hard-passed true, warning-count 0,
-    comparison-compatible true, unknown-runner-count 0이라 첫 CI baseline 후보로 가장 적합하다.
-  - 다음 자연스러운 step: artifact 를 임시 directory 로 다운로드하고 D095 checklist 를 실행한 뒤,
-    raw report 만 target session directory 로 복사한다.
-  - 검증: summary/history 재생성, runner/date history, index 대조, absolute path scan,
-    `git diff --check`, benchmark tests 또는 solution build/test.
+- [ ] CI baseline adoption 이후 Phase 4 다음 후보를 재평가한다.
+  - 목적: 첫 CI repository baseline 이 생긴 뒤 다음 실행 후보를 정한다.
+  - 범위: CI runner 추가 session/date root 수집 여부, latency gate 승격 보류 유지 여부,
+    CI baseline history/index 보강 여부, Phase 4 이후 transport/backend 작업 후보.
+  - 현재 판단: `ci-windows-x64-01/2026-06-25/session-01`은 hard pass/warning 0/comparison-compatible 이지만
+    date root 1개/session 1개뿐이므로 gate 승격 근거로는 부족하다.
+  - 다음 자연스러운 step: D082/D090/D095와 새 CI baseline index 값을 대조해 다음 단위를 정한다.
+  - 검증: CI runner history, baseline index, current backlog 대조.
 
 ## Deferred Backlog
 
@@ -34,6 +31,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택했다.
+  - 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,
+    date-level history, runner root history, `docs/benchmarks/baselines/index.md`, root 상태 문서.
+  - 결과: artifact zip/root directory 는 커밋하지 않고 raw report 6개만 복사했다.
+    summary/history 는 repository 경로 기준으로 재생성했다.
+  - 비고: CI runner root history 는 session-count 1, hard-passed true, warning-count 0,
+    comparison-compatible true 다. CI runner first reference envelope 는 load p99 max 275.3 us,
+    open-loop p99 max 322.9 us, TCP HWM max 2 다.
+  - 검증: D095 checklist, summary/history 재생성, absolute path scan 결과 없음,
+    `git diff --check` exit 0, benchmark tests 67개 통과, solution build 경고 0/오류 0,
+    solution tests 269개 통과.
 
 - [x] CI artifact adoption 절차를 설계했다.
   - 범위: `docs/superpowers/specs/2026-06-25-ci-artifact-adoption-policy-design.md`, D095, root 상태 문서.

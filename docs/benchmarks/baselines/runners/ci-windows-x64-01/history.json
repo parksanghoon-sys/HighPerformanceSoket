@@ -1,0 +1,55 @@
+{
+  "history-version": 1,
+  "source-root": "docs/benchmarks/baselines/runners/ci-windows-x64-01",
+  "session-count": 1,
+  "hard-passed": true,
+  "failed-session-count": 0,
+  "warning-count": 0,
+  "comparison-compatible": true,
+  "comparison-key": {
+    "benchmark-profile": "tcp-loopback-saea-v1",
+    "runner-id": "ci-windows-x64-01",
+    "runner-kind": "ci",
+    "transport-backend": "SaeaTransport",
+    "os-description": "Microsoft Windows 10.0.26100",
+    "os-architecture": "X64",
+    "process-architecture": "X64",
+    "framework-description": ".NET 9.0.17",
+    "cases": [
+      {
+        "result-name": "load",
+        "scenario": "tcp-loopback-saea-baseline",
+        "payload-bytes": 4096,
+        "target-rate-hz": 100,
+        "target-duration-seconds": 30
+      },
+      {
+        "result-name": "open-loop",
+        "scenario": "tcp-loopback-saea-baseline-open-loop",
+        "payload-bytes": 4096,
+        "target-rate-hz": 100,
+        "target-duration-seconds": 30
+      }
+    ]
+  },
+  "unknown-runner-count": 0,
+  "comparison-mismatch-count": 0,
+  "comparison-mismatches": [],
+  "sessions": [
+    {
+      "date": "2026-06-25",
+      "session": "session-01",
+      "summary-path": "2026-06-25/session-01/summary.json",
+      "human-report-path": "2026-06-25/session-01/summary.md",
+      "source-report-count": 6,
+      "hard-passed": true,
+      "warning-count": 0,
+      "load-p99-max-us": 275.3,
+      "open-loop-p99-max-us": 322.9,
+      "tcp-hwm-max": 2,
+      "comparison-compatible": true,
+      "unknown-runner-count": 0,
+      "comparison-mismatch-count": 0
+    }
+  ]
+}

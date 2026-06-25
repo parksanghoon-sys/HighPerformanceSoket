@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - CI artifact baseline adoption)
+
+### 작업 단위
+- D095 절차에 따라 push-triggered run `28145025444` artifact 를 첫 CI repository baseline 으로 수동 채택했다.
+
+### 변경 내용
+- `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`:
+  raw report 6개를 보존하고 `summary.json`, `summary.md`를 repository 경로 기준으로 재생성했다.
+- `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/history.json`,
+  `history.md`, `docs/benchmarks/baselines/runners/ci-windows-x64-01/history.json`, `history.md`:
+  date-level/runner-level history 를 생성했다.
+- `docs/benchmarks/baselines/index.md`:
+  CI runner group, date-level history, session row, CI runner reference envelope 를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  채택 완료 상태와 다음 Phase 4 재평가 진입점을 기록했다.
+
+### 검증
+- D095 checklist 를 통과했다: raw report 6개, hard-passed true, warning-count 0,
+  comparison-compatible true, unknown-runner-count 0, runner metadata 일치.
+- summary/history 재생성 결과: session-count 1, hard-passed true, warning-count 0,
+  comparison-compatible true.
+- absolute path scan 결과 없음.
+- `git diff --check`: exit 0.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-build --no-restore`: 67개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+
 ## 2026-06-25 (Codex - CI artifact adoption policy)
 
 ### 작업 단위
