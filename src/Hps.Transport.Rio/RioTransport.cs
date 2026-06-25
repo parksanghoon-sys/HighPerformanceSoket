@@ -39,6 +39,7 @@ namespace Hps.Transport
 
             cancellationToken.ThrowIfCancellationRequested();
             EnsureRunning();
+            EnsureRioAvailable();
             throw new NotSupportedException("RIO TCP listen은 후속 task에서 구현합니다.");
         }
 
@@ -49,6 +50,7 @@ namespace Hps.Transport
 
             cancellationToken.ThrowIfCancellationRequested();
             EnsureRunning();
+            EnsureRioAvailable();
             throw new NotSupportedException("RIO TCP connect는 후속 task에서 구현합니다.");
         }
 
@@ -56,6 +58,12 @@ namespace Hps.Transport
         {
             if (!_started || _stopped)
                 throw new InvalidOperationException("RIO Transport가 실행 중이 아닙니다.");
+        }
+
+        private static void EnsureRioAvailable()
+        {
+            if (RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+                throw new NotSupportedException("현재 환경에서 Windows RIO function table을 사용할 수 없습니다.");
         }
     }
 }

@@ -757,17 +757,22 @@ RIO 구현 계획 Task 4(TCP queue owners)를 완료했다.
 completion 호출 후 같은 quota 를 다시 예약할 수 있다. `RioCompletionQueue`는 native CQ 연결 전
 Dispose 경계를 가진 skeleton 으로 추가했다.
 
-다음 작업은 계획 Task 5인 TCP opt-in transport guard 구현이다.
-RIO unavailable 환경에서 `RioTransport.ListenTcpAsync`가 명시적인 `NotSupportedException`으로 실패하고,
-기본 SAEA 경로는 유지되는지 검증한다.
+RIO 구현 계획 Task 5(TCP opt-in transport guard)를 완료했다.
+`RioTransport.ListenTcpAsync`/`ConnectTcpAsync`는 실행 중 lifecycle 확인 뒤 RIO capability 를 먼저 검사하고,
+현재 환경에서 Windows RIO function table 을 사용할 수 없으면 명시적인 `NotSupportedException`으로 실패한다.
+기본 `TransportFactory.CreateDefault()`/SAEA 경로는 계속 변경하지 않았다.
+
+다음 작업은 계획 Task 6인 TCP pump/contract test reuse 로 바로 들어가기 전에 native function table loader gap 을
+재평가하는 것이다. 현재 `RioNative`는 실제 `WSAIoctl`/`WSAID_MULTIPLE_RIO` marshalling 없이 fallback 가능한
+`Unavailable` 경계만 고정하므로, loopback pump 구현 전에 실제 function table load task 를 먼저 승격해야 할 가능성이 높다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO 구현 계획 Task 5를 실행한다.
+이번 cycle 은 RIO Task 5 이후 Task 6 진입 가능성을 재평가한다.
 
-- 범위: `src/Hps.Transport.Rio/RioTransport.cs`,
-  `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
-- 검증: Red assertion failure 확인, focused RIO tests, solution build/test, `git diff --check`.
+- 범위: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`,
+  `src/Hps.Transport.Rio/RioNative.cs`, `src/Hps.Transport.Rio/RioTransport.cs`, root 상태 문서.
+- 검증: current RIO native boundary inspection, 필요 시 계획 보정 문서, solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 

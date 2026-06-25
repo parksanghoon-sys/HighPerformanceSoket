@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO Task 5 TCP opt-in guard)
+
+### 작업 단위
+- Windows RIO backend Task 5로 TCP opt-in transport guard 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  `ListenTcpAsync`/`ConnectTcpAsync`가 실행 중 lifecycle 확인 뒤 RIO capability 를 먼저 검사하도록 했다.
+  현재 환경에서 Windows RIO function table 을 사용할 수 없으면 실제 TCP wiring 미구현 메시지보다 먼저
+  명시적인 `NotSupportedException`으로 실패한다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`:
+  RIO unavailable 환경에서 opt-in TCP listen 이 function table failure 를 노출하는지 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 5 완료와 Task 6 진입 전 native loader gap 재평가 필요성을 반영했다.
+
+### 검증
+- Red: unavailable guard 테스트가 기존 미구현 메시지 때문에 `Assert.Contains()` 실패함을 확인했다.
+- Green/refactor: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 10개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 279개 통과, 실패 0.
+- `git diff --check`: 통과.
+
 ## 2026-06-25 (Codex - RIO Task 4 queue owners)
 
 ### 작업 단위

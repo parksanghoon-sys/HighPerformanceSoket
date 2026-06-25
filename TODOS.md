@@ -9,13 +9,15 @@
 
 ## Current TODOs
 
-- [ ] RIO Task 5 TCP opt-in transport guard 를 구현한다.
-  - 목적: RIO unavailable 환경에서 opt-in TCP listen/connect 가 명시적으로 실패하고, default SAEA 경로는 유지되게 한다.
-  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`,
-    `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
-  - 현재 판단: Task 5는 아직 실제 RIO TCP socket pump 를 만들지 않고, capability guard 와 lifecycle validation 만 고정한다.
-  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md` Task 5를 Red-Green으로 실행한다.
-  - 검증: unavailable 환경 NotSupported assertion, focused RIO tests, solution build/test, `git diff --check`.
+- [ ] RIO Task 6 진입 전 native function table loader gap 을 재평가한다.
+  - 목적: 실제 TCP pump/contract test reuse 로 들어가기 전에 `RioNative`가 실제 Windows RIO function table 을 얻을 수 있는지,
+    아니면 별도 WSAIoctl marshalling task 를 먼저 승격해야 하는지 확정한다.
+  - 범위: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`,
+    `src/Hps.Transport.Rio/RioNative.cs`, `src/Hps.Transport.Rio/RioTransport.cs`, root 상태 문서.
+  - 현재 판단: Task 2는 예외 없는 fallback 경계를 고정했지만 실제 `WSAIoctl`/`WSAID_MULTIPLE_RIO` load 는 아직 없다.
+    따라서 Task 6의 loopback pump 구현은 이 gap 을 먼저 다루지 않으면 meaningful 하게 진행하기 어렵다.
+  - 다음 자연스러운 step: current RIO native boundary 를 inspection 하고, 필요하면 구현 계획을 Task 5.5 형태로 보정한다.
+  - 검증: plan/code consistency review, 필요 시 계획 문서 보정, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -90,6 +92,15 @@
   - 비고: Red 용 reflection 테스트는 Green 이후 `InternalsVisibleTo` 기반 direct internal API 테스트로 정리했다.
   - 검증: Red assertion failure 2개 확인(`Assert.NotNull() Failure: Value is null`),
     focused RIO tests 9개 통과, solution build 경고 0/오류 0.
+
+- [x] RIO Task 5 TCP opt-in transport guard 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
+  - 결과: RIO unavailable 환경에서 `ListenTcpAsync`/`ConnectTcpAsync`가 actual TCP wiring 미구현 메시지보다 먼저
+    Windows RIO function table 사용 불가를 명시하는 `NotSupportedException`으로 실패한다.
+  - 비고: 기본 `TransportFactory.CreateDefault()`/SAEA 경로와 실제 RIO socket pump 는 건드리지 않았다.
+  - 검증: Red assertion failure 1개 확인(`Sub-string not found`),
+    focused RIO tests 10개 통과, solution build 경고 0/오류 0, solution tests 279개 통과.
 
 - [x] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,
