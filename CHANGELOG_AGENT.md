@@ -5,6 +5,24 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - CI artifact follow-up reassessment)
+
+### 작업 단위
+- `ci-windows-x64-01` artifact-only manual run 2회 결과를 기준으로 Phase 4 다음 후보를 재평가했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-ci-artifact-after-manual-runs-reassessment.md`:
+  gate/trigger/baseline 채택 여부와 다음 후보를 정리했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D093으로 manual run 2회만으로는 gate/trigger 를 승격하지 않는다고 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 단위를 CI artifact trigger policy 설계로 갱신했다.
+
+### 검증
+- run `28143728630`, run `28144480160` log/artifact 값을 대조했다.
+- D090/D091/D092와 `docs/benchmarks/baselines/index.md`를 대조했다.
+- `git diff --check`로 문서 변경 상태를 검증한다.
+
 ## 2026-06-25 (Codex - CI workflow Node 24 manual run)
 
 ### 작업 단위

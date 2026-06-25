@@ -729,7 +729,7 @@ explicit runner 3-session 이후 다음 후보 재평가, 2026-06-25 explicit ru
 explicit runner 2-date-root reference 이후 gate 승격 후보 재평가, CI artifact-only benchmark 정책 설계,
 CI artifact-only workflow skeleton 구현 계획, CI artifact-only workflow skeleton 구현,
 CI workflow command sequence local smoke, 첫 GitHub Actions manual run 검증, Node 24 action version 갱신,
-갱신 후 두 번째 GitHub Actions manual run 검증은 완료됐다.
+갱신 후 두 번째 GitHub Actions manual run 검증, manual run 2회 이후 Phase 4 재평가는 완료됐다.
 
 다음 작업은 첫 CI artifact 결과를 기준으로 Phase 4 다음 후보를 재평가하는 것이다.
 workflow 는 `.github/workflows/benchmark-artifacts.yml`에 있으며 D090/D091/D092에 따라 latency warning 을 실패로 올리지 않고
@@ -746,20 +746,24 @@ artifact 이름은 `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-2814
 두 번째 run summary/history 는 `hard-passed=true`, `comparison-compatible=true`, `unknown-runner-count=0`,
 `warning-count=0`이다. 이 결과도 D090 기준으로 docs baseline 에 자동 채택하지 않고 CI artifact evidence 로만 둔다.
 
-다음 작업은 두 번의 CI artifact-only manual run 결과를 기준으로 Phase 4 다음 후보를 재평가하는 것이다.
-현재 즉시 gate 로 올릴 근거는 아직 부족하다. 특히 CI runner 는 같은 날짜의 artifact-only evidence 만 있고,
-D082의 latency gate 승격 조건은 여전히 충족하지 않는다. push/PR 자동 trigger, CI artifact 채택 절차,
-추가 CI date-root 수집 중 무엇이 가장 안전한 다음 단위인지 다시 정한다.
+두 번의 CI artifact-only manual run 이후에도 즉시 gate 로 올릴 근거는 아직 부족하다고 판단했다(D093).
+CI runner 는 같은 날짜의 artifact-only evidence 만 있고, D082의 latency gate 승격 조건은 여전히 충족하지 않는다.
+따라서 latency gate, warning-as-failure, docs baseline 자동 채택, push/PR 자동 trigger 는 승격하지 않는다.
+
+다음 작업은 CI artifact trigger policy 설계다.
+자동 실행 event(`workflow_dispatch` 유지, `push` to `master`, `pull_request`, `schedule`, path filter),
+실행 비용/노이즈, artifact retention, failure policy, docs baseline 채택 경계를 먼저 정한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 D092 action version 갱신 후 GitHub Actions manual `workflow_dispatch` run 을 다시 실행해
-Node deprecation annotation 제거, artifact upload, summary/history warning semantics 를 확인한다.
+이번 cycle 은 두 번의 CI artifact-only manual run 결과를 근거로 Phase 4 다음 후보를 재평가하고,
+D093으로 gate/trigger 승격 보류와 다음 trigger policy 설계 단위를 기록한다.
 
-- 범위: `.github/workflows/benchmark-artifacts.yml`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`,
-  `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, 관련 CI workflow plan/spec 문서.
-- 검증: `gh workflow run`, `gh run watch --exit-status`, `gh run view --log`, downloaded artifact summary/history JSON 확인,
-  `git diff --check`.
+- 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
+  `docs/agent-state/decisions/2026-06.md`,
+  `docs/superpowers/specs/2026-06-25-ci-artifact-after-manual-runs-reassessment.md`.
+- 검증: run `28143728630`, run `28144480160` log/artifact, D090/D091/D092,
+  `docs/benchmarks/baselines/index.md`, current backlog 대조, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 

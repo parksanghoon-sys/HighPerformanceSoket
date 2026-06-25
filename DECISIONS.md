@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D093 — CI artifact-only manual run 2회만으로는 gate/trigger 를 승격하지 않고 다음 단위는 trigger policy 설계로 둔다.
 - D092 — CI benchmark workflow actions 는 Node 24 런타임을 명시한 최신 major/minor 로 갱신해 runner deprecation annotation 을 제거한다.
 - D091 — CI benchmark workflow artifact upload name carries GitHub run identity, while the uploaded directory keeps history-compatible date/session layout.
 - D090 — CI benchmark 는 latency hard gate 가 아니라 artifact-only 단계로 시작하고 local baseline 과 분리한다.

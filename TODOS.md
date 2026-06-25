@@ -9,15 +9,15 @@
 
 ## Current TODOs
 
-- [ ] CI artifact-only manual run 2회 결과 이후 Phase 4 다음 후보를 재평가한다.
-  - 목적: `ci-windows-x64-01` artifact-only workflow 가 원격에서 두 차례 검증된 뒤 다음 실행 후보를 정한다.
-  - 범위: CI artifact warning 해석, Node annotation 해소 결과, baseline 채택 여부, push/PR 자동 trigger 여부,
-    추가 CI date-root 수집 필요성.
-  - 현재 판단: 첫 manual run `28143728630`은 hard pass/warning-count 1/report-only 였고,
-    두 번째 manual run `28144480160`은 Node deprecation 제거와 warning-count 0을 확인했다.
-  - 다음 자연스러운 step: D090/D091/D092와 `docs/benchmarks/baselines/index.md`를 대조해
-    CI workflow 를 자동 trigger 로 넓힐지, artifact evidence 를 더 쌓을지, 다른 Phase 4 항목으로 이동할지 정한다.
-  - 검증: run `28143728630`, run `28144480160` log/artifact, D090/D091/D092 정책, current backlog 대조.
+- [ ] CI artifact trigger policy 를 설계한다.
+  - 목적: `Benchmark Artifacts` workflow 를 언제 자동 실행할지 정한다.
+  - 범위: `workflow_dispatch` 유지 여부, `push` to `master`, `pull_request`, `schedule`, path filter,
+    실행 비용/노이즈, artifact retention, failure policy, docs baseline 채택 경계.
+  - 현재 판단: D093에 따라 manual run 2회만으로는 gate/trigger 를 즉시 승격하지 않는다.
+    자동 trigger 는 약 4분 workflow 와 artifact upload 를 반복시키는 운영 정책 변경이므로 별도 설계가 필요하다.
+  - 다음 자연스러운 step: D090/D091/D092/D093과 workflow 구조를 대조해 최소 자동 trigger 정책을 제안한다.
+  - 검증: `.github/workflows/benchmark-artifacts.yml`, GitHub Actions run `28143728630`/`28144480160`,
+    current backlog 대조.
 
 ## Deferred Backlog
 
@@ -32,6 +32,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] CI artifact-only manual run 2회 결과 이후 Phase 4 다음 후보를 재평가했다.
+  - 범위: run `28143728630`, run `28144480160`, D090/D091/D092, baseline index, root 상태 문서.
+  - 결과: latency gate, warning-as-failure, docs baseline 자동 채택, push/PR 자동 trigger 는 승격하지 않는다(D093).
+  - 비고: 두 run 모두 성공했지만 같은 날짜의 GitHub-hosted Windows evidence 이며, 첫 run 은 warning-count 1,
+    두 번째 run 은 warning-count 0이었다. 이 상태는 CI runner scheduling noise 가능성을 보여주므로
+    gate 승격에는 부족하다.
+  - 다음: CI artifact trigger policy 를 설계한다.
+  - 검증: run log/artifact, D090/D091/D092, `docs/benchmarks/baselines/index.md`, current backlog 를 대조했다.
 
 - [x] Node 24 action 갱신 후 CI artifact-only workflow manual run 을 재검증했다.
   - 범위: GitHub Actions run `28144480160`, artifact
