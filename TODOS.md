@@ -9,16 +9,13 @@
 
 ## Current TODOs
 
-- [ ] Phase 5 Windows RIO backend 설계를 작성한다.
-  - 목적: RIO P/Invoke 구현 전에 `ITransport` 뒤의 backend 책임 경계, capability probe,
-    pinned buffer registration, 기존 테스트 재사용 방식을 확정한다.
-  - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Runtime/`, `TransportFactory`,
-    Windows-only test strategy, Phase 4 SAEA baseline 비교 방식.
-  - 현재 판단: Phase 4 CI baseline adoption 재평가 결과(D096), latency/warning gate 는 아직 승격하지 않고
-    다음 실행 가능한 큰 흐름은 Phase 5 RIO 설계다.
-  - 다음 자연스러운 step: `PLAN.md`, Transport abstraction/SAEA 구조, 현재 빈 RIO project 상태를 대조해
-    RIO 설계 문서를 작성한다.
-  - 검증: 설계 self-review, placeholder scan, `git diff --check`, 필요 시 solution build/test.
+- [ ] Phase 5 Windows RIO backend 구현 계획을 작성한다.
+  - 목적: D097 TCP-first RIO boundary 설계를 Red-Green 구현 가능한 commit 단위로 분해한다.
+  - 범위: project skeleton/probe/native wrapper, registered buffer owner, TCP queue owner,
+    TCP connect/listen/accept, TCP send/receive pump, 기존 tests 재사용.
+  - 현재 판단: 기본 `TransportFactory.CreateDefault()`는 SAEA를 유지하고, RIO는 명시 opt-in/test path 로 먼저 검증한다.
+  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`를 작성한다.
+  - 검증: 계획 self-review, placeholder scan, `git diff --check`, 필요 시 solution build/test.
 
 ## Deferred Backlog
 
@@ -43,6 +40,15 @@
   - 비고: CI runner evidence 는 future push-triggered run 이 더 쌓이면 D095 checklist 로 수동 채택 여부를 다시 판단한다.
     다음 실행 가능한 큰 흐름은 Phase 5 Windows RIO backend 설계다.
   - 검증: CI runner root history, session summary, baseline index, D082/D090/D095를 대조했다.
+
+- [x] Phase 5 Windows RIO backend boundary 를 설계했다.
+  - 범위: `docs/superpowers/specs/2026-06-25-windows-rio-backend-boundary-design.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: RIO backend 는 TCP-first 로 진행하되, 첫 구현 task 를 project skeleton,
+    Windows capability probe, native function table wrapper 로 분리했다(D097).
+  - 비고: 기본 `TransportFactory.CreateDefault()`는 SAEA를 유지하고, RIO는 명시 opt-in/test path 로 먼저 검증한다.
+    UDP RIO, batching, automatic default backend selection 은 후속으로 둔다.
+  - 검증: current transport 구조, 빈 RIO project 상태, Microsoft RIO 문서를 대조했다.
 
 - [x] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,

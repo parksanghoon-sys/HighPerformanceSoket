@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - Windows RIO backend boundary design)
+
+### 작업 단위
+- Phase 5 Windows RIO backend 의 책임 경계와 첫 구현 순서를 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-windows-rio-backend-boundary-design.md`:
+  RIO backend 를 TCP-first 로 진행하되, 첫 task 를 project skeleton, capability probe,
+  native function table wrapper 로 분리하는 설계를 기록했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D097로 RIO TCP-first/probe-first 정책과 SAEA default 유지 방침을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  RIO 설계 완료 상태와 다음 실행 단위인 RIO 구현 계획 작성 진입점을 반영했다.
+
+### 검증
+- `TransportFactory`, `TransportBase`, `TransportConnection`, `SaeaTransport` 구조와 설계가 충돌하지 않는지 대조했다.
+- Microsoft Learn RIO request queue, completion queue, buffer registration, notification/dequeue 문서를 확인했다.
+- placeholder scan 결과 신규 spec/current state 에 미정 항목 없음. 검색에 잡힌 항목은 기존 archive/changelog 문맥이다.
+- `git diff --check`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+
 ## 2026-06-25 (Codex - after CI baseline adoption reassessment)
 
 ### 작업 단위

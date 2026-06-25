@@ -728,25 +728,21 @@ comparison-compatible true 인 좋은 reference signal 이지만, date root 1개
 latency hard gate 또는 warning-as-failure 로 승격하지 않는다.
 CI runner evidence 는 future push-triggered run 이 더 쌓일 때 D095 checklist 로 수동 채택 여부를 다시 판단한다.
 
-다음 작업은 Phase 5 Windows RIO backend 설계다.
-바로 P/Invoke 구현을 시작하지 않고, 먼저 `ITransport` 뒤에 붙일 RIO backend 의 책임 경계와
-SAEA 기준선 재사용 방식을 확정한다.
+Phase 5 Windows RIO backend boundary 설계를 완료했다(D097).
+RIO backend 는 TCP-first 로 진행하되, 첫 구현 task 는 TCP pump 가 아니라 project skeleton,
+Windows capability probe, native function table wrapper 로 분리한다.
+기본 `TransportFactory.CreateDefault()`는 SAEA를 유지하고, RIO는 명시 opt-in/test path 로 먼저 검증한다.
 
-설계에서 확인할 항목은 다음이다.
-
-- `src/Hps.Transport.Rio/`의 public/internal 책임 경계.
-- Windows capability probe 와 `TransportFactory` 선택 정책.
-- RIO P/Invoke surface 최소 범위.
-- `PinnedBlockMemoryPool` block 등록과 수명 관리 책임.
-- TCP 우선 구현 여부와 UDP/RIO send zero-copy defer 범위.
-- 기존 Phase 2/3 transport/server integration test 재사용 방식.
-- Windows-only test skip 정책과 Phase 4 benchmark 비교 방식.
+다음 작업은 `docs/superpowers/plans/2026-06-25-windows-rio-backend.md` 구현 계획 작성이다.
+계획은 D097 설계를 다음 커밋 단위로 쪼갠다: probe/wrapper, registered buffer owner,
+TCP queue owner, TCP connect/listen/accept, TCP send/receive pump, 기존 tests 재사용.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 Phase 5 RIO backend 설계 문서를 작성한다.
+이번 cycle 은 Phase 5 RIO backend 구현 계획 문서를 작성한다.
 
-- 범위: `PLAN.md`, `AGENTS.md`, Transport abstraction/runtime/SAEA 구조, 빈 `src/Hps.Transport.Rio/` project 상태,
+- 범위: `docs/superpowers/specs/2026-06-25-windows-rio-backend-boundary-design.md`,
+  `PLAN.md`, Transport abstraction/runtime/SAEA 구조, 현재 빈 RIO project 상태,
   Phase 2/3 transport/server tests, Phase 4 benchmark artifact 정책.
 - 검증: 설계 self-review, placeholder scan, `git diff --check`, 필요 시 solution build/test.
 
