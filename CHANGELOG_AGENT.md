@@ -5,6 +5,23 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO UDP native Ex plan)
+
+### 작업 단위
+- RIO UDP Task 1 native Ex operation shape 구현 계획을 작성했다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-06-25-rio-udp-native-ex-operation-shape.md`:
+  `RioNative`의 `ReceiveEx`/`SendEx` wrapper, `SupportsDatagramOperations`,
+  nullable `RIO_BUF` marshalling, Red/Green 검증 경로를 계획했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 RIO UDP Task 1 Red tests 작성으로 이동했다.
+
+### 검증
+- D109 설계 coverage 를 대조했다.
+- placeholder scan: 매칭 없음.
+- `git diff --check`: whitespace error 없음.
+
 ## 2026-06-25 (Codex - RIO UDP backend boundary)
 
 ### 작업 단위

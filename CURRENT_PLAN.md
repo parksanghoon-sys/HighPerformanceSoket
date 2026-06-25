@@ -1081,6 +1081,33 @@ open-loop actual-rate 99.8 Hz/p50 293.8 us/p99 920.5 us 다.
 - Linux io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay
 
+RIO UDP Task 1 native Ex operation shape 구현 계획을 완료했다.
+계획 문서는 `docs/superpowers/plans/2026-06-25-rio-udp-native-ex-operation-shape.md`다.
+범위는 `RioNative`의 `ReceiveEx`/`SendEx` delegate binding, `SupportsDatagramOperations`,
+nullable `RIO_BUF` pointer marshalling, capability/argument validation tests 로 제한한다.
+UDP endpoint, socket bind, receive/send loopback 은 후속 task 로 남긴다.
+
+다음 작업은 계획 Task 1 Red tests 작성이다.
+먼저 reflection 기반 `SupportsDatagramOperations` shape test 로 compile failure 가 아니라 assertion failure 를 만든다.
+
+## 이번 단위의 검증 경로
+
+이번 cycle 은 RIO UDP Task 1 Red tests 를 작성하고 실패를 확인한다.
+
+- 범위: `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`.
+- 검증: focused Red command 로 `Assert.NotNull(property)` 실패 확인.
+
+## 이번 작업에서 건드리지 않는 범위
+
+- RIO UDP endpoint 구현 코드
+- RIO UDP loopback receive/send
+- `TransportFactory` 기본 선택 코드 변경
+- SAEA transport 동작 변경
+- latency hard gate 또는 warning-as-failure 정책 구현
+- CI artifact 자동 채택, pull_request trigger, schedule trigger
+- Linux io_uring backend 구현
+- stable identity 인증/권한 검증, persistence, payload replay
+
 RIO UDP backend boundary 설계를 완료했다(D109).
 설계 문서는 `docs/superpowers/specs/2026-06-25-rio-udp-backend-boundary-design.md`다.
 결정은 RIO UDP를 TCP `RioConnectionResource`에 끼워 넣지 않고 UDP 전용 `RioUdpEndpoint` owner 로 설계하는 것이다.

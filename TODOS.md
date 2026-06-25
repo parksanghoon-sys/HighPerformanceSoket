@@ -9,13 +9,12 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP Task 1 native Ex operation shape 구현 계획을 작성한다.
-  - 목적: `RioNative`의 `ReceiveEx`/`SendEx` wrapper 와 datagram capability tests 를 TDD 가능한 작은 단위로 분해한다.
-  - 범위: `src/Hps.Transport.Rio/RioNative.cs`, `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`,
-    D109 설계 문서, root 상태 문서.
-  - 현재 판단: D109 기준으로 RIO UDP는 전용 `RioUdpEndpoint` owner 로 설계하고, 첫 구현은 native Ex wrapper 다.
-  - 다음 자연스러운 step: nullable `RIO_BUF` marshalling, `SupportsDatagramOperations`, Red/Green 검증 명령을 계획 문서로 작성한다.
-  - 검증: D109 coverage self-review, placeholder scan, `git diff --check`.
+- [ ] RIO UDP Task 1 Red tests 를 작성하고 실패를 확인한다.
+  - 목적: `RioNative`가 datagram native operation capability 를 노출해야 한다는 요구를 실패 테스트로 고정한다.
+  - 범위: `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
+  - 현재 판단: 구현 계획은 `docs/superpowers/plans/2026-06-25-rio-udp-native-ex-operation-shape.md`에 작성됐다.
+  - 다음 자연스러운 step: reflection 기반 `SupportsDatagramOperations` shape test 를 추가하고 focused test 실패를 확인한다.
+  - 검증: focused Red command 로 `Assert.NotNull(property)` 실패 확인.
 
 ## Deferred Backlog
 
@@ -30,6 +29,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP Task 1 native Ex operation shape 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-25-rio-udp-native-ex-operation-shape.md`, root 상태 문서.
+  - 결과: `ReceiveEx`/`SendEx` delegate binding, `SupportsDatagramOperations`,
+    nullable `RIO_BUF` marshalling, capability/argument validation tests 로 Task 1 범위를 제한했다.
+  - 검증: D109 coverage self-review, placeholder scan, `git diff --check`.
+  - 비고: 다음 실행은 Red tests 작성이다.
 
 - [x] RIO UDP backend boundary 설계를 완료했다.
   - 범위: `docs/superpowers/specs/2026-06-25-rio-udp-backend-boundary-design.md`,
