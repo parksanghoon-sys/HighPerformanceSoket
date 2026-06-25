@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D098 — RIO TCP pump 전에 실제 `WSAIoctl` 기반 function table loader 를 먼저 완료한다.
 - D097 — Phase 5 Windows RIO backend 는 TCP-first 로 설계하되 capability probe/native wrapper 를 첫 task 로 분리한다.
 - D096 — 첫 CI repository baseline 채택 이후에도 latency/warning gate 는 승격하지 않고 Phase 5 RIO 설계로 넘어간다.
 - D095 — CI artifact 는 checklist 통과 후 raw report 를 repository baseline 구조로 수동 채택한다.

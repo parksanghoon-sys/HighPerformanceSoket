@@ -946,6 +946,80 @@ git commit -m "feat: guard rio tcp opt-in"
 
 ---
 
+### Task 5.5: Native Function Table Loader Hardening
+
+**Files:**
+- Modify: `src/Hps.Transport.Rio/RioNative.cs`
+- Modify: `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`
+- Modify: root state docs and decision docs
+
+**Interfaces:**
+- Produces: actual `WSAIoctl(SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER, WSAID_MULTIPLE_RIO)` call path
+- Produces: populated internal RIO function table owner when Windows RIO is available
+- Keeps: default `TransportFactory.CreateDefault()` returning SAEA
+
+- [ ] **Step 1: Write the failing test**
+
+Add a Windows-only assertion to `RioCapabilityProbeTests`:
+
+```csharp
+        // Windows RIO backend 는 실제 function table 을 얻을 수 있어야 이후 TCP pump 로 진입할 수 있다.
+        // 이 테스트는 placeholder 로더가 항상 Unavailable 을 반환하는 상태를 막는 회귀 방어선이다.
+        [Fact]
+        public void GetStatus_WhenWindows_LoadsRioFunctionTable()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return;
+
+            Assert.Equal(RioCapabilityStatus.Available, RioCapabilityProbe.GetStatus());
+        }
+```
+
+- [ ] **Step 2: Run and verify Red**
+
+Run:
+
+```powershell
+dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore
+```
+
+Expected on current Windows development machine: fails with `Expected: Available`, `Actual: Unavailable`.
+Non-Windows environments return before asserting.
+
+- [ ] **Step 3: Implement actual native load**
+
+Implement `RioNative.TryLoadFunctionTableCore(...)` using:
+
+- `SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER = _WSAIORW(IOC_WS2, 36)` (`0xC8000024`)
+- `WSAID_MULTIPLE_RIO = 8509e081-96dd-4005-b165-9e2ee8c79e3f`
+- `RIO_EXTENSION_FUNCTION_TABLE` sequential struct with `cbSize` and the RIO function pointers
+- `WSAIoctl` from `Ws2_32.dll`
+
+Validate that required function pointers such as receive/send, completion queue, request queue,
+dequeue, notify, register/deregister buffer are non-zero before returning `Available`.
+
+- [ ] **Step 4: Run focused tests and commit**
+
+Run:
+
+```powershell
+dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore
+dotnet build HighPerformanceSocket.slnx --no-restore
+dotnet test HighPerformanceSocket.slnx --no-build --no-restore
+git diff --check
+```
+
+Expected on the current Windows development machine: RIO tests include the actual function table load and pass.
+
+Commit:
+
+```powershell
+git add src/Hps.Transport.Rio/RioNative.cs tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs docs/superpowers/plans/2026-06-25-windows-rio-backend.md DECISIONS.md docs/agent-state/decisions/2026-06.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md
+git commit -m "feat: load rio function table"
+```
+
+---
+
 ### Task 6: TCP Pump And Contract Test Reuse
 
 **Files:**

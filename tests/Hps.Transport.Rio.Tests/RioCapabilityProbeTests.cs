@@ -42,6 +42,17 @@ namespace Hps.Transport.Rio.Tests
             Assert.True(status == RioCapabilityStatus.Available || status == RioCapabilityStatus.Unavailable);
         }
 
+        // Windows RIO backend 는 실제 function table 을 얻을 수 있어야 이후 TCP pump 로 진입할 수 있다.
+        // 이 테스트는 placeholder 로더가 항상 Unavailable 을 반환하는 상태를 막는 회귀 방어선이다.
+        [Fact]
+        public void GetStatus_WhenWindows_LoadsRioFunctionTable()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return;
+
+            Assert.Equal(RioCapabilityStatus.Available, RioCapabilityProbe.GetStatus());
+        }
+
         // native loader 자체도 fallback 가능한 bool 결과로 수렴해야 한다.
         // 호출자가 SocketException 같은 native 실패를 직접 처리하지 않게 하는 방어선이다.
         [Fact]

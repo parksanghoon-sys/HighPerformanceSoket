@@ -10,8 +10,21 @@ namespace Hps.Transport
     /// </summary>
     internal sealed class RioNative
     {
-        private RioNative()
+        private const int SocketError = -1;
+        private const int GuidByteLength = 16;
+        private const uint IocInOut = 0xC0000000;
+        private const uint IocWs2 = 0x08000000;
+        // Windows SDK ws2def.h 기준 SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER 값이다.
+        // RIO 함수들은 일반 DLL export 가 아니라 provider extension table 로 런타임 조회해야 한다.
+        private const uint SioGetMultipleExtensionFunctionPointer = IocInOut | IocWs2 | 36;
+        // Windows SDK MSWSock.h 의 WSAID_MULTIPLE_RIO GUID 와 맞춘다.
+        // GUID 가 틀리면 WSAIoctl 은 성공하지 못하거나 다른 extension table 을 돌려줄 수 있다.
+        private static readonly Guid WsaIdMultipleRio = new Guid("8509e081-96dd-4005-b165-9e2ee8c79e3f");
+        private readonly RioExtensionFunctionTable _functionTable;
+
+        private RioNative(RioExtensionFunctionTable functionTable)
         {
+            _functionTable = functionTable;
         }
 
         internal static bool TryLoadFunctionTable(out RioNative? native)
@@ -35,8 +48,30 @@ namespace Hps.Transport
 
             try
             {
-                _ = socket;
-                return false;
+                Guid extensionId = WsaIdMultipleRio;
+                RioExtensionFunctionTable functionTable;
+                uint bytesReturned;
+
+                // Socket.SafeHandle 의 raw SOCKET 값만 native call 에 전달하고 소유권은 Socket 이 유지한다.
+                // RIO table 은 socket provider 에 묶인 extension function table 이므로 probe socket 하나로 조회한다.
+                int result = WSAIoctl(
+                    socket.SafeHandle.DangerousGetHandle(),
+                    SioGetMultipleExtensionFunctionPointer,
+                    ref extensionId,
+                    GuidByteLength,
+                    out functionTable,
+                    Marshal.SizeOf<RioExtensionFunctionTable>(),
+                    out bytesReturned,
+                    IntPtr.Zero,
+                    IntPtr.Zero);
+
+                if (result == SocketError || !functionTable.HasRequiredPointers())
+                    return false;
+
+                // function pointer table 은 이후 CQ/RQ/buffer registration owner 가 재사용할 native entry point 다.
+                // 지금은 capability proof 로만 보관하고 실제 delegate marshalling 은 pump task 에서 필요한 함수부터 좁혀 붙인다.
+                native = new RioNative(functionTable);
+                return true;
             }
             catch (SocketException)
             {
@@ -45,6 +80,53 @@ namespace Hps.Transport
             catch (ObjectDisposedException)
             {
                 return false;
+            }
+        }
+
+        [DllImport("Ws2_32.dll", ExactSpelling = true, SetLastError = true)]
+        private static extern int WSAIoctl(
+            IntPtr socket,
+            uint ioControlCode,
+            ref Guid inputBuffer,
+            int inputBufferLength,
+            out RioExtensionFunctionTable outputBuffer,
+            int outputBufferLength,
+            out uint bytesReturned,
+            IntPtr overlapped,
+            IntPtr completionRoutine);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RioExtensionFunctionTable
+        {
+            internal uint Size;
+            internal IntPtr Receive;
+            internal IntPtr ReceiveEx;
+            internal IntPtr Send;
+            internal IntPtr SendEx;
+            internal IntPtr CloseCompletionQueue;
+            internal IntPtr CreateCompletionQueue;
+            internal IntPtr CreateRequestQueue;
+            internal IntPtr DequeueCompletion;
+            internal IntPtr DeregisterBuffer;
+            internal IntPtr Notify;
+            internal IntPtr RegisterBuffer;
+            internal IntPtr ResizeCompletionQueue;
+            internal IntPtr ResizeRequestQueue;
+
+            internal bool HasRequiredPointers()
+            {
+                // Task 6 전에 최소 TCP receive/send pump 에 필요한 함수들이 모두 있는지 확인한다.
+                // Ex/resize 함수는 v1 pump 필수 경로가 아니므로 availability 판정에서 제외한다.
+                return Size != 0 &&
+                    Receive != IntPtr.Zero &&
+                    Send != IntPtr.Zero &&
+                    CloseCompletionQueue != IntPtr.Zero &&
+                    CreateCompletionQueue != IntPtr.Zero &&
+                    CreateRequestQueue != IntPtr.Zero &&
+                    DequeueCompletion != IntPtr.Zero &&
+                    DeregisterBuffer != IntPtr.Zero &&
+                    Notify != IntPtr.Zero &&
+                    RegisterBuffer != IntPtr.Zero;
             }
         }
     }

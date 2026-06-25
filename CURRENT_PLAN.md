@@ -762,17 +762,22 @@ RIO 구현 계획 Task 5(TCP opt-in transport guard)를 완료했다.
 현재 환경에서 Windows RIO function table 을 사용할 수 없으면 명시적인 `NotSupportedException`으로 실패한다.
 기본 `TransportFactory.CreateDefault()`/SAEA 경로는 계속 변경하지 않았다.
 
-다음 작업은 계획 Task 6인 TCP pump/contract test reuse 로 바로 들어가기 전에 native function table loader gap 을
-재평가하는 것이다. 현재 `RioNative`는 실제 `WSAIoctl`/`WSAID_MULTIPLE_RIO` marshalling 없이 fallback 가능한
-`Unavailable` 경계만 고정하므로, loopback pump 구현 전에 실제 function table load task 를 먼저 승격해야 할 가능성이 높다.
+RIO 구현 계획 Task 5.5(native function table loader hardening)를 완료했다(D098).
+`RioNative`는 Windows에서 `WSAIoctl(SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER, WSAID_MULTIPLE_RIO)`를 호출해
+`RIO_EXTENSION_FUNCTION_TABLE`을 실제로 얻고, receive/send, completion queue, request queue, dequeue,
+notify, register/deregister buffer 필수 pointer 가 비어 있지 않을 때만 `Available`로 판정한다.
+현재 Windows 개발 환경에서 `RioCapabilityProbe.GetStatus()`는 `Available`로 검증됐다.
+
+다음 작업은 계획 Task 6인 TCP pump/contract test reuse 다.
+이제 capability guard 가 실제 RIO available 을 반환하므로, RIO-specific TCP loopback Red 테스트가
+실제로 listen/connect 미구현 경로를 드러낼 수 있다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO Task 5 이후 Task 6 진입 가능성을 재평가한다.
+이번 cycle 은 RIO 구현 계획 Task 6을 실행한다.
 
-- 범위: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`,
-  `src/Hps.Transport.Rio/RioNative.cs`, `src/Hps.Transport.Rio/RioTransport.cs`, root 상태 문서.
-- 검증: current RIO native boundary inspection, 필요 시 계획 보정 문서, solution build/test, `git diff --check`.
+- 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
+- 검증: RIO TCP loopback Red, focused RIO tests, transport/server regression subset, solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 

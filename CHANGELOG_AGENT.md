@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO Task 5.5 native loader hardening)
+
+### 작업 단위
+- Windows RIO backend Task 6 전 선행 보정으로 실제 native function table loader 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioNative.cs`:
+  `WSAIoctl(SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER, WSAID_MULTIPLE_RIO)` 호출로
+  `RIO_EXTENSION_FUNCTION_TABLE`을 얻고 필수 function pointer 를 검증한다.
+- `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`:
+  Windows 환경에서 `RioCapabilityProbe.GetStatus()`가 실제 `Available`로 수렴해야 함을 검증한다.
+- `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`,
+  `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D098과 Task 5.5를 기록해 TCP pump 전에 실제 native loader 를 완료하도록 순서를 보정했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 5.5 완료와 다음 Task 6 TCP pump/contract test reuse 진입점을 반영했다.
+
+### 검증
+- Red: Windows에서 `GetStatus_WhenWindows_LoadsRioFunctionTable`이 `Expected: Available`, `Actual: Unavailable`로 실패함을 확인했다.
+- Green/refactor: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 11개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 280개 통과, 실패 0.
+- `git diff --check`: 통과.
+
 ## 2026-06-25 (Codex - RIO Task 5 TCP opt-in guard)
 
 ### 작업 단위
