@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - CI artifact-only workflow skeleton)
+
+### 작업 단위
+- D090/D091 정책에 맞춰 GitHub Actions benchmark artifact-only workflow skeleton 을 추가했다.
+
+### 변경 내용
+- `.github/workflows/benchmark-artifacts.yml`:
+  `workflow_dispatch` 전용 Windows workflow 를 추가했다.
+- workflow job env:
+  `HPS_BENCHMARK_RUNNER_ID=ci-windows-x64-01`, `HPS_BENCHMARK_RUNNER_KIND=ci`를 고정했다.
+- workflow command sequence:
+  restore, build, test, `--baseline-suite`, `--summarize-baseline`, `--summarize-baseline-history`, artifact upload 순서로 구성했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 workflow 검토 또는 첫 manual run 결과 반영으로 갱신했다.
+
+### 검증
+- workflow static marker scan: `workflow_dispatch`, `ci-windows-x64-01`, `HPS_BENCHMARK_RUNNER_KIND`,
+  `actions/upload-artifact@v4` 존재를 확인했다.
+- workflow out-of-scope scan: `push`, `pull_request`, `warning-count`, `latency` logic 이 workflow 에 없음을 확인했다.
+- lightweight policy check: required marker 존재와 자동 trigger 부재를 확인했다.
+- `git diff --check`: exit 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+
 ## 2026-06-25 (Codex - CI artifact-only workflow skeleton plan)
 
 ### 작업 단위

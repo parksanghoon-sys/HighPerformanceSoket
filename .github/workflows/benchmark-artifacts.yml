@@ -1,0 +1,72 @@
+name: Benchmark Artifacts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark-artifacts:
+    name: benchmark artifacts (windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      HPS_BENCHMARK_RUNNER_ID: ci-windows-x64-01
+      HPS_BENCHMARK_RUNNER_KIND: ci
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore HighPerformanceSocket.slnx
+
+      - name: Build
+        run: dotnet build HighPerformanceSocket.slnx --no-restore
+
+      - name: Test
+        run: dotnet test HighPerformanceSocket.slnx --no-build --no-restore
+
+      - name: Prepare benchmark artifact paths
+        shell: pwsh
+        run: |
+          $dateRootName = Get-Date -Format "yyyy-MM-dd"
+          $runnerRoot = "artifacts/benchmarks/runners/$env:HPS_BENCHMARK_RUNNER_ID"
+          $dateRoot = "$runnerRoot/$dateRootName"
+          $sessionDir = "$dateRoot/session-01"
+          $artifactName = "benchmark-artifacts-$($env:HPS_BENCHMARK_RUNNER_ID)-$dateRootName-github-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT)"
+
+          New-Item -ItemType Directory -Path $sessionDir -Force | Out-Null
+
+          "BENCH_DATE_ROOT=$dateRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "BENCH_SESSION_DIR=$sessionDir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "BENCH_ARTIFACT_NAME=$artifactName" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Run baseline suite
+        shell: pwsh
+        run: dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj -- --baseline-suite "$env:BENCH_SESSION_DIR" --runs 3
+
+      - name: Write baseline summary
+        shell: pwsh
+        run: dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build -- --summarize-baseline "$env:BENCH_SESSION_DIR" --summary "$env:BENCH_SESSION_DIR/summary.json" --summary-md "$env:BENCH_SESSION_DIR/summary.md"
+
+      - name: Write baseline history
+        shell: pwsh
+        run: dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build -- --summarize-baseline-history "$env:BENCH_DATE_ROOT" --history "$env:BENCH_DATE_ROOT/history.json" --history-md "$env:BENCH_DATE_ROOT/history.md"
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BENCH_ARTIFACT_NAME }}
+          path: ${{ env.BENCH_DATE_ROOT }}
+          if-no-files-found: error
+          retention-days: 14

@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] CI artifact-only workflow skeleton 을 구현한다.
-  - 목적: D090/D091 정책대로 GitHub Actions에서 benchmark raw/summary/history artifact 를 생성하고 업로드한다.
-  - 범위: `.github/workflows/benchmark-artifacts.yml`, root 상태 문서, D091 decision 기록.
-  - 현재 판단: 자동 push/PR trigger 없이 `workflow_dispatch` 전용으로 시작한다.
-  - 검증: workflow static marker scan, `git diff --check`, solution build/test.
+- [ ] CI artifact-only workflow skeleton 을 검토하거나 첫 manual run 결과를 반영한다.
+  - 목적: `.github/workflows/benchmark-artifacts.yml`가 GitHub Actions 환경에서 실제로 artifact 를 생성하는지 확인한다.
+  - 범위: workflow 검토 결과, 첫 `workflow_dispatch` run log/artifact 결과, 필요 시 workflow 후속 보정.
+  - 현재 판단: local static check 는 통과했지만 GitHub-hosted runner 실행은 아직 검증하지 않았다.
+  - 검증: manual run 결과의 raw/summary/history artifact, exit code, upload artifact 이름/path 확인.
 
 ## Deferred Backlog
 
@@ -28,6 +28,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] CI artifact-only workflow skeleton 을 구현했다.
+  - 범위: `.github/workflows/benchmark-artifacts.yml`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 결과: `workflow_dispatch` 전용 GitHub Actions workflow 를 추가했다.
+    job env 는 `HPS_BENCHMARK_RUNNER_ID=ci-windows-x64-01`, `HPS_BENCHMARK_RUNNER_KIND=ci`로 고정한다.
+  - 비고: workflow 는 restore/build/test 이후 `baseline-suite`, `summary`, `history`를 실행하고
+    date root 를 `actions/upload-artifact@v4`로 업로드한다. 자동 push/PR trigger 와 warning/latency failure logic 은 넣지 않았다.
+  - 검증: workflow static marker scan 과 lightweight policy check 를 통과했다.
+    `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 
 - [x] CI artifact-only workflow skeleton 구현 계획을 작성했다.
   - 범위: `docs/superpowers/plans/2026-06-25-ci-artifact-only-workflow-skeleton.md`,
