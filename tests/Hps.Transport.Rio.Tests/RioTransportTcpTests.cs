@@ -124,6 +124,23 @@ namespace Hps.Transport.Rio.Tests
             Assert.Equal(2, registrations);
         }
 
+        // 같은 backing payload block 을 같은 RIO connection 으로 두 번 보낼 때 payload registration 은 한 번만 일어나야 한다.
+        // receive/prefix resource registration 은 connection setup 전에 reset 되므로, reset 이후 증가는 payload cache miss 만 의미한다.
+        [Fact]
+        public async Task TcpLoopback_WhenRioAvailable_ReusesPayloadRegistrationForSameBackingBlock()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioBufferRegistrationDiagnostics diagnostics = GetRioBufferRegistrationDiagnostics();
+            long registrations = await SendSameBackingPayloadTwiceAsync(diagnostics);
+
+            Assert.Equal(1, registrations);
+        }
+
         // RIO close 경로는 receive pump 가 이미 RIOReceive 를 post 한 상태에서 socket/CQ 정리와 경합할 수 있다.
         // 이 테스트는 짧은 connect/accept/close churn 을 반복해 testhost crash 없이 모든 resource close 가 끝나는지 검증한다.
         [Fact]
@@ -299,6 +316,46 @@ namespace Hps.Transport.Rio.Tests
                 Assert.True(transport.TrySend(client, secondSend));
                 second.Release();
 
+                await handler.ReceiveAsync();
+
+                client.Close();
+                server.Close();
+                listener.Close();
+                await transport.StopAsync();
+                await WaitForPoolDrainedAsync(pool);
+                return diagnostics.RegistrationCount;
+            }
+        }
+
+        private static async Task<long> SendSameBackingPayloadTwiceAsync(RioBufferRegistrationDiagnostics diagnostics)
+        {
+            RecordingReceiveHandler handler = new RecordingReceiveHandler(expectedLength: 2);
+            using (RioTransport transport = new RioTransport())
+            {
+                transport.SetReceiveHandler(handler);
+                await transport.StartAsync();
+
+                IConnectionListener listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                IConnection client = await transport.ConnectTcpAsync(listener.LocalEndPoint);
+                IConnection server = await listener.AcceptAsync();
+
+                diagnostics.Reset();
+
+                PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                RefCountedBuffer buffer = pool.RentCounted();
+                buffer.Span[0] = 51;
+                buffer.SetLength(1);
+
+                buffer.AddRef();
+                Assert.True(transport.TrySend(client, new TransportSendBuffer(buffer, 0, 1)));
+                await handler.WaitUntilAtLeastAsync(1);
+                await Task.Delay(TimeSpan.FromMilliseconds(20)).ConfigureAwait(false);
+
+                buffer.Span[0] = 52;
+                buffer.AddRef();
+                Assert.True(transport.TrySend(client, new TransportSendBuffer(buffer, 0, 1)));
+
+                buffer.Release();
                 await handler.ReceiveAsync();
 
                 client.Close();

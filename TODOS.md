@@ -9,12 +9,12 @@
 
 ## Current TODOs
 
-- [ ] RIO payload registration cache Task 2 send path cache lease 를 구현한다.
-  - 목적: RIO payload send path 가 cache hit 에서 per-operation `RIORegisterBuffer`/`RIODeregisterBuffer`를 호출하지 않게 한다.
-  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`.
-  - 현재 판단: 구현 계획은 `docs/superpowers/plans/2026-06-25-rio-payload-registration-cache.md`에 있다.
-  - 다음 자연스러운 step: 같은 backing payload block 을 두 번 보내는 RIO loopback Red test 를 추가하고 send path 를 cache lease 로 전환한다.
-  - 검증: focused payload reuse Red/Green test, focused RIO tests, close/wake 반복, `git diff --check`.
+- [ ] RIO payload cache 구현 self-review 를 수행한다.
+  - 목적: connection-local bounded payload cache 구현이 D107 설계, fan-out ownership, close/dispose 경합과 모순 없는지 확인한다.
+  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/`, D107 spec/plan, root 상태 문서.
+  - 현재 판단: Task 1~3 구현과 session-06 benchmark 수집은 완료됐다.
+  - 다음 자연스러운 step: source/test/spec 를 대조해 must-fix, deferred, no-action 항목을 분리한다.
+  - 검증: self-review 기록, 필요 시 focused RIO tests, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -29,6 +29,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO payload registration cache Task 2/3 send path cache lease 와 검증을 완료했다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
+  - 결과: `RioConnectionResource`가 connection-local payload cache 를 소유하고,
+    payload send path 가 cache lease 로 registered buffer id 를 재사용한다.
+  - 검증: Red payload loopback test `Expected: 1, Actual: 2` 확인, focused registration tests 3개 통과,
+    focused RIO tests 34개 통과, close/wake 핵심 테스트 10회 반복 통과,
+    solution tests 통과, solution build 0경고/0오류, `git diff --check`.
+  - benchmark 관측: session-06 RIO load actual-rate 99.8 Hz/p50 288.4 us/p99 906.9 us,
+    open-loop actual-rate 99.8 Hz/p50 293.8 us/p99 920.5 us.
+  - 비고: 최초 build/test를 병렬 실행했을 때 `obj` 파일 잠금 경합으로 build만 실패했고,
+    test 는 통과했다. build 단독 재실행은 0경고/0오류로 통과했다.
 
 - [x] RIO payload registration cache Task 1 pure owner 를 구현했다.
   - 범위: `src/Hps.Transport.Rio/RioPayloadRegistrationCache.cs`,

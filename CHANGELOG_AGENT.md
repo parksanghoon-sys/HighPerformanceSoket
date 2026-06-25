@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO payload registration cache wiring)
+
+### 작업 단위
+- RIO payload registration cache Task 2/3 send path cache lease 와 검증을 완료했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  `RioConnectionResource`가 connection-local `RioPayloadRegistrationCache`를 소유하고,
+  payload send path 가 backing `byte[]` cache lease 로 `SendRegisteredBufferAsync(...)`를 호출한다.
+  기존 per-operation `SendRegisteredArrayAsync(...)` helper 는 제거했다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`:
+  같은 backing payload block 을 같은 RIO connection 으로 두 번 보낼 때 payload registration 이 한 번만 발생하는지 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 RIO payload cache 구현 self-review 로 이동했다.
+
+### 검증/관측
+- Red: 신규 payload loopback test 가 기존 구현에서 `Expected: 1, Actual: 2` registration count 로 실패.
+- Green: focused payload reuse test 통과, registration reuse tests 3개 통과, focused RIO tests 34개 통과.
+- close/wake 핵심 RIO tests 10회 반복 통과.
+- `dotnet test HighPerformanceSocket.slnx --no-restore`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+  최초 build/test 병렬 실행에서는 `obj` 파일 잠금 경합으로 build만 실패했고, 단독 build 재실행으로 정상 확인했다.
+- benchmark session-06:
+  RIO load actual-rate 99.8 Hz, p50 288.4 us, p99 906.9 us.
+  RIO open-loop actual-rate 99.8 Hz, p50 293.8 us, p99 920.5 us.
+
 ## 2026-06-25 (Codex - RIO payload registration cache owner)
 
 ### 작업 단위

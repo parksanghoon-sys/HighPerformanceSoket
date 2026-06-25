@@ -339,33 +339,15 @@ namespace Hps.Transport
                 if (!MemoryMarshal.TryGetArray(memory, out segment) || segment.Array == null)
                     throw new InvalidOperationException("RIO transport는 pinned byte[] 기반 RefCountedBuffer만 전송할 수 있습니다.");
 
-                await SendRegisteredArrayAsync(
-                    resource,
-                    connection,
-                    segment.Array,
-                    segment.Offset + sendBuffer.Offset,
-                    sendBuffer.Length).ConfigureAwait(false);
-            }
-        }
-
-        private async Task SendRegisteredArrayAsync(
-            RioConnectionResource resource,
-            TransportConnection connection,
-            byte[] block,
-            int offset,
-            int length)
-        {
-            IntPtr bufferId = IntPtr.Zero;
-
-            try
-            {
-                bufferId = RegisterPinnedArray(resource.Native, block);
-                await SendRegisteredBufferAsync(resource, connection, bufferId, offset, length).ConfigureAwait(false);
-            }
-            finally
-            {
-                if (bufferId != IntPtr.Zero)
-                    resource.Native.DeregisterBuffer(bufferId);
+                using (RioPayloadRegistrationCache.RioPayloadBufferLease lease = resource.PayloadRegistrationCache.Acquire(segment.Array))
+                {
+                    await SendRegisteredBufferAsync(
+                        resource,
+                        connection,
+                        lease.BufferId,
+                        segment.Offset + sendBuffer.Offset,
+                        sendBuffer.Length).ConfigureAwait(false);
+                }
             }
         }
 
@@ -488,6 +470,26 @@ namespace Hps.Transport
             }
         }
 
+        private sealed class RioNativeBufferRegistrar : IRioBufferRegistrar
+        {
+            private readonly RioNative _native;
+
+            internal RioNativeBufferRegistrar(RioNative native)
+            {
+                _native = native ?? throw new ArgumentNullException(nameof(native));
+            }
+
+            public IntPtr Register(byte[] block)
+            {
+                return RegisterPinnedArray(_native, block);
+            }
+
+            public void Deregister(IntPtr bufferId)
+            {
+                _native.DeregisterBuffer(bufferId);
+            }
+        }
+
         private sealed class RioConnectionResource : IDisposable
         {
             private readonly object _completionGate;
@@ -508,6 +510,7 @@ namespace Hps.Transport
                 _lengthPrefixBlock = null;
                 ReceiveBufferId = IntPtr.Zero;
                 LengthPrefixBufferId = IntPtr.Zero;
+                PayloadRegistrationCache = new RioPayloadRegistrationCache(new RioNativeBufferRegistrar(Native), capacity: 64);
                 ReceiveCompletionQueue = IntPtr.Zero;
                 SendCompletionQueue = IntPtr.Zero;
                 RequestQueue = IntPtr.Zero;
@@ -580,6 +583,8 @@ namespace Hps.Transport
             }
 
             internal IntPtr LengthPrefixBufferId { get; private set; }
+
+            internal RioPayloadRegistrationCache PayloadRegistrationCache { get; }
 
             internal IntPtr ReceiveCompletionQueue { get; private set; }
 
@@ -665,6 +670,7 @@ namespace Hps.Transport
                     ReceivePool.Return(receiveBlock);
 
                 _lengthPrefixBlock = null;
+                PayloadRegistrationCache.Dispose();
 
                 ReceiveSignal.Dispose();
                 SendSignal.Dispose();

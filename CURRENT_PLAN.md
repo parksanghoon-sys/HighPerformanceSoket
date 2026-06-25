@@ -1050,13 +1050,26 @@ Green 이후 direct internal API tests 로 cache hit/eviction/dispose/fallback 4
 `RioConnectionResource`에 payload cache 를 소유시키고, `SendInFlightAsync(...)` payload 경로가
 `RioPayloadRegistrationCache.Acquire(...)` lease 로 `SendRegisteredBufferAsync(...)`를 호출하게 한다.
 
+RIO payload registration cache Task 2/3 구현과 검증을 완료했다.
+`RioConnectionResource`는 connection-local bounded payload cache 를 소유하고,
+payload send path 는 backing `byte[]` cache lease 로 `SendRegisteredBufferAsync(...)`를 호출한다.
+기존 per-operation `SendRegisteredArrayAsync(...)` helper 는 제거했다.
+Red evidence 는 같은 backing payload block 을 두 번 보내는 RIO loopback test 가 기존 구현에서
+`Expected: 1, Actual: 2` registration count 로 실패한 것이다.
+session-06 RIO benchmark 는 load actual-rate 99.8 Hz/p50 288.4 us/p99 906.9 us,
+open-loop actual-rate 99.8 Hz/p50 293.8 us/p99 920.5 us 다.
+
+다음 작업은 RIO payload cache 구현 self-review 다.
+특히 connection-local cache capacity 64, dispose-delayed deregister, fallback lease, transport-wide cache defer 결정이
+실제 fan-out/close 경로와 모순 없는지 소스와 테스트를 다시 대조한다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO payload registration cache Task 2 send path cache lease 전환을 준비한다.
+이번 cycle 은 RIO payload cache 구현 self-review 를 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.
-- 검증: focused payload reuse Red/Green test, focused RIO tests, close/wake 반복, `git diff --check`.
+- 검증: source/test/spec 대조, focused RIO tests 필요 시 재실행, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
