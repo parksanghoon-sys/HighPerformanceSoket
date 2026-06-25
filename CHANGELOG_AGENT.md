@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - CI workflow command sequence smoke)
+
+### 작업 단위
+- CI artifact-only workflow 의 benchmark command sequence 를 로컬 임시 artifact root 에서 smoke 하고 no-restore 형태로 보정했다.
+
+### 변경 내용
+- `.github/workflows/benchmark-artifacts.yml`:
+  benchmark CLI 실행 세 단계에 모두 `--no-build --no-restore`를 명시했다.
+- `docs/superpowers/plans/2026-06-25-ci-artifact-only-workflow-skeleton.md`:
+  workflow 예시 command 를 실제 구현과 같은 no-restore 형태로 맞췄다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  local command sequence smoke 결과와 남은 GitHub-hosted runner manual run 검증을 기록했다.
+
+### 검증
+- 최초 local full smoke: workflow command sequence 로 `--runs 3`을 실행해 raw report 6개,
+  `summary.json`/`summary.md`, `history.json`/`history.md` 생성을 확인했다.
+- 최초 smoke 관찰: 첫 benchmark `dotnet run`이 restore를 다시 시도해 `NU1900` package vulnerability data warning 을 냈다.
+- 보정 후 local smoke: `--no-build --no-restore` command sequence 로 `--runs 1`을 실행해 raw report 2개,
+  summary/history artifact 생성, `hard-passed=true`, `warning-count=0`을 확인했다.
+- local smoke 후 sandbox NuGet cache 경로가 `project.assets.json`에 반영되어 최초 `dotnet build --no-restore`가
+  누락 analyzer DLL로 실패했다. `dotnet restore HighPerformanceSocket.slnx`를 다시 실행해 실제 환경 cache 기준으로 복구했다.
+- `git diff --check`: exit 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: restore 후 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+
 ## 2026-06-25 (Codex - CI artifact-only workflow skeleton)
 
 ### 작업 단위

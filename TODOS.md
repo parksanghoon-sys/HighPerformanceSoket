@@ -12,7 +12,7 @@
 - [ ] CI artifact-only workflow skeleton 을 검토하거나 첫 manual run 결과를 반영한다.
   - 목적: `.github/workflows/benchmark-artifacts.yml`가 GitHub Actions 환경에서 실제로 artifact 를 생성하는지 확인한다.
   - 범위: workflow 검토 결과, 첫 `workflow_dispatch` run log/artifact 결과, 필요 시 workflow 후속 보정.
-  - 현재 판단: local static check 는 통과했지만 GitHub-hosted runner 실행은 아직 검증하지 않았다.
+  - 현재 판단: local static check 와 local command sequence smoke 는 통과했지만 GitHub-hosted runner 실행은 아직 검증하지 않았다.
   - 검증: manual run 결과의 raw/summary/history artifact, exit code, upload artifact 이름/path 확인.
 
 ## Deferred Backlog
@@ -28,6 +28,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] CI workflow benchmark command sequence 를 local smoke 로 검증하고 no-restore 로 보정했다.
+  - 범위: `.github/workflows/benchmark-artifacts.yml`,
+    `docs/superpowers/plans/2026-06-25-ci-artifact-only-workflow-skeleton.md`, root 상태 문서.
+  - 결과: workflow 의 benchmark CLI 세 단계에 모두 `--no-build --no-restore`를 명시했다.
+  - 비고: 최초 full smoke 는 workflow command sequence 로 `--runs 3`을 실행해 raw report 6개,
+    `summary.json`/`summary.md`, `history.json`/`history.md` 생성을 확인했다. 이때 첫 benchmark `dotnet run`이
+    restore를 다시 시도하며 `NU1900` 경고를 냈으므로, 이미 완료된 restore/build/test 를 재사용하도록 no-restore 형태로 보정했다.
+  - 검증: 보정 후 `--runs 1` local smoke 에서 raw report 2개, summary/history artifact 생성,
+    hard-passed true, warning-count 0을 확인했다. local smoke 후 sandbox NuGet cache 경로로 바뀐 restore asset 은
+    `dotnet restore HighPerformanceSocket.slnx`로 복구했다. `git diff --check` exit 0,
+    solution build 경고 0/오류 0, solution tests 269개 통과.
 
 - [x] CI artifact-only workflow skeleton 을 구현했다.
   - 범위: `.github/workflows/benchmark-artifacts.yml`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
