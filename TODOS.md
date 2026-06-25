@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO TCP pump 선행 하위 단위로 receive/send posting native delegate boundary 를 구현한다.
-  - 목적: 실제 TCP pump 전에 `RIOReceive`/`RIOSend` posting 을 호출 가능한 internal operation 으로 좁혀 검증한다.
+- [ ] RIO TCP pump 선행 하위 단위로 connected RIO send/receive posting completion 을 검증한다.
+  - 목적: 실제 TCP pump 전에 connected loopback socket pair 에서 RIO post→completion dequeue 가 동작하는지 검증한다.
   - 범위: `src/Hps.Transport.Rio/RioNative.cs`,
     `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
   - 현재 판단: Task 5.6에서 buffer registration, Task 5.7에서 CQ, Task 5.8에서 registered I/O socket + RQ 생성은
-    실제 native 호출로 검증됐고, Task 5.9에서 dequeue/RIORESULT marshalling 도 검증됐다.
-  - 다음 자연스러운 step: RIO_BUF marshalling 과 receive/send posting delegate 를 Red-Green으로 고정한다.
+    실제 native 호출로 검증됐고, Task 5.9에서 dequeue/RIORESULT, Task 5.10에서 RIO_BUF receive/send delegate surface 도 검증됐다.
+  - 다음 자연스러운 step: RIO socket 과 일반 peer socket 을 loopback 으로 연결하고 receive/send post completion 을 Red-Green으로 고정한다.
   - 검증: focused RIO tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
@@ -150,6 +150,15 @@
   - 비고: 빈 CQ에서 0개 completion 을 반환하는 경계로 dequeue 호출을 검증했다.
   - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
     focused RIO tests 15개 통과, solution build 경고 0/오류 0, solution tests 284개 통과.
+
+- [x] RIO Task 5.10 native receive/send posting delegate surface 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioNative.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`,
+    `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`, root 상태 문서.
+  - 결과: `RIOReceive`/`RIOSend` delegate 와 SDK `RIO_BUF`에 맞춘 `RioBufferSegment` marshalling 을 추가했다.
+  - 비고: 이번 단위는 operation surface 와 argument validation 만 고정하고, 실제 connected post completion 은 다음 단위로 분리했다.
+  - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
+    focused RIO tests 16개 통과, solution build 경고 0/오류 0, solution tests 285개 통과.
 
 - [x] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,

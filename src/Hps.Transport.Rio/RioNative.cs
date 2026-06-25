@@ -32,6 +32,8 @@ namespace Hps.Transport
         private readonly RioCloseCompletionQueueDelegate _closeCompletionQueue;
         private readonly RioCreateRequestQueueDelegate _createRequestQueue;
         private readonly RioDequeueCompletionDelegate _dequeueCompletion;
+        private readonly RioPostBufferDelegate _receive;
+        private readonly RioPostBufferDelegate _send;
         private readonly RioRegisterBufferDelegate _registerBuffer;
         private readonly RioDeregisterBufferDelegate _deregisterBuffer;
 
@@ -42,6 +44,8 @@ namespace Hps.Transport
             _closeCompletionQueue = Marshal.GetDelegateForFunctionPointer<RioCloseCompletionQueueDelegate>(functionTable.CloseCompletionQueue);
             _createRequestQueue = Marshal.GetDelegateForFunctionPointer<RioCreateRequestQueueDelegate>(functionTable.CreateRequestQueue);
             _dequeueCompletion = Marshal.GetDelegateForFunctionPointer<RioDequeueCompletionDelegate>(functionTable.DequeueCompletion);
+            _receive = Marshal.GetDelegateForFunctionPointer<RioPostBufferDelegate>(functionTable.Receive);
+            _send = Marshal.GetDelegateForFunctionPointer<RioPostBufferDelegate>(functionTable.Send);
             _registerBuffer = Marshal.GetDelegateForFunctionPointer<RioRegisterBufferDelegate>(functionTable.RegisterBuffer);
             _deregisterBuffer = Marshal.GetDelegateForFunctionPointer<RioDeregisterBufferDelegate>(functionTable.DeregisterBuffer);
         }
@@ -120,6 +124,18 @@ namespace Hps.Transport
             }
         }
 
+        internal bool Receive(IntPtr requestQueue, RioBufferSegment[] buffers, IntPtr requestContext)
+        {
+            ValidatePostingArguments(requestQueue, buffers);
+            return PostBuffers(_receive, requestQueue, buffers, requestContext);
+        }
+
+        internal bool Send(IntPtr requestQueue, RioBufferSegment[] buffers, IntPtr requestContext)
+        {
+            ValidatePostingArguments(requestQueue, buffers);
+            return PostBuffers(_send, requestQueue, buffers, requestContext);
+        }
+
         internal IntPtr RegisterBuffer(IntPtr dataBuffer, int dataLength)
         {
             if (dataBuffer == IntPtr.Zero)
@@ -136,6 +152,29 @@ namespace Hps.Transport
                 throw new ArgumentException("RIO buffer id 는 null 일 수 없습니다.", nameof(bufferId));
 
             _deregisterBuffer(bufferId);
+        }
+
+        private static void ValidatePostingArguments(IntPtr requestQueue, RioBufferSegment[] buffers)
+        {
+            if (requestQueue == IntPtr.Zero)
+                throw new ArgumentException("RIO request queue handle 은 null 일 수 없습니다.", nameof(requestQueue));
+            if (buffers == null)
+                throw new ArgumentNullException(nameof(buffers));
+            if (buffers.Length == 0)
+                throw new ArgumentException("RIO buffer segment 배열은 비어 있을 수 없습니다.", nameof(buffers));
+        }
+
+        private static bool PostBuffers(RioPostBufferDelegate post, IntPtr requestQueue, RioBufferSegment[] buffers, IntPtr requestContext)
+        {
+            GCHandle handle = GCHandle.Alloc(buffers, GCHandleType.Pinned);
+            try
+            {
+                return post(requestQueue, handle.AddrOfPinnedObject(), (uint)buffers.Length, 0, requestContext) != 0;
+            }
+            finally
+            {
+                handle.Free();
+            }
         }
 
         internal static bool TryLoadFunctionTable(out RioNative? native)
@@ -257,6 +296,14 @@ namespace Hps.Transport
         private delegate uint RioDequeueCompletionDelegate(IntPtr completionQueue, IntPtr results, uint resultCount);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate int RioPostBufferDelegate(
+            IntPtr requestQueue,
+            IntPtr buffers,
+            uint bufferCount,
+            uint flags,
+            IntPtr requestContext);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate IntPtr RioRegisterBufferDelegate(IntPtr dataBuffer, uint dataLength);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
@@ -305,5 +352,27 @@ namespace Hps.Transport
         internal uint BytesTransferred;
         internal ulong SocketContext;
         internal ulong RequestContext;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct RioBufferSegment
+    {
+        internal IntPtr BufferId;
+        internal uint Offset;
+        internal uint Length;
+
+        internal RioBufferSegment(IntPtr bufferId, int offset, int length)
+        {
+            if (bufferId == IntPtr.Zero)
+                throw new ArgumentException("RIO buffer id 는 null 일 수 없습니다.", nameof(bufferId));
+            if (offset < 0)
+                throw new ArgumentOutOfRangeException(nameof(offset), "RIO buffer offset 은 0 이상이어야 합니다.");
+            if (length <= 0)
+                throw new ArgumentOutOfRangeException(nameof(length), "RIO buffer length 는 1 이상이어야 합니다.");
+
+            BufferId = bufferId;
+            Offset = (uint)offset;
+            Length = (uint)length;
+        }
     }
 }

@@ -1190,6 +1190,45 @@ git commit -m "feat: add rio completion dequeue delegate"
 
 ---
 
+### Task 5.10: Native Receive/Send Posting Delegate Surface
+
+**Files:**
+- Modify: `src/Hps.Transport.Rio/RioNative.cs`
+- Modify: `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`
+- Modify: root state docs
+
+**Interfaces:**
+- Produces: `internal bool Receive(IntPtr requestQueue, RioBufferSegment[] buffers, IntPtr requestContext)`
+- Produces: `internal bool Send(IntPtr requestQueue, RioBufferSegment[] buffers, IntPtr requestContext)`
+- Produces: `internal struct RioBufferSegment`
+
+- [ ] **Step 1: Write the failing test**
+
+Add a test that detects missing `Receive`/`Send` operation boundaries before pump wiring.
+
+- [ ] **Step 2: Run and verify Red**
+
+Expected: missing operation boundary assertion failure.
+
+- [ ] **Step 3: Implement and refactor**
+
+Marshal `RIOReceive` and `RIOSend` through a shared `RIO_BUF` posting delegate.
+Add `RioBufferSegment` matching SDK `RIO_BUF`.
+After Green, refactor the test to direct internal API calls and validate argument failures.
+
+- [ ] **Step 4: Verify and commit**
+
+Run focused RIO tests, solution build/test, and `git diff --check`.
+
+Commit:
+
+```powershell
+git add src/Hps.Transport.Rio/RioNative.cs tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs docs/superpowers/plans/2026-06-25-windows-rio-backend.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md
+git commit -m "feat: add rio send receive delegates"
+```
+
+---
+
 ### Task 6: TCP Pump And Contract Test Reuse
 
 **Files:**

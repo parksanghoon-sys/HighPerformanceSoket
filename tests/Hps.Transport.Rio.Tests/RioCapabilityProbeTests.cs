@@ -189,6 +189,33 @@ namespace Hps.Transport.Rio.Tests
             }
         }
 
+        // receive/send delegate surface 는 RIO_BUF marshalling 을 pump 밖에서 먼저 고정한다.
+        // 실제 connected posting completion 은 다음 단위에서 별도 loopback 으로 검증한다.
+        [Fact]
+        public void ReceiveSendOperations_WhenMissing_AreDetectedBeforePump()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioNative? native;
+            Assert.True(RioNative.TryLoadFunctionTable(out native));
+            Assert.NotNull(native);
+
+            RioBufferSegment[] buffers = new[] { new RioBufferSegment(new IntPtr(1), 0, 1) };
+
+            Assert.Throws<ArgumentException>(delegate()
+            {
+                native.Receive(IntPtr.Zero, buffers, IntPtr.Zero);
+            });
+            Assert.Throws<ArgumentException>(delegate()
+            {
+                native.Send(IntPtr.Zero, buffers, IntPtr.Zero);
+            });
+        }
+
         [Fact]
         public async Task RioTransport_WhenConstructed_StartStopDoesNotThrow()
         {

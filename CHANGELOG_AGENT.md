@@ -5,6 +5,29 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO Task 5.10 send/receive delegate surface)
+
+### 작업 단위
+- Windows RIO TCP pump 선행 하위 단위로 native receive/send posting delegate surface 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioNative.cs`:
+  loaded RIO function table 의 `RIOReceive`/`RIOSend` pointer 를 shared posting delegate 로 marshal 하고,
+  SDK `RIO_BUF` layout 에 맞춘 `RioBufferSegment` struct 와 `Receive(...)`/`Send(...)` operation 을 추가했다.
+- `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`:
+  receive/send operation boundary Red 이후 direct internal API argument validation 으로 테스트를 정리했다.
+- `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`:
+  TCP pump 전에 receive/send delegate surface 를 검증하는 Task 5.10을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 5.10 완료와 다음 connected RIO send/receive posting completion 진입점을 반영했다.
+
+### 검증
+- Red: `Receive`/`Send` operation boundary 부재로 `Assert.NotNull() Failure: Value is null`을 확인했다.
+- Green/refactor: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 16개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 285개 통과, 실패 0.
+- `git diff --check`: 통과.
+
 ## 2026-06-25 (Codex - RIO Task 5.9 completion dequeue delegate)
 
 ### 작업 단위
