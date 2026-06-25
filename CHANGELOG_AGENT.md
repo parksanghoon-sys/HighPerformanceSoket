@@ -5,6 +5,22 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO drop-oldest contract decision)
+
+### 작업 단위
+- RIO send queue/drop-oldest live saturation 테스트 후보를 D100으로 정리했다.
+
+### 변경 내용
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  RIO TCP drop-oldest ownership 은 shared `TransportConnection` runtime 계약 테스트를 source of truth 로 두고,
+  live RIO loopback saturation 테스트는 flake 위험 때문에 추가하지 않는다고 명시했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 진입점을 RIO default factory opt-in policy 문서/테스트 정합성 재평가로 이동했다.
+
+### 검증
+- `tests/Hps.Transport.Tests/Runtime/TransportSendQueueTests.cs`의 drop-oldest, in-flight release,
+  close drain, diagnostics callback coverage 를 확인했다.
+
 ## 2026-06-25 (Codex - RIO handler exception contract)
 
 ### 작업 단위

@@ -855,9 +855,19 @@ server receive handler 가 예외를 던질 때 RIO receive pump 가 해당 conn
 실제 socket pump 가 빠르게 drain 하면 queue saturation 을 재현하기 어려우므로, 테스트가 brittle 해질 경우 forced queue owner 나
 runtime 공통 계약 테스트 재사용으로 범위를 줄인다.
 
+RIO send queue/drop-oldest 는 D100으로 범위를 닫았다.
+RIO는 `TransportBase.CreateConnection()`이 만든 shared `TransportConnection` pending queue 를 그대로 쓰므로,
+drop-oldest ownership, in-flight release, close drain, diagnostics callback 은
+`tests/Hps.Transport.Tests/Runtime/TransportSendQueueTests.cs`를 source of truth 로 둔다.
+live RIO loopback saturation 은 OS socket drain 속도에 의존해 flake 가능성이 높으므로 별도 테스트로 추가하지 않는다.
+
+다음 작업은 RIO opt-in phase 의 default factory policy 를 최종 재확인하는 것이다.
+이미 `CreateDefault_DuringRioOptInPhase_ReturnsSaeaTransport`가 존재하므로, 필요한 작업은 추가 코드보다
+현재 상태 문서와 decision 이 factory 승격 보류를 명확히 가리키는지 확인하는 쪽이다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO send queue/drop-oldest contract 검증 후보를 재평가한다.
+이번 cycle 은 RIO default factory opt-in policy 문서/테스트 정합성을 재평가한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.

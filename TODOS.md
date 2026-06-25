@@ -9,14 +9,14 @@
 
 ## Current TODOs
 
-- [ ] RIO send queue/drop-oldest contract 검증 후보를 재평가한다.
-  - 목적: RIO TCP pump 를 default factory 후보로 올리기 전에 live RIO loopback 에서 send queue ownership/drop-oldest 를 의미 있게 검증할 수 있는지 판단한다.
-  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/`, `docs/agent-state/reviews/2026-06-25-rio-task6-self-review.md`.
-  - 현재 판단: send partial completion loop, length-prefix/larger-payload coverage, close/churn stress, handler exception close notify 는 보강됐다.
-    close/churn stress 10회 반복 실행이 통과했으므로 full outstanding request owner 재구조화는 아직 증거 부족으로 deferred 다.
-  - 다음 자연스러운 step: RIO live loopback 으로 queue saturation 을 안정적으로 만들 수 있는지 먼저 확인한다.
-    socket pump 가 너무 빨라 brittle 하면 forced queue owner 나 runtime 공통 계약 테스트 재사용으로 범위를 줄인다.
-  - 검증: focused RIO tests, solution build/test, `git diff --check`.
+- [ ] RIO default factory opt-in policy 문서/테스트 정합성을 재평가한다.
+  - 목적: RIO TCP pump 가 opt-in backend 로 충분히 검증됐더라도 `TransportFactory.CreateDefault()`를 아직 SAEA로 유지한다는 정책이 테스트와 문서에 일관되게 남아 있는지 확인한다.
+  - 범위: `src/Hps.Transport/Runtime/TransportFactory.cs`, `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, `CURRENT_PLAN.md`, `DECISIONS.md`, 관련 archive 문서.
+  - 현재 판단: RIO delivery/large payload/length-prefix/handler exception/close churn 은 보강됐고,
+    drop-oldest ownership 은 D100에 따라 shared `TransportConnection` runtime 계약 테스트를 source of truth 로 둔다.
+  - 다음 자연스러운 step: factory 기본값을 바꾸는 코드가 없는지 확인하고, 이미 존재하는
+    `CreateDefault_DuringRioOptInPhase_ReturnsSaeaTransport` 테스트와 decision 문구가 충분하면 문서 정합성만 닫는다.
+  - 검증: focused factory/RIO tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -43,6 +43,12 @@
   - 결과: receive handler 예외가 background task fault 로 남지 않고 connection close notification 으로 수렴하는지 RIO loopback 에서 검증한다.
   - 검증: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 23개 통과.
   - 비고: 기존 RIO 구현이 이미 close notification 정책을 만족해 production 변경은 없었다.
+
+- [x] RIO send queue/drop-oldest live saturation 테스트 후보를 D100으로 닫았다.
+  - 범위: `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: RIO는 shared `TransportConnection` pending queue 를 그대로 쓰므로 drop-oldest ownership 은 공통 runtime 계약 테스트를 기준으로 검증한다.
+  - 검증: 문서 정합성 검토, `TransportSendQueueTests` coverage 확인.
+  - 비고: live RIO loopback queue saturation 은 OS socket drain 속도에 의존해 flake 가능성이 높으므로 별도 테스트로 추가하지 않는다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,
