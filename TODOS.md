@@ -9,15 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO IOCP/RIONotify completion wait Task 3 RIONotify + IOCP wiring 을 구현한다.
-  - 목적: `RioCompletionPort` 실제 IOCP pump 와 `RioConnectionResource` notification CQ 를 연결해
-    `WaitForCompletionAsync(...)`의 timer polling fallback 을 native notification wait 로 교체한다.
-  - 범위: `src/Hps.Transport.Rio/RioCompletionPort.cs`, `src/Hps.Transport.Rio/RioCompletionSignal.cs`,
-    `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioNative.cs`,
-    `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`.
-  - 현재 판단: Task 1 native shape 와 Task 2 managed signal lifecycle 은 완료됐다.
-  - 다음 자연스러운 step: 기존 D102 latency test 를 regression guard 로 재확인한 뒤, IOCP pump wiring 을 구현한다.
-  - 검증: focused RIO tests, close/wake 반복, solution build/test.
+- [ ] RIO IOCP/RIONotify completion wait Task 4 benchmark observation/state update 를 완료한다.
+  - 목적: session-04 RIO benchmark 결과를 상태 문서에 정리하고, completion wait 이후 남은 최적화 후보를 분리한다.
+  - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
+    `docs/agent-state/decisions/2026-06.md`.
+  - 현재 판단: IOCP notification wait 로 RIO load p99 739.5 us, open-loop p99 948.8 us 를 관측했다(D105).
+  - 다음 자연스러운 step: verification 결과와 benchmark 숫자를 최종 정리하고 `git diff --check` 후 커밋한다.
+  - 검증: focused RIO tests, solution build/test, benchmark artifact 확인, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -133,6 +131,17 @@
   - 검증: Red type absence assertion failure 확인, focused completion port tests 2개 통과,
     focused RIO tests 27개 통과, solution build 0경고/0오류.
   - 비고: 다음 Task 3에서 notification CQ creation 과 IOCP pump 를 실제 transport resource 에 연결한다.
+
+- [x] RIO IOCP/RIONotify completion wait Task 3 RIONotify + IOCP wiring 을 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioCompletionPort.cs`, `src/Hps.Transport.Rio/RioCompletionSignal.cs`,
+    `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioCompletionPortTests.cs`, root 상태 문서.
+  - 결과: `WaitForCompletionAsync(...)`는 더 이상 timer polling fallback 을 사용하지 않고,
+    `RIONotify`를 arm 한 뒤 shared IOCP pump 가 깨우는 signal 을 기다린다.
+  - 검증: focused RIO tests 27개 통과, close/wake 핵심 테스트 10회 반복 통과,
+    solution build 0경고/0오류, solution tests 통과.
+  - benchmark 관측: D102 session-03 RIO load p99 16689.0 us/open-loop p99 16736.2 us 에서
+    session-04 RIO load p99 739.5 us/open-loop p99 948.8 us 로 개선됐다.
+  - 비고: per-operation buffer registration 비용, multi-result drain, batching 은 별도 후속 최적화 후보로 분리한다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,

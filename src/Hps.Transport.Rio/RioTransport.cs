@@ -22,13 +22,12 @@ namespace Hps.Transport
         private const int MaxOutstandingReceive = 1;
         private const int MaxOutstandingSend = 1;
         private const int SingleDataBufferPerRequest = 1;
-        private const int FastCompletionPollYieldCount = 4096;
-        private const int CompletionPollDelayMilliseconds = 1;
         private const int TcpLengthPrefixSize = 4;
 
         private readonly object _gate;
         private readonly List<RioConnectionListener> _listeners;
         private readonly List<TransportConnection> _connections;
+        private RioCompletionPort? _completionPort;
         private bool _started;
         private bool _stopped;
 
@@ -76,6 +75,10 @@ namespace Hps.Transport
 
             for (int i = 0; i < connections.Length; i++)
                 connections[i].Close();
+
+            RioCompletionPort? completionPort = _completionPort;
+            _completionPort = null;
+            completionPort?.Dispose();
 
             return default(ValueTask);
         }
@@ -152,7 +155,7 @@ namespace Hps.Transport
         private TransportConnection CreateRioConnection(Socket socket)
         {
             RioNative native = LoadRioNative();
-            RioConnectionResource resource = new RioConnectionResource(native, socket);
+            RioConnectionResource resource = new RioConnectionResource(native, socket, GetOrCreateCompletionPort());
             TransportConnection connection = new TransportConnection(
                 CreateEndpointId(),
                 resource,
@@ -171,6 +174,17 @@ namespace Hps.Transport
             {
                 connection.Close();
                 throw;
+            }
+        }
+
+        private RioCompletionPort GetOrCreateCompletionPort()
+        {
+            lock (_gate)
+            {
+                if (_completionPort == null)
+                    _completionPort = RioCompletionPort.Create();
+
+                return _completionPort;
             }
         }
 
@@ -239,6 +253,7 @@ namespace Hps.Transport
                     RioResult completion = await WaitForCompletionAsync(
                         resource,
                         resource.ReceiveCompletionQueue,
+                        resource.ReceiveSignal,
                         connection).ConfigureAwait(false);
 
                     if (completion.Status != 0 || completion.BytesTransferred == 0)
@@ -369,6 +384,7 @@ namespace Hps.Transport
                     RioResult completion = await WaitForCompletionAsync(
                         resource,
                         resource.SendCompletionQueue,
+                        resource.SendSignal,
                         connection).ConfigureAwait(false);
 
                     if (completion.Status != 0 || completion.BytesTransferred == 0 || completion.BytesTransferred > remaining)
@@ -389,10 +405,10 @@ namespace Hps.Transport
         private static async Task<RioResult> WaitForCompletionAsync(
             RioConnectionResource resource,
             IntPtr completionQueue,
+            RioCompletionSignal signal,
             TransportConnection connection)
         {
             RioResult[] results = new RioResult[1];
-            int emptyPollCount = 0;
 
             while (true)
             {
@@ -406,20 +422,8 @@ namespace Hps.Transport
                 if (connection.IsClosed)
                     throw new ObjectDisposedException(nameof(TransportConnection));
 
-                emptyPollCount++;
-                if (emptyPollCount <= FastCompletionPollYieldCount)
-                {
-                    // RIO completion 은 보통 post 직후 짧은 시간 안에 들어온다.
-                    // 빈 CQ마다 곧바로 Task.Delay(1)로 내려가면 Windows timer granularity 때문에
-                    // 작은 loopback 메시지도 15ms 안팎으로 밀릴 수 있으므로, 제한된 횟수만큼은
-                    // timer sleep 없이 scheduler 에 양보한 뒤 다시 dequeue 한다.
-                    await Task.Yield();
-                    continue;
-                }
-
-                // 장시간 idle 이거나 peer 가 아무 completion 도 만들지 않는 경우에는 busy-spin 으로
-                // CPU를 점유하지 않도록 기존 1ms polling fallback 을 유지한다.
-                await Task.Delay(CompletionPollDelayMilliseconds).ConfigureAwait(false);
+                resource.ArmNotification(completionQueue, signal);
+                await signal.WaitAsync().ConfigureAwait(false);
             }
         }
 
@@ -487,20 +491,25 @@ namespace Hps.Transport
             private readonly object _completionGate;
             private int _disposed;
 
-            internal RioConnectionResource(RioNative native, Socket socket)
+            internal RioConnectionResource(RioNative native, Socket socket, RioCompletionPort completionPort)
             {
                 Native = native ?? throw new ArgumentNullException(nameof(native));
                 Socket = socket ?? throw new ArgumentNullException(nameof(socket));
+                if (completionPort == null)
+                    throw new ArgumentNullException(nameof(completionPort));
+
                 _completionGate = new object();
                 ReceivePool = new PinnedBlockMemoryPool(ReceiveBlockSize);
                 ReceiveCompletionQueue = IntPtr.Zero;
                 SendCompletionQueue = IntPtr.Zero;
                 RequestQueue = IntPtr.Zero;
+                ReceiveSignal = completionPort.CreateSignal();
+                SendSignal = completionPort.CreateSignal();
 
                 try
                 {
-                    ReceiveCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize);
-                    SendCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize);
+                    ReceiveCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize, ReceiveSignal.NotificationCompletionPointer);
+                    SendCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize, SendSignal.NotificationCompletionPointer);
                     RequestQueue = Native.CreateRequestQueue(
                         Socket,
                         MaxOutstandingReceive,
@@ -532,6 +541,10 @@ namespace Hps.Transport
 
             internal IntPtr RequestQueue { get; private set; }
 
+            internal RioCompletionSignal ReceiveSignal { get; }
+
+            internal RioCompletionSignal SendSignal { get; }
+
             internal bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 
             internal uint DequeueCompletion(IntPtr completionQueue, RioResult[] results)
@@ -542,6 +555,29 @@ namespace Hps.Transport
                         throw new ObjectDisposedException(nameof(RioConnectionResource));
 
                     return Native.DequeueCompletion(completionQueue, results);
+                }
+            }
+
+            internal void ArmNotification(IntPtr completionQueue, RioCompletionSignal signal)
+            {
+                lock (_completionGate)
+                {
+                    if (IsDisposed)
+                        throw new ObjectDisposedException(nameof(RioConnectionResource));
+
+                    if (!signal.TryArmNotification())
+                        return;
+
+                    int notifyResult = Native.Notify(completionQueue);
+                    if (notifyResult == 0)
+                        return;
+
+                    const int WsaEAlready = 10037;
+                    if (notifyResult == WsaEAlready)
+                        return;
+
+                    signal.MarkNotificationArmFailed();
+                    throw new SocketException(notifyResult);
                 }
             }
 
@@ -566,6 +602,9 @@ namespace Hps.Transport
                     if (sendCompletionQueue != IntPtr.Zero)
                         Native.CloseCompletionQueue(sendCompletionQueue);
                 }
+
+                ReceiveSignal.Dispose();
+                SendSignal.Dispose();
             }
         }
     }

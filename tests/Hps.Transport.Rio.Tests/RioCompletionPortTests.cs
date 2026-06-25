@@ -1,6 +1,6 @@
 using System;
-using System.Reflection;
 using System.Threading.Tasks;
+using Hps.Transport;
 using Xunit;
 
 namespace Hps.Transport.Rio.Tests
@@ -12,13 +12,12 @@ namespace Hps.Transport.Rio.Tests
         [Fact]
         public async Task Signal_WhenCompleted_WakesSingleWaiter()
         {
-            Type portType = GetRequiredType("Hps.Transport.RioCompletionPort");
-            using (IDisposable port = (IDisposable)InvokeStatic(portType, "CreateForTests"))
-            using (IDisposable signal = (IDisposable)InvokeInstance(port, "CreateSignalForTests"))
+            using (RioCompletionPort port = RioCompletionPort.CreateForTests())
+            using (RioCompletionSignal signal = port.CreateSignalForTests())
             {
-                Task wait = (Task)InvokeInstance(signal, "WaitAsync");
+                Task wait = signal.WaitAsync();
 
-                InvokeInstance(signal, "CompleteForTests");
+                signal.CompleteForTests();
 
                 Task completed = await Task.WhenAny(wait, Task.Delay(TimeSpan.FromSeconds(1)));
                 Assert.Same(wait, completed);
@@ -31,11 +30,10 @@ namespace Hps.Transport.Rio.Tests
         [Fact]
         public async Task Signal_WhenDisposed_WakesWaiterAsDisposed()
         {
-            Type portType = GetRequiredType("Hps.Transport.RioCompletionPort");
-            using (IDisposable port = (IDisposable)InvokeStatic(portType, "CreateForTests"))
+            using (RioCompletionPort port = RioCompletionPort.CreateForTests())
             {
-                IDisposable signal = (IDisposable)InvokeInstance(port, "CreateSignalForTests");
-                Task wait = (Task)InvokeInstance(signal, "WaitAsync");
+                RioCompletionSignal signal = port.CreateSignalForTests();
+                Task wait = signal.WaitAsync();
 
                 signal.Dispose();
 
@@ -44,27 +42,6 @@ namespace Hps.Transport.Rio.Tests
                     await wait;
                 });
             }
-        }
-
-        private static Type GetRequiredType(string fullName)
-        {
-            Type? type = typeof(RioTransport).Assembly.GetType(fullName);
-            Assert.NotNull(type);
-            return type!;
-        }
-
-        private static object InvokeStatic(Type type, string name)
-        {
-            MethodInfo? method = type.GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic);
-            Assert.NotNull(method);
-            return method!.Invoke(null, Array.Empty<object>())!;
-        }
-
-        private static object InvokeInstance(object instance, string name)
-        {
-            MethodInfo? method = instance.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.NotNull(method);
-            return method!.Invoke(instance, Array.Empty<object>())!;
         }
     }
 }

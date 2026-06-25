@@ -5,6 +5,34 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO IOCP notification wiring)
+
+### 작업 단위
+- RIO IOCP/RIONotify completion wait Task 3 RIONotify + IOCP wiring 을 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioCompletionPort.cs`:
+  실제 IOCP handle, pump task, completion key 기반 signal lookup, shutdown wake 를 연결했다.
+- `src/Hps.Transport.Rio/RioCompletionSignal.cs`:
+  notification memory, completion key, pre-wait signal 보존, notify armed 상태를 추가했다.
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  receive/send CQ를 notification CQ로 생성하고,
+  `WaitForCompletionAsync(...)`를 polling fallback 없는 `RIONotify` + signal wait 로 전환했다.
+- `tests/Hps.Transport.Rio.Tests/RioCompletionPortTests.cs`:
+  Red를 위한 reflection helper 를 제거하고 internal type 직접 테스트로 정리했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D105로 IOCP notification wait 가 RIO p99 tail 을 해소한 기준선이라고 기록했다.
+
+### 검증/관측
+- 기존 latency regression guard 확인 후 구현했다.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 27개 통과.
+- close/wake 핵심 RIO tests 10회 반복 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-restore`: 통과.
+- benchmark session-04:
+  RIO load actual-rate 99.8 Hz, p50 319.3 us, p99 739.5 us.
+  RIO open-loop actual-rate 99.8 Hz, p50 323.2 us, p99 948.8 us.
+
 ## 2026-06-25 (Codex - RIO completion signal owners)
 
 ### 작업 단위

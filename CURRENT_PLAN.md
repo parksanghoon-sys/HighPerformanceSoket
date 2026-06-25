@@ -972,9 +972,20 @@ focused completion port tests 2개, focused RIO tests 27개, solution build 0경
 `RioCompletionPort`에 실제 IOCP handle/pump 를 붙이고,
 `RioConnectionResource`가 receive/send CQ를 notification CQ로 만들도록 연결한다.
 
+D104 구현 계획 Task 3 RIONotify + IOCP wiring 을 완료했다.
+`RioCompletionPort`는 실제 IOCP handle 과 pump task 를 소유하고,
+`RioCompletionSignal`은 CQ별 notification memory, completion key, waiter wake 를 관리한다.
+`RioConnectionResource`는 receive/send CQ를 notification CQ로 생성하고,
+`WaitForCompletionAsync(...)`는 polling fallback 없이 `RIONotify` arm 후 signal wait 로 completion 을 기다린다.
+검증은 focused RIO tests 27개, close/wake 핵심 테스트 10회 반복, solution build/test 전체 통과다.
+benchmark session-04에서 RIO load p99 는 739.5 us, open-loop p99 는 948.8 us 로 내려갔다(D105).
+
+다음 작업은 계획 Task 4 benchmark observation/state update 마무리다.
+이미 session-04 artifact 는 수집했으므로, 남은 일은 final state doc 정리와 필요 시 후속 최적화 후보를 deferred 로 분리하는 것이다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO IOCP/RIONotify completion wait Task 3 구현을 준비한다.
+이번 cycle 은 RIO IOCP/RIONotify completion wait Task 4 state update 를 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.
