@@ -999,9 +999,18 @@ payload `RefCountedBuffer` registration cache 는 pool/array/native provider lif
 receive/prefix per-operation registration 제거를 TDD 가능한 task 로 나누고,
 payload path 는 per-operation registration 유지 또는 별도 cache task 로 명시한다.
 
+D106 Task A 구현 계획을 완료했다.
+계획 문서는 `docs/superpowers/plans/2026-06-25-rio-registered-buffer-reuse-task-a.md`다.
+작업은 receive block resource registration, length-prefix resource registration,
+verification/benchmark observation 의 3개 task 로 나뉜다.
+
+다음 작업은 D106 Task A 구현이다.
+먼저 receive block 을 `RioConnectionResource` lifetime 에 대여/등록하고,
+그 다음 length-prefix block 을 resource lifetime 에 등록한다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO registered buffer reuse Task A 구현 계획을 준비한다.
+이번 cycle 은 RIO registered buffer reuse Task A 구현을 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.

@@ -9,12 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO registered buffer reuse Task A 구현 계획을 작성한다.
-  - 목적: receive block 과 length-prefix block 의 resource lifetime registration 을 구현 가능한 TDD task 로 나눈다.
+- [ ] RIO registered buffer reuse Task A 를 구현한다.
+  - 목적: receive block 과 length-prefix block 을 connection resource lifetime 에 등록해 per-operation register/deregister 비용을 제거한다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/`, benchmark observation.
-  - 현재 판단: D106은 receive/prefix 먼저, payload cache 별도 분리를 결정했다.
-  - 다음 자연스러운 step: `docs/superpowers/plans/`에 receive/prefix registration reuse 구현 계획을 작성한다.
-  - 검증: spec coverage self-review, placeholder scan, `git diff --check`.
+  - 현재 판단: Task A 구현 계획은 `docs/superpowers/plans/2026-06-25-rio-registered-buffer-reuse-task-a.md`에 있다.
+    Payload `RefCountedBuffer` registration cache 는 D106에 따라 별도 단위다.
+  - 다음 자연스러운 step: receive block resource lifetime registration 부터 구현하고 focused RIO tests 를 확인한다.
+  - 검증: focused RIO tests, close/wake 반복, solution build/test, session-05 benchmark, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -29,6 +30,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO registered buffer reuse Task A 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-25-rio-registered-buffer-reuse-task-a.md`, root 상태 문서.
+  - 결과: receive block registration, length-prefix registration, verification/benchmark observation 의 3개 task 로 분해했다.
+  - 검증: spec coverage self-review, placeholder scan, `git diff --check`.
+  - 비고: payload registration cache 는 별도 단위다.
 
 - [x] RIO TCP close/churn stress coverage 를 추가했다.
   - 범위: `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.

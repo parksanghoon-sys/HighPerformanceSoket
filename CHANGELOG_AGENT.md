@@ -5,6 +5,22 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO registered buffer reuse Task A plan)
+
+### 작업 단위
+- RIO registered buffer reuse Task A 구현 계획을 작성했다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-06-25-rio-registered-buffer-reuse-task-a.md`:
+  receive block 과 length-prefix block resource lifetime registration 구현을
+  receive registration, prefix registration, verification/benchmark observation 의 3개 task 로 나눴다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 D106 Task A 구현으로 이동했다.
+
+### 검증
+- plan placeholder scan 을 수행했고, 실제 placeholder 는 발견하지 못했다.
+- `git diff --check` 통과.
+
 ## 2026-06-25 (Codex - RIO registered buffer reuse design)
 
 ### 작업 단위
