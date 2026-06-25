@@ -21,14 +21,36 @@ namespace Hps.Transport
         // GUID 가 틀리면 WSAIoctl 은 성공하지 못하거나 다른 extension table 을 돌려줄 수 있다.
         private static readonly Guid WsaIdMultipleRio = new Guid("8509e081-96dd-4005-b165-9e2ee8c79e3f");
         private readonly RioExtensionFunctionTable _functionTable;
+        private readonly RioCreateCompletionQueueDelegate _createCompletionQueue;
+        private readonly RioCloseCompletionQueueDelegate _closeCompletionQueue;
         private readonly RioRegisterBufferDelegate _registerBuffer;
         private readonly RioDeregisterBufferDelegate _deregisterBuffer;
 
         private RioNative(RioExtensionFunctionTable functionTable)
         {
             _functionTable = functionTable;
+            _createCompletionQueue = Marshal.GetDelegateForFunctionPointer<RioCreateCompletionQueueDelegate>(functionTable.CreateCompletionQueue);
+            _closeCompletionQueue = Marshal.GetDelegateForFunctionPointer<RioCloseCompletionQueueDelegate>(functionTable.CloseCompletionQueue);
             _registerBuffer = Marshal.GetDelegateForFunctionPointer<RioRegisterBufferDelegate>(functionTable.RegisterBuffer);
             _deregisterBuffer = Marshal.GetDelegateForFunctionPointer<RioDeregisterBufferDelegate>(functionTable.DeregisterBuffer);
+        }
+
+        internal IntPtr CreateCompletionQueue(int queueSize)
+        {
+            if (queueSize <= 0)
+                throw new ArgumentOutOfRangeException(nameof(queueSize), "RIO completion queue 크기는 1 이상이어야 합니다.");
+
+            // NotificationCompletion 을 null 로 두면 별도 event/IOCP notification 없이 poll/dequeue 방식으로 사용한다.
+            // 초기 pump 는 명시 notification 을 붙이기 전 단일 worker polling 모델로 검증한다.
+            return _createCompletionQueue((uint)queueSize, IntPtr.Zero);
+        }
+
+        internal void CloseCompletionQueue(IntPtr completionQueue)
+        {
+            if (completionQueue == IntPtr.Zero)
+                throw new ArgumentException("RIO completion queue handle 은 null 일 수 없습니다.", nameof(completionQueue));
+
+            _closeCompletionQueue(completionQueue);
         }
 
         internal IntPtr RegisterBuffer(IntPtr dataBuffer, int dataLength)
@@ -116,6 +138,12 @@ namespace Hps.Transport
             out uint bytesReturned,
             IntPtr overlapped,
             IntPtr completionRoutine);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate IntPtr RioCreateCompletionQueueDelegate(uint queueSize, IntPtr notificationCompletion);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate void RioCloseCompletionQueueDelegate(IntPtr completionQueue);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate IntPtr RioRegisterBufferDelegate(IntPtr dataBuffer, uint dataLength);

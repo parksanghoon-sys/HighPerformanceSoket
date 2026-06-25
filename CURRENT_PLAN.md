@@ -773,17 +773,22 @@ RIO 구현 계획 Task 5.6(native buffer registration delegate)를 완료했다.
 `RIORegisterBuffer`/`RIODeregisterBuffer` delegate 를 호출하며, `PinnedBlockMemoryPool` block 을 실제로
 등록/해제하는 focused 테스트로 검증했다.
 
-다음 작업은 계획 Task 6에 들어가기 위한 CQ/RQ native delegate boundary 다.
-buffer registration 은 검증됐지만, TCP pump 는 completion queue/request queue 생성, completion dequeue,
-receive/send posting delegate 가 더 필요하다. 이를 한 번에 pump 로 묶지 말고 먼저 native operation boundary 로 나눈다.
+RIO 구현 계획 Task 5.7(native completion queue delegate)를 완료했다.
+`RioNative.CreateCompletionQueue(...)`/`CloseCompletionQueue(...)`가 loaded function table 의
+`RIOCreateCompletionQueue`/`RIOCloseCompletionQueue` delegate 를 호출하며, null notification completion 기반
+polling CQ 생성/해제를 focused 테스트로 검증했다.
+
+다음 작업은 계획 Task 6에 들어가기 위한 RQ native delegate boundary 다.
+buffer registration 과 CQ 생성/해제는 검증됐지만, TCP pump 는 request queue 생성과 이후 receive/send posting delegate 가 더 필요하다.
+이를 한 번에 pump 로 묶지 말고 먼저 native operation boundary 로 나눈다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO TCP pump 선행 하위 단위로 CQ/RQ native delegate boundary 를 구현한다.
+이번 cycle 은 RIO TCP pump 선행 하위 단위로 RQ native delegate boundary 를 구현한다.
 
 - 범위: `src/Hps.Transport.Rio/RioNative.cs`,
   `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
-- 검증: RIO available 환경에서 CQ/RQ creation/destroy Red-Green, focused RIO tests,
+- 검증: RIO available 환경에서 RQ creation Red-Green, focused RIO tests,
   solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위

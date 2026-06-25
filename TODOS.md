@@ -9,14 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO TCP pump 선행 하위 단위로 CQ/RQ native delegate boundary 를 구현한다.
-  - 목적: 실제 TCP pump 전에 completion queue/request queue 생성과 completion dequeue/posting delegate 를
-    호출 가능한 internal operation 으로 좁혀 검증한다.
+- [ ] RIO TCP pump 선행 하위 단위로 RQ native delegate boundary 를 구현한다.
+  - 목적: 실제 TCP pump 전에 request queue 생성 delegate 를 호출 가능한 internal operation 으로 좁혀 검증한다.
   - 범위: `src/Hps.Transport.Rio/RioNative.cs`,
     `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
-  - 현재 판단: Task 5.6에서 buffer registration delegate 는 실제 pinned block 으로 검증됐다.
-    다음은 CQ/RQ owner skeleton 을 native function table delegate 에 연결할 준비를 해야 한다.
-  - 다음 자연스러운 step: RIO available 환경에서 CQ create/close, RQ create failure/success boundary 를 Red-Green으로 고정한다.
+  - 현재 판단: Task 5.6에서 buffer registration delegate, Task 5.7에서 CQ create/close delegate 는 실제 native 호출로 검증됐다.
+    다음은 socket + CQ 를 받아 RIO request queue 를 생성하는 경계를 붙인다.
+  - 다음 자연스러운 step: RIO available 환경에서 TCP socket 과 CQ 로 RQ create boundary 를 Red-Green으로 고정한다.
   - 검증: focused RIO tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
@@ -121,6 +120,16 @@
   - 비고: Red는 reflection assertion failure 로 시작했고, Green 이후 direct internal API 테스트로 정리했다.
   - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
     focused RIO tests 12개 통과, solution build 경고 0/오류 0, solution tests 281개 통과.
+
+- [x] RIO Task 5.7 native completion queue delegate 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioNative.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`,
+    `docs/superpowers/plans/2026-06-25-windows-rio-backend.md`, root 상태 문서.
+  - 결과: loaded RIO function table 에서 `RIOCreateCompletionQueue`/`RIOCloseCompletionQueue`를 delegate 로 marshal 하고,
+    `RioNative.CreateCompletionQueue(...)`/`CloseCompletionQueue(...)` internal operation 으로 노출했다.
+  - 비고: 초기 pump 는 null notification completion 기반 polling/dequeue 모델로 검증한다.
+  - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
+    focused RIO tests 13개 통과, solution build 경고 0/오류 0, solution tests 282개 통과.
 
 - [x] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,

@@ -103,6 +103,27 @@ namespace Hps.Transport.Rio.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // completion queue 는 RIO receive/send completion 을 모으는 pump 의 중심 자원이다.
+        // 실제 pump 전에 native CQ handle 을 만들고 닫을 수 있는지 먼저 좁게 검증한다.
+        [Fact]
+        public void CreateCompletionQueue_WhenRioAvailable_ReturnsQueueAndCloses()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            RioNative? native;
+            Assert.True(RioNative.TryLoadFunctionTable(out native));
+            Assert.NotNull(native);
+
+            IntPtr completionQueue = native.CreateCompletionQueue(8);
+
+            Assert.NotEqual(IntPtr.Zero, completionQueue);
+            native.CloseCompletionQueue(completionQueue);
+        }
+
         // skeleton transport는 아직 opt-in construction만 허용한다.
         // StartAsync가 예외 없이 끝나면 후속 task가 같은 root type 위에 queue/resource를 붙일 수 있다.
         [Fact]
