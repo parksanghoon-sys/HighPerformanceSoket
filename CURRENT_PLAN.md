@@ -104,6 +104,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   runner/date history 는 session-count 3, hard-passed true, warning-count 0, comparison-compatible true 다.
   explicit runner reference envelope 는 load p99 max 870.7 us, open-loop p99 max 1051.5 us 이며,
   같은 runner 의 date root 가 아직 1개뿐이므로 D082 warning-as-failure 승격 조건에는 산입하지 않는다.
+- explicit runner 3-session 이후 Phase 4 다음 후보를 재평가했고, 다음 단위는
+  `local-win-x64-01/2026-06-25/session-01` 수집으로 정했다(D085).
+  CI/warning-as-failure 설계는 같은 runner 의 date root 를 더 쌓은 뒤 다시 평가한다.
 - summary/history comparison signal 설계를 완료했다.
   설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
   D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
@@ -194,6 +197,16 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   상세는 `docs/agent-state/reviews/2026-06-23-udp-lease-sweep-race-guard-review.md`를 본다.
 
 ## 최근 완료 단위
+
+- 이번 단위 — explicit runner 3-session 이후 Phase 4 다음 후보 재평가
+  - `docs/superpowers/specs/2026-06-25-phase4-after-explicit-runner-reference-reassessment.md`를 추가했다.
+  - 후보 A(다음 date root 수집), B(CI/warning-as-failure 설계), C(RIO/io_uring 착수)를 비교했다.
+  - 같은 runner 의 date root 가 아직 1개뿐이므로 D082 gate 승격 조건을 만족하지 못한다고 정리했다.
+  - D085로 다음 단위를 `local-win-x64-01/2026-06-25/session-01` explicit runner baseline 수집으로 정했다.
+  - 검증: `local-win-x64-01/2026-06-24/history.json`, `docs/benchmarks/baselines/index.md`,
+    D082/D084, `.claude/review/`의 기존 benchmark 리뷰 의견을 대조했다.
+    신규 spec placeholder 검색 결과 없음. `git diff --check` exit 0,
+    solution build 경고 0/오류 0, solution tests 269개 통과.
 
 - 이번 단위 — explicit runner baseline session-02/session-03 수집 및 문서 batch 완료
   - `HPS_BENCHMARK_RUNNER_ID=local-win-x64-01`, `HPS_BENCHMARK_RUNNER_KIND=local`로
@@ -650,23 +663,19 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 
 Summary/history comparison signal 계획의 Task 1~5, benchmark writer metadata roundtrip test-hardening,
 2026-06-18 generated baseline artifact 재생성, 2026-06-24 current-schema baseline session-01/session-02/session-03 추가,
-D082 설계와 리뷰 보강, Phase 4 다음 후보 재평가, explicit runner 3-session reference 수집은 완료됐다.
+D082 설계와 리뷰 보강, Phase 4 다음 후보 재평가, explicit runner 3-session reference 수집,
+explicit runner 3-session 이후 다음 후보 재평가는 완료됐다.
 
-다음 작업은 explicit runner 3-session 결과를 리뷰받은 뒤, 같은 runner 의 다음 date root 수집을 계속할지
-CI/warning-as-failure 설계로 넘어갈지 Phase 4 후보를 다시 재평가하는 것이다.
+다음 작업은 `local-win-x64-01/2026-06-25/session-01` explicit runner baseline 을 수집하는 것이다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 explicit runner baseline date root 를 3-session reference 로 완성하고, 다음 판단 지점을 정한 뒤
-최종 검증으로 마무리한다.
+이번 cycle 은 explicit runner 3-session 이후 Phase 4 다음 후보를 재평가하고, 다음 수집 단위를 정했다.
 
-- 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/session-02/`,
-  `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/session-03/`,
-  `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/history.json`,
-  `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-24/history.md`,
-  `docs/benchmarks/baselines/index.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`.
-- 검증: `--baseline-suite`, `--summarize-baseline`, `--summarize-baseline-history`, runner metadata 확인,
-  local absolute path 검색, `Hps.Benchmarks.Tests`, `git diff --check`, solution build/test 로 마무리한다.
+- 범위: `docs/superpowers/specs/2026-06-25-phase4-after-explicit-runner-reference-reassessment.md`,
+  `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+- 검증: explicit runner history/index 수치와 D082/D084 조건 대조, 신규 spec placeholder 검색 결과 없음,
+  `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 
 ## 이번 작업에서 건드리지 않는 범위
 

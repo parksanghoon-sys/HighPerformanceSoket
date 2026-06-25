@@ -5,6 +5,29 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - Phase 4 next candidate after explicit runner reference)
+
+### 작업 단위
+- explicit runner 3-session reference 이후 Phase 4 다음 실행 후보를 재평가했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-phase4-after-explicit-runner-reference-reassessment.md`:
+  다음 date root 수집, CI/warning-as-failure 설계, RIO/io_uring 착수 후보를 비교했다.
+- `DECISIONS.md`:
+  D085를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 `local-win-x64-01/2026-06-25/session-01` 수집으로 갱신했다.
+
+### 검증
+- `local-win-x64-01/2026-06-24/history.json`: session-count 3, hard-passed true, warning-count 0,
+  comparison-compatible true 를 확인했다.
+- `docs/benchmarks/baselines/index.md`: explicit runner date root 가 아직 1개뿐임을 확인했다.
+- D082/D084와 `.claude/review/`의 기존 benchmark 리뷰 의견을 대조했다.
+- 신규 spec placeholder 검색 결과 없음.
+- `git diff --check`: exit 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+
 ## 2026-06-24 (Codex - explicit runner baseline 3-session reference)
 
 ### 작업 단위
