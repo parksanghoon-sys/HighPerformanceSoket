@@ -9,12 +9,14 @@
 
 ## Current TODOs
 
-- [ ] RIO completion wake bounded yield polling 을 구현한다.
-  - 목적: `WaitForCompletionAsync(...)`의 hot path 에서 `Task.Delay(1)` timer wake 를 피하고 RIO p99 약 16ms 병목을 줄인다.
-  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/`, benchmark comparison artifact.
-  - 현재 판단: D102는 IOCP/RIONotify 전에 bounded `Task.Yield()` polling 후 `Task.Delay(1)` fallback 을 적용하기로 했다.
-  - 다음 자연스러운 step: `FastCompletionPollYieldCount`를 추가하고 completion 없음 경로에서 제한 횟수까지 `Task.Yield()`로 재시도한다.
-  - 검증: focused RIO tests, close/churn 반복, solution build/test, SAEA/RIO smoke 및 comparison benchmark 재수집, `git diff --check`.
+- [ ] RIO IOCP/RIONotify completion wait 를 설계한다.
+  - 목적: bounded yield polling 이후에도 남은 RIO p99 약 16ms tail 을 native notification 기반 wait 로 제거할 수 있는지 판단한다.
+  - 범위: `src/Hps.Transport.Rio/`, RIO native wrapper, CQ/RQ resource lifetime, completion pump/thread 모델, benchmark artifact.
+  - 현재 판단: D102 bounded polling 은 RIO load actual-rate 를 99.8 Hz, p50 을 198.8 us 로 개선했지만 p99 는 16689.0 us 로 남았다.
+    polling budget 을 더 키우는 방식은 idle CPU 비용을 키우므로 다음 단계는 `RIONotify`/IOCP 또는 dedicated completion wait 구조 설계다.
+  - 다음 자연스러운 step: Microsoft RIO completion notification 계약과 현재 `RioConnectionResource` close/dequeue gate 를 대조해
+    최소 변경 구조를 설계 문서로 고정한다.
+  - 검증: native API contract 대조, current RIO tests 영향 범위 검토, benchmark evidence 정리, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -86,6 +88,18 @@
   - 결과: IOCP/RIONotify 재구조화 전에 bounded `Task.Yield()` polling 으로 `Task.Delay(1)` timer granularity 병목을 먼저 줄이기로 했다(D102).
   - 검증: current RIO code, hardening design, comparison artifact evidence 대조, `git diff --check`.
   - 비고: IOCP/RIONotify, per-operation register buffer 비용, RIO repository baseline 채택 구조는 후속이다.
+
+- [x] RIO completion wake bounded yield polling 을 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport/Runtime/TransportConnection.cs`,
+    `src/Hps.Transport/Saea/SaeaTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
+  - 결과: `WaitForCompletionAsync(...)`가 4096회까지 `Task.Yield()` polling 후 `Task.Delay(1)` fallback 을 사용한다.
+    close notification 은 `TransportConnection.TryClose()` 전이에 성공한 pump 만 handler 를 호출하도록 SAEA/RIO를 정렬했다.
+  - 검증: Red latency test failure 확인, focused RIO tests 24개 통과, Transport tests 43개 통과,
+    RIO close/wake 핵심 테스트 10회 반복 통과, solution build 0경고/0오류, solution tests 통과.
+  - benchmark 관측: D102 전 RIO load actual-rate 64.5 Hz/p50 15735 us/p99 16654 us.
+    4096 budget 후 RIO load actual-rate 99.8 Hz/p50 198.8 us/p99 16689.0 us,
+    RIO open-loop p50 397.2 us/p99 16736.2 us.
+  - 비고: p50/throughput 은 개선됐지만 p99 tail 은 남았으므로 IOCP/RIONotify completion wait 설계로 후속화한다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,

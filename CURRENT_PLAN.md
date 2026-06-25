@@ -918,9 +918,22 @@ RIO completion wake latency 개선 설계를 완료했다(D102).
 `RioTransport.WaitForCompletionAsync(...)`에 fast yield polling budget 을 추가하고,
 RIO focused tests, close/churn 반복, SAEA/RIO smoke 및 comparison benchmark 로 개선 여부를 검증한다.
 
+D102 bounded yield polling 구현을 완료했다.
+`RioTransport.WaitForCompletionAsync(...)`는 completion 이 비어 있을 때 4096회까지 `Task.Yield()`로 재시도한 뒤
+기존 `Task.Delay(1)` fallback 으로 내려간다.
+이 변경 과정에서 receive/send pump 가 동시에 close 를 관측하면 `OnConnectionClosed`가 중복 호출될 수 있는 경합이 드러나,
+`TransportConnection.TryClose()`를 추가하고 SAEA/RIO notify 경로를 close 전이에 성공한 pump 만 handler 를 호출하도록 정렬했다.
+Red evidence 는 RIO small payload wake 테스트가 기존 구현에서 16.199/10.392/14.022 ms sample 로 실패한 것이다.
+4096 budget 이후 RIO load 는 actual-rate 99.8 Hz, p50 198.8 us 로 회복했지만 p99 는 16689.0 us 로 여전히 16ms대 tail 이 남았다.
+따라서 bounded polling 은 throughput/median hardening 으로 닫고, p99 tail 제거는 D103 IOCP/RIONotify completion wait 설계로 넘긴다.
+
+다음 작업은 RIO IOCP/RIONotify completion wait 설계다.
+bounded polling 을 더 키우는 방식은 idle CPU 비용을 키우므로, p99 tail 을 제거하려면 native notification 기반 wait 로 전환할지,
+전용 completion pump/thread 모델을 둘지 설계에서 결정한다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO completion wake bounded yield polling 구현을 준비한다.
+이번 cycle 은 RIO IOCP/RIONotify completion wait 설계를 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.

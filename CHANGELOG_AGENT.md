@@ -5,6 +5,36 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO completion wake bounded polling)
+
+### 작업 단위
+- RIO completion wake bounded yield polling 을 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  `WaitForCompletionAsync(...)`가 빈 completion queue 를 만나면 4096회까지 `Task.Yield()`로 재시도한 뒤
+  기존 `Task.Delay(1)` fallback 으로 내려가도록 변경했다.
+- `src/Hps.Transport/Runtime/TransportConnection.cs`,
+  `src/Hps.Transport/Saea/SaeaTransport.cs`, `src/Hps.Transport.Rio/RioTransport.cs`:
+  receive/send pump 가 동시에 close 를 관측할 때 close notification 이 중복될 수 있는 경합을 막기 위해
+  `TransportConnection.TryClose()` 전이에 성공한 pump 만 `OnConnectionClosed`를 호출하도록 정렬했다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`:
+  small payload wake regression test 를 추가하고, handler exception close test 는 server connection 단위
+  close count 를 검증하도록 보정했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  D102 결과와 남은 p99 tail 을 기록하고 다음 작업을 IOCP/RIONotify completion wait 설계로 이동했다.
+
+### 검증/관측
+- Red: 기존 구현에서 `TcpLoopback_WhenRioAvailable_DeliversSmallPayloadWithoutTimerScaleWake`가
+  16.199/10.392/14.022 ms sample 로 실패했다.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 24개 통과.
+- RIO close/wake 핵심 테스트 10회 반복 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-restore`: 통과.
+- benchmark: D102 전 RIO load actual-rate 64.5 Hz/p50 15735 us/p99 16654 us,
+  4096 budget 후 RIO load actual-rate 99.8 Hz/p50 198.8 us/p99 16689.0 us.
+  open-loop p50 은 397.2 us 로 개선됐지만 p99 는 16736.2 us 로 남았다.
+
 ## 2026-06-25 (Codex - RIO completion wake design)
 
 ### 작업 단위

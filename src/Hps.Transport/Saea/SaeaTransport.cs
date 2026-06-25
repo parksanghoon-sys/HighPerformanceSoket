@@ -545,11 +545,12 @@ namespace Hps.Transport
 
         private void NotifyConnectionClosed(TransportConnection connection)
         {
+            if (!connection.TryClose())
+                return;
+
             ITransportReceiveHandler? receiveHandler = ReadReceiveHandlerSnapshot();
             if (receiveHandler != null)
                 receiveHandler.OnConnectionClosed(connection);
-
-            connection.Close();
         }
 
         private void DispatchDatagramReceived(SaeaUdpEndpoint udpEndpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)

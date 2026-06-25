@@ -316,13 +316,18 @@ namespace Hps.Transport
 
         public void Close()
         {
+            TryClose();
+        }
+
+        internal bool TryClose()
+        {
             IDisposable? transportResource;
             Action<TransportConnection>? onClosed;
 
             lock (_gate)
             {
                 if (_closed)
-                    return;
+                    return false;
 
                 // closed 표시와 pending drain 을 같은 lock 안에서 처리한다.
                 // 그래야 TrySend 가 성공한 항목은 반드시 큐에 있거나 이미 펌프가 가져간 상태 중 하나이고,
@@ -350,6 +355,8 @@ namespace Hps.Transport
             // 연결이 실제 socket 같은 backend 자원을 감싸는 경우, public Close 계약이 그 자원 수명까지
             // 함께 닫아야 한다. 아직 recv 조립 버퍼는 없지만, 이후 추가될 때도 이 close 경로에 묶인다.
             transportResource?.Dispose();
+
+            return true;
         }
 
         public void Dispose()

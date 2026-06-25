@@ -22,6 +22,7 @@ namespace Hps.Transport
         private const int MaxOutstandingReceive = 1;
         private const int MaxOutstandingSend = 1;
         private const int SingleDataBufferPerRequest = 1;
+        private const int FastCompletionPollYieldCount = 4096;
         private const int CompletionPollDelayMilliseconds = 1;
         private const int TcpLengthPrefixSize = 4;
 
@@ -391,6 +392,7 @@ namespace Hps.Transport
             TransportConnection connection)
         {
             RioResult[] results = new RioResult[1];
+            int emptyPollCount = 0;
 
             while (true)
             {
@@ -404,6 +406,19 @@ namespace Hps.Transport
                 if (connection.IsClosed)
                     throw new ObjectDisposedException(nameof(TransportConnection));
 
+                emptyPollCount++;
+                if (emptyPollCount <= FastCompletionPollYieldCount)
+                {
+                    // RIO completion 은 보통 post 직후 짧은 시간 안에 들어온다.
+                    // 빈 CQ마다 곧바로 Task.Delay(1)로 내려가면 Windows timer granularity 때문에
+                    // 작은 loopback 메시지도 15ms 안팎으로 밀릴 수 있으므로, 제한된 횟수만큼은
+                    // timer sleep 없이 scheduler 에 양보한 뒤 다시 dequeue 한다.
+                    await Task.Yield();
+                    continue;
+                }
+
+                // 장시간 idle 이거나 peer 가 아무 completion 도 만들지 않는 경우에는 busy-spin 으로
+                // CPU를 점유하지 않도록 기존 1ms polling fallback 을 유지한다.
                 await Task.Delay(CompletionPollDelayMilliseconds).ConfigureAwait(false);
             }
         }
@@ -419,11 +434,12 @@ namespace Hps.Transport
 
         private void NotifyConnectionClosed(TransportConnection connection)
         {
+            if (!connection.TryClose())
+                return;
+
             ITransportReceiveHandler? receiveHandler = ReadReceiveHandlerSnapshot();
             if (receiveHandler != null)
                 receiveHandler.OnConnectionClosed(connection);
-
-            connection.Close();
         }
 
         private void EnsureRunning()

@@ -1,7 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Threading.Tasks;
 using Hps.Buffers;
 using Xunit;
@@ -151,7 +152,7 @@ namespace Hps.Transport.Rio.Tests
                 IConnection closedConnection = await WaitForClosedConnectionAsync(handler.ClosedTask);
 
                 Assert.Same(server, closedConnection);
-                Assert.Equal(1, handler.ClosedCallCount);
+                Assert.Equal(1, handler.GetClosedCallCount(server));
 
                 client.Close();
                 server.Close();
@@ -159,6 +160,32 @@ namespace Hps.Transport.Rio.Tests
                 await transport.StopAsync();
                 Assert.Equal(0, pool.RentedCount);
             }
+        }
+
+        // RIO completion pump 가 빈 CQ를 만났을 때 곧바로 timer sleep 으로 내려가면 Windows timer granularity 때문에
+        // 작은 loopback 메시지도 15ms 안팎의 wake 지연을 보인다. 이 테스트는 connection setup 시간을 제외한
+        // TrySend→OnReceived 구간만 측정해 completion wake 가 timer-scale 지연에 묶이지 않는지 확인한다.
+        [Fact]
+        public async Task TcpLoopback_WhenRioAvailable_DeliversSmallPayloadWithoutTimerScaleWake()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+            {
+                return;
+            }
+
+            TimeSpan first = await MeasureSinglePayloadDeliveryAsync();
+            TimeSpan second = await MeasureSinglePayloadDeliveryAsync();
+            TimeSpan third = await MeasureSinglePayloadDeliveryAsync();
+
+            TimeSpan median = Median(first, second, third);
+            Assert.True(
+                median < TimeSpan.FromMilliseconds(12),
+                "RIO small-payload completion wake 가 timer-scale 지연을 보였습니다. " +
+                "samples(ms): " +
+                first.TotalMilliseconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + ", " +
+                second.TotalMilliseconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + ", " +
+                third.TotalMilliseconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture));
         }
 
         private static async Task<byte[]> SendAndReceiveAsync(byte[] payload, bool prependLengthPrefix, int expectedReceiveLength)
@@ -195,6 +222,67 @@ namespace Hps.Transport.Rio.Tests
                 Assert.Equal(0, pool.RentedCount);
                 return received;
             }
+        }
+
+        private static async Task<TimeSpan> MeasureSinglePayloadDeliveryAsync()
+        {
+            RecordingReceiveHandler handler = new RecordingReceiveHandler(expectedLength: 1);
+            using (RioTransport transport = new RioTransport())
+            {
+                transport.SetReceiveHandler(handler);
+                await transport.StartAsync();
+
+                IConnectionListener listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                IConnection client = await transport.ConnectTcpAsync(listener.LocalEndPoint);
+                IConnection server = await listener.AcceptAsync();
+
+                PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                RefCountedBuffer buffer = pool.RentCounted();
+                buffer.Span[0] = 73;
+                buffer.SetLength(1);
+                buffer.AddRef();
+
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                Assert.True(transport.TrySend(client, new TransportSendBuffer(buffer, 0, 1)));
+                buffer.Release();
+                await handler.ReceiveAsync();
+                stopwatch.Stop();
+
+                client.Close();
+                server.Close();
+                listener.Close();
+                await transport.StopAsync();
+                await WaitForPoolDrainedAsync(pool);
+                return stopwatch.Elapsed;
+            }
+        }
+
+        private static async Task WaitForPoolDrainedAsync(PinnedBlockMemoryPool pool)
+        {
+            DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(1);
+            while (pool.RentedCount != 0 && DateTimeOffset.UtcNow < deadline)
+                await Task.Delay(TimeSpan.FromMilliseconds(1)).ConfigureAwait(false);
+
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        private static TimeSpan Median(TimeSpan first, TimeSpan second, TimeSpan third)
+        {
+            if (first > second)
+                Swap(ref first, ref second);
+            if (second > third)
+                Swap(ref second, ref third);
+            if (first > second)
+                Swap(ref first, ref second);
+
+            return second;
+        }
+
+        private static void Swap(ref TimeSpan left, ref TimeSpan right)
+        {
+            TimeSpan temporary = left;
+            left = right;
+            right = temporary;
         }
 
         private sealed class RecordingReceiveHandler : ITransportReceiveHandler
@@ -249,11 +337,14 @@ namespace Hps.Transport.Rio.Tests
 
         private sealed class ThrowingReceiveHandler : ITransportReceiveHandler
         {
+            private readonly object _gate;
+            private readonly List<IConnection> _closedConnections;
             private readonly TaskCompletionSource<IConnection> _closed;
-            private int _closedCallCount;
 
             internal ThrowingReceiveHandler()
             {
+                _gate = new object();
+                _closedConnections = new List<IConnection>();
                 _closed = new TaskCompletionSource<IConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
             }
 
@@ -262,9 +353,19 @@ namespace Hps.Transport.Rio.Tests
                 get { return _closed.Task; }
             }
 
-            internal int ClosedCallCount
+            internal int GetClosedCallCount(IConnection connection)
             {
-                get { return Volatile.Read(ref _closedCallCount); }
+                lock (_gate)
+                {
+                    int count = 0;
+                    for (int i = 0; i < _closedConnections.Count; i++)
+                    {
+                        if (object.ReferenceEquals(_closedConnections[i], connection))
+                            count++;
+                    }
+
+                    return count;
+                }
             }
 
             public void OnReceived(IConnection connection, TransportReceiveBuffer receiveBuffer)
@@ -274,7 +375,11 @@ namespace Hps.Transport.Rio.Tests
 
             public void OnConnectionClosed(IConnection connection)
             {
-                Interlocked.Increment(ref _closedCallCount);
+                lock (_gate)
+                {
+                    _closedConnections.Add(connection);
+                }
+
                 _closed.TrySetResult(connection);
             }
         }
