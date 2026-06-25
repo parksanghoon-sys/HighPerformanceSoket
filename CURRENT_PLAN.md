@@ -730,7 +730,7 @@ explicit runner 2-date-root reference 이후 gate 승격 후보 재평가, CI ar
 CI artifact-only workflow skeleton 구현 계획, CI artifact-only workflow skeleton 구현,
 CI workflow command sequence local smoke, 첫 GitHub Actions manual run 검증, Node 24 action version 갱신,
 갱신 후 두 번째 GitHub Actions manual run 검증, manual run 2회 이후 Phase 4 재평가,
-CI artifact trigger policy 설계/구현, D094 push trigger 원격 검증은 완료됐다.
+CI artifact trigger policy 설계/구현, D094 push trigger 원격 검증, CI artifact adoption 정책 설계는 완료됐다.
 
 다음 작업은 첫 CI artifact 결과를 기준으로 Phase 4 다음 후보를 재평가하는 것이다.
 workflow 는 `.github/workflows/benchmark-artifacts.yml`에 있으며 D090/D091/D092에 따라 latency warning 을 실패로 올리지 않고
@@ -757,18 +757,22 @@ artifact 이름은 `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-2814
 summary/history 는 `hard-passed=true`, `comparison-compatible=true`, `unknown-runner-count=0`, `warning-count=0`이다.
 로그에서 Node deprecation 또는 이전 `actions/*@v4` 문자열은 확인되지 않았다.
 
-다음 작업은 CI artifact-only evidence 를 3회 확보한 상태에서 Phase 4 다음 후보를 다시 고르는 것이다.
-현재 바로 할 수 있는 안전한 후보는 CI artifact adoption 절차 설계다.
-자동 생성 artifact 를 docs baseline 으로 바로 넣지는 않지만, 어떤 조건에서 사람이 검토해
-`docs/benchmarks/baselines/runners/<runner-id>/...`로 채택할지 절차를 정해야 한다.
+다음 작업은 D095 절차에 따라 push-triggered run `28145025444` artifact 를
+`docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`로 수동 채택하는 것이다.
+artifact zip/root directory 는 커밋하지 않고 raw report 6개만 복사한 뒤,
+summary/history/index 를 repository 경로 기준으로 재생성한다.
+run `28143728630`은 warning-count 1이므로 채택하지 않는다.
+run `28144480160`은 채택 가능하지만, 첫 CI baseline 은 실제 D094 push trigger 로 생성된 `28145025444`를 우선한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 D094 push-triggered run 을 원격에서 확인하고, artifact 결과를 상태 문서에 기록한다.
+이번 cycle 은 CI artifact adoption 정책을 D095로 설계하고, 다음 수동 채택 후보를 정한다.
 
-- 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
-- 검증: `gh run list`, `gh run watch --exit-status`, `gh run view --log`,
-  downloaded artifact summary/history JSON 확인, `git diff --check`.
+- 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
+  `docs/agent-state/decisions/2026-06.md`,
+  `docs/superpowers/specs/2026-06-25-ci-artifact-adoption-policy-design.md`.
+- 검증: D090/D093/D094, `docs/benchmarks/baselines/index.md`, downloaded artifact 구조 대조,
+  spec placeholder scan, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 

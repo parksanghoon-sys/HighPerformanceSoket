@@ -5,6 +5,24 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - CI artifact adoption policy)
+
+### 작업 단위
+- CI artifact 를 어떤 조건과 절차로 repository baseline 에 수동 채택할지 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-ci-artifact-adoption-policy-design.md`:
+  채택 조건, 금지 항목, raw report 복사와 summary/history 재생성 절차를 정리했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D095로 CI artifact 수동 채택 정책을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 작업을 run `28145025444` artifact 의 repository baseline 채택으로 갱신했다.
+
+### 검증
+- D090/D093/D094, `docs/benchmarks/baselines/index.md`, downloaded artifact 구조를 대조했다.
+- spec placeholder scan 에서 신규 미정 항목 없음.
+- `git diff --check`: exit 0.
+
 ## 2026-06-25 (Codex - CI artifact push trigger verification)
 
 ### 작업 단위

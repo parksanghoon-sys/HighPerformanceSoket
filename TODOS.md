@@ -9,15 +9,17 @@
 
 ## Current TODOs
 
-- [ ] CI artifact adoption 절차를 설계한다.
-  - 목적: 자동 생성된 CI artifact 를 어떤 조건에서 사람이 검토해 repository baseline 으로 채택할지 정한다.
-  - 범위: artifact download/source verification, runner metadata, comparison compatibility, warning/hard gate,
-    path hygiene, `docs/benchmarks/baselines/runners/<runner-id>/...` 반영 절차, index 갱신 절차.
-  - 현재 판단: D090/D093에 따라 CI artifact 는 docs baseline 에 자동 채택하지 않는다.
-    다만 push-triggered evidence 까지 확보했으므로 수동 채택 절차를 정할 수 있다.
-  - 다음 자연스러운 step: run `28143728630`, `28144480160`, `28145025444` artifact 결과와
-    `docs/benchmarks/baselines/index.md` 규칙을 대조해 adoption checklist 를 설계한다.
-  - 검증: D090/D093/D094, `docs/benchmarks/baselines/index.md`, downloaded artifact 구조 대조.
+- [ ] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택한다.
+  - 목적: D095 checklist 를 통과한 첫 CI artifact 를 `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`
+    구조로 보존한다.
+  - 범위: artifact download/source verification, raw report 6개 복사, summary/history 재생성,
+    `docs/benchmarks/baselines/index.md` 갱신, root 상태 문서 기록.
+  - 현재 판단: run `28145025444`는 push-triggered, hard-passed true, warning-count 0,
+    comparison-compatible true, unknown-runner-count 0이라 첫 CI baseline 후보로 가장 적합하다.
+  - 다음 자연스러운 step: artifact 를 임시 directory 로 다운로드하고 D095 checklist 를 실행한 뒤,
+    raw report 만 target session directory 로 복사한다.
+  - 검증: summary/history 재생성, runner/date history, index 대조, absolute path scan,
+    `git diff --check`, benchmark tests 또는 solution build/test.
 
 ## Deferred Backlog
 
@@ -32,6 +34,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] CI artifact adoption 절차를 설계했다.
+  - 범위: `docs/superpowers/specs/2026-06-25-ci-artifact-adoption-policy-design.md`, D095, root 상태 문서.
+  - 결과: CI artifact 는 자동 채택하지 않고, checklist 통과 artifact 의 raw report 6개만 repository baseline 구조로 수동 채택한다.
+  - 비고: warning-count > 0 artifact 는 repository reference baseline 으로 채택하지 않는다.
+    첫 채택 후보는 D094 push trigger 로 생성된 run `28145025444`다.
+  - 검증: D090/D093/D094, `docs/benchmarks/baselines/index.md`, downloaded artifact 구조를 대조했다.
 
 - [x] D094 trigger policy push 후 자동 CI artifact run 을 검증했다.
   - 범위: GitHub Actions run `28145025444`, artifact
