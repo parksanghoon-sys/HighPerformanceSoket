@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO UDP endpoint skeleton)
+
+### 작업 단위
+- RIO UDP Task 2 endpoint owner skeleton 을 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioNative.cs`:
+  `WSA_FLAG_REGISTERED_IO` UDP socket 생성 helper 를 추가했다.
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  `BindUdpAsync(...)`가 RIO datagram capability 를 확인하고, UDP socket bind 후 endpoint 를 tracking 한다.
+- `src/Hps.Transport.Rio/RioUdpEndpoint.cs`:
+  bind 된 UDP socket 의 close/unregister owner 를 추가했다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
+  RIO datagram available 환경에서 bind 된 endpoint 가 local endpoint 를 노출하는지 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 RIO UDP receive loop 설계/Red test 로 이동했다.
+
+### 검증
+- Red: 신규 UDP bind test 가 기존 `TransportBase.BindUdpAsync`의 `NotImplementedException`으로 실패.
+- Green: focused UDP test 1개 통과.
+- focused RIO tests 38개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build`: 통과.
+
 ## 2026-06-25 (Codex - RIO UDP native Ex shape)
 
 ### 작업 단위

@@ -1081,6 +1081,37 @@ open-loop actual-rate 99.8 Hz/p50 293.8 us/p99 920.5 us 다.
 - Linux io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay
 
+RIO UDP Task 2 endpoint owner skeleton 구현을 완료했다.
+`RioNative.CreateUdpSocket()`은 `WSA_FLAG_REGISTERED_IO` UDP socket 을 만들고,
+`RioTransport.BindUdpAsync(...)`는 RIO datagram capability 를 확인한 뒤 socket bind, `RioUdpEndpoint` 생성,
+endpoint tracking 을 수행한다.
+`RioUdpEndpoint`는 현재 bind/close/unregister owner 만 제공하며 receive/send pump 와 diagnostics parity 는 후속 범위다.
+Red evidence 는 `BindUdpAsync_WhenRioDatagramAvailable_ReturnsEndpointWithLocalEndPoint`가 기존 `TransportBase.BindUdpAsync`
+`NotImplementedException`으로 실패한 것이다.
+
+다음 작업은 RIO UDP receive loop 설계/Red test 다.
+raw UDP client datagram 이 RIO endpoint handler 로 전달되는 loopback을 만들되,
+remote address registered buffer lifetime 과 handler exception close notify 정책을 SAEA와 맞춘다.
+
+## 이번 단위의 검증 경로
+
+이번 cycle 은 RIO UDP receive loop 를 설계하거나 Red test 로 착수한다.
+
+- 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+  `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, root 상태 문서.
+- 검증: focused RIO UDP tests, focused RIO tests 전체, solution build/test, `git diff --check`.
+
+## 이번 작업에서 건드리지 않는 범위
+
+- RIO UDP send loop
+- RIO UDP diagnostics parity 전체
+- `TransportFactory` 기본 선택 코드 변경
+- SAEA transport 동작 변경
+- latency hard gate 또는 warning-as-failure 정책 구현
+- CI artifact 자동 채택, pull_request trigger, schedule trigger
+- Linux io_uring backend 구현
+- stable identity 인증/권한 검증, persistence, payload replay
+
 RIO UDP Task 1 native Ex operation shape 구현을 완료했다.
 `RioNative`는 이제 `SupportsDatagramOperations` capability 와 `ReceiveEx`/`SendEx` wrapper 를 제공한다.
 Ex wrapper 는 optional `RioBufferSegment`를 pinned `RIO_BUF` pointer 또는 null 로 marshalling 하고,

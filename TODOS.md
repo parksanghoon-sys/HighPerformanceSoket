@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP Task 2 endpoint owner skeleton 을 계획하거나 바로 TDD 구현한다.
-  - 목적: RIO UDP `BindUdpAsync(...)`가 endpoint owner 를 만들 수 있는 최소 skeleton 을 고정한다.
-  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, 신규 `RioUdpEndpoint` 후보,
-    `tests/Hps.Transport.Rio.Tests/`, root 상태 문서.
-  - 현재 판단: Task 1 native Ex wrapper 는 완료됐고, 아직 UDP endpoint/receive/send loop 는 없다.
-  - 다음 자연스러운 step: `BindUdpAsync_WhenRioAvailable_ReturnsEndpointWithLocalEndPoint` Red 를 작성하고,
-    registered UDP socket bind, endpoint tracking, close/unregister 까지만 구현한다.
+- [ ] RIO UDP receive loop 를 설계하거나 Red test 로 착수한다.
+  - 목적: raw UDP client datagram 이 RIO endpoint handler 로 전달되는 receive path 를 구현하기 시작한다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, root 상태 문서.
+  - 현재 판단: endpoint bind/close skeleton 은 완료됐고, 아직 `RIOReceiveEx` post/decode/dispatch 는 없다.
+  - 다음 자연스러운 step: remote address registered buffer lifetime 과 handler exception close notify 정책을 먼저 설계하거나,
+    receive loopback Red test 를 작성한다.
   - 검증: focused RIO UDP tests, focused RIO tests 전체, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
@@ -31,6 +31,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP Task 2 endpoint owner skeleton 을 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioNative.cs`, `src/Hps.Transport.Rio/RioTransport.cs`,
+    `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`,
+    root 상태 문서.
+  - 결과: registered UDP socket 생성 helper, RIO datagram capability 확인, bind endpoint 생성,
+    close/unregister owner 를 추가했다.
+  - Red: `BindUdpAsync_WhenRioDatagramAvailable_ReturnsEndpointWithLocalEndPoint`가
+    `TransportBase.BindUdpAsync`의 `NotImplementedException`으로 실패.
+  - Green/검증: focused UDP test 1개 통과, focused RIO tests 38개 통과,
+    solution build 0경고/0오류, solution tests 통과.
+  - 비고: receive/send loop, pending queue, diagnostics parity 는 후속 task 다.
 
 - [x] RIO UDP Task 1 native Ex operation shape 를 구현했다.
   - 범위: `src/Hps.Transport.Rio/RioNative.cs`, `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`,

@@ -27,6 +27,7 @@ namespace Hps.Transport
         private readonly object _gate;
         private readonly List<RioConnectionListener> _listeners;
         private readonly List<TransportConnection> _connections;
+        private readonly List<RioUdpEndpoint> _udpEndpoints;
         private RioCompletionPort? _completionPort;
         private bool _started;
         private bool _stopped;
@@ -36,6 +37,7 @@ namespace Hps.Transport
             _gate = new object();
             _listeners = new List<RioConnectionListener>();
             _connections = new List<TransportConnection>();
+            _udpEndpoints = new List<RioUdpEndpoint>();
         }
 
         public override ValueTask StartAsync(CancellationToken cancellationToken = default)
@@ -59,6 +61,7 @@ namespace Hps.Transport
 
             RioConnectionListener[] listeners;
             TransportConnection[] connections;
+            RioUdpEndpoint[] udpEndpoints;
 
             lock (_gate)
             {
@@ -66,8 +69,10 @@ namespace Hps.Transport
                 _started = false;
                 listeners = _listeners.ToArray();
                 connections = _connections.ToArray();
+                udpEndpoints = _udpEndpoints.ToArray();
                 _listeners.Clear();
                 _connections.Clear();
+                _udpEndpoints.Clear();
             }
 
             for (int i = 0; i < listeners.Length; i++)
@@ -75,6 +80,9 @@ namespace Hps.Transport
 
             for (int i = 0; i < connections.Length; i++)
                 connections[i].Close();
+
+            for (int i = 0; i < udpEndpoints.Length; i++)
+                udpEndpoints[i].Close();
 
             RioCompletionPort? completionPort = _completionPort;
             _completionPort = null;
@@ -128,6 +136,33 @@ namespace Hps.Transport
                 TransportConnection connection = CreateRioConnection(socket);
                 socket = null!;
                 return connection;
+            }
+            finally
+            {
+                socket?.Dispose();
+            }
+        }
+
+        public override ValueTask<IUdpEndpoint> BindUdpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
+        {
+            if (localEndPoint == null)
+                throw new ArgumentNullException(nameof(localEndPoint));
+
+            cancellationToken.ThrowIfCancellationRequested();
+            EnsureRunning();
+            RioNative native = LoadRioNative();
+            if (!native.SupportsDatagramOperations)
+                throw new NotSupportedException("현재 RIO provider 는 RIO datagram operation 을 제공하지 않습니다.");
+
+            Socket socket = RioNative.CreateUdpSocket();
+            RioUdpEndpoint? endpoint = null;
+            try
+            {
+                socket.Bind(localEndPoint);
+                endpoint = new RioUdpEndpoint(this, socket);
+                RegisterUdpEndpoint(endpoint);
+                socket = null!;
+                return new ValueTask<IUdpEndpoint>(endpoint);
             }
             finally
             {
@@ -209,6 +244,22 @@ namespace Hps.Transport
             lock (_gate)
             {
                 _connections.Remove(connection);
+            }
+        }
+
+        internal void UnregisterUdpEndpoint(RioUdpEndpoint endpoint)
+        {
+            lock (_gate)
+            {
+                _udpEndpoints.Remove(endpoint);
+            }
+        }
+
+        private void RegisterUdpEndpoint(RioUdpEndpoint endpoint)
+        {
+            lock (_gate)
+            {
+                _udpEndpoints.Add(endpoint);
             }
         }
 

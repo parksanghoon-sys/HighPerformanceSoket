@@ -14,7 +14,9 @@ namespace Hps.Transport
         private const int SocketError = -1;
         private const int AddressFamilyInterNetwork = 2;
         private const int SocketTypeStream = 1;
+        private const int SocketTypeDatagram = 2;
         private const int ProtocolTypeTcp = 6;
+        private const int ProtocolTypeUdp = 17;
         private const int GuidByteLength = 16;
         private const uint WsaFlagOverlapped = 0x1;
         private const uint WsaFlagRegisteredIo = 0x100;
@@ -407,6 +409,26 @@ namespace Hps.Transport
                 AddressFamilyInterNetwork,
                 SocketTypeStream,
                 ProtocolTypeTcp,
+                IntPtr.Zero,
+                0,
+                WsaFlagOverlapped | WsaFlagRegisteredIo);
+
+            if (handle == InvalidSocket)
+                throw new SocketException(Marshal.GetLastWin32Error());
+
+            return new Socket(new SafeSocketHandle(handle, ownsHandle: true));
+        }
+
+        internal static Socket CreateUdpSocket()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                throw new PlatformNotSupportedException("RIO socket 은 Windows 에서만 생성할 수 있습니다.");
+
+            // UDP도 RIO request queue 에 붙으려면 TCP와 동일하게 WSA_FLAG_REGISTERED_IO socket 이어야 한다.
+            IntPtr handle = WSASocketW(
+                AddressFamilyInterNetwork,
+                SocketTypeDatagram,
+                ProtocolTypeUdp,
                 IntPtr.Zero,
                 0,
                 WsaFlagOverlapped | WsaFlagRegisteredIo);
