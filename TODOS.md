@@ -9,13 +9,14 @@
 
 ## Current TODOs
 
-- [ ] SAEA/RIO benchmark comparison artifact 를 수집한다.
-  - 목적: 새 `--backend <saea|rio>` CLI가 실제 smoke/load/open-loop report 를 backend 별 identity 로 생성하는지 확인한다.
-  - 범위: `tests/Hps.Benchmarks/`, 임시 `artifacts/benchmarks/` 출력, summary/history command.
-  - 현재 판단: backend selector 구현은 완료됐고 SAEA/RIO smoke report 는 scenario/profile/backend 가 분리됐다.
-  - 다음 자연스러운 step: repository baseline 채택 없이 scratch directory 에 SAEA/RIO load/open-loop report 를 생성하고,
-    같은 directory 에 섞었을 때 summary/history comparison mismatch 가 관측되는지 확인한다.
-  - 검증: benchmark CLI 실행, summary/history output 확인, `git diff --check`.
+- [ ] RIO completion wake/latency 개선 설계를 작성한다.
+  - 목적: SAEA/RIO comparison artifact 에서 관측된 RIO p99 약 16ms 및 closed-loop actual-rate 저하의 원인 후보를 정리하고, 다음 구현 단위를 정한다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `docs/superpowers/specs/`, benchmark comparison artifact 결과.
+  - 현재 판단: RIO delivery/drop/leak hard gate 는 pass 했지만, RIO load p99 16654.0 us,
+    RIO open-loop p99 16826.6 us, RIO closed-loop actual-rate 64.5 Hz 로 SAEA 대비 성능이 낮다.
+    현재 RIO pump 는 notification 없이 `RIODequeueCompletion` polling + `Task.Delay(1)`을 사용한다.
+  - 다음 자연스러운 step: IOCP/RIONotify 기반 wake 모델, tighter polling, dedicated completion pump 중 어떤 방향이 최소 안전 변경인지 설계한다.
+  - 검증: 설계 self-review, current RIO code/benchmark evidence 대조, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -71,6 +72,15 @@
   - 검증: parser Red 확인, identity Red 확인, benchmark tests 71개 통과,
     SAEA/RIO smoke CLI pass 및 report `scenario`/`benchmark-profile`/`transport-backend` 확인.
   - 비고: RIO unavailable 환경에서 explicit RIO backend 는 fallback 하지 않고 실패한다.
+
+- [x] SAEA/RIO benchmark comparison artifact 를 수집했다.
+  - 범위: `artifacts/benchmarks/rio-comparison/2026-06-25/session-01/`, `.gitignore`, root 상태 문서.
+  - 결과: SAEA/RIO load/open-loop raw report 와 mixed summary 를 scratch artifact 로 생성했다.
+    `artifacts/`는 repository baseline 이 아니므로 `.gitignore`에 추가했다.
+  - 검증: SAEA load/open-loop pass, RIO load/open-loop pass,
+    mixed summary `hard-passed=true`, `warning-count=3`, `comparison-compatible=false`, comparison mismatch 6개 확인.
+  - 비고: 주요 성능 신호는 SAEA load p99 890.8 us, SAEA open-loop p99 872.7 us,
+    RIO load p99 16654.0 us, RIO open-loop p99 16826.6 us, RIO load actual-rate 64.5 Hz 다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,

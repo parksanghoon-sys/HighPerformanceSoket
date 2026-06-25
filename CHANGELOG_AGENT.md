@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - SAEA/RIO comparison artifact)
+
+### 작업 단위
+- SAEA/RIO benchmark comparison artifact 를 수집했다.
+
+### 변경 내용
+- `artifacts/benchmarks/rio-comparison/2026-06-25/session-01/`:
+  SAEA/RIO load/open-loop raw report 와 mixed summary 를 scratch artifact 로 생성했다.
+- `.gitignore`:
+  repository baseline 이 아닌 scratch/CI artifact 가 실수로 stage 되지 않도록 `artifacts/`를 ignore 했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  RIO latency 병목 후보를 다음 설계 단위로 승격했다.
+
+### 검증/관측
+- SAEA load: pass, p99 890.8 us, actual-rate 99.8 Hz.
+- SAEA open-loop: pass, p99 872.7 us, actual-rate 99.9 Hz.
+- RIO load: pass, p99 16654.0 us, actual-rate 64.5 Hz.
+- RIO open-loop: pass, p99 16826.6 us, actual-rate 99.8 Hz.
+- mixed summary: hard-passed true, warning-count 3, comparison-compatible false, comparison mismatch 6개.
+
 ## 2026-06-25 (Codex - benchmark backend selector)
 
 ### 작업 단위

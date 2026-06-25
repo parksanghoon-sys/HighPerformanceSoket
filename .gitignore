@@ -4,6 +4,7 @@ obj/
 .vscode/
 TestResults/
 BenchmarkDotNet.Artifacts/
+artifacts/
 *.user
 *.suo
 *.nupkg
