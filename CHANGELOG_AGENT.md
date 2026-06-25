@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - CI workflow Node 24 manual run)
+
+### 작업 단위
+- `actions/*` Node 24 version 갱신 후 `Benchmark Artifacts` workflow 를 다시 manual `workflow_dispatch`로 실행하고 결과를 확인했다.
+
+### 변경 내용
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  run `28144480160` 결과, artifact 이름, summary/history 핵심 값, Node deprecation 제거 확인을 기록했다.
+
+### 검증
+- `gh workflow run "Benchmark Artifacts" --ref master`: run `28144480160` 생성.
+- `gh run watch 28144480160 --exit-status`: 성공, job duration 약 4분 15초.
+- 로그 확인:
+  `actions/checkout@v7`, `actions/setup-dotnet@v5.3.0`, `actions/upload-artifact@v7.0.1` 다운로드 및 실행을 확인했다.
+- Node annotation 확인:
+  `deprecation`, `Node.js 20`, `node20`, 이전 `actions/*@v4` 문자열 검색 결과 없음.
+- artifact upload:
+  `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28144480160-1`,
+  artifact id `7868009214`, uploaded files 10개, final size 6399 bytes.
+- downloaded artifact 확인:
+  raw report 6개, `summary.json`, `summary.md`, `history.json`, `history.md`.
+- `summary.json`: source-report-count 6, hard-passed true, warning-count 0,
+  comparison-compatible true, unknown-runner-count 0.
+- `history.json`: session-count 1, hard-passed true, warning-count 0, comparison-compatible true.
+- 이번 결과도 D090 기준으로 docs baseline 에 자동 채택하지 않고 CI artifact evidence 로만 둔다.
+
 ## 2026-06-25 (Codex - CI workflow Node 24 action versions)
 
 ### 작업 단위

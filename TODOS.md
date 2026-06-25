@@ -9,13 +9,15 @@
 
 ## Current TODOs
 
-- [ ] 첫 CI artifact 결과 이후 Phase 4 다음 후보를 재평가한다.
-  - 목적: `ci-windows-x64-01` 첫 artifact-only run 결과를 기준으로 다음 실행 후보를 정한다.
-  - 범위: CI artifact warning 해석, GitHub Actions annotation, baseline 채택 여부, 다음 Phase 4 작업 후보.
-  - 현재 판단: 첫 manual run 은 hard pass 했고 artifact upload 도 성공했다. `warning-count=1`은 D090 기준 report-only 이며,
-    Node 20 deprecation annotation 은 D092 action version 갱신으로 처리했다.
-  - 다음 자연스러운 step: 갱신된 workflow 를 다시 manual run 으로 실행해 Node annotation 제거와 artifact 생성을 확인한다.
-  - 검증: run `28143728630` log/artifact, D090/D091/D092 정책, `docs/benchmarks/baselines/index.md`, current backlog 대조.
+- [ ] CI artifact-only manual run 2회 결과 이후 Phase 4 다음 후보를 재평가한다.
+  - 목적: `ci-windows-x64-01` artifact-only workflow 가 원격에서 두 차례 검증된 뒤 다음 실행 후보를 정한다.
+  - 범위: CI artifact warning 해석, Node annotation 해소 결과, baseline 채택 여부, push/PR 자동 trigger 여부,
+    추가 CI date-root 수집 필요성.
+  - 현재 판단: 첫 manual run `28143728630`은 hard pass/warning-count 1/report-only 였고,
+    두 번째 manual run `28144480160`은 Node deprecation 제거와 warning-count 0을 확인했다.
+  - 다음 자연스러운 step: D090/D091/D092와 `docs/benchmarks/baselines/index.md`를 대조해
+    CI workflow 를 자동 trigger 로 넓힐지, artifact evidence 를 더 쌓을지, 다른 Phase 4 항목으로 이동할지 정한다.
+  - 검증: run `28143728630`, run `28144480160` log/artifact, D090/D091/D092 정책, current backlog 대조.
 
 ## Deferred Backlog
 
@@ -30,6 +32,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Node 24 action 갱신 후 CI artifact-only workflow manual run 을 재검증했다.
+  - 범위: GitHub Actions run `28144480160`, artifact
+    `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28144480160-1`, root 상태 문서.
+  - 결과: workflow 는 성공했다. restore/build/test, `baseline-suite`, `summary`, `history`, artifact upload 단계가 모두 통과했다.
+  - 비고: 로그에서 `actions/checkout@v7`, `actions/setup-dotnet@v5.3.0`, `actions/upload-artifact@v7.0.1` 다운로드/실행을 확인했다.
+    `deprecation`, `Node.js 20`, `node20`, 이전 `actions/*@v4` 문자열 검색 결과는 없었다.
+    artifact 는 raw report 6개, `summary.json`, `summary.md`, `history.json`, `history.md` 총 10개 파일을 포함한다.
+    `summary.json`은 `source-report-count=6`, `hard-passed=true`, `warning-count=0`,
+    `comparison-compatible=true`, `unknown-runner-count=0`이다.
+    `history.json`은 `session-count=1`, `hard-passed=true`, `warning-count=0`, `comparison-compatible=true`다.
+  - 검증: `gh workflow run`, `gh run watch --exit-status`, `gh run view --log`, `gh run download`로
+    run 성공과 artifact 내용을 확인했다.
 
 - [x] GitHub Actions Node 20 deprecation annotation 대응을 처리했다.
   - 범위: `.github/workflows/benchmark-artifacts.yml`, D092 decision, CI workflow plan/policy 문서, root 상태 문서.
