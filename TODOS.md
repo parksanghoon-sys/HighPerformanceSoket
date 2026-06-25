@@ -9,15 +9,13 @@
 
 ## Current TODOs
 
-- [ ] CI artifact trigger policy 를 설계한다.
-  - 목적: `Benchmark Artifacts` workflow 를 언제 자동 실행할지 정한다.
-  - 범위: `workflow_dispatch` 유지 여부, `push` to `master`, `pull_request`, `schedule`, path filter,
-    실행 비용/노이즈, artifact retention, failure policy, docs baseline 채택 경계.
-  - 현재 판단: D093에 따라 manual run 2회만으로는 gate/trigger 를 즉시 승격하지 않는다.
-    자동 trigger 는 약 4분 workflow 와 artifact upload 를 반복시키는 운영 정책 변경이므로 별도 설계가 필요하다.
-  - 다음 자연스러운 step: D090/D091/D092/D093과 workflow 구조를 대조해 최소 자동 trigger 정책을 제안한다.
-  - 검증: `.github/workflows/benchmark-artifacts.yml`, GitHub Actions run `28143728630`/`28144480160`,
-    current backlog 대조.
+- [ ] D094 trigger policy push 후 자동 CI artifact run 을 검증한다.
+  - 목적: `Benchmark Artifacts` workflow 의 `push` to `master` + path filter trigger 가 원격에서 실제 run 을 생성하는지 확인한다.
+  - 범위: 이번 D094 workflow 변경 push 이후 GitHub Actions run 생성 여부, artifact upload, warning/report-only semantics.
+  - 현재 판단: workflow 는 `workflow_dispatch`와 제한된 `push` trigger 를 가진다. 이번 커밋은 workflow 파일을 바꾸므로
+    원격 push 시 path filter 에 걸려 자동 run 이 생성되어야 한다.
+  - 다음 자연스러운 step: 커밋 push 후 생성된 push-triggered run 을 `gh run watch --exit-status`로 확인하고 artifact 를 검증한다.
+  - 검증: `gh run list`, `gh run watch --exit-status`, `gh run view --log`, `gh run download`.
 
 ## Deferred Backlog
 
@@ -32,6 +30,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] CI artifact trigger policy 를 설계하고 workflow 에 반영했다.
+  - 범위: `.github/workflows/benchmark-artifacts.yml`,
+    `docs/superpowers/specs/2026-06-25-ci-artifact-trigger-policy-design.md`, D094, root 상태 문서.
+  - 결과: `workflow_dispatch`는 유지하고, `push` to `master` 중 code/benchmark/build 관련 path 변경에만 자동 실행하도록 했다.
+  - 비고: `pull_request`와 `schedule`은 아직 추가하지 않는다. docs-only 변경은 benchmark artifact 를 만들지 않는다.
+  - 검증: workflow marker scan, trigger out-of-scope scan, `git diff --check`로 확인한다.
 
 - [x] CI artifact-only manual run 2회 결과 이후 Phase 4 다음 후보를 재평가했다.
   - 범위: run `28143728630`, run `28144480160`, D090/D091/D092, baseline index, root 상태 문서.

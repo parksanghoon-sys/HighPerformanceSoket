@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D094 — CI artifact workflow 는 `workflow_dispatch`와 제한된 `push` to `master` path trigger 로 운영한다.
 - D093 — CI artifact-only manual run 2회만으로는 gate/trigger 를 승격하지 않고 다음 단위는 trigger policy 설계로 둔다.
 - D092 — CI benchmark workflow actions 는 Node 24 런타임을 명시한 최신 major/minor 로 갱신해 runner deprecation annotation 을 제거한다.
 - D091 — CI benchmark workflow artifact upload name carries GitHub run identity, while the uploaded directory keeps history-compatible date/session layout.

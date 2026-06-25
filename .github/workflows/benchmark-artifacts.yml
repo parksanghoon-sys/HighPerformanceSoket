@@ -2,6 +2,16 @@ name: Benchmark Artifacts
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/benchmark-artifacts.yml"
+      - "Directory.Build.props"
+      - "HighPerformanceSocket.slnx"
+      - "src/**"
+      - "tests/**"
+      - "samples/**"
 
 permissions:
   contents: read

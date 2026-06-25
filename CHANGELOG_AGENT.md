@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - CI artifact trigger policy)
+
+### 작업 단위
+- `Benchmark Artifacts` workflow 의 자동 실행 trigger 정책을 설계하고 workflow 에 반영했다.
+
+### 변경 내용
+- `.github/workflows/benchmark-artifacts.yml`:
+  `workflow_dispatch`를 유지하고, `push` to `master` + code/benchmark/build path filter 를 추가했다.
+- `docs/superpowers/specs/2026-06-25-ci-artifact-trigger-policy-design.md`:
+  PR/schedule 은 제외하고 master push path filter 를 채택하는 근거를 정리했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D094로 trigger 정책을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 검증 지점을 D094 workflow 변경 push 후 자동 run 확인으로 갱신했다.
+
+### 검증
+- workflow marker scan 으로 `workflow_dispatch`, `push`, `branches: master`, path filter 를 확인했다.
+- workflow scan 에서 `pull_request`, `schedule`, warning-as-failure, latency failure logic 이 없음을 확인했다.
+- `git diff --check`: exit 0.
+
 ## 2026-06-25 (Codex - CI artifact follow-up reassessment)
 
 ### 작업 단위
