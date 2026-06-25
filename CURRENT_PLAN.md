@@ -752,16 +752,21 @@ RIO 구현 계획 Task 3(registered buffer owner)을 완료했다.
 completion 이 중복 호출되어도 buffer 를 한 번만 release 한다.
 RIO test project 는 `InternalsVisibleTo`로 direct internal API 검증을 사용하도록 정리했다.
 
-다음 작업은 계획 Task 4인 TCP queue owner 구현이다.
-`RioRequestQueue`가 receive/send outstanding quota 를 초과하지 않도록 Red-Green으로 고정하고,
-`RioCompletionQueue` 수명 owner skeleton 을 추가한다.
+RIO 구현 계획 Task 4(TCP queue owners)를 완료했다.
+`RioRequestQueue`는 receive/send outstanding quota 를 각각 독립적으로 제한하고,
+completion 호출 후 같은 quota 를 다시 예약할 수 있다. `RioCompletionQueue`는 native CQ 연결 전
+Dispose 경계를 가진 skeleton 으로 추가했다.
+
+다음 작업은 계획 Task 5인 TCP opt-in transport guard 구현이다.
+RIO unavailable 환경에서 `RioTransport.ListenTcpAsync`가 명시적인 `NotSupportedException`으로 실패하고,
+기본 SAEA 경로는 유지되는지 검증한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO 구현 계획 Task 4를 실행한다.
+이번 cycle 은 RIO 구현 계획 Task 5를 실행한다.
 
-- 범위: `src/Hps.Transport.Rio/RioCompletionQueue.cs`, `src/Hps.Transport.Rio/RioRequestQueue.cs`,
-  `tests/Hps.Transport.Rio.Tests/RioQueueOwnerTests.cs`, root 상태 문서.
+- 범위: `src/Hps.Transport.Rio/RioTransport.cs`,
+  `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
 - 검증: Red assertion failure 확인, focused RIO tests, solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위

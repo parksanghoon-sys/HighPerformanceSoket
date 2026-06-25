@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO Task 4 TCP queue owners 를 구현한다.
-  - 목적: RIO request queue 의 receive/send outstanding quota 를 초과하지 않도록 owner 로 직렬화한다.
-  - 범위: `src/Hps.Transport.Rio/RioCompletionQueue.cs`, `src/Hps.Transport.Rio/RioRequestQueue.cs`,
-    `tests/Hps.Transport.Rio.Tests/RioQueueOwnerTests.cs`, root 상태 문서.
-  - 현재 판단: Task 4는 native CQ/RQ handle 연결 전, quota accounting 과 Dispose boundary 를 먼저 고정한다.
-  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md` Task 4를 Red-Green으로 실행한다.
-  - 검증: behavior Red assertion failure, focused RIO tests, solution build/test, `git diff --check`.
+- [ ] RIO Task 5 TCP opt-in transport guard 를 구현한다.
+  - 목적: RIO unavailable 환경에서 opt-in TCP listen/connect 가 명시적으로 실패하고, default SAEA 경로는 유지되게 한다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
+  - 현재 판단: Task 5는 아직 실제 RIO TCP socket pump 를 만들지 않고, capability guard 와 lifecycle validation 만 고정한다.
+  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md` Task 5를 Red-Green으로 실행한다.
+  - 검증: unavailable 환경 NotSupported assertion, focused RIO tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -82,6 +82,14 @@
   - 비고: Red 용 reflection 테스트는 Green 이후 `InternalsVisibleTo` 기반 direct internal API 테스트로 정리했다.
   - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
     focused RIO tests 7개 통과, solution build 경고 0/오류 0.
+
+- [x] RIO Task 4 TCP queue owners 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioCompletionQueue.cs`, `src/Hps.Transport.Rio/RioRequestQueue.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioQueueOwnerTests.cs`, root 상태 문서.
+  - 결과: receive/send quota reservation 을 독립적으로 제한하고 completion 후 quota 를 다시 열 수 있게 했다.
+  - 비고: Red 용 reflection 테스트는 Green 이후 `InternalsVisibleTo` 기반 direct internal API 테스트로 정리했다.
+  - 검증: Red assertion failure 2개 확인(`Assert.NotNull() Failure: Value is null`),
+    focused RIO tests 9개 통과, solution build 경고 0/오류 0.
 
 - [x] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,

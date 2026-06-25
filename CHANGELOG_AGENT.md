@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO Task 4 queue owners)
+
+### 작업 단위
+- Windows RIO backend Task 4로 TCP queue owner skeleton 을 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioRequestQueue.cs`:
+  receive/send outstanding quota reservation 과 completion accounting 을 추가했다.
+- `src/Hps.Transport.Rio/RioCompletionQueue.cs`:
+  native CQ 연결 전 수명 owner skeleton 을 추가했다.
+- `tests/Hps.Transport.Rio.Tests/RioQueueOwnerTests.cs`:
+  receive/send quota 초과와 completion 후 재예약 가능성을 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 4 완료와 다음 Task 5 TCP opt-in guard 진입점을 반영했다.
+
+### 검증
+- Red: queue owner 타입 부재로 `Assert.NotNull() Failure: Value is null` 2개를 확인했다.
+- Green/refactor: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 9개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 278개 통과, 실패 0.
+- `git diff --check`: 통과.
+
 ## 2026-06-25 (Codex - RIO Task 3 registered buffer owner)
 
 ### 작업 단위
