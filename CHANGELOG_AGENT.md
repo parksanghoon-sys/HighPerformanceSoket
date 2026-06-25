@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - CI artifact-only benchmark policy)
+
+### 작업 단위
+- CI workflow 구현 전에 CI artifact-only benchmark 정책을 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-ci-artifact-only-benchmark-policy-design.md`:
+  CI runner id, artifact 저장 위치, local/CI baseline 분리, exit code 정책, report-only latency/HWM/warning 기준을 정리했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D090을 추가했다.
+- `docs/benchmarks/baselines/index.md`:
+  CI 매 실행 artifact 는 docs baseline 에 자동 추가하지 않고 artifact-only 영역에 둔다는 운영 원칙을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 CI artifact-only workflow skeleton 구현 계획으로 갱신했다.
+
+### 검증
+- `tests/Hps.Benchmarks/Program.cs`: `baseline-suite`, `summary`, `history`가 hard-passed 기반 exit code 를 쓰고
+  `warning-count > 0`만으로 실패하지 않는 현재 규약을 대조했다.
+- `tests/Hps.Benchmarks/BenchmarkRunIdentity.cs`: CI runner id/kind 를 환경 변수로 주입할 수 있고,
+  host/user/IP를 자동 수집하지 않는 privacy 정책을 확인했다.
+- `.github/workflows`가 아직 없음을 확인했다.
+- `git diff --check`: exit 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+
 ## 2026-06-25 (Codex - Phase 4 gate promotion reassessment)
 
 ### 작업 단위

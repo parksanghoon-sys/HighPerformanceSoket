@@ -9,12 +9,13 @@
 
 ## Current TODOs
 
-- [ ] CI artifact-only benchmark 정책을 설계한다.
-  - 목적: CI workflow 구현 전에 CI runner id, artifact 저장 위치, local/CI baseline 분리, exit code 정책을 먼저 닫는다.
-  - 범위: benchmark CLI/report artifact 정책, `docs/benchmarks/baselines/index.md`, D080/D082/D084/D089,
-    root 상태 문서. 실제 workflow 파일 작성은 이번 범위가 아니다.
-  - 현재 판단: latency/HWM/warning 은 report-only 로 두고, 실패 조건은 build/test 와 delivery/drop/leak hard gate 까지만 허용하는 방향을 우선 검토한다.
-  - 검증: 기존 benchmark command/report 구조 대조, 신규 설계/결정 문서 placeholder 검색, `git diff --check`, solution build/test.
+- [ ] CI artifact-only workflow skeleton 구현 계획을 작성한다.
+  - 목적: D090 정책을 실제 `.github/workflows/benchmark-artifacts.yml` 구현 단위로 쪼개기 전에, command sequence,
+    artifact upload 경로, env var, exit code 기대값을 작은 구현 계획으로 고정한다.
+  - 범위: workflow 구현 계획 문서, D090, `tests/Hps.Benchmarks/Program.cs`, benchmark CLI command.
+    실제 workflow 파일 작성은 다음 구현 단위로 분리한다.
+  - 현재 판단: workflow 는 latency warning 을 실패로 올리지 않고, `baseline-suite`/`summary`/`history` artifact 를 업로드하는 skeleton 으로 시작한다.
+  - 검증: D090 policy coverage, placeholder 검색, `git diff --check`, solution build/test.
 
 ## Deferred Backlog
 
@@ -29,6 +30,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] CI artifact-only benchmark 정책을 설계했다.
+  - 범위: `docs/superpowers/specs/2026-06-25-ci-artifact-only-benchmark-policy-design.md`,
+    `docs/benchmarks/baselines/index.md`, `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: CI runner id 는 `ci-windows-x64-01`, runner kind 는 `ci`를 권장하고,
+    매 실행 artifact 는 docs baseline 과 섞지 않는 `artifacts/benchmarks/runners/<ci-runner-id>/...` 영역으로 분리한다.
+  - 비고: CI 실패 조건은 build/test, command usage/write failure, delivery/drop/leak hard gate 실패로 제한한다.
+    latency/HWM/warning 은 report-only 이며 `warning-count > 0`만으로 실패하지 않는다.
+  - 검증: benchmark `Program` exit code 규칙, `BenchmarkRunIdentity` 환경 변수 규칙, `.github/workflows` 부재를 대조했다.
+    `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 
 - [x] explicit runner 2-date-root reference 이후 Phase 4 gate 승격 후보를 재평가했다.
   - 범위: `docs/superpowers/specs/2026-06-25-phase4-gate-promotion-reassessment-design.md`,

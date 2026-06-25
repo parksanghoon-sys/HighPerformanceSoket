@@ -18,6 +18,9 @@
 - `history.json`은 여러 session summary 를 묶은 date-level machine-readable artifact 다.
 - `history.md`는 date-level history 를 사람이 빠르게 확인하기 위한 보조 artifact 다.
 - `warning-count > 0`은 현재 hard failure 가 아니다. warning-as-failure 와 latency hard gate 는 별도 결정 전까지 보류한다.
+- CI benchmark 는 D090 기준으로 artifact-only 단계에서 시작한다.
+  CI의 매 실행 artifact 는 `artifacts/benchmarks/runners/<ci-runner-id>/...` 같은 CI artifact 영역에 두고,
+  이 index 에는 사람이 repository baseline 으로 채택한 결과만 추가한다.
 
 ## Runner Groups
 
@@ -116,7 +119,7 @@ latency, growth, HWM 은 max, actual rate 는 min 을 사용한다.
 - `local-win-x64-01` runner group 은 첫 explicit runner 3-session baseline 이며, D084 저장 구조와 history command 경로 검증 표본이다.
   2026-06-25 session-03 추가 후 runner root history 는 6-session 을 묶고 hard gate 와 comparison compatibility 를 통과한다.
   같은 runner 의 두 date root 가 각각 3-session reference 를 갖췄지만, D089 기준으로 아직 D082 warning-as-failure/CI gate 로 승격하지 않는다.
-  다음 정책 단위는 CI runner id, artifact 저장 위치, local/CI baseline 분리, exit code 를 정하는 artifact-only CI benchmark 설계다.
+  D090 기준으로 CI benchmark 는 `ci-windows-x64-01` 같은 별도 runner id 를 쓰고, latency/HWM/warning 은 report-only 로 둔다.
 - 2026-06-18 raw report 는 D079 runner identity/environment metadata 도입 전 artifact 이므로
   summary/history comparison 은 `unknown-runner` mismatch 로 `comparison-compatible=false`를 기록한다.
   이 값은 hard gate 실패가 아니라 비교 가능성 신호다.

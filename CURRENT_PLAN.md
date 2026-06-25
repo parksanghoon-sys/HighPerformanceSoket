@@ -128,6 +128,11 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   warning-as-failure 와 CI latency hard gate 는 계속 보류한다(D089).
   다음 단위는 CI workflow 구현이 아니라 CI runner identity, artifact 저장 위치, local/CI baseline 분리,
   exit code 정책을 먼저 닫는 CI artifact-only benchmark 정책 설계다.
+- CI artifact-only benchmark 정책을 설계했다(D090).
+  권장 CI runner id 는 `ci-windows-x64-01`, runner kind 는 `ci`다.
+  CI 매 실행 artifact 는 docs baseline 과 섞지 않고 `artifacts/benchmarks/runners/<ci-runner-id>/...` 같은
+  CI artifact 영역에 둔다. latency/HWM/warning 은 report-only 로 유지하고,
+  CI 실패 조건은 build/test, command usage/write failure, delivery/drop/leak hard gate 실패로 제한한다.
 - summary/history comparison signal 설계를 완료했다.
   설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
   D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
@@ -721,21 +726,21 @@ Summary/history comparison signal 계획의 Task 1~5, benchmark writer metadata 
 2026-06-18 generated baseline artifact 재생성, 2026-06-24 current-schema baseline session-01/session-02/session-03 추가,
 D082 설계와 리뷰 보강, Phase 4 다음 후보 재평가, explicit runner 3-session reference 수집,
 explicit runner 3-session 이후 다음 후보 재평가, 2026-06-25 explicit runner session-01/session-02/session-03 수집,
-explicit runner 2-date-root reference 이후 gate 승격 후보 재평가는 완료됐다.
+explicit runner 2-date-root reference 이후 gate 승격 후보 재평가, CI artifact-only benchmark 정책 설계는 완료됐다.
 
-다음 작업은 CI artifact-only benchmark 정책 설계다.
-이 단위는 CI workflow 구현이 아니라 CI runner id, artifact 저장 위치, local/CI baseline 분리,
-exit code 정책, latency/HWM/warning 의 report-only 처리 기준을 먼저 닫는 문서/정책 작업이다.
+다음 작업은 CI artifact-only workflow skeleton 구현 계획 또는 구현 착수다.
+권장 순서는 먼저 작은 구현 계획을 작성한 뒤, 별도 단위에서 `.github/workflows/benchmark-artifacts.yml` 같은
+workflow 를 추가하는 것이다. workflow 는 D090에 따라 latency warning 을 실패로 올리지 않고 artifact upload 만 구성한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 explicit runner 2-date-root/6-session reference 이후 D082 warning-as-failure/CI latency gate
-승격 후보를 재평가하고, gate 보류와 다음 CI artifact-only 정책 설계 진입점을 문서화한다.
+이번 cycle 은 CI artifact-only benchmark 정책을 설계하고, CI workflow 구현 전 runner id, artifact 위치,
+local/CI baseline 분리, exit code 정책을 문서화한다.
 
-- 범위: `docs/superpowers/specs/2026-06-25-phase4-gate-promotion-reassessment-design.md`,
+- 범위: `docs/superpowers/specs/2026-06-25-ci-artifact-only-benchmark-policy-design.md`,
   `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`,
-  `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
-- 검증: runner root history/index 수치 대조, D082 조건 충족/미충족 대조,
+  `docs/benchmarks/baselines/index.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+- 검증: benchmark Program exit code 규칙, runner identity 환경 변수, `.github/workflows` 부재,
   신규 설계/결정 문서 placeholder 검색, `git diff --check`, solution build/test.
 
 ## 이번 작업에서 건드리지 않는 범위
