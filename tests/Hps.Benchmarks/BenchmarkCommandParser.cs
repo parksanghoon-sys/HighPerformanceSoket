@@ -10,6 +10,9 @@ namespace Hps.Benchmarks
         public const string MessageUnknownRunnerArgs = "알 수 없는 benchmark runner 인자입니다.";
         public const string MessageReportPathRequired = "--report 옵션에는 저장할 파일 경로가 필요합니다.";
         public const string MessageReportExecutionOnly = "--report 옵션은 benchmark 실행 명령에서만 사용할 수 있습니다.";
+        public const string MessageBackendPathRequired = "--backend 옵션에는 saea 또는 rio 값이 필요합니다.";
+        public const string MessageBackendInvalid = "--backend 옵션은 saea 또는 rio 값만 사용할 수 있습니다.";
+        public const string MessageBackendExecutionOnly = "--backend 옵션은 benchmark 실행 명령에서만 사용할 수 있습니다.";
         public const string MessageBaselineOutputRequired = "--baseline-suite 옵션에는 report directory 경로가 필요합니다.";
         public const string MessageBaselineRunsInvalid = "--runs 옵션에는 1 이상의 정수가 필요합니다.";
         public const string MessageBaselineReportNotAllowed = "--report 옵션은 --baseline-suite 와 함께 사용할 수 없습니다.";
@@ -70,6 +73,12 @@ namespace Hps.Benchmarks
                 return true;
             }
 
+            if (ContainsBackendOption(args))
+            {
+                errorMessage = MessageBackendExecutionOnly;
+                return true;
+            }
+
             return false;
         }
 
@@ -95,17 +104,33 @@ namespace Hps.Benchmarks
             }
 
             int runCount = DefaultBaselineRunCount;
-            if (args.Length == 4 && string.Equals(args[2], "--runs", StringComparison.OrdinalIgnoreCase))
+            TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea;
+            for (int index = 2; index < args.Length; index += 2)
             {
-                if (!int.TryParse(args[3], out runCount) || runCount <= 0)
-                    errorMessage = MessageBaselineRunsInvalid;
-            }
-            else if (args.Length != 2)
-            {
-                errorMessage = MessageUnknownRunnerArgs;
+                if (index + 1 >= args.Length)
+                {
+                    errorMessage = MessageUnknownRunnerArgs;
+                    break;
+                }
+
+                if (string.Equals(args[index], "--runs", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!int.TryParse(args[index + 1], out runCount) || runCount <= 0)
+                        errorMessage = MessageBaselineRunsInvalid;
+                }
+                else if (string.Equals(args[index], "--backend", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!TryParseTransportBackend(args[index + 1], out transportBackend, out errorMessage))
+                        break;
+                }
+                else
+                {
+                    errorMessage = MessageUnknownRunnerArgs;
+                    break;
+                }
             }
 
-            commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, args[1], runCount, null, null, null, null, null, null);
+            commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, args[1], runCount, null, null, null, null, null, null, transportBackend);
             return true;
         }
 
@@ -127,6 +152,12 @@ namespace Hps.Benchmarks
             if (ContainsReportOption(args))
             {
                 errorMessage = MessageSummaryReportNotAllowed;
+                return true;
+            }
+
+            if (ContainsBackendOption(args))
+            {
+                errorMessage = MessageBackendExecutionOnly;
                 return true;
             }
 
@@ -195,6 +226,12 @@ namespace Hps.Benchmarks
                 return true;
             }
 
+            if (ContainsBackendOption(args))
+            {
+                errorMessage = MessageBackendExecutionOnly;
+                return true;
+            }
+
             if ((args.Length != 4 && args.Length != 6) || !string.Equals(args[2], "--history", StringComparison.OrdinalIgnoreCase))
             {
                 errorMessage = MessageHistoryOutputRequired;
@@ -246,29 +283,51 @@ namespace Hps.Benchmarks
             out string? errorMessage)
         {
             string? reportPath;
-            ParseOptionalReport(args, out reportPath, out errorMessage);
-            commandLine = new BenchmarkCommandLine(command, reportPath, null, 0, null, null, null, null, null, null);
+            TcpLoopbackTransportBackend transportBackend;
+            ParseRunnerOptions(args, out reportPath, out transportBackend, out errorMessage);
+            commandLine = new BenchmarkCommandLine(command, reportPath, null, 0, null, null, null, null, null, null, transportBackend);
             return true;
         }
 
-        private static void ParseOptionalReport(string[] args, out string? reportPath, out string? errorMessage)
+        private static void ParseRunnerOptions(
+            string[] args,
+            out string? reportPath,
+            out TcpLoopbackTransportBackend transportBackend,
+            out string? errorMessage)
         {
             reportPath = null;
+            transportBackend = TcpLoopbackTransportBackend.Saea;
             errorMessage = null;
 
-            if (args.Length == 1)
-                return;
-
-            if (args.Length != 3 || !string.Equals(args[1], "--report", StringComparison.OrdinalIgnoreCase))
+            for (int index = 1; index < args.Length; index += 2)
             {
-                errorMessage = MessageUnknownRunnerArgs;
-                return;
-            }
+                if (index + 1 >= args.Length)
+                {
+                    errorMessage = MessageUnknownRunnerArgs;
+                    return;
+                }
 
-            if (string.IsNullOrWhiteSpace(args[2]))
-                errorMessage = MessageReportPathRequired;
-            else
-                reportPath = args[2];
+                if (string.Equals(args[index], "--report", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(args[index + 1]))
+                    {
+                        errorMessage = MessageReportPathRequired;
+                        return;
+                    }
+
+                    reportPath = args[index + 1];
+                }
+                else if (string.Equals(args[index], "--backend", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!TryParseTransportBackend(args[index + 1], out transportBackend, out errorMessage))
+                        return;
+                }
+                else
+                {
+                    errorMessage = MessageUnknownRunnerArgs;
+                    return;
+                }
+            }
         }
 
         private static string? ValidateNoReportOption(string[] args)
@@ -278,6 +337,9 @@ namespace Hps.Benchmarks
 
             if (ContainsReportOption(args))
                 return MessageReportExecutionOnly;
+
+            if (ContainsBackendOption(args))
+                return MessageBackendExecutionOnly;
 
             return MessageUnknownRunnerArgs;
         }
@@ -290,6 +352,44 @@ namespace Hps.Benchmarks
                     return true;
             }
 
+            return false;
+        }
+
+        private static bool ContainsBackendOption(string[] args)
+        {
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (string.Equals(args[i], "--backend", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryParseTransportBackend(
+            string value,
+            out TcpLoopbackTransportBackend transportBackend,
+            out string? errorMessage)
+        {
+            transportBackend = TcpLoopbackTransportBackend.Saea;
+            errorMessage = null;
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                errorMessage = MessageBackendPathRequired;
+                return false;
+            }
+
+            if (string.Equals(value, "saea", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (string.Equals(value, "rio", StringComparison.OrdinalIgnoreCase))
+            {
+                transportBackend = TcpLoopbackTransportBackend.Rio;
+                return true;
+            }
+
+            errorMessage = MessageBackendInvalid;
             return false;
         }
     }

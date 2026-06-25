@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - benchmark backend selector)
+
+### 작업 단위
+- SAEA/RIO benchmark backend selector 를 구현했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`, `BenchmarkCommandLine.cs`,
+  `TcpLoopbackTransportBackend.cs`:
+  `--backend <saea|rio>`를 runner/baseline-suite 명령에만 허용하고 command line model 에 저장하도록 추가했다.
+- `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`, `Program.cs`, `Hps.Benchmarks.csproj`,
+  `BenchmarkRunIdentity.cs`:
+  benchmark runner 가 선택된 backend 에 따라 `SaeaTransport` 또는 `RioTransport`를 생성하고,
+  raw report identity/scenario 를 backend 별로 분리하도록 연결했다.
+- `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`, `BenchmarkRunIdentityTests.cs`:
+  parser Red 와 identity Red 를 추가한 뒤 green 으로 전환했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 진입점을 SAEA/RIO comparison artifact 수집으로 이동했다.
+
+### 검증
+- Red: `--load --backend rio --report ...`와 `--baseline-suite ... --backend rio`가 unknown runner arg 로 실패함을 확인했다.
+- Red: `BenchmarkRunIdentity.CaptureForBackend` 부재를 assertion failure 로 확인했다.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore`: 71개 통과.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --smoke --backend saea --report $env:TEMP\hps-saea-smoke.json`: pass.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj --no-restore -- --smoke --backend rio --report $env:TEMP\hps-rio-smoke.json`: pass.
+- report JSON 에서 SAEA=`tcp-loopback-saea-v1`/`SaeaTransport`,
+  RIO=`tcp-loopback-rio-v1`/`RioTransport`를 확인했다.
+
 ## 2026-06-25 (Codex - SAEA/RIO benchmark comparison design)
 
 ### 작업 단위

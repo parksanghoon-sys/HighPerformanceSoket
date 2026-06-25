@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using Hps.Broker;
@@ -31,40 +32,43 @@ namespace Hps.Benchmarks
         private const int SequenceBytes = 4;
         private const int PayloadPatternOffset = SequenceOffset + SequenceBytes;
 
-        public static async Task<TcpLoopbackRunResult> RunSmokeAsync()
+        public static async Task<TcpLoopbackRunResult> RunSmokeAsync(TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea)
         {
             return await RunScenarioAsync(
                 resultName: "smoke",
-                scenario: BenchmarkTargets.TcpLoopbackBaselineName + "-smoke",
+                scenario: BuildScenarioName(transportBackend, "-smoke"),
                 messageCount: SmokeMessageCount,
                 publishRateHz: 0,
                 targetDurationSeconds: 0,
                 pacePublishes: false,
-                openLoop: false).ConfigureAwait(false);
+                openLoop: false,
+                transportBackend: transportBackend).ConfigureAwait(false);
         }
 
-        public static async Task<TcpLoopbackRunResult> RunLoadAsync()
+        public static async Task<TcpLoopbackRunResult> RunLoadAsync(TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea)
         {
             return await RunScenarioAsync(
                 resultName: "load",
-                scenario: BenchmarkTargets.TcpLoopbackBaselineName,
+                scenario: BuildScenarioName(transportBackend, string.Empty),
                 messageCount: BenchmarkTargets.PlannedMessageCount,
                 publishRateHz: BenchmarkTargets.PublishRateHz,
                 targetDurationSeconds: BenchmarkTargets.DurationSeconds,
                 pacePublishes: true,
-                openLoop: false).ConfigureAwait(false);
+                openLoop: false,
+                transportBackend: transportBackend).ConfigureAwait(false);
         }
 
-        public static async Task<TcpLoopbackRunResult> RunOpenLoopAsync()
+        public static async Task<TcpLoopbackRunResult> RunOpenLoopAsync(TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea)
         {
             return await RunScenarioAsync(
                 resultName: "open-loop",
-                scenario: BenchmarkTargets.TcpLoopbackBaselineName + "-open-loop",
+                scenario: BuildScenarioName(transportBackend, "-open-loop"),
                 messageCount: BenchmarkTargets.PlannedMessageCount,
                 publishRateHz: BenchmarkTargets.PublishRateHz,
                 targetDurationSeconds: BenchmarkTargets.DurationSeconds,
                 pacePublishes: true,
-                openLoop: true).ConfigureAwait(false);
+                openLoop: true,
+                transportBackend: transportBackend).ConfigureAwait(false);
         }
 
         private static async Task<TcpLoopbackRunResult> RunScenarioAsync(
@@ -74,7 +78,8 @@ namespace Hps.Benchmarks
             int publishRateHz,
             int targetDurationSeconds,
             bool pacePublishes,
-            bool openLoop)
+            bool openLoop,
+            TcpLoopbackTransportBackend transportBackend)
         {
             byte[] payload = new byte[BenchmarkTargets.PayloadBytes];
             long[] latencyTicks = new long[messageCount];
@@ -85,7 +90,7 @@ namespace Hps.Benchmarks
             Stopwatch pacingClock = new Stopwatch();
 
             PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(BenchmarkTargets.MaxFramePayloadBytes);
-            using (SaeaTransport transport = new SaeaTransport())
+            using (ITransport transport = CreateTransport(transportBackend))
             using (BrokerServer server = new BrokerServer(transport, pool, BenchmarkTargets.MaxFramePayloadBytes))
             {
                 Socket? subscriber = null;
@@ -157,7 +162,8 @@ namespace Hps.Benchmarks
                         payloadErrors,
                         pool.RentedCount,
                         latencyTicks,
-                        elapsed.ElapsedMilliseconds);
+                        elapsed.ElapsedMilliseconds,
+                        BenchmarkRunIdentity.CaptureForBackend(transportBackend));
                 }
                 finally
                 {
@@ -166,6 +172,31 @@ namespace Hps.Benchmarks
                     await server.StopAsync().ConfigureAwait(false);
                 }
             }
+        }
+
+        private static string BuildScenarioName(TcpLoopbackTransportBackend transportBackend, string suffix)
+        {
+            string baseName = transportBackend == TcpLoopbackTransportBackend.Rio
+                ? "tcp-loopback-rio-baseline"
+                : BenchmarkTargets.TcpLoopbackBaselineName;
+
+            return baseName + suffix;
+        }
+
+        private static ITransport CreateTransport(TcpLoopbackTransportBackend transportBackend)
+        {
+            if (transportBackend == TcpLoopbackTransportBackend.Rio)
+            {
+                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                    RioCapabilityProbe.GetStatus() != RioCapabilityStatus.Available)
+                {
+                    throw new NotSupportedException("RIO benchmark backend 를 현재 환경에서 사용할 수 없습니다.");
+                }
+
+                return new RioTransport();
+            }
+
+            return new SaeaTransport();
         }
 
         private static TcpLoopbackRunResult CreateResult(
@@ -182,7 +213,8 @@ namespace Hps.Benchmarks
             int payloadErrors,
             int poolRented,
             long[] latencyTicks,
-            long elapsedMilliseconds)
+            long elapsedMilliseconds,
+            BenchmarkRunIdentity identity)
         {
             long[] completedTicks = new long[received];
             Array.Copy(latencyTicks, completedTicks, received);
@@ -213,7 +245,8 @@ namespace Hps.Benchmarks
                 p99,
                 firstHalfP99,
                 secondHalfP99,
-                elapsedMilliseconds);
+                elapsedMilliseconds,
+                identity);
         }
 
         private static double PercentileLatency(long[] latencyTicks, int startIndex, int count, double percentile)

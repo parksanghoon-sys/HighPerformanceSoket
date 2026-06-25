@@ -27,6 +27,26 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal(0, commandLine.BaselineRunCount);
         }
 
+        // backend selector 는 benchmark 내부 비교용 옵션이다.
+        // --load 에서 RIO를 명시하면 default factory 를 바꾸지 않고도 다음 runner 단계가 RioTransport 를 선택할 수 있어야 한다.
+        [Fact]
+        public void TryParse_WhenLoadHasRioBackendAndReport_ReturnsLoadCommandWithBackend()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--load", "--backend", "rio", "--report", "out/rio-load.json" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal(BenchmarkCommand.Load, commandLine.Command);
+            Assert.Equal("out/rio-load.json", commandLine.ReportPath);
+            Assert.Equal("Rio", GetRequiredProperty(commandLine, "TransportBackend")!.ToString());
+        }
+
         // --report 단독 사용은 실행할 runner 가 없으므로 usage error 로 남아야 한다.
         // 이 경계가 풀리면 사용자가 report 를 기대했는데 BenchmarkDotNet 인자로 해석될 수 있다.
         [Fact]
@@ -64,6 +84,27 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal("out/baseline", commandLine.BaselineOutputDirectory);
             Assert.Equal(2, commandLine.BaselineRunCount);
             Assert.Null(commandLine.ReportPath);
+        }
+
+        // baseline suite 도 backend 별 raw report 묶음을 만들 수 있어야 SAEA/RIO 반복 측정 directory 를 분리할 수 있다.
+        // 여기서는 parser 가 선택한 backend 를 suite runner 까지 전달할 최소 상태를 보존하는지만 검증한다.
+        [Fact]
+        public void TryParse_WhenBaselineSuiteHasRioBackendAndRuns_ReturnsBaselineSuiteCommandWithBackend()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--baseline-suite", "out/rio-baseline", "--runs", "2", "--backend", "rio" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal(BenchmarkCommand.BaselineSuite, commandLine.Command);
+            Assert.Equal("out/rio-baseline", commandLine.BaselineOutputDirectory);
+            Assert.Equal(2, commandLine.BaselineRunCount);
+            Assert.Equal("Rio", GetRequiredProperty(commandLine, "TransportBackend")!.ToString());
         }
 
         // run count 를 생략하면 D069 기준 최소 session 수집 단위인 3회를 기본값으로 사용한다.
@@ -201,6 +242,24 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal("SummarizeBaseline", commandLine.Command.ToString());
         }
 
+        // summary 는 이미 raw report 의 transport-backend 를 읽는 aggregate 단계다.
+        // 여기서 --backend 를 다시 받으면 입력 artifact 와 실행 backend 개념이 섞이므로 usage error 로 막아야 한다.
+        [Fact]
+        public void TryParse_WhenSummarizeBaselineHasBackend_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--summarize-baseline", "docs/baseline", "--summary", "out/summary.json", "--backend", "rio" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Equal("SummarizeBaseline", commandLine.Command.ToString());
+        }
+
         // history command 는 여러 session summary 를 읽는 별도 aggregate command 이다.
         // parser 가 input root 와 JSON output path 를 보존해야 후속 reader/writer 단계가 같은 계약에 붙을 수 있다.
         [Fact]
@@ -304,6 +363,13 @@ namespace Hps.Benchmarks.Tests
             PropertyInfo? property = typeof(BenchmarkCommandLine).GetProperty(propertyName);
             Assert.NotNull(property);
             return (string?)property!.GetValue(commandLine, null);
+        }
+
+        private static object? GetRequiredProperty(BenchmarkCommandLine commandLine, string propertyName)
+        {
+            PropertyInfo? property = typeof(BenchmarkCommandLine).GetProperty(propertyName);
+            Assert.NotNull(property);
+            return property!.GetValue(commandLine, null);
         }
     }
 }

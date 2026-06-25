@@ -14,6 +14,8 @@ namespace Hps.Benchmarks
         public const string DefaultRunnerId = "local-unspecified";
         public const string DefaultRunnerKind = "local";
         public const string DefaultTransportBackend = "SaeaTransport";
+        public const string RioBenchmarkProfile = "tcp-loopback-rio-v1";
+        public const string RioTransportBackend = "RioTransport";
 
         private const string RunnerIdEnvironmentVariable = "HPS_BENCHMARK_RUNNER_ID";
         private const string RunnerKindEnvironmentVariable = "HPS_BENCHMARK_RUNNER_KIND";
@@ -74,11 +76,30 @@ namespace Hps.Benchmarks
         /// </summary>
         public static BenchmarkRunIdentity CaptureDefault()
         {
+            return CaptureForBackend(TcpLoopbackTransportBackend.Saea);
+        }
+
+        public static BenchmarkRunIdentity CaptureForBackend(TcpLoopbackTransportBackend transportBackend)
+        {
+            string benchmarkProfile;
+            string backendName;
+
+            if (transportBackend == TcpLoopbackTransportBackend.Rio)
+            {
+                benchmarkProfile = RioBenchmarkProfile;
+                backendName = RioTransportBackend;
+            }
+            else
+            {
+                benchmarkProfile = DefaultBenchmarkProfile;
+                backendName = DefaultTransportBackend;
+            }
+
             return new BenchmarkRunIdentity(
-                DefaultBenchmarkProfile,
+                benchmarkProfile,
                 GetEnvironmentOrDefault(RunnerIdEnvironmentVariable, DefaultRunnerId),
                 GetEnvironmentOrDefault(RunnerKindEnvironmentVariable, DefaultRunnerKind),
-                DefaultTransportBackend,
+                backendName,
                 RuntimeInformation.OSDescription,
                 RuntimeInformation.OSArchitecture.ToString(),
                 RuntimeInformation.ProcessArchitecture.ToString(),

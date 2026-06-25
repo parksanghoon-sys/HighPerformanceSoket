@@ -12,7 +12,8 @@ namespace Hps.Benchmarks
             string? summaryMarkdownOutputPath,
             string? historyInputRoot,
             string? historyOutputPath,
-            string? historyMarkdownOutputPath)
+            string? historyMarkdownOutputPath,
+            TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea)
         {
             Command = command;
             ReportPath = reportPath;
@@ -24,6 +25,7 @@ namespace Hps.Benchmarks
             HistoryInputRoot = historyInputRoot;
             HistoryOutputPath = historyOutputPath;
             HistoryMarkdownOutputPath = historyMarkdownOutputPath;
+            TransportBackend = transportBackend;
         }
 
         public BenchmarkCommand Command { get; }
@@ -45,5 +47,7 @@ namespace Hps.Benchmarks
         public string? HistoryOutputPath { get; }
 
         public string? HistoryMarkdownOutputPath { get; }
+
+        public TcpLoopbackTransportBackend TransportBackend { get; }
     }
 }

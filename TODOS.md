@@ -9,15 +9,13 @@
 
 ## Current TODOs
 
-- [ ] benchmark backend selector parser/options 를 TDD로 구현한다.
-  - 목적: `--backend <saea|rio>`를 runner/baseline-suite 명령에만 허용하고, 선택값을 command line model 에 보존한다.
-  - 범위: `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`, `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`,
-    `tests/Hps.Benchmarks.Tests/`, `docs/superpowers/specs/2026-06-25-saea-rio-benchmark-comparison-design.md`.
-  - 현재 판단: D101에 따라 public `TransportFactory`는 유지하고 benchmark 내부 selector 만 추가한다.
-    첫 구현 단위는 실제 RIO transport 생성 전 parser/options/identity boundary 로 제한한다.
-  - 다음 자연스러운 step: parser Red 테스트를 먼저 추가한다.
-    예: `--load --backend rio --report x` 성공, summary/history 에 `--backend` 사용 시 usage error.
-  - 검증: focused benchmark tests, solution build/test, `git diff --check`.
+- [ ] SAEA/RIO benchmark comparison artifact 를 수집한다.
+  - 목적: 새 `--backend <saea|rio>` CLI가 실제 smoke/load/open-loop report 를 backend 별 identity 로 생성하는지 확인한다.
+  - 범위: `tests/Hps.Benchmarks/`, 임시 `artifacts/benchmarks/` 출력, summary/history command.
+  - 현재 판단: backend selector 구현은 완료됐고 SAEA/RIO smoke report 는 scenario/profile/backend 가 분리됐다.
+  - 다음 자연스러운 step: repository baseline 채택 없이 scratch directory 에 SAEA/RIO load/open-loop report 를 생성하고,
+    같은 directory 에 섞었을 때 summary/history comparison mismatch 가 관측되는지 확인한다.
+  - 검증: benchmark CLI 실행, summary/history output 확인, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -65,6 +63,14 @@
   - 결과: benchmark 내부 `--backend <saea|rio>` selector 로 비교하고, raw report schema 는 backend 별 identity/scenario 값으로 구분한다.
   - 검증: benchmark CLI/result/summary/history source 대조, `git diff --check`.
   - 비고: repository RIO baseline 채택 구조, 비교 Markdown, latency hard gate 는 후속으로 둔다.
+
+- [x] benchmark backend selector 를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/`, `tests/Hps.Benchmarks.Tests/`, root 상태 문서.
+  - 결과: runner/baseline-suite 명령에서 `--backend <saea|rio>`를 파싱하고,
+    `TcpLoopbackScenarioRunner`가 `SaeaTransport`/`RioTransport`와 backend 별 report identity 를 선택한다.
+  - 검증: parser Red 확인, identity Red 확인, benchmark tests 71개 통과,
+    SAEA/RIO smoke CLI pass 및 report `scenario`/`benchmark-profile`/`transport-backend` 확인.
+  - 비고: RIO unavailable 환경에서 explicit RIO backend 는 fallback 하지 않고 실패한다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,

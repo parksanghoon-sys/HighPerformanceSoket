@@ -49,6 +49,24 @@ namespace Hps.Benchmarks.Tests
             }
         }
 
+        // backend 비교 raw report 는 같은 runner 에서 실행되어도 profile/backend 값이 달라야 summary/history 가 혼합을 감지한다.
+        // reflection 으로 먼저 계약을 고정해 CaptureForBackend API 부재가 assertion failure 로 드러나게 한다.
+        [Fact]
+        public void CaptureForBackend_WhenRioIsSelected_UsesRioProfileAndTransportBackend()
+        {
+            Type? backendType = Type.GetType("Hps.Benchmarks.TcpLoopbackTransportBackend, Hps.Benchmarks");
+            Assert.NotNull(backendType);
+
+            object rioBackend = Enum.Parse(backendType!, "Rio");
+            MethodInfo? method = typeof(BenchmarkRunIdentity).GetMethod("CaptureForBackend", BindingFlags.Static | BindingFlags.Public);
+            Assert.NotNull(method);
+
+            BenchmarkRunIdentity identity = Assert.IsType<BenchmarkRunIdentity>(method!.Invoke(null, new object[] { rioBackend }));
+
+            Assert.Equal("tcp-loopback-rio-v1", identity.BenchmarkProfile);
+            Assert.Equal("RioTransport", identity.TransportBackend);
+        }
+
         // 서로 다른 장비를 비교군에서 분리하려면 사용자가 runner id 를 명시해야 한다.
         // 자동 machine name 수집 대신 환경 변수만 허용해 로컬/사설 환경 정보 노출을 막는다.
         [Fact]

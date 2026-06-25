@@ -38,16 +38,16 @@ namespace Hps.Benchmarks
                     return SuccessExitCode;
 
                 case BenchmarkCommand.Smoke:
-                    return CompleteRun(TcpLoopbackScenarioRunner.RunSmokeAsync().GetAwaiter().GetResult(), commandLine.ReportPath);
+                    return CompleteRun(TcpLoopbackScenarioRunner.RunSmokeAsync(commandLine.TransportBackend).GetAwaiter().GetResult(), commandLine.ReportPath);
 
                 case BenchmarkCommand.Load:
-                    return CompleteRun(TcpLoopbackScenarioRunner.RunLoadAsync().GetAwaiter().GetResult(), commandLine.ReportPath);
+                    return CompleteRun(TcpLoopbackScenarioRunner.RunLoadAsync(commandLine.TransportBackend).GetAwaiter().GetResult(), commandLine.ReportPath);
 
                 case BenchmarkCommand.LoadOpenLoop:
-                    return CompleteRun(TcpLoopbackScenarioRunner.RunOpenLoopAsync().GetAwaiter().GetResult(), commandLine.ReportPath);
+                    return CompleteRun(TcpLoopbackScenarioRunner.RunOpenLoopAsync(commandLine.TransportBackend).GetAwaiter().GetResult(), commandLine.ReportPath);
 
                 case BenchmarkCommand.BaselineSuite:
-                    return CompleteBaselineSuite(commandLine.BaselineOutputDirectory!, commandLine.BaselineRunCount);
+                    return CompleteBaselineSuite(commandLine.BaselineOutputDirectory!, commandLine.BaselineRunCount, commandLine.TransportBackend);
 
                 case BenchmarkCommand.SummarizeBaseline:
                     return CompleteBaselineSummary(commandLine.SummaryInputDirectory!, commandLine.SummaryOutputPath!, commandLine.SummaryMarkdownOutputPath);
@@ -84,15 +84,15 @@ namespace Hps.Benchmarks
             return result.Passed ? SuccessExitCode : FailedRunExitCode;
         }
 
-        private static int CompleteBaselineSuite(string outputDirectory, int runCount)
+        private static int CompleteBaselineSuite(string outputDirectory, int runCount, TcpLoopbackTransportBackend transportBackend)
         {
             BaselineSuiteRunner runner = new BaselineSuiteRunner(
                 kind =>
                 {
                     if (kind == BaselineRunKind.Load)
-                        return TcpLoopbackScenarioRunner.RunLoadAsync();
+                        return TcpLoopbackScenarioRunner.RunLoadAsync(transportBackend);
 
-                    return TcpLoopbackScenarioRunner.RunOpenLoopAsync();
+                    return TcpLoopbackScenarioRunner.RunOpenLoopAsync(transportBackend);
                 },
                 TcpLoopbackReportWriter.Write);
 
@@ -182,10 +182,10 @@ namespace Hps.Benchmarks
         {
             writer.WriteLine(MessageUsage);
             writer.WriteLine("  Hps.Benchmarks --target");
-            writer.WriteLine("  Hps.Benchmarks --smoke [--report <path>]");
-            writer.WriteLine("  Hps.Benchmarks --load [--report <path>]");
-            writer.WriteLine("  Hps.Benchmarks --load-open-loop [--report <path>]");
-            writer.WriteLine("  Hps.Benchmarks --baseline-suite <output-dir> [--runs <count>]");
+            writer.WriteLine("  Hps.Benchmarks --smoke [--backend <saea|rio>] [--report <path>]");
+            writer.WriteLine("  Hps.Benchmarks --load [--backend <saea|rio>] [--report <path>]");
+            writer.WriteLine("  Hps.Benchmarks --load-open-loop [--backend <saea|rio>] [--report <path>]");
+            writer.WriteLine("  Hps.Benchmarks --baseline-suite <output-dir> [--runs <count>] [--backend <saea|rio>]");
             writer.WriteLine("  Hps.Benchmarks --summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]");
             writer.WriteLine("  Hps.Benchmarks --summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]");
             writer.WriteLine("  Hps.Benchmarks [BenchmarkDotNet arguments]");

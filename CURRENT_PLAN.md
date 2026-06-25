@@ -884,9 +884,20 @@ summary/history comparison 이 SAEA/RIO artifact 혼합을 감지하게 한다.
 다음 작업은 benchmark backend selector 의 첫 구현 단위다.
 parser/options/result identity 경계부터 TDD로 고정하고, 실제 `TcpLoopbackScenarioRunner` RIO 생성은 그 다음 단위에서 진행한다.
 
+benchmark backend selector 구현을 완료했다.
+`--backend <saea|rio>`는 `--smoke`, `--load`, `--load-open-loop`, `--baseline-suite`에서 파싱되며,
+summary/history 명령에서는 허용하지 않는다.
+`TcpLoopbackScenarioRunner`는 backend 에 따라 `SaeaTransport` 또는 opt-in `RioTransport`를 생성하고,
+raw report identity 는 `tcp-loopback-saea-v1`/`SaeaTransport` 또는 `tcp-loopback-rio-v1`/`RioTransport`로 분리된다.
+SAEA/RIO smoke CLI 를 각각 실행해 report scenario/profile/backend 값이 분리됨을 확인했다.
+
+다음 작업은 SAEA/RIO 비교 artifact 수집이다.
+처음에는 repository baseline 채택 없이 임시 artifact directory 에 smoke/load/open-loop report 를 생성하고,
+summary/history comparison 이 backend mismatch 를 감지하는지 확인한다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 benchmark backend selector parser/options 구현을 준비한다.
+이번 cycle 은 SAEA/RIO benchmark comparison artifact 수집을 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.
