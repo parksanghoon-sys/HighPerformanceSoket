@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO Task 2 native function table loader 를 구현한다.
-  - 목적: Windows RIO function table load 경계를 `RioNative` 뒤에 만들고, capability probe 가 예외 없이 availability 를 보고하게 한다.
-  - 범위: `src/Hps.Transport.Rio/RioNative.cs`, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`,
-    `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
-  - 현재 판단: Task 2는 실제 RIO send/receive 를 만들지 않고, probe/fallback 가능한 native 경계만 만든다.
-  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md` Task 2를 Red-Green으로 실행한다.
-  - 검증: reflection 기반 Red assertion failure, focused RIO tests, solution build/test, `git diff --check`.
+- [ ] RIO Task 3 registered buffer owner 를 구현한다.
+  - 목적: RIO completion dequeue 전까지 registered buffer association 이 살아 있어야 하는 수명 규칙을 owner 로 고정한다.
+  - 범위: `src/Hps.Transport.Rio/RioRegisteredBufferPool.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioRegisteredBufferPoolTests.cs`, root 상태 문서.
+  - 현재 판단: Task 3은 native buffer id 등록 전, pinned block/refcount owner 규칙을 먼저 테스트로 고정한다.
+  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md` Task 3을 Red-Green으로 실행한다.
+  - 검증: reflection/behavior Red assertion failure, focused RIO tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -64,6 +64,15 @@
   - 비고: 기본 `TransportFactory.CreateDefault()`는 계속 `SaeaTransport`를 반환한다.
   - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
     focused RIO tests 4개 통과, solution build 경고 0/오류 0.
+
+- [x] RIO Task 2 native function table loader 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioNative.cs`, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
+  - 결과: `RioNative.TryLoadFunctionTable(out RioNative?)` 경계를 추가하고,
+    `RioCapabilityProbe.GetStatus()`가 해당 경계를 통해 `Available` 또는 `Unavailable`을 반환하도록 연결했다.
+  - 비고: 실제 `WSAIoctl`/`WSAID_MULTIPLE_RIO` marshalling 은 아직 넣지 않고, 예외 없는 fallback 경계를 먼저 고정했다.
+  - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
+    focused RIO tests 6개 통과, solution build 경고 0/오류 0.
 
 - [x] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,

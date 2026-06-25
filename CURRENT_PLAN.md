@@ -742,16 +742,21 @@ RIO 구현 계획 Task 1(project skeleton/capability probe)을 완료했다.
 `RioCapabilityProbe`, `RioCapabilityStatus`, `RioTransport` skeleton 을 만들었다.
 기본 `TransportFactory.CreateDefault()`는 계속 SAEA를 반환한다.
 
-다음 작업은 계획 Task 2인 RIO native function table loader 구현이다.
-`RioNative` 타입을 reflection assertion failure 로 먼저 요구하고,
-Windows에서 `RioCapabilityProbe.GetStatus()`가 예외 없이 `Available` 또는 `Unavailable`로 수렴하게 만든다.
+RIO 구현 계획 Task 2(native function table loader)를 완료했다.
+`RioNative` 타입을 추가했고, `RioCapabilityProbe.GetStatus()`가 Windows에서 예외 없이
+`Available` 또는 `Unavailable`로 수렴하도록 native loader 경계를 연결했다.
+현재 loader 는 아직 실제 `WSAIoctl` marshalling 을 수행하지 않고 fallback 가능한 `Unavailable` 경계만 고정한다.
+
+다음 작업은 계획 Task 3인 RIO registered buffer owner 구현이다.
+completion dequeue 전까지 buffer association 이 살아 있어야 하는 RIO 수명 규칙을
+`RioRegisteredBufferPool` 테스트로 먼저 고정한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO 구현 계획 Task 2를 실행한다.
+이번 cycle 은 RIO 구현 계획 Task 3을 실행한다.
 
-- 범위: `src/Hps.Transport.Rio/RioNative.cs`, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`,
-  `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`, root 상태 문서.
+- 범위: `src/Hps.Transport.Rio/RioRegisteredBufferPool.cs`,
+  `tests/Hps.Transport.Rio.Tests/RioRegisteredBufferPoolTests.cs`, root 상태 문서.
 - 검증: Red assertion failure 확인, focused RIO tests, solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위

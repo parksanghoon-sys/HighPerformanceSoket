@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO Task 2 native loader boundary)
+
+### 작업 단위
+- Windows RIO backend Task 2로 native function table loader 경계를 추가했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioNative.cs`:
+  RIO native function table load 를 숨기는 internal boundary 를 추가했다.
+- `src/Hps.Transport.Rio/RioCapabilityProbe.cs`:
+  Windows probe 가 `RioNative.TryLoadFunctionTable(...)` 결과를 통해 `Available` 또는 `Unavailable`로 수렴하도록 연결했다.
+- `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`:
+  `RioNative` 타입 존재와 Windows probe non-throw 경로를 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 2 완료와 다음 Task 3 registered buffer owner 진입점을 반영했다.
+
+### 검증
+- Red: `RioNative_TypeExists`가 `Assert.NotNull() Failure: Value is null`로 실패함을 확인했다.
+- Green: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 6개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 275개 통과, 실패 0.
+- `git diff --check`: 통과.
+
 ## 2026-06-25 (Codex - RIO Task 1 skeleton/probe)
 
 ### 작업 단위

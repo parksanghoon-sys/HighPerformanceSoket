@@ -48,6 +48,29 @@ namespace Hps.Transport.Rio.Tests
             transport.Dispose();
         }
 
+        // native function table loader는 probe 뒤에 숨어야 한다.
+        // reflection assertion으로 타입 부재 Red를 만들면 OS별 RIO 지원 여부와 무관하게 요구사항을 검증할 수 있다.
+        [Fact]
+        public void RioNative_TypeExists()
+        {
+            Type? type = Type.GetType("Hps.Transport.RioNative, Hps.Transport.Rio");
+
+            Assert.NotNull(type);
+        }
+
+        // Windows에서 RIO function table load 결과는 Available 또는 Unavailable로 수렴해야 한다.
+        // 예외가 escape하면 factory probe가 fallback 대신 process failure를 일으킬 수 있다.
+        [Fact]
+        public void GetStatus_WhenWindows_DoesNotThrow()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return;
+
+            RioCapabilityStatus status = RioCapabilityProbe.GetStatus();
+
+            Assert.True(status == RioCapabilityStatus.Available || status == RioCapabilityStatus.Unavailable);
+        }
+
         // skeleton transport는 아직 opt-in construction만 허용한다.
         // StartAsync가 예외 없이 끝나면 후속 task가 같은 root type 위에 queue/resource를 붙일 수 있다.
         [Fact]

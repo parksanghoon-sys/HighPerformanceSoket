@@ -13,7 +13,10 @@ namespace Hps.Transport
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 return RioCapabilityStatus.UnsupportedOperatingSystem;
 
-            return RioCapabilityStatus.Unavailable;
+            RioNative? native;
+            return RioNative.TryLoadFunctionTable(out native)
+                ? RioCapabilityStatus.Available
+                : RioCapabilityStatus.Unavailable;
         }
     }
 }
