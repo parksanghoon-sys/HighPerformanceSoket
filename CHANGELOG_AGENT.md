@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - Phase 4 gate promotion reassessment)
+
+### 작업 단위
+- explicit runner 2-date-root/6-session reference 이후 D082 warning-as-failure/CI latency gate 승격 후보를 재평가했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-phase4-gate-promotion-reassessment-design.md`:
+  D082 조건 충족/미충족 상태, 선택지, gate 보류 결정, 다음 CI artifact-only 정책 설계 진입점을 정리했다.
+- `docs/benchmarks/baselines/index.md`:
+  `local-win-x64-01` 2-date-root reference 완료 후에도 D089 기준으로 gate 를 즉시 승격하지 않는다는 해석 메모를 추가했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D089를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 CI artifact-only benchmark 정책 설계로 갱신했다.
+
+### 검증
+- runner root `history.json`: session-count 6, hard-passed true, warning-count 0, comparison-compatible true 를 확인했다.
+- `docs/benchmarks/baselines/index.md`: explicit runner envelope 수치와 D089 해석 메모를 대조했다.
+- D082 조건 대조: 명시 runner id, 각 date root 3-session, hard/comparison pass 는 충족하지만 서로 다른 date root 3개 이상과
+  별도 warning threshold 검토는 미충족임을 확인했다.
+- `git diff --check`: exit 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+
 ## 2026-06-25 (Codex - explicit runner baseline date root 02 session 03)
 
 ### 작업 단위

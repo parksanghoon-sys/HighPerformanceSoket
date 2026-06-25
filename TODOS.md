@@ -9,13 +9,12 @@
 
 ## Current TODOs
 
-- [ ] explicit runner 2-date-root reference 이후 Phase 4 gate 승격 후보를 재평가한다.
-  - 목적: `local-win-x64-01`이 2026-06-24/2026-06-25 두 date root, 각 3-session compatible reference 를 갖췄으므로
-    D082 warning-as-failure 또는 CI latency gate 로 갈 수 있는지 판단한다.
-  - 범위: runner root history, `docs/benchmarks/baselines/index.md`, D082/D084/D088,
-    기존 benchmark 관련 `.claude/review/` 의견, root 상태 문서.
-  - 현재 판단: gate 구현은 자동 진행하지 않고 먼저 정책/설계 재평가 문서로 닫는다.
-  - 검증: history/index 수치 대조, 신규 설계/결정 문서 placeholder 검색, `git diff --check`, solution build/test.
+- [ ] CI artifact-only benchmark 정책을 설계한다.
+  - 목적: CI workflow 구현 전에 CI runner id, artifact 저장 위치, local/CI baseline 분리, exit code 정책을 먼저 닫는다.
+  - 범위: benchmark CLI/report artifact 정책, `docs/benchmarks/baselines/index.md`, D080/D082/D084/D089,
+    root 상태 문서. 실제 workflow 파일 작성은 이번 범위가 아니다.
+  - 현재 판단: latency/HWM/warning 은 report-only 로 두고, 실패 조건은 build/test 와 delivery/drop/leak hard gate 까지만 허용하는 방향을 우선 검토한다.
+  - 검증: 기존 benchmark command/report 구조 대조, 신규 설계/결정 문서 placeholder 검색, `git diff --check`, solution build/test.
 
 ## Deferred Backlog
 
@@ -30,6 +29,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] explicit runner 2-date-root reference 이후 Phase 4 gate 승격 후보를 재평가했다.
+  - 범위: `docs/superpowers/specs/2026-06-25-phase4-gate-promotion-reassessment-design.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: `local-win-x64-01`은 두 date root, 6-session compatible reference 를 갖췄지만
+    D082의 서로 다른 date root 3개 이상 조건과 별도 warning threshold 검토 조건은 아직 충족하지 못했다.
+  - 비고: warning-as-failure 와 CI latency hard gate 는 계속 보류한다. 세 번째 date root 는 실제 다음 측정 날짜에 수집한다.
+    다음 실행 가능한 문서 단위는 CI artifact-only benchmark 정책 설계다.
+  - 검증: runner root history 와 `docs/benchmarks/baselines/index.md` 수치를 대조했다.
+    D082 조건 충족/미충족 상태를 설계 문서에 명시했다. `git diff --check` exit 0,
+    solution build 경고 0/오류 0, solution tests 269개 통과.
 
 - [x] `local-win-x64-01/2026-06-25/session-03` explicit runner baseline 을 수집했다.
   - 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/session-03/`,

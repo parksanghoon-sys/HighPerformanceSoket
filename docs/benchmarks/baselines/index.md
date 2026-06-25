@@ -115,7 +115,8 @@ latency, growth, HWM 은 max, actual rate 는 min 을 사용한다.
   이 표본은 reference envelope 의 근거이며, envelope 초과 여부는 현재 자동 failure 가 아니라 수동 리뷰 메모로만 기록한다.
 - `local-win-x64-01` runner group 은 첫 explicit runner 3-session baseline 이며, D084 저장 구조와 history command 경로 검증 표본이다.
   2026-06-25 session-03 추가 후 runner root history 는 6-session 을 묶고 hard gate 와 comparison compatibility 를 통과한다.
-  같은 runner 의 두 date root 가 각각 3-session reference 를 갖췄으므로 다음 단위는 D082 warning-as-failure/CI gate 후보 재평가다.
+  같은 runner 의 두 date root 가 각각 3-session reference 를 갖췄지만, D089 기준으로 아직 D082 warning-as-failure/CI gate 로 승격하지 않는다.
+  다음 정책 단위는 CI runner id, artifact 저장 위치, local/CI baseline 분리, exit code 를 정하는 artifact-only CI benchmark 설계다.
 - 2026-06-18 raw report 는 D079 runner identity/environment metadata 도입 전 artifact 이므로
   summary/history comparison 은 `unknown-runner` mismatch 로 `comparison-compatible=false`를 기록한다.
   이 값은 hard gate 실패가 아니라 비교 가능성 신호다.

@@ -123,6 +123,11 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   explicit runner envelope 는 load p99 max 935.6 us, open-loop p99 max 1077.4 us 이며,
   같은 runner 의 두 date root 가 각각 3-session reference 를 갖췄다(D088).
   gate 구현은 자동 진행하지 않고 다음 단위에서 D082 warning-as-failure/CI gate 후보를 재평가한다.
+- explicit runner 2-date-root/6-session evidence 이후 gate 승격 후보를 재평가했다.
+  D082의 서로 다른 date root 3개 이상 조건과 별도 warning threshold 검토 조건은 아직 충족되지 않았으므로
+  warning-as-failure 와 CI latency hard gate 는 계속 보류한다(D089).
+  다음 단위는 CI workflow 구현이 아니라 CI runner identity, artifact 저장 위치, local/CI baseline 분리,
+  exit code 정책을 먼저 닫는 CI artifact-only benchmark 정책 설계다.
 - summary/history comparison signal 설계를 완료했다.
   설계는 `docs/superpowers/specs/2026-06-23-summary-history-comparison-signal-design.md`에 있고,
   D080으로 comparison signal 을 hard gate/기존 warning-count 와 분리된 non-failing compatibility artifact 로 둔다.
@@ -715,25 +720,23 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
 Summary/history comparison signal 계획의 Task 1~5, benchmark writer metadata roundtrip test-hardening,
 2026-06-18 generated baseline artifact 재생성, 2026-06-24 current-schema baseline session-01/session-02/session-03 추가,
 D082 설계와 리뷰 보강, Phase 4 다음 후보 재평가, explicit runner 3-session reference 수집,
-explicit runner 3-session 이후 다음 후보 재평가, 2026-06-25 explicit runner session-01/session-02/session-03 수집은 완료됐다.
+explicit runner 3-session 이후 다음 후보 재평가, 2026-06-25 explicit runner session-01/session-02/session-03 수집,
+explicit runner 2-date-root reference 이후 gate 승격 후보 재평가는 완료됐다.
 
-다음 작업은 explicit runner 2-date-root reference 이후 D082 warning-as-failure/CI latency gate 승격 후보를 재평가하는 것이다.
-이 재평가는 gate 구현이 아니라 정책/설계 단위이며, false failure 비용, runner 재현성, CI artifact 보존 정책을 먼저 닫는다.
+다음 작업은 CI artifact-only benchmark 정책 설계다.
+이 단위는 CI workflow 구현이 아니라 CI runner id, artifact 저장 위치, local/CI baseline 분리,
+exit code 정책, latency/HWM/warning 의 report-only 처리 기준을 먼저 닫는 문서/정책 작업이다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 `local-win-x64-01/2026-06-25/session-03` explicit runner baseline 을 수집하고
-파생 summary/history/index 문서를 갱신한다.
+이번 cycle 은 explicit runner 2-date-root/6-session reference 이후 D082 warning-as-failure/CI latency gate
+승격 후보를 재평가하고, gate 보류와 다음 CI artifact-only 정책 설계 진입점을 문서화한다.
 
-- 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/session-03/`,
-  `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/history.json`,
-  `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-25/history.md`,
-  `docs/benchmarks/baselines/runners/local-win-x64-01/history.json`,
-  `docs/benchmarks/baselines/runners/local-win-x64-01/history.md`,
-  `docs/benchmarks/baselines/index.md`, `DECISIONS.md`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
-- 검증: `--baseline-suite`, `--summarize-baseline`, `--summarize-baseline-history`,
-  runner metadata 확인, local absolute path 검색, `Hps.Benchmarks.Tests`, `git diff --check`,
-  restore asset 재생성 후 solution build/test.
+- 범위: `docs/superpowers/specs/2026-06-25-phase4-gate-promotion-reassessment-design.md`,
+  `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`,
+  `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+- 검증: runner root history/index 수치 대조, D082 조건 충족/미충족 대조,
+  신규 설계/결정 문서 placeholder 검색, `git diff --check`, solution build/test.
 
 ## 이번 작업에서 건드리지 않는 범위
 
