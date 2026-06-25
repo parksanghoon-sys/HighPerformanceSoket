@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO Task 3 registered buffer owner 를 구현한다.
-  - 목적: RIO completion dequeue 전까지 registered buffer association 이 살아 있어야 하는 수명 규칙을 owner 로 고정한다.
-  - 범위: `src/Hps.Transport.Rio/RioRegisteredBufferPool.cs`,
-    `tests/Hps.Transport.Rio.Tests/RioRegisteredBufferPoolTests.cs`, root 상태 문서.
-  - 현재 판단: Task 3은 native buffer id 등록 전, pinned block/refcount owner 규칙을 먼저 테스트로 고정한다.
-  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md` Task 3을 Red-Green으로 실행한다.
-  - 검증: reflection/behavior Red assertion failure, focused RIO tests, solution build/test, `git diff --check`.
+- [ ] RIO Task 4 TCP queue owners 를 구현한다.
+  - 목적: RIO request queue 의 receive/send outstanding quota 를 초과하지 않도록 owner 로 직렬화한다.
+  - 범위: `src/Hps.Transport.Rio/RioCompletionQueue.cs`, `src/Hps.Transport.Rio/RioRequestQueue.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioQueueOwnerTests.cs`, root 상태 문서.
+  - 현재 판단: Task 4는 native CQ/RQ handle 연결 전, quota accounting 과 Dispose boundary 를 먼저 고정한다.
+  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-25-windows-rio-backend.md` Task 4를 Red-Green으로 실행한다.
+  - 검증: behavior Red assertion failure, focused RIO tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -73,6 +73,15 @@
   - 비고: 실제 `WSAIoctl`/`WSAID_MULTIPLE_RIO` marshalling 은 아직 넣지 않고, 예외 없는 fallback 경계를 먼저 고정했다.
   - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
     focused RIO tests 6개 통과, solution build 경고 0/오류 0.
+
+- [x] RIO Task 3 registered buffer owner 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioRegisteredBufferPool.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioRegisteredBufferPoolTests.cs`,
+    `src/Hps.Transport.Rio/Properties/AssemblyInfo.cs`, root 상태 문서.
+  - 결과: outstanding request 완료 전에는 block 을 반환하지 않고, 중복 completion 에서는 release 를 한 번만 수행한다.
+  - 비고: Red 용 reflection 테스트는 Green 이후 `InternalsVisibleTo` 기반 direct internal API 테스트로 정리했다.
+  - 검증: Red assertion failure 1개 확인(`Assert.NotNull() Failure: Value is null`),
+    focused RIO tests 7개 통과, solution build 경고 0/오류 0.
 
 - [x] CI push-triggered artifact `28145025444`를 repository baseline 으로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-25/session-01/`,

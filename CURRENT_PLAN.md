@@ -747,16 +747,21 @@ RIO 구현 계획 Task 2(native function table loader)를 완료했다.
 `Available` 또는 `Unavailable`로 수렴하도록 native loader 경계를 연결했다.
 현재 loader 는 아직 실제 `WSAIoctl` marshalling 을 수행하지 않고 fallback 가능한 `Unavailable` 경계만 고정한다.
 
-다음 작업은 계획 Task 3인 RIO registered buffer owner 구현이다.
-completion dequeue 전까지 buffer association 이 살아 있어야 하는 RIO 수명 규칙을
-`RioRegisteredBufferPool` 테스트로 먼저 고정한다.
+RIO 구현 계획 Task 3(registered buffer owner)을 완료했다.
+`RioRegisteredBufferPool`은 outstanding request 가 완료되기 전에는 pinned block 을 반환하지 않고,
+completion 이 중복 호출되어도 buffer 를 한 번만 release 한다.
+RIO test project 는 `InternalsVisibleTo`로 direct internal API 검증을 사용하도록 정리했다.
+
+다음 작업은 계획 Task 4인 TCP queue owner 구현이다.
+`RioRequestQueue`가 receive/send outstanding quota 를 초과하지 않도록 Red-Green으로 고정하고,
+`RioCompletionQueue` 수명 owner skeleton 을 추가한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO 구현 계획 Task 3을 실행한다.
+이번 cycle 은 RIO 구현 계획 Task 4를 실행한다.
 
-- 범위: `src/Hps.Transport.Rio/RioRegisteredBufferPool.cs`,
-  `tests/Hps.Transport.Rio.Tests/RioRegisteredBufferPoolTests.cs`, root 상태 문서.
+- 범위: `src/Hps.Transport.Rio/RioCompletionQueue.cs`, `src/Hps.Transport.Rio/RioRequestQueue.cs`,
+  `tests/Hps.Transport.Rio.Tests/RioQueueOwnerTests.cs`, root 상태 문서.
 - 검증: Red assertion failure 확인, focused RIO tests, solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위

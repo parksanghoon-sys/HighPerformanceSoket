@@ -5,6 +5,29 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO Task 3 registered buffer owner)
+
+### 작업 단위
+- Windows RIO backend Task 3으로 registered buffer owner 수명 규칙을 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioRegisteredBufferPool.cs`:
+  outstanding request 완료 전에는 pinned block 을 반환하지 않고, completion 중복 호출은 한 번만 release 하도록 했다.
+- `src/Hps.Transport.Rio/Properties/AssemblyInfo.cs`:
+  RIO test assembly 에 internal 접근을 허용했다.
+- `tests/Hps.Transport.Rio.Tests/RioRegisteredBufferPoolTests.cs`,
+  `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`:
+  Red 확인 후 reflection 중심 테스트를 direct internal API 테스트로 정리했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 3 완료와 다음 Task 4 TCP queue owner 진입점을 반영했다.
+
+### 검증
+- Red: `RioRegisteredBufferPool_TypeExists`가 `Assert.NotNull() Failure: Value is null`로 실패함을 확인했다.
+- Green/refactor: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 7개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 276개 통과, 실패 0.
+- `git diff --check`: 통과.
+
 ## 2026-06-25 (Codex - RIO Task 2 native loader boundary)
 
 ### 작업 단위
