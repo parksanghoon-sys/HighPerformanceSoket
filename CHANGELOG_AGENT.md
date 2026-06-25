@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - CI workflow Node 24 action versions)
+
+### 작업 단위
+- 첫 GitHub Actions manual run 에서 확인된 Node.js 20 deprecation annotation 을 제거하기 위해 workflow action version 을 갱신했다.
+
+### 변경 내용
+- `.github/workflows/benchmark-artifacts.yml`:
+  `actions/checkout@v7`, `actions/setup-dotnet@v5.3.0`, `actions/upload-artifact@v7.0.1`로 갱신했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D092로 Node 24 action runtime 갱신 결정을 기록했다.
+- `docs/superpowers/plans/2026-06-25-ci-artifact-only-workflow-skeleton.md`,
+  `docs/superpowers/specs/2026-06-25-ci-artifact-only-benchmark-policy-design.md`:
+  action version 과 benchmark command sequence 문구를 현재 workflow 와 맞췄다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Node deprecation follow-up 을 처리된 상태로 정리하고, 다음 후보를 갱신된 workflow manual run 검증으로 좁혔다.
+
+### 검증
+- 공식 release/action metadata 확인 기준, 세 action version 은 `runs.using: node24`를 명시한다.
+- `git diff --check`: exit 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 269개 통과, 실패 0.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 단독 재실행 기준 경고 0, 오류 0.
+  비고: 최초 build/test 병렬 실행 때 테스트 프로세스와 DLL copy 가 겹쳐 MSB3026 copy retry 경고 1개가 발생했으나,
+  테스트 종료 후 build 단독 재실행에서는 경고 없이 통과했다.
+
 ## 2026-06-25 (Codex - CI workflow first manual run)
 
 ### 작업 단위
@@ -73,7 +97,7 @@
 
 ### 검증
 - workflow static marker scan: `workflow_dispatch`, `ci-windows-x64-01`, `HPS_BENCHMARK_RUNNER_KIND`,
-  `actions/upload-artifact@v4` 존재를 확인했다.
+  현재 workflow 기준 `actions/upload-artifact@v7.0.1` 존재를 확인했다.
 - workflow out-of-scope scan: `push`, `pull_request`, `warning-count`, `latency` logic 이 workflow 에 없음을 확인했다.
 - lightweight policy check: required marker 존재와 자동 trigger 부재를 확인했다.
 - `git diff --check`: exit 0.

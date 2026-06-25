@@ -6,7 +6,7 @@
 
 **Architecture:** workflow는 Windows runner 1개에서 restore/build/test를 먼저 수행한 뒤, 기존 `Hps.Benchmarks` CLI만 호출해 benchmark artifact를 만든다. 현재 `BaselineHistoryReader`는 date root 아래 `session-NN`만 읽으므로, GitHub run id는 디렉터리명이 아니라 upload artifact 이름에 넣고 workspace 내부는 `artifacts/benchmarks/runners/<runner-id>/<yyyy-mm-dd>/session-01/` 구조를 유지한다.
 
-**Tech Stack:** GitHub Actions YAML, `actions/checkout@v4`, `actions/setup-dotnet@v4`, `actions/upload-artifact@v4`, .NET 9 SDK, PowerShell, existing `tests/Hps.Benchmarks` CLI.
+**Tech Stack:** GitHub Actions YAML, `actions/checkout@v7`, `actions/setup-dotnet@v5.3.0`, `actions/upload-artifact@v7.0.1`, .NET 9 SDK, PowerShell, existing `tests/Hps.Benchmarks` CLI.
 
 ---
 
@@ -77,10 +77,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5.3.0
         with:
           dotnet-version: 9.0.x
 
@@ -122,7 +122,7 @@ jobs:
 
       - name: Upload benchmark artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ${{ env.BENCH_ARTIFACT_NAME }}
           path: ${{ env.BENCH_DATE_ROOT }}
@@ -137,12 +137,12 @@ This skeleton intentionally uses `workflow_dispatch` only. That keeps benchmark 
 Run:
 
 ```powershell
-Select-String -Path .github\workflows\benchmark-artifacts.yml -Pattern "workflow_dispatch|ci-windows-x64-01|HPS_BENCHMARK_RUNNER_KIND|actions/upload-artifact@v4|warning-count|latency|push|pull_request"
+Select-String -Path .github\workflows\benchmark-artifacts.yml -Pattern "workflow_dispatch|ci-windows-x64-01|HPS_BENCHMARK_RUNNER_KIND|actions/upload-artifact@v7.0.1|warning-count|latency|push|pull_request"
 ```
 
 Expected:
 
-- Matches exist for `workflow_dispatch`, `ci-windows-x64-01`, `HPS_BENCHMARK_RUNNER_KIND`, and `actions/upload-artifact@v4`.
+- Matches exist for `workflow_dispatch`, `ci-windows-x64-01`, `HPS_BENCHMARK_RUNNER_KIND`, and `actions/upload-artifact@v7.0.1`.
 - No matches exist for `push`, `pull_request`, `warning-count`, or `latency`.
 
 If `warning-count` or `latency` appears in the workflow, remove that logic. D090 keeps those values report-only.
@@ -160,7 +160,7 @@ required = [
     "name: Benchmark Artifacts",
     "workflow_dispatch:",
     "HPS_BENCHMARK_RUNNER_ID: ci-windows-x64-01",
-    "actions/upload-artifact@v4",
+    "actions/upload-artifact@v7.0.1",
 ]
 for item in required:
     if item not in text:

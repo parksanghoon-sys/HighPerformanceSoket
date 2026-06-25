@@ -12,18 +12,12 @@
 - [ ] 첫 CI artifact 결과 이후 Phase 4 다음 후보를 재평가한다.
   - 목적: `ci-windows-x64-01` 첫 artifact-only run 결과를 기준으로 다음 실행 후보를 정한다.
   - 범위: CI artifact warning 해석, GitHub Actions annotation, baseline 채택 여부, 다음 Phase 4 작업 후보.
-  - 현재 판단: 첫 manual run 은 hard pass 했고 artifact upload 도 성공했지만, `warning-count=1`과 Node 20 deprecation annotation 이 남았다.
-  - 검증: run `28143728630` log/artifact, D090/D091 정책, `docs/benchmarks/baselines/index.md`, current backlog 대조.
+  - 현재 판단: 첫 manual run 은 hard pass 했고 artifact upload 도 성공했다. `warning-count=1`은 D090 기준 report-only 이며,
+    Node 20 deprecation annotation 은 D092 action version 갱신으로 처리했다.
+  - 다음 자연스러운 step: 갱신된 workflow 를 다시 manual run 으로 실행해 Node annotation 제거와 artifact 생성을 확인한다.
+  - 검증: run `28143728630` log/artifact, D090/D091/D092 정책, `docs/benchmarks/baselines/index.md`, current backlog 대조.
 
 ## Deferred Backlog
-
-- [ ] `P2_LATER` GitHub Actions Node 20 deprecation annotation 대응을 검토한다.
-  - 무엇이 남았는지: 첫 manual run에서 `actions/checkout@v4`, `actions/setup-dotnet@v4`, `actions/upload-artifact@v4`가
-    Node.js 20 target action 이라 GitHub가 Node 24로 강제 실행한다는 annotation 이 발생했다.
-  - 왜 defer 되었는지: workflow 는 성공했고 artifact 생성/업로드도 정상이다. action major version 변경 가능 여부는 별도 확인이 필요하다.
-  - objective: 사용 가능한 상위 action major version 이 있으면 workflow action version 을 갱신하고, 없으면 현 상태를 명시적으로 유지한다.
-  - relevant context: `.github/workflows/benchmark-artifacts.yml`, GitHub Actions run `28143728630`.
-  - next step: GitHub Actions marketplace/release 또는 `gh` 기반으로 각 action 의 현재 권장 major version 을 확인한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -36,6 +30,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] GitHub Actions Node 20 deprecation annotation 대응을 처리했다.
+  - 범위: `.github/workflows/benchmark-artifacts.yml`, D092 decision, CI workflow plan/policy 문서, root 상태 문서.
+  - 결과: 첫 manual run `28143728630`에서 확인된 `actions/*@v4` Node.js 20 annotation 에 대응해
+    `actions/checkout@v7`, `actions/setup-dotnet@v5.3.0`, `actions/upload-artifact@v7.0.1`로 갱신했다.
+  - 비고: 2026-06-25 공식 release/action metadata 확인 기준 세 action version 은 `runs.using: node24`를 명시한다.
+    benchmark command, artifact path, D090 report-only warning policy 는 바꾸지 않았다.
+  - 검증: workflow static marker scan, `git diff --check` exit 0, solution tests 269개 통과,
+    solution build 단독 재실행 경고 0/오류 0.
 
 - [x] CI artifact-only workflow 첫 manual run 결과를 확인했다.
   - 범위: GitHub Actions run `28143728630`, artifact
@@ -66,7 +69,7 @@
   - 결과: `workflow_dispatch` 전용 GitHub Actions workflow 를 추가했다.
     job env 는 `HPS_BENCHMARK_RUNNER_ID=ci-windows-x64-01`, `HPS_BENCHMARK_RUNNER_KIND=ci`로 고정한다.
   - 비고: workflow 는 restore/build/test 이후 `baseline-suite`, `summary`, `history`를 실행하고
-    date root 를 `actions/upload-artifact@v4`로 업로드한다. 자동 push/PR trigger 와 warning/latency failure logic 은 넣지 않았다.
+    date root 를 `actions/upload-artifact@v7.0.1`로 업로드한다. 자동 push/PR trigger 와 warning/latency failure logic 은 넣지 않았다.
   - 검증: workflow static marker scan 과 lightweight policy check 를 통과했다.
     `git diff --check` exit 0, solution build 경고 0/오류 0, solution tests 269개 통과.
 

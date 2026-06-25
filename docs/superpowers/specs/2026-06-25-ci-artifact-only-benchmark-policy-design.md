@@ -131,9 +131,9 @@ CI artifact-only 단계에서 권장 실행 순서는 다음과 같다.
 2. `dotnet build HighPerformanceSocket.slnx --no-restore`
 3. `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`
 4. `HPS_BENCHMARK_RUNNER_ID=<ci-runner-id>`, `HPS_BENCHMARK_RUNNER_KIND=ci`를 설정한다.
-5. `dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj -- --baseline-suite <artifact-session-dir> --runs 3`
-6. `dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build -- --summarize-baseline <artifact-session-dir> --summary <artifact-session-dir>/summary.json --summary-md <artifact-session-dir>/summary.md`
-7. `dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build -- --summarize-baseline-history <artifact-date-root> --history <artifact-date-root>/history.json --history-md <artifact-date-root>/history.md`
+5. `dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite <artifact-session-dir> --runs 3`
+6. `dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --summarize-baseline <artifact-session-dir> --summary <artifact-session-dir>/summary.json --summary-md <artifact-session-dir>/summary.md`
+7. `dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --summarize-baseline-history <artifact-date-root> --history <artifact-date-root>/history.json --history-md <artifact-date-root>/history.md`
 
 CI는 위 command 의 exit code 를 그대로 따른다. 별도 script 에서 warning-count 를 실패로 변환하지 않는다.
 
