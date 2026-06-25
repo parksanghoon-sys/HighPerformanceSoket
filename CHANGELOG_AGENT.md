@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO default promotion readiness)
+
+### 작업 단위
+- RIO backend default promotion readiness 를 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-25-rio-default-promotion-readiness-design.md`:
+  RIO default 승격 조건을 기능 parity, fallback, contract matrix, benchmark evidence, 운영/문서 gate 로 정리했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D108을 추가했다. 현재 RIO는 TCP opt-in path 만 구현했으므로 기본 backend 로 승격하지 않는다.
+- `src/Hps.Transport/Runtime/TransportFactory.cs`:
+  오래된 Phase 2 factory XML doc 을 D108 opt-in 정책에 맞게 갱신했다. behavior 는 계속 SAEA default 다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 RIO UDP backend boundary 설계로 이동했다.
+
+### 검증
+- factory 현재 behavior, RIO capability/benchmark opt-in path, RIO TCP tests 와 SAEA UDP/Broker coverage 를 대조했다.
+- `git diff --check`: whitespace error 없음.
+
 ## 2026-06-25 (Codex - RIO payload cache self-review)
 
 ### 작업 단위

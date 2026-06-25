@@ -3,9 +3,9 @@ namespace Hps.Transport
     /// <summary>
     /// 실행 환경에 맞는 <see cref="ITransport"/> 구현을 선택하는 진입점이다.
     ///
-    /// 현재 Phase 2 기준선에서는 RIO/io_uring capability probe 가 아직 없으므로 항상
-    /// 크로스플랫폼 기준선인 <see cref="SaeaTransport"/> 로 fallback 한다. 상위 계층은 이 factory 를 통해
-    /// <see cref="ITransport"/> 만 받아야 하며, concrete backend 타입 선택은 이후 이 위치에서 확장한다.
+    /// RIO backend 는 현재 Windows TCP opt-in 경로로만 검증 중이다. 기본 backend 는 TCP/UDP parity 를
+    /// 모두 만족해야 하므로, <see cref="CreateDefault"/>는 D108 기준으로 계속 크로스플랫폼 SAEA
+    /// 기준선을 반환한다.
     /// </summary>
     public static class TransportFactory
     {

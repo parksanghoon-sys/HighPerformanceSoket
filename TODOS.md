@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO backend default promotion readiness 를 설계한다.
-  - 목적: RIO를 `TransportFactory` 기본 backend 후보로 올리기 전에 capability probe, fallback 조건,
-    SAEA contract parity, 운영 리스크, 검증 gate 를 명확히 한다.
-  - 범위: `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/`, RIO/SAEA tests,
-    관련 decisions/state 문서.
-  - 현재 판단: RIO TCP opt-in path 는 receive/prefix/payload registration reuse 와 close/handler close hardening 이 검증됐다.
-  - 다음 자연스러운 step: 현재 factory 선택 흐름과 RIO capability/coverage 를 대조한 뒤 설계 문서를 작성한다.
+- [ ] RIO UDP backend boundary 를 설계한다.
+  - 목적: RIO default promotion Gate 1 기능 parity 를 닫기 위해 UDP datagram backend 의 owner, native surface,
+    backpressure, diagnostics 경계를 설계한다.
+  - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Saea/SaeaUdpEndpoint.cs`,
+    `src/Hps.Transport/Abstractions/IUdpEndpoint.cs`, SAEA UDP tests, 관련 decisions/state 문서.
+  - 현재 판단: D108 기준으로 RIO default 승격은 UDP parity 부재 때문에 보류됐다.
+  - 다음 자연스러운 step: SAEA UDP receive/send/close/drop 계약과 RIO datagram API shape 를 대조해 설계 문서를 작성한다.
   - 검증: source/test/decision 대조, 설계 문서 placeholder scan, `git diff --check`.
 
 ## Deferred Backlog
@@ -31,6 +31,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO backend default promotion readiness 설계를 완료했다.
+  - 범위: `docs/superpowers/specs/2026-06-25-rio-default-promotion-readiness-design.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`,
+    `src/Hps.Transport/Runtime/TransportFactory.cs`, root 상태 문서.
+  - 결과: D108로 `TransportFactory.CreateDefault()`는 계속 SAEA를 반환하고,
+    RIO default 승격은 TCP/UDP parity readiness gate 이후 별도 결정으로만 진행한다고 정리했다.
+  - 검증: factory 현재 behavior, RIO capability/benchmark opt-in path, RIO TCP tests 와 SAEA UDP/Broker coverage 대조,
+    `git diff --check`.
+  - 비고: 다음 실행은 RIO UDP backend boundary 설계다.
 
 - [x] RIO payload cache 구현 self-review 를 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioPayloadRegistrationCache.cs`,

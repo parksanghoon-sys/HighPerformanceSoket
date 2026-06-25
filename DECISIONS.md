@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D108 — RIO는 아직 default backend 로 승격하지 않고, TCP/UDP parity readiness gate 를 먼저 닫는다.
 - D107 — RIO payload registration cache 는 connection resource bounded cache 로 먼저 구현한다.
 - D106 — RIO registered buffer reuse 는 receive/length-prefix 를 먼저 처리하고 payload cache 는 분리한다.
 - D105 — RIO IOCP notification wait 는 p99 tail 을 해소했으며 다음 최적화는 buffer registration 재사용으로 분리한다.
