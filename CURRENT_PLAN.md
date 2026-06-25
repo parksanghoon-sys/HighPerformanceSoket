@@ -983,9 +983,16 @@ benchmark session-04에서 RIO load p99 는 739.5 us, open-loop p99 는 948.8 us
 다음 작업은 계획 Task 4 benchmark observation/state update 마무리다.
 이미 session-04 artifact 는 수집했으므로, 남은 일은 final state doc 정리와 필요 시 후속 최적화 후보를 deferred 로 분리하는 것이다.
 
+RIO IOCP/RIONotify completion wait Task 4 state update 는 `58c3c05` 커밋에서 함께 완료됐다.
+session-04 benchmark 결과와 D105 결정이 상태 문서에 기록됐고, p99 tail 은 completion wait 관점에서 해소됐다.
+
+다음 작업은 RIO registered buffer reuse 설계다.
+현재 RIO receive/send path 는 operation 마다 `RIORegisterBuffer`/`RIODeregisterBuffer`를 호출하므로,
+completion wait 다음 병목 후보를 buffer registration lifetime 으로 좁혀 설계한다.
+
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO IOCP/RIONotify completion wait Task 4 state update 를 준비한다.
+이번 cycle 은 RIO registered buffer reuse 설계를 준비한다.
 
 - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Properties/AssemblyInfo.cs`,
   `tests/Hps.Transport.Rio.Tests/`, RIO hardening 설계/상태 문서.

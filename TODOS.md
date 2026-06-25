@@ -9,13 +9,14 @@
 
 ## Current TODOs
 
-- [ ] RIO IOCP/RIONotify completion wait Task 4 benchmark observation/state update 를 완료한다.
-  - 목적: session-04 RIO benchmark 결과를 상태 문서에 정리하고, completion wait 이후 남은 최적화 후보를 분리한다.
-  - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
-    `docs/agent-state/decisions/2026-06.md`.
-  - 현재 판단: IOCP notification wait 로 RIO load p99 739.5 us, open-loop p99 948.8 us 를 관측했다(D105).
-  - 다음 자연스러운 step: verification 결과와 benchmark 숫자를 최종 정리하고 `git diff --check` 후 커밋한다.
-  - 검증: focused RIO tests, solution build/test, benchmark artifact 확인, `git diff --check`.
+- [ ] RIO registered buffer reuse 를 설계한다.
+  - 목적: IOCP notification wait 이후 남은 RIO 최적화 후보인 per-operation `RIORegisterBuffer`/`RIODeregisterBuffer` 비용을 줄일 구조를 정한다.
+  - 범위: `src/Hps.Transport.Rio/RioRegisteredBufferPool.cs`, `RioConnectionResource`, receive pool, send buffer lifetime,
+    `RefCountedBuffer` ownership, RIO benchmark artifact.
+  - 현재 판단: D105로 completion wait p99 tail 은 해소됐고, 다음 병목 후보는 매 send/receive operation 의 buffer registration lifetime 이다.
+  - 다음 자연스러운 step: 현재 `RegisterPinnedArray(...)`, receive block pool, send `RefCountedBuffer` array extraction 경로를 대조해
+    어떤 buffer 를 connection/resource lifetime 에 등록해 둘 수 있는지 설계한다.
+  - 검증: current code inspection, ownership invariant review, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -142,6 +143,14 @@
   - benchmark 관측: D102 session-03 RIO load p99 16689.0 us/open-loop p99 16736.2 us 에서
     session-04 RIO load p99 739.5 us/open-loop p99 948.8 us 로 개선됐다.
   - 비고: per-operation buffer registration 비용, multi-result drain, batching 은 별도 후속 최적화 후보로 분리한다.
+
+- [x] RIO IOCP/RIONotify completion wait Task 4 benchmark observation/state update 를 완료했다.
+  - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
+    `docs/agent-state/decisions/2026-06.md`.
+  - 결과: session-04 benchmark 결과를 D105로 기록하고, 다음 최적화 후보를 registered buffer reuse 로 분리했다.
+  - 검증: focused RIO tests 27개 통과, close/wake 핵심 테스트 10회 반복 통과,
+    solution build 0경고/0오류, solution tests 통과, benchmark artifact 확인, `git diff --check`.
+  - 비고: session-04 scratch artifact 는 ignored `artifacts/benchmarks/rio-comparison/2026-06-25/session-04/`에 남아 있다.
 
 - [x] RIO TCP pump hardening 설계와 send completion 보강을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,

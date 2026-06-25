@@ -5,6 +5,19 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO next optimization entry)
+
+### 작업 단위
+- RIO completion wait 이후 다음 실행 지점을 정리했다.
+
+### 변경 내용
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  IOCP notification wait Task 4가 `58c3c05`에서 완료됐음을 반영하고,
+  다음 작업을 RIO registered buffer reuse 설계로 이동했다.
+
+### 검증
+- 직전 커밋 기준 focused RIO tests, close/wake 반복, solution build/test, benchmark session-04 가 통과했다.
+
 ## 2026-06-25 (Codex - RIO IOCP notification wiring)
 
 ### 작업 단위
