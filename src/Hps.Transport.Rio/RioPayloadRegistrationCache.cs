@@ -50,6 +50,10 @@ namespace Hps.Transport
             if (block == null)
                 throw new ArgumentNullException(nameof(block));
 
+            // idle entry 선택과 dictionary 제거는 cache lock 으로 직렬화하지만,
+            // 실제 native deregister 는 OS 호출이므로 정상 경로에서는 lock 밖으로 밀어낸다.
+            IntPtr evictedBufferId = IntPtr.Zero;
+            RioPayloadBufferLease lease;
             lock (_gate)
             {
                 if (_disposed)
@@ -63,18 +67,40 @@ namespace Hps.Transport
                     return RioPayloadBufferLease.CreateCached(this, entry.BufferId, entry);
                 }
 
-                if (_entries.Count >= _capacity && !TryEvictIdleEntry())
+                if (_entries.Count >= _capacity && !TryEvictIdleEntry(out evictedBufferId))
                 {
                     IntPtr fallbackBufferId = _registrar.Register(block);
                     return RioPayloadBufferLease.CreateUncached(_registrar, fallbackBufferId);
                 }
 
-                IntPtr bufferId = _registrar.Register(block);
+                IntPtr bufferId;
+                try
+                {
+                    bufferId = _registrar.Register(block);
+                }
+                catch
+                {
+                    // 새 registration 이 실패하면 이미 cache 에서 제거한 idle entry 를 여기서 정리한다.
+                    // 이 예외 경로는 드물지만, 방치하면 unreachable native registration 이 남는다.
+                    if (evictedBufferId != IntPtr.Zero)
+                    {
+                        _registrar.Deregister(evictedBufferId);
+                        evictedBufferId = IntPtr.Zero;
+                    }
+
+                    throw;
+                }
+
                 entry = new Entry(block, bufferId, NextTick());
                 entry.OutstandingLeaseCount = 1;
                 _entries.Add(block, entry);
-                return RioPayloadBufferLease.CreateCached(this, bufferId, entry);
+                lease = RioPayloadBufferLease.CreateCached(this, bufferId, entry);
             }
+
+            if (evictedBufferId != IntPtr.Zero)
+                _registrar.Deregister(evictedBufferId);
+
+            return lease;
         }
 
         public void Dispose()
@@ -131,8 +157,9 @@ namespace Hps.Transport
                 _registrar.Deregister(bufferIdToDeregister);
         }
 
-        private bool TryEvictIdleEntry()
+        private bool TryEvictIdleEntry(out IntPtr evictedBufferId)
         {
+            evictedBufferId = IntPtr.Zero;
             Entry? oldest = null;
             foreach (KeyValuePair<byte[], Entry> item in _entries)
             {
@@ -148,7 +175,7 @@ namespace Hps.Transport
                 return false;
 
             _entries.Remove(oldest.Block);
-            _registrar.Deregister(oldest.BufferId);
+            evictedBufferId = oldest.BufferId;
             return true;
         }
 

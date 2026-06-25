@@ -1080,3 +1080,33 @@ open-loop actual-rate 99.8 Hz/p50 293.8 us/p99 920.5 us 다.
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
 - Linux io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay
+
+RIO payload cache 구현 self-review 를 완료했다.
+검토 문서는 `docs/agent-state/reviews/2026-06-25-rio-payload-cache-self-review.md`다.
+self-review 중 idle eviction 의 native deregister 가 cache lock 내부에서 호출되는 minor issue 를 발견했고,
+정상 eviction 경로는 buffer id 를 수집한 뒤 lock 밖에서 deregister 하도록 리팩터했다.
+새 registration 실패 경로에서는 제거한 idle registration 이 누수되지 않도록 예외 정리를 추가했다.
+Major/blocker finding 은 없으며, transport-wide shared payload cache 와 cache capacity diagnostics 는 deferred 유지다.
+
+다음 작업은 RIO backend default promotion readiness 설계다.
+현재 RIO는 opt-in/test path 로 충분히 검증되고 있지만 `TransportFactory` 기본 후보로 승격하려면
+capability probe, fallback 조건, SAEA contract parity, 운영 리스크, 검증 gate 를 먼저 문서로 닫아야 한다.
+
+## 이번 단위의 검증 경로
+
+이번 cycle 은 RIO backend default promotion readiness 를 설계한다.
+
+- 범위: `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/`,
+  RIO tests, 관련 decisions/state 문서.
+- 검증: factory/runtime 선택 흐름 소스 대조, RIO/SAEA contract test coverage 대조,
+  설계 문서 placeholder scan, `git diff --check`.
+
+## 이번 작업에서 건드리지 않는 범위
+
+- `TransportFactory` 기본 선택 코드 실제 변경
+- RIO UDP 구현 코드
+- SAEA transport 동작 변경
+- latency hard gate 또는 warning-as-failure 정책 구현
+- CI artifact 자동 채택, pull_request trigger, schedule trigger
+- Linux io_uring backend 구현
+- stable identity 인증/권한 검증, persistence, payload replay

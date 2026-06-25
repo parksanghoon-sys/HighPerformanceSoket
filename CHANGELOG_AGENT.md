@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-25 (Codex - RIO payload cache self-review)
+
+### 작업 단위
+- RIO payload cache 구현 self-review 를 완료했다.
+
+### 변경 내용
+- `docs/agent-state/reviews/2026-06-25-rio-payload-cache-self-review.md`:
+  D107 구현과 source/test/spec 를 대조한 self-review 결과를 기록했다.
+- `src/Hps.Transport.Rio/RioPayloadRegistrationCache.cs`:
+  idle eviction 의 정상 경로에서 native deregister 를 cache lock 밖으로 이동했다.
+  새 registration 실패 경로에서는 이미 제거한 idle registration 이 누수되지 않도록 예외 정리를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 RIO backend default promotion readiness 설계로 이동했다.
+
+### 검증
+- focused cache owner tests 4개 통과.
+- focused RIO tests 34개 통과.
+- common close/wake/pending tests 19개 통과.
+- RIO close/handler close tests 2개를 10회 반복 실행해 모두 통과.
+- `git diff --check`: whitespace error 없음.
+
 ## 2026-06-25 (Codex - RIO payload registration cache wiring)
 
 ### 작업 단위

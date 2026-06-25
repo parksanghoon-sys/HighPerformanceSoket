@@ -9,12 +9,14 @@
 
 ## Current TODOs
 
-- [ ] RIO payload cache 구현 self-review 를 수행한다.
-  - 목적: connection-local bounded payload cache 구현이 D107 설계, fan-out ownership, close/dispose 경합과 모순 없는지 확인한다.
-  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Rio.Tests/`, D107 spec/plan, root 상태 문서.
-  - 현재 판단: Task 1~3 구현과 session-06 benchmark 수집은 완료됐다.
-  - 다음 자연스러운 step: source/test/spec 를 대조해 must-fix, deferred, no-action 항목을 분리한다.
-  - 검증: self-review 기록, 필요 시 focused RIO tests, `git diff --check`.
+- [ ] RIO backend default promotion readiness 를 설계한다.
+  - 목적: RIO를 `TransportFactory` 기본 backend 후보로 올리기 전에 capability probe, fallback 조건,
+    SAEA contract parity, 운영 리스크, 검증 gate 를 명확히 한다.
+  - 범위: `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/`, RIO/SAEA tests,
+    관련 decisions/state 문서.
+  - 현재 판단: RIO TCP opt-in path 는 receive/prefix/payload registration reuse 와 close/handler close hardening 이 검증됐다.
+  - 다음 자연스러운 step: 현재 factory 선택 흐름과 RIO capability/coverage 를 대조한 뒤 설계 문서를 작성한다.
+  - 검증: source/test/decision 대조, 설계 문서 placeholder scan, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -29,6 +31,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO payload cache 구현 self-review 를 완료했다.
+  - 범위: `src/Hps.Transport.Rio/RioPayloadRegistrationCache.cs`,
+    `docs/agent-state/reviews/2026-06-25-rio-payload-cache-self-review.md`, root 상태 문서.
+  - 결과: major/blocker finding 은 없었다. self-review 중 idle eviction 의 native deregister 가 cache lock 내부에 남아 있는
+    minor issue 를 발견해 정상 경로는 lock 밖 deregister 로 리팩터했다.
+  - 검증: focused cache owner tests 4개 통과, focused RIO tests 34개 통과,
+    common close/wake/pending tests 19개 통과, RIO close/handler close tests 2개 10회 반복 통과,
+    `git diff --check`.
+  - 비고: transport-wide shared payload cache 와 cache capacity diagnostics 는 deferred 로 유지한다.
 
 - [x] RIO payload registration cache Task 2/3 send path cache lease 와 검증을 완료했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`, root 상태 문서.
