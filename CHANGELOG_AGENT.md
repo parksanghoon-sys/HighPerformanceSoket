@@ -5,6 +5,23 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP receive window implementation plan)
+
+### 작업 단위
+- 리뷰 반영된 `docs/superpowers/specs/2026-06-26-rio-udp-receive-window-hardening-design.md`를 구현 가능한 계획으로 분리했다.
+- close-drain blocker 때문에 one-deep receive loop 와 endpoint resource split 을 같은 Task 1 구현 단위로 묶었다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-06-26-rio-udp-receive-window-hardening.md`:
+  Task 1 close-safe one-deep receive loop 구현과 Task 2 benchmark/D114 문서화 절차를 작성했다.
+  각 Task 에 Red 테스트, expected failure, Green 구현 shape, 검증 명령, 커밋 범위를 명시했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  현재 진입점을 계획 작성 완료에서 Task 1 Red 테스트 작성으로 갱신했다.
+
+### 검증
+- 설계 리뷰 B1~B5, D111/D113, RIO UDP scratch evidence, 기존 `RioTransportUdpTests` helper 구조와 계획을 대조했다.
+- 계획 문서 placeholder scan 과 `git diff --check`로 문서 변경을 검증했다.
+
 ## 2026-06-26 (Codex - RIO UDP receive window design review alignment)
 
 ### 작업 단위

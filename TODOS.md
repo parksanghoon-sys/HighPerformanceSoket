@@ -9,19 +9,17 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP receive window hardening 구현 계획을 작성한다.
-  - 목적: scratch artifact 에서 확인된 RIO UDP open-loop delivery loss 와 16ms대 p99 tail 을 줄이기 위한 receive posting 정책을 구현 가능한 task 로 나눈다.
+- [ ] RIO UDP receive window hardening Task 1 close-safe one-deep receive loop 를 구현한다.
+  - 목적: handler dispatch 전에 다음 `RIOReceiveEx`를 하나 pre-post 하되, close/handler exception 경로에서
+    outstanding receive operation 을 누수 없이 정리한다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-    D111/D113 결정, RIO UDP tests, `artifacts/benchmarks/rio-udp/2026-06-26/session-01/` scratch evidence,
-    `docs/superpowers/specs/2026-06-26-rio-udp-receive-window-hardening-design.md`.
-  - 현재 판단: D113 fix 로 RIO UDP smoke/closed-loop load 는 delivery pass 가 가능해졌지만,
-    open-loop 는 sent 3000 / received 2263 / payload-errors 0 으로 fail 이다.
-    리뷰 반영된 설계는 one-deep pre-post 를 권장하고, bounded depth 는 후속 후보로 둔다.
-    close-drain 은 `Close()` shutdown request 이후 receive loop 가 outstanding receive operation 을 정리하고,
-    그 뒤 receive CQ/address registration 을 닫는 순서로 고정한다.
-  - 다음 자연스러운 step: 보정된 설계를 기준으로 Red-Green 구현 계획 문서를 작성한다.
-  - 검증: 설계 리뷰 B1~B5, D111/D113, scratch report, SAEA/RIO UDP tests coverage 대조,
-    구현 계획 placeholder scan, `git diff --check`.
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
+  - 현재 판단: 구현 계획은 `docs/superpowers/plans/2026-06-26-rio-udp-receive-window-hardening.md`에 있으며,
+    Task 1은 Red 테스트, `RioUdpReceiveOperation`, endpoint close/resource split, send/receive drain hook 을 한 coherent unit 으로 다룬다.
+  - 다음 자연스러운 step: `UdpReceive_WhenHandlerIsBlocked_PrePostsOneAdditionalReceive` Red 테스트를 작성하고
+    현재 D111 no-prefetch 구현에서 assertion failure 를 확인한다.
+  - 검증: focused Red/Green, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`,
+    필요 시 solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -56,6 +54,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP receive window hardening 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-26-rio-udp-receive-window-hardening.md`, root 상태 문서.
+  - 결과: 리뷰 반영된 one-deep pre-post 설계를 Task 1 close-safe receive loop 구현과
+    Task 2 benchmark/D114 문서화로 나눴다.
+    Task 1은 close-drain blocker 때문에 receive operation owner 와 endpoint resource split 을 같은 구현 단위로 묶는다.
+  - 검증: 설계 리뷰 B1~B5, D111/D113, scratch evidence, RIO UDP test helper 구조와 계획을 대조했다.
+    placeholder scan 과 `git diff --check`로 문서 변경을 검증했다.
 
 - [x] RIO UDP receive window hardening 설계 초안을 작성했다.
   - 범위: `docs/superpowers/specs/2026-06-26-rio-udp-receive-window-hardening-design.md`, root 상태 문서.
