@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP benchmark artifact design)
+
+### 작업 단위
+- RIO UDP benchmark artifact 수집 범위와 command shape 를 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-26-rio-udp-benchmark-artifact-design.md`:
+  기존 benchmark runner 명령에 `--protocol <tcp|udp>` selector 를 추가하고,
+  UDP closed-loop/open-loop artifact 를 기존 raw report schema 로 수집하는 설계를 작성했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D112를 추가했다. UDP report 는 새 schema field 없이 `benchmark-profile`/`scenario` 값으로 TCP와 구분한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  설계 완료를 기록하고 다음 실행 지점을 protocol selector model/parser 구현으로 이동했다.
+
+### 검증
+- benchmark CLI/result/schema source 를 대조했다.
+- 설계 문서 placeholder scan 통과.
+- `git diff --check`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build`: 318개 통과.
+
 ## 2026-06-26 (Codex - RIO UDP contract matrix)
 
 ### 작업 단위

@@ -9,14 +9,15 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP benchmark artifact 수집 범위와 command shape 를 설계한다.
-  - 목적: D110/D111 이후 RIO UDP default promotion 재평가에 필요한 delivery/drop/leak/latency/HWM evidence 를 artifact 로 남길 준비를 한다.
-  - 범위: `tests/Hps.Benchmarks/`, `tests/Hps.Benchmarks.Tests/`, RIO/SAEA transport benchmark runner,
-    existing `--backend <saea|rio>` selector, `docs/benchmarks/baselines/` 또는 scratch artifact 정책.
-  - 현재 판단: TCP SAEA/RIO benchmark selector 와 raw report schema 는 존재하지만 UDP datagram benchmark scenario 는 아직 별도화되지 않았다.
-  - 다음 자연스러운 step: UDP benchmark scenario 가 closed-loop/open-loop 중 어느 형태로 들어가야 하는지와
-    report schema reuse 범위를 소스 기준으로 설계한다.
-  - 검증: benchmark CLI/result/schema source 대조, 설계 문서 placeholder scan, `git diff --check`, 필요 시 benchmark tests.
+- [ ] RIO UDP benchmark Task 1 protocol selector model/parser 를 구현한다.
+  - 목적: D112 설계의 첫 구현 단위로 benchmark runner/baseline-suite command 가 `--protocol <tcp|udp>`를 보존하게 한다.
+  - 범위: `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`, `BenchmarkCommandParser.cs`,
+    protocol enum, `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`.
+  - 현재 판단: 기존 `--backend <saea|rio>` parser 구조에 protocol option 을 병렬로 붙이면 된다.
+    summary/history command 는 raw report aggregate 단계이므로 `--protocol`을 usage error 로 막는다.
+  - 다음 자연스러운 step: Red 테스트로 `--load --protocol udp --backend rio --report out.json`이 protocol 을 보존해야 함을 먼저 고정한다.
+  - 검증: focused parser test, `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore`,
+    `git diff --check`.
 
 ## Deferred Backlog
 
@@ -63,6 +64,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP benchmark artifact 수집 범위와 command shape 를 설계했다.
+  - 범위: `docs/superpowers/specs/2026-06-26-rio-udp-benchmark-artifact-design.md`,
+    D112 결정 문서, root 상태 문서.
+  - 결과: 기존 benchmark 명령에 `--protocol <tcp|udp>` selector 를 추가하고,
+    UDP report 는 기존 raw report schema 를 재사용하며 `benchmark-profile`/`scenario`로 TCP/UDP를 구분하기로 했다.
+  - 비고: 첫 RIO UDP evidence 는 repository baseline 이 아니라 `artifacts/benchmarks/rio-udp/...` scratch 영역에 수집한다.
+  - 검증: benchmark CLI/result/schema source 대조, 설계 문서 placeholder scan, `git diff --check`, solution build/test.
 
 - [x] RIO/SAEA backend contract matrix 를 RIO UDP edge tests 로 보강했다.
   - 범위: `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D111 결정 문서, root 상태 문서.

@@ -1315,26 +1315,32 @@ D111에 따라 RIO UDP no-prefetch 는 pool ownership/backpressure 경계이며,
 blocked-window datagram retention 은 RIO v1 계약으로 주장하지 않는다.
 최종 테스트는 pool 대여 미증가와 unblock 이후 loop 생존을 검증한다.
 
-다음 작업은 RIO UDP benchmark artifact 수집 범위와 command shape 설계다.
-TCP SAEA/RIO benchmark selector 와 raw report schema 는 이미 있으므로,
-UDP datagram benchmark scenario 를 closed-loop/open-loop 중 어떤 형태로 붙일지와
-report schema reuse, scratch/repository artifact 경계를 먼저 정한다.
+RIO UDP benchmark artifact 수집 범위와 command shape 설계를 완료했다(D112).
+설계 문서는 `docs/superpowers/specs/2026-06-26-rio-udp-benchmark-artifact-design.md`다.
+기존 `--smoke`, `--load`, `--load-open-loop`, `--baseline-suite` 실행 명령에
+`--protocol <tcp|udp>` selector 를 additive option 으로 추가하고, 기본값은 `tcp`로 유지한다.
+UDP raw report 는 기존 schema 를 재사용하며 `benchmark-profile`/`scenario`를 `udp-loopback-...` 계열로 채워 구분한다.
+첫 RIO UDP evidence 는 repository baseline 이 아니라 `artifacts/benchmarks/rio-udp/...` scratch 영역에 수집한다.
+
+다음 작업은 RIO UDP benchmark Task 1 protocol selector model/parser 구현이다.
+먼저 parser Red 테스트로 `--load --protocol udp --backend rio --report out.json`이 protocol 을 보존해야 함을 고정하고,
+summary/history command 에서는 `--protocol`을 usage error 로 막는다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP benchmark artifact 설계를 수행한다.
+이번 cycle 은 RIO UDP benchmark Task 1 protocol selector model/parser 를 구현한다.
 
-- 범위: `tests/Hps.Benchmarks/`, `tests/Hps.Benchmarks.Tests/`,
-  existing `--backend <saea|rio>` selector, raw report/summary/history schema,
-  `docs/benchmarks/baselines/`와 scratch artifact 정책.
-- 검증: benchmark CLI/result/schema source 대조, 설계 문서 placeholder scan,
-  `git diff --check`, 필요 시 focused benchmark tests.
+- 범위: `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`, `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`,
+  protocol enum, `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`.
+- 검증: parser Red/Green, focused benchmark parser tests,
+  `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore`, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
 - RIO UDP receive prefetch 구현
-- RIO UDP benchmark runner 구현 코드
+- RIO UDP loopback runner 구현 코드
+- RIO UDP benchmark artifact 수집
 - RIO unavailable fallback/default selection policy 구현
 - IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 정책 구현
