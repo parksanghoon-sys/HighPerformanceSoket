@@ -5,6 +5,38 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP bounded receive window Task 1)
+
+### 작업 단위
+- RIO UDP bounded receive window Task 1 depth-2 receive behavior 를 TDD로 구현했다.
+
+### 변경 내용
+- `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
+  `UdpReceive_WhenHandlerIsBlocked_PreservesTwoQueuedDatagramsWithBoundedWindow`를 추가했다.
+  기존 blocked handler tests 의 rented count 기대값과 주석을 depth 2 receive window 정책에 맞췄다.
+- `src/Hps.Transport.Rio/RioUdpEndpoint.cs`:
+  request queue receive depth 를 2로 올리고, receive remote address block 을 endpoint shared resource 에서 제거했다.
+  receive slot 이 사용할 remote address block 대여/반환 helper 를 추가했다.
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  UDP receive loop 를 current/next operation 모델에서 `RioResult.RequestContext` 기반 `RioUdpReceiveSlot[]` 모델로 전환했다.
+  각 slot 은 slot-local remote address registered buffer 를 소유하고,
+  payload data buffer 는 D113대로 datagram 마다 등록 후 completion 직후 deregister 한다.
+- `docs/superpowers/plans/2026-06-26-rio-udp-bounded-receive-window.md`,
+  `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 1 완료와 다음 Task 2 close/drain cleanup hardening 진입점을 반영했다.
+
+### 검증
+- Red: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore --filter "FullyQualifiedName~UdpReceive_WhenHandlerIsBlocked_PreservesTwoQueuedDatagramsWithBoundedWindow"`가
+  기존 one-deep 구현에서 `Expected: 3`, `Actual: 2`로 실패했다.
+- Green: 같은 focused test 1개 통과.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore --filter "FullyQualifiedName~RioTransportUdpTests"`:
+  16개 통과.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`:
+  53개 통과.
+- `git diff --check`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 334개 통과.
+
 ## 2026-06-26 (Codex - RIO UDP bounded receive window design)
 
 ### 작업 단위

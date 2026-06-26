@@ -1399,14 +1399,18 @@ receive-side 후속 설계와 구현 계획도 완료했다.
 D117로 receive payload registration reuse 가 아니라 bounded receive slot window 를 다음 구현 후보로 결정했다.
 첫 depth 는 2, completion mapping 은 `RioResult.RequestContext`, remote address 는 slot-local registered buffer,
 payload data buffer 는 D113대로 datagram 마다 등록하고 completion 직후 deregister 한다.
+bounded receive window Task 1 depth-2 receive behavior 구현도 완료했다.
+`UdpReceive_WhenHandlerIsBlocked_PreservesTwoQueuedDatagramsWithBoundedWindow`는 기존 one-deep 구현에서
+`Expected: 3`, `Actual: 2`로 실패했고, Green 이후 focused test 1개, `RioTransportUdpTests` 16개,
+`Hps.Transport.Rio.Tests` 53개가 통과했다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP bounded receive window Task 1 depth-2 receive behavior 를 TDD로 구현한다.
+이번 cycle 은 RIO UDP bounded receive window Task 2 close/drain cleanup hardening 을 TDD로 수행한다.
 
 - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
   `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, bounded receive window 구현 계획, root 상태 문서.
-- 검증: blocked-handler burst Red, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`,
+- 검증: depth 2 close/handler-exception cleanup Red/Green, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`,
   solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위

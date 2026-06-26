@@ -9,13 +9,12 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` RIO UDP bounded receive window Task 1 depth-2 receive behavior 를 구현한다.
-  - 목적: D117 설계에 따라 request-context 기반 receive slot window depth 2를 구현해 blocked handler 중 두 개의 추가 datagram 을 보존한다.
+- [ ] `P1_SOON` RIO UDP bounded receive window Task 2 close/drain cleanup hardening 을 수행한다.
+  - 목적: depth 2 receive slot window 에서 endpoint close 와 handler exception 중 posted receive slots 가 모두 정리되는지 명시 테스트로 고정한다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
     `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, bounded receive window 구현 계획, root 상태 문서.
-  - 현재 판단: D113 때문에 receive payload registration reuse 는 단독 다음 구현으로 부적절하고,
-    `RioResult.RequestContext` 기반 slot window 가 가장 직접적인 다음 구현 단위다.
-  - 다음 자연스러운 step: `UdpReceive_WhenHandlerIsBlocked_PreservesTwoQueuedDatagramsWithBoundedWindow` Red test 를 추가하고 실패를 확인한다.
+  - 현재 판단: Task 1에서 request-context 기반 slot window 와 slot-local remote address buffer 는 focused/full RIO tests 에서 green 이다.
+  - 다음 자연스러운 step: 기존 close/handler-exception cleanup tests 를 depth 2 명시 이름/기대값으로 보강하거나 새 Red tests 로 분리한다.
   - 검증: focused Red/Green, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`, solution build/test.
 
 ## Deferred Backlog
@@ -51,6 +50,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP bounded receive window Task 1 depth-2 receive behavior 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, 구현 계획 문서, root 상태 문서.
+  - 결과: `MaxOutstandingReceive`를 2로 올리고, UDP receive loop 를 `RioResult.RequestContext` 기반 slot window 로 전환했다.
+    receive remote address 는 slot-local registered buffer 로 이동했고, payload data buffer 는 D113대로 completion 직후 deregister 한다.
+  - Red: `UdpReceive_WhenHandlerIsBlocked_PreservesTwoQueuedDatagramsWithBoundedWindow`가 기존 one-deep 구현에서
+    `Expected: 3`, `Actual: 2`로 실패했다.
+  - Green/검증: focused Red test 1개 통과, `RioTransportUdpTests` 16개 통과, `Hps.Transport.Rio.Tests` 53개 통과.
 
 - [x] RIO UDP open-loop delivery loss 의 receive-side 설계와 구현 계획을 작성했다.
   - 범위: `docs/superpowers/specs/2026-06-26-rio-udp-bounded-receive-window-design.md`,

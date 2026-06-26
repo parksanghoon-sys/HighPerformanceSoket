@@ -30,7 +30,7 @@ RIO UDP open-loop delivery loss 를 줄이기 위해 D117의 bounded receive slo
 - Modify: `src/Hps.Transport.Rio/RioUdpEndpoint.cs`
 - Modify: root state docs
 
-- [ ] **Step 1: Write blocked-handler burst Red test**
+- [x] **Step 1: Write blocked-handler burst Red test**
 
 Add a focused test near `UdpReceive_WhenHandlerIsBlocked_PrePostsOneAdditionalReceive`:
 
@@ -93,7 +93,7 @@ If helpers do not exist, add small test-local helpers:
 - `SendSingleByteDatagramAsync(Socket, EndPoint, byte)`
 - `WaitForReceivedCountAsync(BlockingFirstDatagramHandler, int)`
 
-- [ ] **Step 2: Run focused Red**
+- [x] **Step 2: Run focused Red**
 
 Run:
 
@@ -105,7 +105,11 @@ Expected:
 
 - Fails by timeout or `Expected: 3` style assertion because current one-deep model cannot preserve two queued datagrams while handler is blocked.
 
-- [ ] **Step 3: Implement receive slot window**
+Actual Red:
+
+- Failed with `Assert.Equal() Failure: Values differ`, `Expected: 3`, `Actual: 2` at `WaitForRentedCountAsync(...)`.
+
+- [x] **Step 3: Implement receive slot window**
 
 Implementation shape:
 
@@ -161,7 +165,7 @@ while (true)
 
 Do not use a shared endpoint remote address block for receive completions once depth is greater than 1.
 
-- [ ] **Step 4: Run focused Green tests**
+- [x] **Step 4: Run focused Green tests**
 
 Run:
 
@@ -177,7 +181,13 @@ Expected:
 - Existing one-deep tests may need wording/count updates from one-deep to bounded window.
 - Full RIO tests pass.
 
-- [ ] **Step 5: Update state docs and commit Task 1**
+Actual:
+
+- `UdpReceive_WhenHandlerIsBlocked_PreservesTwoQueuedDatagramsWithBoundedWindow`: 1 passed.
+- `RioTransportUdpTests`: 16 passed.
+- `Hps.Transport.Rio.Tests`: 53 passed.
+
+- [x] **Step 5: Update state docs and commit Task 1**
 
 Update `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
 
@@ -187,6 +197,12 @@ Commit:
 git add src\Hps.Transport.Rio\RioTransport.cs src\Hps.Transport.Rio\RioUdpEndpoint.cs tests\Hps.Transport.Rio.Tests\RioTransportUdpTests.cs CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md docs\superpowers\plans\2026-06-26-rio-udp-bounded-receive-window.md
 git commit -m "fix: add rio udp bounded receive window"
 ```
+
+Actual verification:
+
+- `git diff --check`: passed.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: warning 0/error 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 334 passed.
 
 ## Task 2: close/drain cleanup hardening
 

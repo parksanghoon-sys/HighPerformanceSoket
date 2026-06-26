@@ -259,7 +259,7 @@ namespace Hps.Transport.Rio.Tests
             }
         }
 
-        // RIO UDP one-deep pre-post 테스트: 첫 handler 가 막혀 있는 동안 다음 ReceiveEx 를 미리 post 해야 한다.
+        // RIO UDP bounded receive window 테스트: 첫 handler 가 막혀 있는 동안 다음 ReceiveEx 들을 미리 post 해야 한다.
         // blocked 중 들어온 두 번째 datagram 은 추가 송신 없이 unblock 뒤 곧바로 handler 로 전달되어야 한다.
         [Fact]
         public async Task UdpReceive_WhenHandlerIsBlocked_PrePostsOneAdditionalReceive()
@@ -294,7 +294,7 @@ namespace Hps.Transport.Rio.Tests
                     int secondSent = await sender.SendToAsync(new ArraySegment<byte>(secondPayload), SocketFlags.None, boundEndPoint);
                     Assert.Equal(secondPayload.Length, secondSent);
 
-                    await WaitForRentedCountAsync(rioEndpoint.ReceivePool, 2);
+                    await WaitForRentedCountAsync(rioEndpoint.ReceivePool, 3);
                     Assert.Equal(1, datagramHandler.ReceivedCount);
 
                     datagramHandler.AllowFirstDatagramToComplete();
@@ -316,9 +316,67 @@ namespace Hps.Transport.Rio.Tests
             }
         }
 
-        // RIO UDP close-drain 테스트: one-deep pre-post 상태에서는 handler 가 보유한 current datagram 과
-        // provider 에 post 된 next receive buffer 가 동시에 존재할 수 있다. Close 는 receive CQ를 즉시 닫지 말고
-        // receive loop owner 가 두 resource 를 모두 정리하게 해야 한다.
+        // RIO UDP bounded receive window 는 첫 handler 가 막힌 동안 두 개의 추가 datagram 을 outstanding receive 로 받아야 한다.
+        // 기존 one-deep 구현은 blocked handler 중 추가 한 개까지만 안정적으로 보존하므로 depth 2 전환의 Red 근거가 된다.
+        [Fact]
+        public async Task UdpReceive_WhenHandlerIsBlocked_PreservesTwoQueuedDatagramsWithBoundedWindow()
+        {
+            if (!IsRioDatagramAvailable())
+                return;
+
+            using (RioTransport transport = new RioTransport())
+            {
+                BlockingFirstDatagramHandler datagramHandler = new BlockingFirstDatagramHandler();
+                transport.SetDatagramHandler(datagramHandler);
+                await transport.StartAsync();
+
+                IUdpEndpoint? endpoint = null;
+                Socket? sender = null;
+
+                try
+                {
+                    endpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    RioUdpEndpoint rioEndpoint = Assert.IsType<RioUdpEndpoint>(endpoint);
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(endpoint.LocalEndPoint);
+
+                    sender = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+                    int firstSent = await sender.SendToAsync(new ArraySegment<byte>(new byte[] { 101 }), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(1, firstSent);
+
+                    await WaitForSignalAsync(datagramHandler.FirstReceivedTask);
+                    Assert.Equal(1, datagramHandler.ReceivedCount);
+
+                    int secondSent = await sender.SendToAsync(new ArraySegment<byte>(new byte[] { 102 }), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(1, secondSent);
+                    int thirdSent = await sender.SendToAsync(new ArraySegment<byte>(new byte[] { 103 }), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(1, thirdSent);
+
+                    await WaitForRentedCountAsync(rioEndpoint.ReceivePool, 3);
+                    Assert.Equal(1, datagramHandler.ReceivedCount);
+
+                    datagramHandler.AllowFirstDatagramToComplete();
+                    await WaitForReceivedCountAsync(datagramHandler, 3);
+
+                    Assert.Equal(3, datagramHandler.ReceivedCount);
+
+                    endpoint.Close();
+                    endpoint = null;
+                    await WaitForRentedCountAsync(rioEndpoint.ReceivePool, 0);
+                }
+                finally
+                {
+                    datagramHandler.AllowFirstDatagramToComplete();
+                    sender?.Dispose();
+                    endpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
+        // RIO UDP close-drain 테스트: bounded receive window 상태에서는 handler 가 보유한 current datagram 과
+        // provider 에 post 된 receive buffers 가 동시에 존재할 수 있다. Close 는 receive CQ를 즉시 닫지 말고
+        // receive loop owner 가 모든 resource 를 정리하게 해야 한다.
         [Fact]
         public async Task UdpReceive_WhenEndpointClosesWithPrePostedReceive_ReleasesOutstandingReceive()
         {
@@ -345,7 +403,7 @@ namespace Hps.Transport.Rio.Tests
                     Assert.Equal(1, sent);
 
                     await WaitForSignalAsync(datagramHandler.FirstReceivedTask);
-                    await WaitForRentedCountAsync(rioEndpoint.ReceivePool, 2);
+                    await WaitForRentedCountAsync(rioEndpoint.ReceivePool, 3);
 
                     endpoint.Close();
                     endpoint = null;
@@ -617,6 +675,21 @@ namespace Hps.Transport.Rio.Tests
             }
 
             Assert.Equal(expected, pool.RentedCount);
+        }
+
+        private static async Task WaitForReceivedCountAsync(BlockingFirstDatagramHandler handler, int expected)
+        {
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+
+            while (DateTime.UtcNow < deadline)
+            {
+                if (handler.ReceivedCount >= expected)
+                    return;
+
+                await Task.Delay(10);
+            }
+
+            Assert.Equal(expected, handler.ReceivedCount);
         }
 
         private static RefCountedBuffer[] RentNumberedUdpBuffers(PinnedBlockMemoryPool pool, int count)

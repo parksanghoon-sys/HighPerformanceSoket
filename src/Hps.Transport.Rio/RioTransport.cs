@@ -381,33 +381,28 @@ namespace Hps.Transport
 
         private async Task UdpReceiveLoopAsync(RioUdpEndpoint endpoint)
         {
-            RioUdpReceiveOperation? current = null;
-            RioUdpReceiveOperation? next = null;
+            RioUdpReceiveSlot[]? slots = null;
             ReceivedRioUdpDatagram? received = null;
 
             try
             {
-                current = new RioUdpReceiveOperation(endpoint);
-                current.Post();
+                slots = CreateUdpReceiveSlots(endpoint);
+                for (int index = 0; index < slots.Length; index++)
+                    slots[index].Post();
 
                 while (true)
                 {
-                    RioUdpReceiveOperation active = current ?? throw new ObjectDisposedException(nameof(RioUdpReceiveOperation));
                     RioResult completion = await WaitForUdpCompletionAsync(
                         endpoint,
                         endpoint.ReceiveCompletionQueue,
                         endpoint.ReceiveSignal,
                         allowAfterClose: true).ConfigureAwait(false);
 
-                    received = active.Complete(completion);
-                    active.Dispose();
-                    current = null;
+                    RioUdpReceiveSlot slot = FindUdpReceiveSlot(slots, completion.RequestContext);
+                    received = slot.Complete(completion);
 
                     if (!endpoint.IsClosed)
-                    {
-                        next = new RioUdpReceiveOperation(endpoint);
-                        next.Post();
-                    }
+                        slot.Post();
 
                     try
                     {
@@ -418,21 +413,12 @@ namespace Hps.Transport
                     }
                     catch
                     {
-                        next?.Dispose();
-                        next = null;
                         NotifyUdpEndpointClosed(endpoint);
                         return;
                     }
 
                     if (endpoint.IsClosed)
-                    {
-                        next?.Dispose();
-                        next = null;
                         return;
-                    }
-
-                    current = next;
-                    next = null;
                 }
             }
             catch (ObjectDisposedException)
@@ -443,8 +429,6 @@ namespace Hps.Transport
                     received = null;
                 }
 
-                current?.Dispose();
-                next?.Dispose();
                 return;
             }
             catch (SocketException)
@@ -455,8 +439,6 @@ namespace Hps.Transport
                     received = null;
                 }
 
-                current?.Dispose();
-                next?.Dispose();
                 NotifyUdpEndpointClosed(endpoint);
                 return;
             }
@@ -468,8 +450,6 @@ namespace Hps.Transport
                     received = null;
                 }
 
-                current?.Dispose();
-                next?.Dispose();
                 NotifyUdpEndpointClosed(endpoint);
                 return;
             }
@@ -478,10 +458,50 @@ namespace Hps.Transport
                 if (received != null)
                     received.Datagram.Release();
 
-                current?.Dispose();
-                next?.Dispose();
+                DisposeUdpReceiveSlots(slots);
                 endpoint.CompleteReceiveDrain();
             }
+        }
+
+        private static RioUdpReceiveSlot[] CreateUdpReceiveSlots(RioUdpEndpoint endpoint)
+        {
+            RioUdpReceiveSlot[] slots = new RioUdpReceiveSlot[RioUdpEndpoint.ReceiveWindowSize];
+            int created = 0;
+
+            try
+            {
+                for (int index = 0; index < slots.Length; index++)
+                {
+                    slots[index] = new RioUdpReceiveSlot(endpoint, index);
+                    created++;
+                }
+            }
+            catch
+            {
+                for (int index = 0; index < created; index++)
+                    slots[index].Dispose();
+
+                throw;
+            }
+
+            return slots;
+        }
+
+        private static RioUdpReceiveSlot FindUdpReceiveSlot(RioUdpReceiveSlot[] slots, ulong requestContext)
+        {
+            if (requestContext == 0 || requestContext > (ulong)slots.Length)
+                throw new SocketException((int)SocketError.ConnectionReset);
+
+            return slots[checked((int)requestContext - 1)];
+        }
+
+        private static void DisposeUdpReceiveSlots(RioUdpReceiveSlot[]? slots)
+        {
+            if (slots == null)
+                return;
+
+            for (int index = 0; index < slots.Length; index++)
+                slots[index].Dispose();
         }
 
         private sealed class ReceivedRioUdpDatagram
@@ -497,20 +517,59 @@ namespace Hps.Transport
             internal EndPoint RemoteEndPoint { get; }
         }
 
-        private sealed class RioUdpReceiveOperation : IDisposable
+        private sealed class RioUdpReceiveSlot : IDisposable
         {
             private readonly RioUdpEndpoint _endpoint;
+            private readonly byte[] _remoteAddressBlock;
+            private IntPtr _remoteAddressBufferId;
             private RefCountedBuffer? _datagram;
             private IntPtr _receiveBufferId;
 
-            internal RioUdpReceiveOperation(RioUdpEndpoint endpoint)
+            internal RioUdpReceiveSlot(RioUdpEndpoint endpoint, int slotId)
             {
                 _endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
-                _datagram = endpoint.ReceivePool.RentCounted();
+                if (slotId < 0)
+                    throw new ArgumentOutOfRangeException(nameof(slotId));
+
+                RequestContext = checked((ulong)(slotId + 1));
+                _remoteAddressBlock = endpoint.RentRemoteAddressBlock();
+                _remoteAddressBufferId = IntPtr.Zero;
                 _receiveBufferId = IntPtr.Zero;
+                _datagram = null;
+
+                try
+                {
+                    _remoteAddressBufferId = RioTransport.RegisterPinnedArray(endpoint.Native, _remoteAddressBlock);
+                }
+                catch
+                {
+                    endpoint.ReturnRemoteAddressBlock(_remoteAddressBlock);
+                    throw;
+                }
             }
 
+            internal ulong RequestContext { get; }
+
             internal void Post()
+            {
+                if (_datagram != null)
+                    throw new InvalidOperationException("RIO UDP receive slot 에 이미 outstanding receive 가 있습니다.");
+
+                _datagram = _endpoint.ReceivePool.RentCounted();
+
+                try
+                {
+                    PostCore();
+                }
+                catch
+                {
+                    ReleaseRegistration();
+                    ReleaseDatagram();
+                    throw;
+                }
+            }
+
+            private void PostCore()
             {
                 RefCountedBuffer datagram = RequireDatagram();
                 ArraySegment<byte> receiveSegment = RioTransport.GetRefCountedBlockSegment(datagram, 0, _endpoint.ReceivePool.BlockSize);
@@ -522,21 +581,28 @@ namespace Hps.Transport
                     _receiveBufferId,
                     receiveSegment.Offset,
                     receiveSegment.Count);
-                RioBufferSegment remoteAddressSegment = _endpoint.RemoteAddressSegment;
+                RioBufferSegment remoteAddressSegment = new RioBufferSegment(
+                    _remoteAddressBufferId,
+                    0,
+                    RioUdpEndpoint.SockaddrInetBlockSize);
+                IntPtr requestContext = new IntPtr(checked((long)RequestContext));
 
-                if (!_endpoint.Native.ReceiveEx(_endpoint.RequestQueue, dataSegment, null, remoteAddressSegment, IntPtr.Zero))
+                if (!_endpoint.Native.ReceiveEx(_endpoint.RequestQueue, dataSegment, null, remoteAddressSegment, requestContext))
                     throw new SocketException((int)SocketError.ConnectionReset);
             }
 
             internal ReceivedRioUdpDatagram Complete(RioResult completion)
             {
+                if (completion.RequestContext != RequestContext)
+                    throw new SocketException((int)SocketError.ConnectionReset);
+
                 RefCountedBuffer datagram = RequireDatagram();
 
                 if (completion.Status != 0 || completion.BytesTransferred > _endpoint.ReceivePool.BlockSize)
                     throw new SocketException((int)SocketError.ConnectionReset);
 
                 datagram.SetLength(checked((int)completion.BytesTransferred));
-                EndPoint remoteEndPoint = RioTransport.DecodeSockaddrInet(_endpoint.RemoteAddressBlock);
+                EndPoint remoteEndPoint = RioTransport.DecodeSockaddrInet(_remoteAddressBlock);
 
                 // completion 후 data buffer registration 을 먼저 해제해야 handler fan-out send path 가 같은 backing byte[]를
                 // 독립 payload registration 으로 잡을 수 있다. datagram ref 자체는 handler 로 넘기기 전까지 이 owner 가 보유한다.
@@ -549,7 +615,13 @@ namespace Hps.Transport
             public void Dispose()
             {
                 ReleaseRegistration();
+                ReleaseRemoteAddressRegistration();
+                _endpoint.ReturnRemoteAddressBlock(_remoteAddressBlock);
+                ReleaseDatagram();
+            }
 
+            private void ReleaseDatagram()
+            {
                 RefCountedBuffer? datagram = _datagram;
                 _datagram = null;
                 if (datagram != null)
@@ -560,7 +632,7 @@ namespace Hps.Transport
             {
                 RefCountedBuffer? datagram = _datagram;
                 if (datagram == null)
-                    throw new ObjectDisposedException(nameof(RioUdpReceiveOperation));
+                    throw new ObjectDisposedException(nameof(RioUdpReceiveSlot));
 
                 return datagram;
             }
@@ -571,6 +643,14 @@ namespace Hps.Transport
                 _receiveBufferId = IntPtr.Zero;
                 if (receiveBufferId != IntPtr.Zero)
                     _endpoint.Native.DeregisterBuffer(receiveBufferId);
+            }
+
+            private void ReleaseRemoteAddressRegistration()
+            {
+                IntPtr remoteAddressBufferId = _remoteAddressBufferId;
+                _remoteAddressBufferId = IntPtr.Zero;
+                if (remoteAddressBufferId != IntPtr.Zero)
+                    _endpoint.Native.DeregisterBuffer(remoteAddressBufferId);
             }
         }
 

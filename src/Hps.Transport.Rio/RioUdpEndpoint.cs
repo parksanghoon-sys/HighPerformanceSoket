@@ -17,13 +17,13 @@ namespace Hps.Transport
     internal sealed class RioUdpEndpoint : IUdpEndpoint
     {
         private const int CompletionQueueSize = 64;
-        private const int MaxOutstandingReceive = 1;
+        internal const int ReceiveWindowSize = 2;
         private const int MaxOutstandingSend = 1;
         private const int SingleDataBufferPerRequest = 1;
         // UDP broker publish datagram 은 command envelope + 4096B benchmark payload 를 함께 담는다.
         // SAEA 기준선과 같은 8192B block 을 사용해 D112 UDP benchmark target 을 backend 차이 없이 수용한다.
         private const int ReceiveBlockSize = 8192;
-        private const int SockaddrInetBlockSize = 32;
+        internal const int SockaddrInetBlockSize = 32;
         private const int DefaultPendingSendCapacity = 16;
 
         private readonly RioTransport _transport;
@@ -36,7 +36,6 @@ namespace Hps.Transport
         private readonly PinnedBlockMemoryPool _remoteAddressPool;
         private readonly PinnedBlockMemoryPool _sendAddressPool;
         private readonly EndpointId _endpointId;
-        private byte[]? _remoteAddressBlock;
         private byte[]? _sendAddressBlock;
         private readonly int _pendingSendCapacity;
         private long _droppedPendingSendCount;
@@ -64,10 +63,8 @@ namespace Hps.Transport
             _remoteAddressPool = new PinnedBlockMemoryPool(SockaddrInetBlockSize);
             _sendAddressPool = new PinnedBlockMemoryPool(SockaddrInetBlockSize);
             _endpointId = transport.CreateEndpointId();
-            _remoteAddressBlock = null;
             _sendAddressBlock = null;
             PayloadRegistrationCache = new RioPayloadRegistrationCache(new RioNativeBufferRegistrar(Native), capacity: 64);
-            RemoteAddressBufferId = IntPtr.Zero;
             SendAddressBufferId = IntPtr.Zero;
             ReceiveCompletionQueue = IntPtr.Zero;
             SendCompletionQueue = IntPtr.Zero;
@@ -84,8 +81,6 @@ namespace Hps.Transport
                 // ReceiveEx 는 completion 때 remote SOCKADDR_INET 을 caller 제공 registered buffer 에 쓴다.
                 // one-deep receive 는 completion 직후 managed EndPoint 로 먼저 decode 한 뒤 다음 receive 를 post 하므로
                 // endpoint lifetime scratch block 하나를 계속 재사용할 수 있다.
-                _remoteAddressBlock = _remoteAddressPool.Rent();
-                RemoteAddressBufferId = RegisterPinnedArray(Native, _remoteAddressBlock);
                 _sendAddressBlock = _sendAddressPool.Rent();
                 SendAddressBufferId = RegisterPinnedArray(Native, _sendAddressBlock);
 
@@ -93,7 +88,7 @@ namespace Hps.Transport
                 SendCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize, SendSignal.NotificationCompletionPointer);
                 RequestQueue = Native.CreateRequestQueue(
                     _socket,
-                    MaxOutstandingReceive,
+                    ReceiveWindowSize,
                     SingleDataBufferPerRequest,
                     MaxOutstandingSend,
                     SingleDataBufferPerRequest,
@@ -121,18 +116,6 @@ namespace Hps.Transport
 
         internal RioCompletionSignal SendSignal { get; private set; }
 
-        internal byte[] RemoteAddressBlock
-        {
-            get
-            {
-                byte[]? block = _remoteAddressBlock;
-                if (block == null)
-                    throw new ObjectDisposedException(nameof(RioUdpEndpoint));
-
-                return block;
-            }
-        }
-
         internal byte[] SendAddressBlock
         {
             get
@@ -145,11 +128,6 @@ namespace Hps.Transport
             }
         }
 
-        internal RioBufferSegment RemoteAddressSegment
-        {
-            get { return new RioBufferSegment(RemoteAddressBufferId, 0, SockaddrInetBlockSize); }
-        }
-
         internal RioBufferSegment SendAddressSegment
         {
             get { return new RioBufferSegment(SendAddressBufferId, 0, SockaddrInetBlockSize); }
@@ -160,8 +138,6 @@ namespace Hps.Transport
         internal IntPtr SendCompletionQueue { get; private set; }
 
         internal IntPtr RequestQueue { get; private set; }
-
-        internal IntPtr RemoteAddressBufferId { get; private set; }
 
         internal IntPtr SendAddressBufferId { get; private set; }
 
@@ -324,6 +300,19 @@ namespace Hps.Transport
             Close();
         }
 
+        internal byte[] RentRemoteAddressBlock()
+        {
+            return _remoteAddressPool.Rent();
+        }
+
+        internal void ReturnRemoteAddressBlock(byte[] block)
+        {
+            if (block == null)
+                throw new ArgumentNullException(nameof(block));
+
+            _remoteAddressPool.Return(block);
+        }
+
         internal void CompleteReceiveDrain()
         {
             if (Interlocked.Exchange(ref _receiveResourcesDisposed, 1) != 0)
@@ -338,16 +327,6 @@ namespace Hps.Transport
                 if (receiveCompletionQueue != IntPtr.Zero)
                     Native.CloseCompletionQueue(receiveCompletionQueue);
             }
-
-            IntPtr remoteAddressBufferId = RemoteAddressBufferId;
-            RemoteAddressBufferId = IntPtr.Zero;
-            if (remoteAddressBufferId != IntPtr.Zero)
-                Native.DeregisterBuffer(remoteAddressBufferId);
-
-            byte[]? remoteAddressBlock = _remoteAddressBlock;
-            _remoteAddressBlock = null;
-            if (remoteAddressBlock != null)
-                _remoteAddressPool.Return(remoteAddressBlock);
 
             RioCompletionSignal? receiveSignal = ReceiveSignal;
             ReceiveSignal = null!;
