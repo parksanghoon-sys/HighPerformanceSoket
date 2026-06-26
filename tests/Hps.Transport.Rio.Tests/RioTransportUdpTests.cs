@@ -87,6 +87,49 @@ namespace Hps.Transport.Rio.Tests
             }
         }
 
+        // RIO UDP send loop 는 SAEA UDP 와 같은 TrySendTo 계약을 따라야 한다.
+        // handler 가 받은 datagram 에 ref 를 추가해 같은 endpoint/remote 로 enqueue 하면 raw UDP client 가 동일 payload 를 받아야 한다.
+        [Fact]
+        public async Task UdpEcho_WhenDatagramHandlerQueuesResponse_ClientReceivesSamePayload()
+        {
+            if (!IsRioDatagramAvailable())
+                return;
+
+            using (RioTransport transport = new RioTransport())
+            {
+                EchoingDatagramHandler datagramHandler = new EchoingDatagramHandler(transport);
+                transport.SetDatagramHandler(datagramHandler);
+                await transport.StartAsync();
+
+                IUdpEndpoint? endpoint = null;
+                Socket? client = null;
+
+                try
+                {
+                    endpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(endpoint.LocalEndPoint);
+
+                    client = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    client.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+
+                    byte[] payload = new byte[] { 51, 52, 53, 54 };
+                    int sent = await client.SendToAsync(new ArraySegment<byte>(payload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(payload.Length, sent);
+
+                    ReceivedSocketDatagram echoed = await ReceiveUdpDatagramAsync(client, payload.Length);
+
+                    Assert.Equal(payload, echoed.Payload);
+                    Assert.Equal(boundEndPoint, echoed.RemoteEndPoint);
+                }
+                finally
+                {
+                    client?.Dispose();
+                    endpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         private static bool IsRioDatagramAvailable()
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
@@ -110,6 +153,23 @@ namespace Hps.Transport.Rio.Tests
 
             Assert.Same(receivedTask, completedTask);
             return await receivedTask;
+        }
+
+        private static async Task<ReceivedSocketDatagram> ReceiveUdpDatagramAsync(Socket socket, int maxLength)
+        {
+            byte[] receiveBuffer = new byte[maxLength];
+            Task<SocketReceiveFromResult> receiveTask = socket.ReceiveFromAsync(
+                new ArraySegment<byte>(receiveBuffer),
+                SocketFlags.None,
+                new IPEndPoint(IPAddress.Any, 0));
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(receiveTask, timeoutTask);
+
+            Assert.Same(receiveTask, completedTask);
+            SocketReceiveFromResult result = await receiveTask;
+            byte[] payload = new byte[result.ReceivedBytes];
+            Buffer.BlockCopy(receiveBuffer, 0, payload, 0, payload.Length);
+            return new ReceivedSocketDatagram(result.RemoteEndPoint, payload);
         }
 
         private sealed class CapturingDatagramHandler : ITransportDatagramHandler
@@ -142,6 +202,37 @@ namespace Hps.Transport.Rio.Tests
             }
         }
 
+        private sealed class EchoingDatagramHandler : ITransportDatagramHandler
+        {
+            private readonly RioTransport _transport;
+
+            internal EchoingDatagramHandler(RioTransport transport)
+            {
+                _transport = transport;
+            }
+
+            public void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+            {
+                // TrySendTo 가 true 를 반환하면 transport queue 가 추가 ref 를 소유한다.
+                // handler 는 자신이 받은 guard ref 만 Release 하고, enqueue 실패 시 추가 ref 까지 함께 되돌린다.
+                datagram.AddRef();
+                TransportSendBuffer sendBuffer = new TransportSendBuffer(datagram, 0, datagram.Length);
+
+                if (_transport.TrySendTo(endpoint, remoteEndPoint, sendBuffer))
+                {
+                    datagram.Release();
+                    return;
+                }
+
+                datagram.Release();
+                datagram.Release();
+            }
+
+            public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
+            {
+            }
+        }
+
         private sealed class ReceivedDatagram
         {
             internal ReceivedDatagram(IUdpEndpoint endpoint, EndPoint remoteEndPoint, byte[] payload)
@@ -152,6 +243,19 @@ namespace Hps.Transport.Rio.Tests
             }
 
             internal IUdpEndpoint Endpoint { get; }
+
+            internal EndPoint RemoteEndPoint { get; }
+
+            internal byte[] Payload { get; }
+        }
+
+        private sealed class ReceivedSocketDatagram
+        {
+            internal ReceivedSocketDatagram(EndPoint remoteEndPoint, byte[] payload)
+            {
+                RemoteEndPoint = remoteEndPoint;
+                Payload = payload;
+            }
 
             internal EndPoint RemoteEndPoint { get; }
 

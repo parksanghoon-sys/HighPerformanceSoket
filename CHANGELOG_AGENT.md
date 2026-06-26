@@ -5,6 +5,29 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP send loop)
+
+### 작업 단위
+- RIO UDP Task 4 send loop 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  `TrySendTo(...)`, UDP send pump, `RIOSendEx` post/completion wait, IPv4 `SOCKADDR_INET` encode 를 추가했다.
+- `src/Hps.Transport.Rio/RioUdpEndpoint.cs`:
+  endpoint-local bounded pending send queue/drop-oldest, send address registered buffer,
+  payload registration cache lease owner 를 추가했다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
+  RIO UDP echo loopback 테스트를 추가해 handler 가 `TrySendTo(...)`로 queue 한 datagram 이 raw UDP client 로 돌아오는지 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 RIO UDP diagnostics parity 로 이동했다.
+
+### 검증
+- Red: `UdpEcho_WhenDatagramHandlerQueuesResponse_ClientReceivesSamePayload`가 client receive timeout 으로 실패.
+- focused UDP echo test 통과.
+- focused RIO tests 40개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build`: 통과.
+
 ## 2026-06-26 (Codex - RIO UDP receive loop)
 
 ### 작업 단위

@@ -1093,21 +1093,25 @@ Red evidence 는 `UdpReceive_WhenRawClientSendsDatagram_DeliversOwnedRefCountedB
 RIO native integration tests 는 같은 process 안의 provider/CQ 자원을 공유하므로
 `Hps.Transport.Rio.Tests` test collection parallelization 을 비활성화했다.
 
-다음 작업은 RIO UDP Task 4 send loop 구현이다.
-`ITransport.TrySendTo(IUdpEndpoint, EndPoint, TransportSendBuffer)`를 RIO endpoint-local pending queue/drop-oldest 와
-`RIOSendEx` remote address registered buffer path 로 연결한다.
+RIO UDP Task 4 send loop 구현을 완료했다.
+`ITransport.TrySendTo(IUdpEndpoint, EndPoint, TransportSendBuffer)`는 RIO endpoint-local pending queue/drop-oldest 로 연결되고,
+send pump 는 endpoint-local remote address registered buffer 와 payload registration cache lease 로 `RIOSendEx`를 호출한다.
+Red evidence 는 `UdpEcho_WhenDatagramHandlerQueuesResponse_ClientReceivesSamePayload`가 기존 `TrySendTo` 미구현 경로에서
+client receive timeout 으로 실패한 것이다.
+
+다음 작업은 RIO UDP Task 5 diagnostics parity 구현이다.
+SAEA UDP와 같은 endpoint snapshot, pending send count, high-watermark, dropped pending send count 를 RIO UDP endpoint 에서 노출한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP send loop 를 Red test 로 착수한다.
+이번 cycle 은 RIO UDP diagnostics parity 를 Red test 로 착수한다.
 
 - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
   `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, root 상태 문서.
-- 검증: focused RIO UDP echo/send tests, focused RIO tests 전체, solution build/test, `git diff --check`.
+- 검증: focused RIO UDP diagnostics tests, focused RIO tests 전체, solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
-- RIO UDP diagnostics parity 전체
 - `TransportFactory` 기본 선택 코드 변경
 - SAEA transport 동작 변경
 - latency hard gate 또는 warning-as-failure 정책 구현

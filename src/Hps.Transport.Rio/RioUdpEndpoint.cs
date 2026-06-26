@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using Hps.Buffers;
 
 namespace Hps.Transport
@@ -20,13 +22,22 @@ namespace Hps.Transport
         private const int SingleDataBufferPerRequest = 1;
         private const int ReceiveBlockSize = 4096;
         private const int SockaddrInetBlockSize = 32;
+        private const int DefaultPendingSendCapacity = 16;
 
         private readonly RioTransport _transport;
         private readonly Socket _socket;
         private readonly EndPoint _localEndPoint;
         private readonly object _completionGate;
+        private readonly object _sendGate;
+        private readonly Queue<UdpSendRequest> _pendingSends;
+        private readonly SemaphoreSlim _sendSignal;
         private readonly PinnedBlockMemoryPool _remoteAddressPool;
+        private readonly PinnedBlockMemoryPool _sendAddressPool;
         private byte[]? _remoteAddressBlock;
+        private byte[]? _sendAddressBlock;
+        private readonly int _pendingSendCapacity;
+        private long _droppedPendingSendCount;
+        private int _pendingSendQueueHighWatermark;
         private int _closed;
         private int _disposed;
 
@@ -38,13 +49,21 @@ namespace Hps.Transport
 
             _localEndPoint = socket.LocalEndPoint ?? throw new InvalidOperationException("UDP socket LocalEndPoint 를 확인할 수 없습니다.");
             _completionGate = new object();
+            _sendGate = new object();
+            _pendingSends = new Queue<UdpSendRequest>();
+            _sendSignal = new SemaphoreSlim(0);
             ReceivePool = new PinnedBlockMemoryPool(ReceiveBlockSize);
             _remoteAddressPool = new PinnedBlockMemoryPool(SockaddrInetBlockSize);
+            _sendAddressPool = new PinnedBlockMemoryPool(SockaddrInetBlockSize);
             _remoteAddressBlock = null;
+            _sendAddressBlock = null;
+            PayloadRegistrationCache = new RioPayloadRegistrationCache(new RioNativeBufferRegistrar(Native), capacity: 64);
             RemoteAddressBufferId = IntPtr.Zero;
+            SendAddressBufferId = IntPtr.Zero;
             ReceiveCompletionQueue = IntPtr.Zero;
             SendCompletionQueue = IntPtr.Zero;
             RequestQueue = IntPtr.Zero;
+            _pendingSendCapacity = DefaultPendingSendCapacity;
 
             try
             {
@@ -52,6 +71,8 @@ namespace Hps.Transport
                 // no-prefetch receive 라서 endpoint lifetime scratch block 하나를 안전하게 재사용할 수 있다.
                 _remoteAddressBlock = _remoteAddressPool.Rent();
                 RemoteAddressBufferId = RegisterPinnedArray(Native, _remoteAddressBlock);
+                _sendAddressBlock = _sendAddressPool.Rent();
+                SendAddressBufferId = RegisterPinnedArray(Native, _sendAddressBlock);
 
                 ReceiveCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize);
                 SendCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize);
@@ -93,9 +114,26 @@ namespace Hps.Transport
             }
         }
 
+        internal byte[] SendAddressBlock
+        {
+            get
+            {
+                byte[]? block = _sendAddressBlock;
+                if (block == null)
+                    throw new ObjectDisposedException(nameof(RioUdpEndpoint));
+
+                return block;
+            }
+        }
+
         internal RioBufferSegment RemoteAddressSegment
         {
             get { return new RioBufferSegment(RemoteAddressBufferId, 0, SockaddrInetBlockSize); }
+        }
+
+        internal RioBufferSegment SendAddressSegment
+        {
+            get { return new RioBufferSegment(SendAddressBufferId, 0, SockaddrInetBlockSize); }
         }
 
         internal IntPtr ReceiveCompletionQueue { get; private set; }
@@ -106,9 +144,73 @@ namespace Hps.Transport
 
         internal IntPtr RemoteAddressBufferId { get; private set; }
 
+        internal IntPtr SendAddressBufferId { get; private set; }
+
+        internal RioPayloadRegistrationCache PayloadRegistrationCache { get; }
+
         internal bool IsClosed => Volatile.Read(ref _closed) != 0;
 
         internal bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
+        internal bool TryAcceptSend(EndPoint remoteEndPoint, TransportSendBuffer sendBuffer)
+        {
+            if (remoteEndPoint == null)
+                throw new ArgumentNullException(nameof(remoteEndPoint));
+
+            bool shouldWakePump;
+            UdpSendRequest? evictedSend = null;
+            int pendingDepthAfterEnqueue;
+
+            lock (_sendGate)
+            {
+                if (IsClosed)
+                    return false;
+
+                shouldWakePump = _pendingSends.Count == 0;
+
+                if (_pendingSends.Count == _pendingSendCapacity)
+                    evictedSend = _pendingSends.Dequeue();
+
+                _pendingSends.Enqueue(new UdpSendRequest(remoteEndPoint, sendBuffer));
+                pendingDepthAfterEnqueue = _pendingSends.Count;
+                if (pendingDepthAfterEnqueue > _pendingSendQueueHighWatermark)
+                    _pendingSendQueueHighWatermark = pendingDepthAfterEnqueue;
+            }
+
+            _transport.RecordUdpPendingSendDepth(pendingDepthAfterEnqueue);
+
+            if (evictedSend.HasValue)
+            {
+                IncrementDroppedPendingSendCount();
+                _transport.RecordUdpPendingSendDrop();
+                evictedSend.Value.SendBuffer.Buffer.Release();
+            }
+
+            if (shouldWakePump)
+                _sendSignal.Release();
+
+            return true;
+        }
+
+        internal bool TryBeginSend(out UdpSendRequest sendRequest)
+        {
+            lock (_sendGate)
+            {
+                if (IsClosed || _pendingSends.Count == 0)
+                {
+                    sendRequest = default(UdpSendRequest);
+                    return false;
+                }
+
+                sendRequest = _pendingSends.Dequeue();
+                return true;
+            }
+        }
+
+        internal Task WaitForSendSignalAsync()
+        {
+            return _sendSignal.WaitAsync();
+        }
 
         internal uint DequeueCompletion(IntPtr completionQueue, RioResult[] results)
         {
@@ -127,6 +229,8 @@ namespace Hps.Transport
             if (Interlocked.Exchange(ref _closed, 1) != 0)
                 return;
 
+            DrainPendingSends();
+            _sendSignal.Release();
             DisposeNativeResources();
             _transport.UnregisterUdpEndpoint(this);
         }
@@ -163,11 +267,45 @@ namespace Hps.Transport
             if (remoteAddressBufferId != IntPtr.Zero)
                 Native.DeregisterBuffer(remoteAddressBufferId);
 
+            IntPtr sendAddressBufferId = SendAddressBufferId;
+            SendAddressBufferId = IntPtr.Zero;
+            if (sendAddressBufferId != IntPtr.Zero)
+                Native.DeregisterBuffer(sendAddressBufferId);
+
             byte[]? remoteAddressBlock = _remoteAddressBlock;
             _remoteAddressBlock = null;
             if (remoteAddressBlock != null)
                 _remoteAddressPool.Return(remoteAddressBlock);
 
+            byte[]? sendAddressBlock = _sendAddressBlock;
+            _sendAddressBlock = null;
+            if (sendAddressBlock != null)
+                _sendAddressPool.Return(sendAddressBlock);
+
+            PayloadRegistrationCache.Dispose();
+            _sendSignal.Dispose();
+        }
+
+        private long ReadDroppedPendingSendCount()
+        {
+            return Volatile.Read(ref _droppedPendingSendCount);
+        }
+
+        private void IncrementDroppedPendingSendCount()
+        {
+            Interlocked.Increment(ref _droppedPendingSendCount);
+        }
+
+        private void DrainPendingSends()
+        {
+            lock (_sendGate)
+            {
+                while (_pendingSends.Count != 0)
+                {
+                    UdpSendRequest pending = _pendingSends.Dequeue();
+                    pending.SendBuffer.Buffer.Release();
+                }
+            }
         }
 
         private static unsafe IntPtr RegisterPinnedArray(RioNative native, byte[] block)
@@ -175,6 +313,39 @@ namespace Hps.Transport
             fixed (byte* pointer = block)
             {
                 return native.RegisterBuffer((IntPtr)pointer, block.Length);
+            }
+        }
+
+        internal readonly struct UdpSendRequest
+        {
+            internal UdpSendRequest(EndPoint remoteEndPoint, TransportSendBuffer sendBuffer)
+            {
+                RemoteEndPoint = remoteEndPoint;
+                SendBuffer = sendBuffer;
+            }
+
+            internal EndPoint RemoteEndPoint { get; }
+
+            internal TransportSendBuffer SendBuffer { get; }
+        }
+
+        private sealed class RioNativeBufferRegistrar : IRioBufferRegistrar
+        {
+            private readonly RioNative _native;
+
+            internal RioNativeBufferRegistrar(RioNative native)
+            {
+                _native = native ?? throw new ArgumentNullException(nameof(native));
+            }
+
+            public IntPtr Register(byte[] block)
+            {
+                return RegisterPinnedArray(_native, block);
+            }
+
+            public void Deregister(IntPtr bufferId)
+            {
+                _native.DeregisterBuffer(bufferId);
             }
         }
     }

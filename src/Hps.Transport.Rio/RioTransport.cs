@@ -164,6 +164,7 @@ namespace Hps.Transport
                 endpoint = new RioUdpEndpoint(this, socket, native);
                 RegisterUdpEndpoint(endpoint);
                 StartUdpReceiveLoop(endpoint);
+                StartUdpSendLoop(endpoint);
                 socket = null!;
                 return new ValueTask<IUdpEndpoint>(endpoint);
             }
@@ -171,6 +172,26 @@ namespace Hps.Transport
             {
                 socket?.Dispose();
             }
+        }
+
+        public override bool TrySendTo(IUdpEndpoint endpoint, EndPoint remoteEndPoint, TransportSendBuffer sendBuffer)
+        {
+            if (endpoint == null)
+                throw new ArgumentNullException(nameof(endpoint));
+            if (remoteEndPoint == null)
+                throw new ArgumentNullException(nameof(remoteEndPoint));
+
+            RioUdpEndpoint? udpEndpoint = endpoint as RioUdpEndpoint;
+            if (udpEndpoint == null)
+                throw new ArgumentException("이 Transport 구현이 생성한 UDP endpoint 만 사용할 수 있습니다.", nameof(endpoint));
+
+            RefCountedBuffer buffer = sendBuffer.Buffer;
+            _ = buffer.Memory;
+
+            if (udpEndpoint.IsClosed)
+                return false;
+
+            return udpEndpoint.TryAcceptSend(remoteEndPoint, sendBuffer);
         }
 
         internal TransportConnection CreateAcceptedConnection(Socket socket)
@@ -293,6 +314,32 @@ namespace Hps.Transport
             // async method 를 직접 시작하면 첫 await 전까지 현재 call stack 에서 실행되므로 BindUdpAsync 반환 전에 첫 ReceiveEx 가 post 된다.
             // RIO UDP 는 receive post 이전에 도착한 datagram 을 안정적으로 completion 하지 않을 수 있어, Task.Run scheduling race 를 피한다.
             _ = UdpReceiveLoopAsync(endpoint);
+        }
+
+        private void StartUdpSendLoop(RioUdpEndpoint endpoint)
+        {
+            // UDP send 는 endpoint 단위 pending queue 를 단일 pump 가 drain 한다.
+            // remote address scratch buffer 를 completion 전까지 재사용하지 않기 위해 MaxOutstandingSend=1 모델을 유지한다.
+            _ = Task.Run(delegate()
+            {
+                return UdpSendLoopAsync(endpoint);
+            });
+        }
+
+        private async Task UdpSendLoopAsync(RioUdpEndpoint endpoint)
+        {
+            while (true)
+            {
+                await endpoint.WaitForSendSignalAsync().ConfigureAwait(false);
+
+                while (endpoint.TryBeginSend(out RioUdpEndpoint.UdpSendRequest sendRequest))
+                {
+                    await SendUdpDatagramAsync(endpoint, sendRequest.RemoteEndPoint, sendRequest.SendBuffer).ConfigureAwait(false);
+                }
+
+                if (endpoint.IsClosed)
+                    return;
+            }
         }
 
         private async Task UdpReceiveLoopAsync(RioUdpEndpoint endpoint)
@@ -479,6 +526,49 @@ namespace Hps.Transport
                         segment.Offset + sendBuffer.Offset,
                         sendBuffer.Length).ConfigureAwait(false);
                 }
+            }
+        }
+
+        private static async Task SendUdpDatagramAsync(
+            RioUdpEndpoint endpoint,
+            EndPoint remoteEndPoint,
+            TransportSendBuffer sendBuffer)
+        {
+            RefCountedBuffer buffer = sendBuffer.Buffer;
+
+            try
+            {
+                ArraySegment<byte> segment = GetRefCountedBlockSegment(buffer, sendBuffer.Offset, sendBuffer.Length);
+                if (segment.Array == null)
+                    throw new InvalidOperationException("RIO UDP send 는 pinned byte[] 기반 RefCountedBuffer 만 지원합니다.");
+
+                EncodeSockaddrInet(remoteEndPoint, endpoint.SendAddressBlock);
+                RioBufferSegment dataSegment;
+                using (RioPayloadRegistrationCache.RioPayloadBufferLease lease = endpoint.PayloadRegistrationCache.Acquire(segment.Array))
+                {
+                    dataSegment = new RioBufferSegment(lease.BufferId, segment.Offset, segment.Count);
+                    RioBufferSegment remoteAddressSegment = endpoint.SendAddressSegment;
+
+                    if (!endpoint.Native.SendEx(endpoint.RequestQueue, dataSegment, remoteAddressSegment, IntPtr.Zero))
+                        throw new SocketException((int)SocketError.ConnectionReset);
+
+                    RioResult completion = await WaitForUdpCompletionAsync(
+                        endpoint,
+                        endpoint.SendCompletionQueue).ConfigureAwait(false);
+
+                    if (completion.Status != 0 || completion.BytesTransferred != sendBuffer.Length)
+                        throw new SocketException((int)SocketError.MessageSize);
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (SocketException)
+            {
+            }
+            finally
+            {
+                buffer.Release();
             }
         }
 
@@ -679,6 +769,34 @@ namespace Hps.Transport
             };
 
             return new IPEndPoint(new IPAddress(addressBytes), port);
+        }
+
+        private static void EncodeSockaddrInet(EndPoint remoteEndPoint, byte[] addressBlock)
+        {
+            if (remoteEndPoint == null)
+                throw new ArgumentNullException(nameof(remoteEndPoint));
+            if (addressBlock == null)
+                throw new ArgumentNullException(nameof(addressBlock));
+            if (addressBlock.Length < UdpAddressBlockSize)
+                throw new ArgumentException("SOCKADDR_INET buffer 크기가 부족합니다.", nameof(addressBlock));
+
+            IPEndPoint? ipEndPoint = remoteEndPoint as IPEndPoint;
+            if (ipEndPoint == null || ipEndPoint.AddressFamily != AddressFamily.InterNetwork)
+                throw new NotSupportedException("현재 RIO UDP send 는 IPv4 IPEndPoint 만 지원합니다.");
+
+            byte[] addressBytes = ipEndPoint.Address.GetAddressBytes();
+            if (addressBytes.Length != 4)
+                throw new NotSupportedException("현재 RIO UDP send 는 IPv4 address 만 지원합니다.");
+
+            Array.Clear(addressBlock, 0, UdpAddressBlockSize);
+            addressBlock[0] = (byte)((int)AddressFamily.InterNetwork & 0xFF);
+            addressBlock[1] = (byte)(((int)AddressFamily.InterNetwork >> 8) & 0xFF);
+            addressBlock[2] = (byte)((ipEndPoint.Port >> 8) & 0xFF);
+            addressBlock[3] = (byte)(ipEndPoint.Port & 0xFF);
+            addressBlock[4] = addressBytes[0];
+            addressBlock[5] = addressBytes[1];
+            addressBlock[6] = addressBytes[2];
+            addressBlock[7] = addressBytes[3];
         }
 
         private static unsafe IntPtr RegisterPinnedArray(RioNative native, byte[] block)
