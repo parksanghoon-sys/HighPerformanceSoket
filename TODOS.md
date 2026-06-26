@@ -9,14 +9,13 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` sample broker server transport selector Task 2 selection policy 를 구현한다.
-  - 목적: `saea`, explicit `rio`, preferred `auto` 선택 정책을 Program wiring 전 순수 selector 로 고정한다.
-  - 범위: `samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj`,
-    `SampleTransportSelection.cs`, `SampleTransportSelector.cs`,
-    `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`.
-  - 현재 판단: RIO capability status 와 transport factory delegates 를 주입해 tests 가 실제 OS/RIO availability 에 의존하지 않게 한다.
-  - 다음 자연스러운 step: selector type 부재 assertion failure Red tests 를 작성한다.
-  - 검증: focused selector tests, focused sample tests, `git diff --check`.
+- [ ] `P1_SOON` sample broker server transport selector Task 3 Program wiring/smoke 를 구현한다.
+  - 목적: parser/selector 를 실제 sample broker `Program.Main`에 연결하고 usage/startup output 을 갱신한다.
+  - 범위: `samples/Hps.Sample.BrokerServer/Program.cs`,
+    `tests/Hps.Sample.BrokerServer.Tests/SampleBrokerServerProgramTests.cs`.
+  - 현재 판단: valid broker start path 는 Ctrl+C wait 로 장기 실행되므로, Red는 invalid transport usage output 으로 잡고 selector behavior 는 Task 2 tests 로 보장한다.
+  - 다음 자연스러운 step: 기존 Program usage text 에 `--transport <saea|rio|auto>`가 없어 실패하는 focused Program tests 를 작성한다.
+  - 검증: focused Program tests, focused sample tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -41,6 +40,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] sample broker server transport selector Task 2 selection policy 를 구현했다.
+  - 범위: `samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj`,
+    `SampleTransportSelection.cs`, `SampleTransportSelector.cs`,
+    `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`.
+  - 결과: `saea`는 SAEA, explicit `rio`는 available 일 때 RIO/unavailable 일 때 failure,
+    `auto`는 available 일 때 RIO/unavailable 또는 unsupported 일 때 SAEA fallback notice 를 반환한다.
+  - Red: 최초 selector tests 는 RIO test reference 누락 컴파일 오류를 보정한 뒤,
+    selector type 부재 `Assert.NotNull()` failure 로 실패했다.
+  - Green/검증: focused selector tests 5개 통과, focused sample tests 10개 통과,
+    solution build 경고 0/오류 0, solution tests 344개 통과, `git diff --check` 통과.
 
 - [x] sample broker server transport selector Task 1 parser/model 을 구현했다.
   - 범위: `HighPerformanceSocket.slnx`, `tests/Hps.Sample.BrokerServer.Tests/`,

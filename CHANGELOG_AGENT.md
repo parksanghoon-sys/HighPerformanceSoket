@@ -5,6 +5,35 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - sample broker transport selector policy)
+
+### 작업 단위
+- sample broker transport selector Task 2 selection policy 를 TDD로 구현했다.
+
+### 변경 내용
+- `samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj`:
+  RIO capability status 와 후속 Program wiring 을 위해 `Hps.Transport.Rio` project reference 를 추가했다.
+- `tests/Hps.Sample.BrokerServer.Tests/Hps.Sample.BrokerServer.Tests.csproj`:
+  selector tests 에서 `RioCapabilityStatus`를 직접 쓰기 위해 `Hps.Transport.Rio` project reference 를 추가했다.
+- `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`:
+  `saea`, explicit `rio`, `auto` selection policy 를 capability status 별로 검증했다.
+- `samples/Hps.Sample.BrokerServer/SampleTransportSelection.cs`,
+  `SampleTransportSelector.cs`:
+  sample host composition 경계의 transport selection result 와 selector 를 추가했다.
+- `docs/superpowers/plans/2026-06-26-sample-broker-transport-selector.md`,
+  `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 2 완료와 다음 Task 3 Program wiring 진입점을 반영했다.
+
+### 검증
+- Red: 최초 selector tests 는 `RioCapabilityStatus` reference 누락 컴파일 오류를 보정한 뒤,
+  selector type 부재 `Assert.NotNull()` failure 로 실패했다.
+- Green: focused selector tests 5개 통과.
+- Refactor: tests 를 reflection bootstrap 에서 direct public API 호출로 정리한 뒤 focused selector tests 5개,
+  focused sample tests 10개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 344개 통과.
+- `git diff --check`: 통과.
+
 ## 2026-06-26 (Codex - sample broker transport parser)
 
 ### 작업 단위

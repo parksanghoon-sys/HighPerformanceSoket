@@ -365,7 +365,7 @@ git commit -m "test: add sample broker transport parser contract"
 - Create: `samples/Hps.Sample.BrokerServer/SampleTransportSelector.cs`
 - Create: `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`
 
-- [ ] **Step 1: failing selector tests 를 작성한다**
+- [x] **Step 1: failing selector tests 를 작성한다**
 
 `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`:
 
@@ -491,7 +491,7 @@ namespace Hps.Sample.BrokerServer.Tests
 }
 ```
 
-- [ ] **Step 2: Red test 를 실행해 selector type 부재 실패를 확인한다**
+- [x] **Step 2: Red test 를 실행해 selector type 부재 실패를 확인한다**
 
 Run:
 
@@ -505,7 +505,7 @@ Expected:
 Assert.NotNull() Failure: Value is null
 ```
 
-- [ ] **Step 3: sample project 에 RIO reference 를 추가한다**
+- [x] **Step 3: sample project 에 RIO reference 를 추가한다**
 
 `samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj`:
 
@@ -513,7 +513,7 @@ Assert.NotNull() Failure: Value is null
 <ProjectReference Include="..\..\src\Hps.Transport.Rio\Hps.Transport.Rio.csproj" />
 ```
 
-- [ ] **Step 4: selection result 와 selector 를 구현한다**
+- [x] **Step 4: selection result 와 selector 를 구현한다**
 
 `samples/Hps.Sample.BrokerServer/SampleTransportSelection.cs`:
 
@@ -616,7 +616,7 @@ namespace Hps.Sample.BrokerServer
 }
 ```
 
-- [ ] **Step 5: selector tests 를 통과시킨다**
+- [x] **Step 5: selector tests 를 통과시킨다**
 
 Run:
 
@@ -630,7 +630,7 @@ Expected:
 Passed!  - Failed: 0, Passed: 5
 ```
 
-- [ ] **Step 6: Task 2 commit**
+- [x] **Step 6: Task 2 commit**
 
 ```powershell
 git add samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj samples\Hps.Sample.BrokerServer\SampleTransportSelection.cs samples\Hps.Sample.BrokerServer\SampleTransportSelector.cs tests\Hps.Sample.BrokerServer.Tests\SampleTransportSelectorTests.cs

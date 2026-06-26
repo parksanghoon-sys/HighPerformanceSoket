@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\samples\Hps.Sample.BrokerServer\Hps.Sample.BrokerServer.csproj" />
+    <ProjectReference Include="..\..\src\Hps.Transport.Rio\Hps.Transport.Rio.csproj" />
   </ItemGroup>
 
 </Project>
