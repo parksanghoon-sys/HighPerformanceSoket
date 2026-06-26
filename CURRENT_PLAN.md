@@ -1417,16 +1417,21 @@ RIO preferred fallback 정책은 `Hps.Transport` base assembly 가 아니라 RIO
 host/composition layer 또는 별도 selector package 에 두는 것이다.
 reflection 기반 default RIO loading 은 배포/버전/관측성 문제를 숨기므로 채택하지 않는다.
 explicit RIO benchmark 또는 explicit RIO backend 선택은 unavailable 시 SAEA로 fallback 하지 않고 실패한다.
+host/composition transport selection policy 설계도 완료했다(D120).
+설계 문서는 `docs/superpowers/specs/2026-06-26-host-composition-transport-selection-policy-design.md`다.
+결정은 첫 적용 대상을 `samples/Hps.Sample.BrokerServer`로 두고, 기존 positional arguments 를 유지하면서
+optional `--transport <saea|rio|auto>`를 추가하는 것이다. 기본값은 `saea`, explicit `rio`는 unavailable 시 실패,
+`auto`는 RIO available 시 RIO를 쓰고 unavailable/unsupported 시 관측 가능한 SAEA fallback 을 수행한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 host/composition transport selection policy 설계를 작성한다.
+이번 cycle 은 sample broker server transport selector 구현 계획을 작성한다.
 
-- 범위: `src/Hps.Server/`, `samples/`, `tests/Hps.Benchmarks/`의 backend selector 선례,
-  `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`,
-  D108/D110/D118/D119 decisions.
-- 검증: 현재 host/sample composition entry point, benchmark `--backend <saea|rio>` explicit selector,
-  `BrokerServer` injected transport 경계, fallback 관측성 요구를 대조하고 설계 문서와 state docs consistency 를 확인한다.
+- 범위: `samples/Hps.Sample.BrokerServer/Program.cs`, sample broker server csproj,
+  필요한 sample test project 후보, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`,
+  D119/D120 decisions.
+- 검증: 구현 계획이 Red assertion-failure 테스트, 최소 production wiring, explicit rio/auto fallback semantics,
+  existing 3-positional command compatibility 를 각각 커밋 가능한 단위로 나누는지 확인한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

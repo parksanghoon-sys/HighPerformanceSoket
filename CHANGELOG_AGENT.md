@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - host composition transport selection policy)
+
+### 작업 단위
+- D119 이후 host/composition transport selection policy 를 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-26-host-composition-transport-selection-policy-design.md`:
+  RIO preferred selection 을 base factory 가 아니라 실행 host composition 책임으로 두는 설계를 작성했다.
+  첫 적용 대상은 `samples/Hps.Sample.BrokerServer`이고, optional `--transport <saea|rio|auto>` 정책을 정했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D120을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  host/composition selection policy 설계를 완료로 기록하고 다음 실행 지점을 sample broker server transport selector 구현 계획으로 옮겼다.
+
+### 검증
+- `BrokerServer`가 injected `ITransport`만 받는 현재 경계를 확인했다.
+- `samples/Hps.Sample.BrokerServer`가 현재 `TransportFactory.CreateDefault()`만 사용하고 RIO assembly 를 참조하지 않음을 확인했다.
+- benchmark project 의 `--backend saea|rio` explicit selector 선례와 fallback 금지 semantics 를 대조했다.
+
 ## 2026-06-26 (Codex - RIO default selection policy)
 
 ### 작업 단위

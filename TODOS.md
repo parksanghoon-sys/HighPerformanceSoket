@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` host/composition transport selection policy 를 설계한다.
-  - 목적: D119에 따라 base `TransportFactory.CreateDefault()`는 SAEA로 유지하면서, 실행 host 가 RIO preferred/auto 선택을 제공할지 결정한다.
-  - 범위: `src/Hps.Server/`, `samples/`, `tests/Hps.Benchmarks/`의 backend selector 선례,
-    `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`, D119 decision.
-  - 현재 판단: RIO preferred fallback 정책은 base assembly 가 아니라 RIO assembly 를 참조할 수 있는 composition layer 에 둬야 한다.
-  - 다음 자연스러운 step: `--transport saea|rio|auto` 같은 host option, fallback observability, explicit RIO failure semantics 를 비교하는 설계를 작성한다.
-  - 검증: host/sample entry point 와 benchmark selector 선례를 대조하고, selector 구현 없이 설계 문서와 state docs consistency 를 확인한다.
+- [ ] `P1_SOON` sample broker server transport selector 구현 계획을 작성한다.
+  - 목적: D120 설계를 Red-Green 가능한 구현 단위로 나눈다.
+  - 범위: `samples/Hps.Sample.BrokerServer/Program.cs`, sample broker server csproj,
+    필요한 sample test project 후보, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`, D119/D120 decisions.
+  - 현재 판단: 첫 implementation 은 base factory 가 아니라 sample broker host 의 optional `--transport <saea|rio|auto>` parser/selection wiring 이다.
+  - 다음 자연스러운 step: parser model, capability probe 주입, Program wiring, smoke/usage 검증을 커밋 단위로 나누는 계획 문서를 작성한다.
+  - 검증: 계획 self-review, placeholder scan, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -40,6 +40,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] host/composition transport selection policy 설계를 완료했다.
+  - 범위: `samples/Hps.Sample.BrokerServer`, `tests/Hps.Benchmarks` backend selector 선례,
+    `src/Hps.Server`, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`, D119 decision.
+  - 결과: D120으로 첫 적용 대상을 sample broker server 로 정하고 optional `--transport <saea|rio|auto>` 정책을 기록했다.
+  - 비고: 기본값은 `saea`, explicit `rio`는 unavailable 시 실패, `auto`는 RIO unavailable/unsupported 시 관측 가능한 SAEA fallback 이다.
+  - 검증: current sample host, benchmark explicit selector, BrokerServer injected transport 경계를 대조했다.
 
 - [x] RIO UDP gate 이후 default selection policy 설계를 완료했다.
   - 범위: `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`,

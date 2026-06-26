@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D120 — RIO preferred/default selection 은 base factory 가 아니라 host composition 책임으로 두고 sample broker server 에 optional transport selector 를 추가한다.
 - D119 — RIO UDP gate 이후에도 base `TransportFactory.CreateDefault()`는 SAEA로 유지하고 preferred RIO는 composition layer policy 로 둔다.
 - D118 — RIO UDP bounded receive window 는 open-loop delivery hard gate 를 닫은 기준선으로 수락한다.
 - D117 — RIO UDP open-loop delivery loss 는 receive payload registration reuse 가 아니라 bounded receive slot window 로 먼저 다룬다.
