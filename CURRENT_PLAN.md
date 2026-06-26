@@ -1093,22 +1093,24 @@ Red evidence 는 `UdpReceive_WhenRawClientSendsDatagram_DeliversOwnedRefCountedB
 RIO native integration tests 는 같은 process 안의 provider/CQ 자원을 공유하므로
 `Hps.Transport.Rio.Tests` test collection parallelization 을 비활성화했다.
 
-RIO UDP Task 4 send loop 구현을 완료했다.
-`ITransport.TrySendTo(IUdpEndpoint, EndPoint, TransportSendBuffer)`는 RIO endpoint-local pending queue/drop-oldest 로 연결되고,
-send pump 는 endpoint-local remote address registered buffer 와 payload registration cache lease 로 `RIOSendEx`를 호출한다.
-Red evidence 는 `UdpEcho_WhenDatagramHandlerQueuesResponse_ClientReceivesSamePayload`가 기존 `TrySendTo` 미구현 경로에서
-client receive timeout 으로 실패한 것이다.
+RIO UDP Task 5 diagnostics parity 구현을 완료했다.
+`RioTransport`는 `ITransportEndpointDiagnostics`를 구현하고, TCP connection 과 RIO UDP endpoint snapshot 을 함께 반환한다.
+`RioUdpEndpoint.CreateSnapshot()`은 SAEA UDP와 같은 endpoint id, transport kind, state, pending send count,
+pending send queue high-watermark, dropped pending send count 를 제공한다.
+Red evidence 는 `GetEndpointSnapshots_WhenUdpEndpointIsOpen_ReturnsUdpSnapshot`가 기존 RIO transport 에서
+`ITransportEndpointDiagnostics` assignability failure 로 실패한 것이다.
 
-다음 작업은 RIO UDP Task 5 diagnostics parity 구현이다.
-SAEA UDP와 같은 endpoint snapshot, pending send count, high-watermark, dropped pending send count 를 RIO UDP endpoint 에서 노출한다.
+다음 작업은 RIO UDP backend self-review/default promotion readiness 재평가다.
+D109의 native Ex, endpoint owner, receive loop, send loop, diagnostics parity 가 닫혔으므로
+D108의 default backend promotion gate 중 남은 기능 parity/fallback/contract matrix 조건을 소스와 테스트 기준으로 재평가한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP diagnostics parity 를 Red test 로 착수한다.
+이번 cycle 은 RIO UDP backend self-review/default promotion readiness 재평가를 수행한다.
 
-- 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-  `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, root 상태 문서.
-- 검증: focused RIO UDP diagnostics tests, focused RIO tests 전체, solution build/test, `git diff --check`.
+- 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Runtime/TransportFactory.cs`,
+  RIO/SAEA transport tests, D108/D109 결정 문서, root 상태 문서.
+- 검증: source/test/decision matrix 대조, 필요 시 focused RIO/SAEA tests, solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 

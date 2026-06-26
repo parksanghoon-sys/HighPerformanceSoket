@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP diagnostics parity)
+
+### 작업 단위
+- RIO UDP Task 5 diagnostics parity 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  `ITransportEndpointDiagnostics`를 구현하고 TCP/RIO UDP endpoint snapshot 을 집계한다.
+- `src/Hps.Transport.Rio/RioUdpEndpoint.cs`:
+  SAEA UDP와 같은 endpoint id, state, pending send count, high-watermark, dropped pending send count snapshot 을 만든다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
+  bind 된 RIO UDP endpoint 가 open UDP snapshot 으로 노출되는지 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 RIO UDP backend self-review/default promotion readiness 재평가로 이동했다.
+
+### 검증
+- Red: `GetEndpointSnapshots_WhenUdpEndpointIsOpen_ReturnsUdpSnapshot`가 `ITransportEndpointDiagnostics` assignability failure 로 실패.
+- focused diagnostics test 통과.
+- focused RIO tests 41개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build`: 통과.
+
 ## 2026-06-26 (Codex - RIO UDP send loop)
 
 ### 작업 단위

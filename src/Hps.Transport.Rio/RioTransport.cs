@@ -15,7 +15,7 @@ namespace Hps.Transport
     /// 이 구현은 아직 기본 factory 경로에 연결하지 않는 opt-in backend 이며,
     /// SAEA 기준선과 같은 <see cref="ITransport"/> 계약을 RIO native RQ/CQ 위에서 먼저 검증한다.
     /// </summary>
-    public sealed class RioTransport : TransportBase
+    public sealed class RioTransport : TransportBase, ITransportEndpointDiagnostics
     {
         private const int ReceiveBlockSize = 4096;
         private const int CompletionQueueSize = 64;
@@ -192,6 +192,35 @@ namespace Hps.Transport
                 return false;
 
             return udpEndpoint.TryAcceptSend(remoteEndPoint, sendBuffer);
+        }
+
+        public EndpointSnapshot[] GetEndpointSnapshots()
+        {
+            TransportConnection[] connections;
+            RioUdpEndpoint[] udpEndpoints;
+
+            lock (_gate)
+            {
+                connections = _connections.ToArray();
+                udpEndpoints = _udpEndpoints.ToArray();
+            }
+
+            EndpointSnapshot[] snapshots = new EndpointSnapshot[connections.Length + udpEndpoints.Length];
+            int snapshotIndex = 0;
+
+            for (int index = 0; index < connections.Length; index++)
+            {
+                snapshots[snapshotIndex] = connections[index].CreateSnapshot(EndpointTransportKind.Tcp);
+                snapshotIndex++;
+            }
+
+            for (int index = 0; index < udpEndpoints.Length; index++)
+            {
+                snapshots[snapshotIndex] = udpEndpoints[index].CreateSnapshot();
+                snapshotIndex++;
+            }
+
+            return snapshots;
         }
 
         internal TransportConnection CreateAcceptedConnection(Socket socket)

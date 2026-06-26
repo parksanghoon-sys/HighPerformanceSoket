@@ -33,6 +33,7 @@ namespace Hps.Transport
         private readonly SemaphoreSlim _sendSignal;
         private readonly PinnedBlockMemoryPool _remoteAddressPool;
         private readonly PinnedBlockMemoryPool _sendAddressPool;
+        private readonly EndpointId _endpointId;
         private byte[]? _remoteAddressBlock;
         private byte[]? _sendAddressBlock;
         private readonly int _pendingSendCapacity;
@@ -55,6 +56,7 @@ namespace Hps.Transport
             ReceivePool = new PinnedBlockMemoryPool(ReceiveBlockSize);
             _remoteAddressPool = new PinnedBlockMemoryPool(SockaddrInetBlockSize);
             _sendAddressPool = new PinnedBlockMemoryPool(SockaddrInetBlockSize);
+            _endpointId = transport.CreateEndpointId();
             _remoteAddressBlock = null;
             _sendAddressBlock = null;
             PayloadRegistrationCache = new RioPayloadRegistrationCache(new RioNativeBufferRegistrar(Native), capacity: 64);
@@ -210,6 +212,28 @@ namespace Hps.Transport
         internal Task WaitForSendSignalAsync()
         {
             return _sendSignal.WaitAsync();
+        }
+
+        internal EndpointSnapshot CreateSnapshot()
+        {
+            int pendingSendCount;
+            int pendingSendQueueHighWatermark;
+            EndpointState state;
+
+            lock (_sendGate)
+            {
+                pendingSendCount = _pendingSends.Count;
+                pendingSendQueueHighWatermark = _pendingSendQueueHighWatermark;
+                state = IsClosed ? EndpointState.Closed : EndpointState.Open;
+            }
+
+            return new EndpointSnapshot(
+                _endpointId,
+                EndpointTransportKind.Udp,
+                state,
+                pendingSendCount,
+                pendingSendQueueHighWatermark,
+                ReadDroppedPendingSendCount());
         }
 
         internal uint DequeueCompletion(IntPtr completionQueue, RioResult[] results)

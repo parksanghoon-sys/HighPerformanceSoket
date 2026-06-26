@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP diagnostics parity 를 Red test 로 착수한다.
-  - 목적: RIO UDP endpoint 도 SAEA UDP와 같은 endpoint snapshot/drop/high-watermark 관측 계약을 제공한다.
-  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, root 상태 문서.
-  - 현재 판단: receive/send loop 는 완료됐고, RIO UDP endpoint snapshot parity 는 아직 없다.
-  - 다음 자연스러운 step: `GetEndpointSnapshots()`가 RIO UDP endpoint state/count/drop 값을 포함하는 Red test 를 추가한다.
-  - 검증: focused RIO UDP diagnostics tests, focused RIO tests 전체, solution build/test, `git diff --check`.
+- [ ] RIO UDP backend self-review/default promotion readiness 를 재평가한다.
+  - 목적: D109 구현 완료 이후 D108 default backend promotion gate 중 남은 기능 parity, fallback, contract matrix 조건을 확인한다.
+  - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Runtime/TransportFactory.cs`,
+    RIO/SAEA transport tests, D108/D109 결정 문서, root 상태 문서.
+  - 현재 판단: RIO UDP native Ex, endpoint owner, receive loop, send loop, diagnostics parity 는 완료됐다.
+  - 다음 자연스러운 step: RIO/SAEA TCP/UDP contract matrix 를 대조하고 default promotion 을 지금 진행할지 또는 추가 gate 로 defer 할지 결정한다.
+  - 검증: source/test/decision matrix 대조, 필요 시 focused RIO/SAEA tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -30,6 +30,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP Task 5 diagnostics parity 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, root 상태 문서.
+  - 결과: `RioTransport`가 `ITransportEndpointDiagnostics`를 구현하고,
+    RIO UDP endpoint snapshot 이 SAEA UDP와 같은 state/send queue/drop 관측값을 제공한다.
+  - Red: `GetEndpointSnapshots_WhenUdpEndpointIsOpen_ReturnsUdpSnapshot`가
+    `ITransportEndpointDiagnostics` assignability failure 로 실패.
+  - Green/검증: focused diagnostics test 통과, focused RIO tests 41개 통과,
+    solution build 0경고/0오류, solution tests 314개 통과.
+  - 비고: default backend promotion 은 별도 readiness 재평가 후 결정한다.
 
 - [x] RIO UDP Task 4 send loop 를 구현했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,

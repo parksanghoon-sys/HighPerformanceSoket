@@ -130,6 +130,42 @@ namespace Hps.Transport.Rio.Tests
             }
         }
 
+        // RIO UDP diagnostics 는 SAEA UDP와 같은 endpoint snapshot capability 를 제공해야 한다.
+        // bind 된 UDP endpoint 가 open 상태와 초기 send queue 관측값 0으로 보이면 Server/benchmark 쪽이 backend 차이를 몰라도 된다.
+        [Fact]
+        public async Task GetEndpointSnapshots_WhenUdpEndpointIsOpen_ReturnsUdpSnapshot()
+        {
+            if (!IsRioDatagramAvailable())
+                return;
+
+            using (RioTransport transport = new RioTransport())
+            {
+                await transport.StartAsync();
+                IUdpEndpoint? endpoint = null;
+
+                try
+                {
+                    endpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    ITransportEndpointDiagnostics diagnostics = Assert.IsAssignableFrom<ITransportEndpointDiagnostics>(transport);
+
+                    EndpointSnapshot[] snapshots = diagnostics.GetEndpointSnapshots();
+                    EndpointSnapshot snapshot = Assert.Single(snapshots);
+
+                    Assert.Equal(EndpointTransportKind.Udp, snapshot.TransportKind);
+                    Assert.Equal(EndpointState.Open, snapshot.State);
+                    Assert.Equal(0, snapshot.PendingSendCount);
+                    Assert.Equal(0, snapshot.PendingSendQueueHighWatermark);
+                    Assert.Equal(0, snapshot.DroppedPendingSendCount);
+                    Assert.True(snapshot.Id.Value > 0);
+                }
+                finally
+                {
+                    endpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         private static bool IsRioDatagramAvailable()
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
