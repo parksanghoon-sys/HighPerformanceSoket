@@ -9,16 +9,17 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP receive window hardening Task 2 benchmark 재수집과 D114 문서화를 진행한다.
-  - 목적: Task 1 one-deep pre-post 구현 후 RIO UDP scratch benchmark 를 다시 수집하고,
-    구현 수락 상태에 맞춰 D111 supersede/D114 결정을 문서화한다.
-  - 범위: `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, `CURRENT_PLAN.md`,
-    `TODOS.md`, `CHANGELOG_AGENT.md`, ignored scratch `artifacts/benchmarks/rio-udp/2026-06-26/session-02/`.
-  - 현재 판단: Task 1은 focused RIO UDP/RIO tests 와 solution build/test 를 통과했다.
-    아직 benchmark evidence 와 D114 결정 문서화는 남아 있다.
-  - 다음 자연스러운 step: `--baseline-suite artifacts\benchmarks\rio-udp\2026-06-26\session-02\rio --runs 1 --protocol udp --backend rio`
-    scratch command 를 실행하고 summary artifact 를 만든다.
-  - 검증: benchmark command/summary 결과, solution build/test, `git diff --check`.
+- [ ] `P1_SOON` RIO UDP open-loop residual loss/tail 재평가 설계를 작성한다.
+  - 목적: D114 one-deep pre-post 이후에도 남은 RIO UDP open-loop delivery loss 와 약 16.7ms p99 tail 의 원인을
+    구현 전에 source/benchmark evidence 로 좁힌다.
+  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`,
+    ignored scratch `artifacts/benchmarks/rio-udp/2026-06-26/session-01/`,
+    `artifacts/benchmarks/rio-udp/2026-06-26/session-02/`, RIO UDP hardening 설계/결정 문서.
+  - 현재 판단: session-02 closed-loop load 는 sent/received 3000/3000으로 delivery hard gate 를 통과했지만,
+    open-loop 는 sent 3000 / received 2409 / actual-rate 85.7 Hz / p99 16709.1 us 로 실패했다.
+  - 다음 자연스러운 step: receive completion wait, per-datagram registration/cache 비용, benchmark open-loop scheduler,
+    RIO UDP send path 병목 후보를 대조해 최소 다음 구현 후보를 설계 문서로 정리한다.
+  - 검증: source/benchmark artifact 대조, 설계 문서 placeholder scan, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -53,6 +54,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP receive window hardening Task 2 benchmark 재수집과 D114 문서화를 완료했다.
+  - 범위: `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, `CURRENT_PLAN.md`,
+    `TODOS.md`, `CHANGELOG_AGENT.md`, ignored scratch `artifacts/benchmarks/rio-udp/2026-06-26/session-02/`.
+  - 결과: D114로 close-safe one-deep pre-post receive policy 를 수락하고 D111 no-prefetch receive window 정책을 supersede 했다.
+  - benchmark: `--baseline-suite artifacts\benchmarks\rio-udp\2026-06-26\session-02\rio --runs 1 --protocol udp --backend rio`
+    는 raw report 2개를 생성했지만 open-loop hard gate 실패로 exit code 1을 반환했다.
+  - evidence: load 는 sent/received 3000/3000, dropped 0, pool-rented 0, actual-rate 99.7 Hz, p99 16719.2 us,
+    passed true. open-loop 는 sent 3000 / received 2409, dropped 0, payload-errors 0, pool-rented 0,
+    actual-rate 85.7 Hz, p99 16709.1 us, passed false.
+  - summary: `summary.json`/`summary.md` 생성 결과 hard-passed false, warning-count 3
+    (`load-p99-latency-high`, `open-loop-p99-latency-high`, `actual-rate-low`)이다.
+  - 비고: one-deep pre-post 는 수명/소유권 정책으로 수락하지만, RIO UDP open-loop 목표 달성은 다음 residual loss/tail 분석 전에는 주장하지 않는다.
 
 - [x] RIO UDP receive window hardening Task 1 close-safe one-deep receive loop 를 구현했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,

@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP receive window benchmark decision)
+
+### 작업 단위
+- RIO UDP receive window hardening Task 2를 수행했다.
+- Task 1 one-deep pre-post 구현 뒤 RIO UDP scratch benchmark 를 재수집하고, D114 결정으로 현재 receive policy 를 문서화했다.
+
+### 변경 내용
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D114를 추가했다. RIO UDP receive window 는 close-safe one-deep pre-post 로 전환하고,
+  `Close()`는 shutdown requester 로 제한하며 receive native resource 는 receive loop drain 뒤 닫는다.
+  D111 no-prefetch receive window 정책은 superseded 로 표시했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 2 완료와 benchmark evidence 를 반영하고, 다음 실행 지점을 RIO UDP open-loop residual loss/tail 재평가 설계로 옮겼다.
+- ignored scratch `artifacts/benchmarks/rio-udp/2026-06-26/session-02/rio/`:
+  RIO UDP raw report 2개와 summary JSON/Markdown을 생성했다. repository baseline 으로 채택하지 않는다.
+
+### 검증
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --baseline-suite artifacts\benchmarks\rio-udp\2026-06-26\session-02\rio --runs 1 --protocol udp --backend rio`:
+  raw report 2개 생성, baseline-suite-result fail, exit code 1.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --summarize-baseline artifacts\benchmarks\rio-udp\2026-06-26\session-02\rio --summary artifacts\benchmarks\rio-udp\2026-06-26\session-02\rio\summary.json --summary-md artifacts\benchmarks\rio-udp\2026-06-26\session-02\rio\summary.md`:
+  source-report-count 2, hard-passed false, warning-count 3, exit code 1.
+- load raw report: sent/received 3000/3000, dropped 0, payload-errors 0, pool-rented 0, actual-rate 99.7 Hz,
+  p50 172.2 us, p99 16719.2 us, passed true.
+- open-loop raw report: sent 3000 / received 2409, dropped 0, payload-errors 0, pool-rented 0,
+  actual-rate 85.7 Hz, p50 378.4 us, p99 16709.1 us, passed false.
+- summary warnings: `load-p99-latency-high`, `open-loop-p99-latency-high`, `actual-rate-low`.
+
 ## 2026-06-26 (Codex - RIO UDP receive one-deep prepost)
 
 ### 작업 단위

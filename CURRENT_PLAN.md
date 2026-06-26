@@ -1362,21 +1362,29 @@ Task 1 close-safe one-deep receive loop 구현을 완료했다.
 `RioUdpReceiveOperation`이 receive datagram 과 data buffer registration id 를 단일 소유하고,
 `RioUdpEndpoint.Close()`는 shutdown request 로 제한되며 receive/send native resource 는 각 pump drain 이후 정리된다.
 Red evidence 는 one-deep 기대 테스트 2개가 기존 D111 no-prefetch 구현에서 `Expected: 2, Actual: 1`로 실패한 것이다.
-다음 작업은 Task 2로 RIO UDP scratch benchmark 를 재수집하고 구현 수락 상태에 맞춰 D114 문서화를 진행하는 것이다.
+Task 2 benchmark/D114 문서화도 완료했다.
+D114로 RIO UDP receive window 는 close-safe one-deep pre-post 정책으로 수락했고, D111 no-prefetch 정책은 superseded 됐다.
+2026-06-26 `session-02/rio` scratch benchmark 에서 closed-loop load 는
+sent 3000 / received 3000 / dropped 0 / pool-rented 0 / actual-rate 99.7 Hz 로 delivery hard gate 를 통과했다.
+다만 open-loop 는 sent 3000 / received 2409 / actual-rate 85.7 Hz / p99 16709.1 us 로 hard gate 실패다.
+summary 는 hard-passed false, warning 3(load p99 high, open-loop p99 high, actual-rate low)이다.
+따라서 one-deep pre-post 는 수명/소유권 정책으로 수락하지만, RIO UDP 4096B x 100Hz open-loop 목표 달성은 아직 주장하지 않는다.
+다음 작업은 RIO UDP open-loop residual loss 와 16.7ms p99 tail 의 원인을 설계 수준에서 좁히는 것이다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP receive window hardening Task 2 benchmark/D114 문서화를 진행한다.
+이번 cycle 은 RIO UDP open-loop residual loss/tail 재평가 설계를 진행한다.
 
-- 범위: `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, `CURRENT_PLAN.md`, `TODOS.md`,
-  `CHANGELOG_AGENT.md`, ignored scratch `artifacts/benchmarks/rio-udp/2026-06-26/session-02/`.
-- 검증: RIO UDP `--baseline-suite --protocol udp --backend rio --runs 1`, summary JSON/Markdown 생성,
-  solution build/test, `git diff --check`.
+- 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`,
+  `artifacts/benchmarks/rio-udp/2026-06-26/session-01/`, `artifacts/benchmarks/rio-udp/2026-06-26/session-02/`,
+  RIO UDP hardening 설계/결정/상태 문서.
+- 검증: scratch benchmark raw/summary 수치 대조, RIO receive/send pump 및 benchmark scheduler source review,
+  후보별 failure mode 정리, 설계 문서 placeholder scan, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
-- RIO UDP receive prefetch 구현 코드
+- RIO UDP receive/send 구현 코드
 - RIO unavailable fallback/default selection policy 구현
 - IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 정책 구현
