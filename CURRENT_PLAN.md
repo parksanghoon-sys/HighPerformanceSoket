@@ -1393,14 +1393,21 @@ Task 3 scratch benchmark 와 D116 판단도 완료했다.
 RIO `session-03/load`는 sent/received 3000/3000, p99 481 us 로 통과했다.
 RIO `session-03/open-loop`는 sent/received 3000/2373, p99 647.6 us 로 p99 tail 은 해결됐지만 delivery hard gate 는 실패했다.
 D116은 partial 로 기록했다. 다음 작업은 RIO UDP open-loop delivery loss 를 receive-side 관점에서 설계하는 것이다.
+receive-side 후속 설계와 구현 계획도 완료했다.
+설계 문서는 `docs/superpowers/specs/2026-06-26-rio-udp-bounded-receive-window-design.md`이고,
+구현 계획은 `docs/superpowers/plans/2026-06-26-rio-udp-bounded-receive-window.md`다.
+D117로 receive payload registration reuse 가 아니라 bounded receive slot window 를 다음 구현 후보로 결정했다.
+첫 depth 는 2, completion mapping 은 `RioResult.RequestContext`, remote address 는 slot-local registered buffer,
+payload data buffer 는 D113대로 datagram 마다 등록하고 completion 직후 deregister 한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP open-loop delivery loss 의 receive-side 후속 설계를 작성한다.
+이번 cycle 은 RIO UDP bounded receive window Task 1 depth-2 receive behavior 를 TDD로 구현한다.
 
 - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-  RIO UDP receive operation ownership, receive registration lifecycle, benchmark evidence, 관련 specs/plans.
-- 검증: D116/D115/D114 consistency, 현 코드 ownership 경계 재확인, 다음 Red/Green 단위와 commit boundary 명확화.
+  `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, bounded receive window 구현 계획, root 상태 문서.
+- 검증: blocked-handler burst Red, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`,
+  solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 

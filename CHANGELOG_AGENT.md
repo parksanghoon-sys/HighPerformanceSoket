@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP bounded receive window design)
+
+### 작업 단위
+- RIO UDP open-loop delivery loss 의 receive-side 후속 설계와 구현 계획을 작성했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-26-rio-udp-bounded-receive-window-design.md`:
+  D116 이후 남은 delivery loss 를 trace-only, receive payload registration reuse, bounded receive slot window 후보로 비교했다.
+  D113 때문에 receive payload registration reuse 는 단독 다음 구현으로 제외하고, request-context 기반 depth 2 receive slot window 를 채택했다.
+- `docs/superpowers/plans/2026-06-26-rio-udp-bounded-receive-window.md`:
+  Task 1 depth-2 receive behavior, Task 2 close/drain cleanup, Task 3 scratch benchmark/D118 판단으로 구현 단위를 나눴다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D117을 추가했다. RIO UDP open-loop delivery loss 는 receive payload registration reuse 가 아니라 bounded receive slot window 로 먼저 다룬다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  설계/계획 완료와 다음 실행점인 bounded receive window Task 1 Red test 진입점을 반영했다.
+
+### 검증
+- D116/D115/D114/D113 decision consistency 를 대조했다.
+- 현재 `RioTransport.UdpReceiveLoopAsync(...)`, `RioUdpReceiveOperation`, `RioUdpEndpoint` request queue/remote address ownership 을 확인했다.
+- `RioResult.RequestContext` field 가 이미 native result shape 에 있어 slot mapping 에 사용할 수 있음을 확인했다.
+
 ## 2026-06-26 (Codex - RIO UDP completion benchmark decision)
 
 ### 작업 단위

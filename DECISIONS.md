@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D117 — RIO UDP open-loop delivery loss 는 receive payload registration reuse 가 아니라 bounded receive slot window 로 먼저 다룬다.
 - D116 — RIO UDP IOCP/RIONotify wait 는 p99 wake tail 을 해소했지만 open-loop delivery loss 는 receive-side 후속으로 남긴다.
 - D115 — RIO UDP residual p99 tail/loss 는 receive depth 확대 전에 UDP CQ IOCP/RIONotify wait parity 로 먼저 검증한다.
 - D114 — RIO UDP receive window 는 close-safe one-deep pre-post 로 전환하고, receive native resource 는 receive loop drain 뒤 닫는다.

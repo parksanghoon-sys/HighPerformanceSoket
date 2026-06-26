@@ -9,13 +9,14 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` RIO UDP open-loop delivery loss 의 receive-side 후속 설계를 작성한다.
-  - 목적: D116에서 p99 wake tail 은 해결됐지만 open-loop sent/received 3000/2373 으로 남은 delivery loss 의 다음 구현 단위를 정한다.
+- [ ] `P1_SOON` RIO UDP bounded receive window Task 1 depth-2 receive behavior 를 구현한다.
+  - 목적: D117 설계에 따라 request-context 기반 receive slot window depth 2를 구현해 blocked handler 중 두 개의 추가 datagram 을 보존한다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-    RIO UDP receive operation ownership, receive registration lifecycle, benchmark evidence, 관련 specs/plans.
-  - 현재 판단: 추가 wake wait 조정이나 polling budget 확대가 아니라 bounded receive depth 또는 receive registration reuse 가 다음 후보이다.
-  - 다음 자연스러운 step: D116 evidence 와 현재 receive loop/registration cost 를 대조해 trace-first, bounded depth, registration reuse 중 가장 작은 안전 단위를 설계한다.
-  - 검증: 설계 문서와 D116/D115/D114 consistency, 현 코드 ownership 경계 재확인.
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, bounded receive window 구현 계획, root 상태 문서.
+  - 현재 판단: D113 때문에 receive payload registration reuse 는 단독 다음 구현으로 부적절하고,
+    `RioResult.RequestContext` 기반 slot window 가 가장 직접적인 다음 구현 단위다.
+  - 다음 자연스러운 step: `UdpReceive_WhenHandlerIsBlocked_PreservesTwoQueuedDatagramsWithBoundedWindow` Red test 를 추가하고 실패를 확인한다.
+  - 검증: focused Red/Green, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`, solution build/test.
 
 ## Deferred Backlog
 
@@ -50,6 +51,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP open-loop delivery loss 의 receive-side 설계와 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/specs/2026-06-26-rio-udp-bounded-receive-window-design.md`,
+    `docs/superpowers/plans/2026-06-26-rio-udp-bounded-receive-window.md`, decisions/root 상태 문서.
+  - 결과: D117로 다음 구현 후보를 receive payload registration reuse 가 아니라 bounded receive slot window 로 결정했다.
+    첫 depth 는 2, mapping 은 `RioResult.RequestContext`, remote address 는 slot-local, payload data buffer 는 D113대로 completion 직후 deregister 한다.
+  - 비고: implementation 은 Task 1 behavior, Task 2 close/drain cleanup, Task 3 benchmark/D118 판단으로 나눴다.
 
 - [x] RIO UDP completion notification wait Task 3 scratch benchmark 와 D116 판단을 완료했다.
   - 범위: scratch artifact `artifacts/benchmarks/rio-udp/2026-06-26/session-03/rio/`,
