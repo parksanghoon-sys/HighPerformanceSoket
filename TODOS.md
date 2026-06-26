@@ -9,27 +9,16 @@
 
 ## Current TODOs
 
-- [ ] RIO/SAEA backend contract matrix 보강을 설계하거나 첫 Red test 로 착수한다.
-  - 목적: D110에 따라 RIO default promotion 전에 SAEA/RIO UDP의 공통 transport 계약을 같은 의미로 검증한다.
-  - 범위: `src/Hps.Transport/`, `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Tests/`,
-    `tests/Hps.Transport.Rio.Tests/`, RIO/SAEA UDP endpoint tests.
-  - 현재 판단: RIO UDP native Ex, endpoint owner, receive loop, send loop, diagnostics parity 는 완료됐지만
-    close drain, drop-oldest/high-watermark, handler exception close notify, no-prefetch/pool ownership matrix 는
-    아직 default 승격 근거로 충분히 공유되지 않았다.
-  - 다음 자연스러운 step: 기존 SAEA/RIO UDP tests 를 대조해 공유 가능한 contract fixture 또는 첫 RIO UDP edge-case Red test 를 정한다.
-  - 검증: contract matrix 후보 정리, Red failure 확인, focused transport/RIO tests, 필요 시 solution build/test, `git diff --check`.
+- [ ] RIO UDP benchmark artifact 수집 범위와 command shape 를 설계한다.
+  - 목적: D110/D111 이후 RIO UDP default promotion 재평가에 필요한 delivery/drop/leak/latency/HWM evidence 를 artifact 로 남길 준비를 한다.
+  - 범위: `tests/Hps.Benchmarks/`, `tests/Hps.Benchmarks.Tests/`, RIO/SAEA transport benchmark runner,
+    existing `--backend <saea|rio>` selector, `docs/benchmarks/baselines/` 또는 scratch artifact 정책.
+  - 현재 판단: TCP SAEA/RIO benchmark selector 와 raw report schema 는 존재하지만 UDP datagram benchmark scenario 는 아직 별도화되지 않았다.
+  - 다음 자연스러운 step: UDP benchmark scenario 가 closed-loop/open-loop 중 어느 형태로 들어가야 하는지와
+    report schema reuse 범위를 소스 기준으로 설계한다.
+  - 검증: benchmark CLI/result/schema source 대조, 설계 문서 placeholder scan, `git diff --check`, 필요 시 benchmark tests.
 
 ## Deferred Backlog
-
-- [ ] `P1_SOON` RIO UDP benchmark artifact 를 수집한다.
-  - 무엇이 남았는지: RIO UDP receive/send/diagnostics parity 이후 UDP datagram 경로의 benchmark artifact 가 아직 없다.
-  - 왜 defer 되었는지: D110에서 default promotion 의 즉시 blocker 는 benchmark 이전에 contract matrix 부족으로 판단했다.
-  - objective: RIO UDP가 SAEA UDP 대비 delivery/drop/leak/latency/HWM 관측에서 어떤 특성을 보이는지 raw report 로 남긴다.
-  - relevant context: D109, D110, `src/Hps.Transport.Rio/`, benchmark backend selector 구조.
-  - 관련 파일/범위: `tests/Hps.Benchmarks/`, RIO/SAEA transport benchmark runner, `docs/benchmarks/baselines/` 또는 scratch artifact 정책.
-  - 현재 상태 또는 이미 시도한 접근: TCP SAEA/RIO benchmark selector 와 raw report schema 는 존재하지만 UDP benchmark scenario 는 아직 별도화되지 않았다.
-  - known blockers 또는 open questions: UDP benchmark command shape, repository baseline 채택 여부, scratch artifact 위치.
-  - 가장 자연스러운 next step: contract matrix 보강 후 UDP benchmark scenario 설계를 별도 단위로 작성한다.
 
 - [ ] `P1_SOON` RIO unavailable fallback/default selection policy 를 설계한다.
   - 무엇이 남았는지: Windows에서 RIO 사용 가능 여부에 따라 default backend 를 자동 선택할지, 명시 policy API를 둘지 결정하지 않았다.
@@ -51,6 +40,18 @@
   - known blockers 또는 open questions: IPv6 endpoint encode/decode shape, test environment availability, default backend compatibility expectation.
   - 가장 자연스러운 next step: default promotion 재평가 전에 IPv6를 필수 gate 로 둘지 설계 결정한다.
 
+- [ ] `P2_LATER` RIO UDP bounded receive prefetch 필요성을 설계한다.
+  - 무엇이 남았는지: D111 기준으로 RIO no-prefetch 는 pool ownership 경계이며 blocked-window datagram retention 을 보장하지 않는다.
+  - 왜 defer 되었는지: UDP 신뢰성/순서보장/혼잡제어는 v1 범위 밖이고, prefetch 를 추가하면 receive pool 대여 수와 datagram ownership/backpressure 의미가 바뀐다.
+  - objective: handler 가 느린 동안 RIO UDP datagram drop 을 줄이기 위해 bounded outstanding receive 를 둘지 결정한다.
+  - relevant context: D109, D111, `RioUdpEndpoint.MaxOutstandingReceive`, `RioTransport.UdpReceiveLoopAsync`.
+  - 관련 파일/범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+    RIO UDP receive tests, benchmark scenario.
+  - 현재 상태 또는 이미 시도한 접근: Red 테스트에서 blocked handler 중 보낸 두 번째 datagram 이 보장 전달되지 않음을 확인했고,
+    최종 테스트는 pool prefetch 없음과 unblock 이후 loop 생존만 검증하도록 보정했다.
+  - known blockers 또는 open questions: pre-post depth, buffer ownership queue, drop metrics, D111 유지 여부.
+  - 가장 자연스러운 next step: UDP benchmark artifact 를 본 뒤 burst absorption 이 필요하면 별도 설계로 승격한다.
+
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
   - 왜 defer 되었는지: 현재 서버는 단일 injected `ITransport` 를 감싼 얇은 host 이며, diagnostics 소비자는 테스트/benchmark 중심이다.
@@ -62,6 +63,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO/SAEA backend contract matrix 를 RIO UDP edge tests 로 보강했다.
+  - 범위: `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D111 결정 문서, root 상태 문서.
+  - 결과: RIO UDP handler exception close notify, no-prefetch/pool ownership, endpoint close-drain,
+    drop-oldest release/diagnostics/high-watermark 를 테스트로 고정했다.
+  - Red: 최초 no-prefetch 테스트는 blocked handler 중 보낸 두 번째 datagram 을 unblock 뒤 보장 수신한다고 기대해 timeout 으로 실패했다.
+    D111 기준으로 RIO no-prefetch 는 blocked-window datagram retention 이 아니라 pool prefetch 없음과 loop 생존을 검증하도록 보정했다.
+  - Green/검증: focused `RioTransportUdpTests` 8개 통과, focused RIO tests 45개 통과,
+    solution build 0경고/0오류, solution tests 318개 통과.
+  - 비고: bounded receive prefetch 는 benchmark evidence 이후 별도 설계 후보로 deferred 했다.
 
 - [x] RIO UDP parity/default promotion readiness 를 재검토했다.
   - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Runtime/TransportFactory.cs`,

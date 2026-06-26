@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP contract matrix)
+
+### 작업 단위
+- RIO/SAEA backend contract matrix 를 RIO UDP edge tests 로 보강했다.
+
+### 변경 내용
+- `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
+  handler exception close notify, no-prefetch/pool ownership, endpoint close-drain,
+  drop-oldest release/diagnostics/high-watermark 테스트를 추가했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D111을 추가했다. RIO UDP no-prefetch 는 pool ownership/backpressure 경계이며,
+  handler blocked-window datagram retention 을 보장하는 계약은 아니라고 정리했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  contract matrix 보강 완료를 기록하고, 다음 실행 지점을 RIO UDP benchmark artifact 설계로 이동했다.
+  bounded receive prefetch 는 UDP benchmark evidence 이후 별도 설계 후보로 deferred 했다.
+
+### 검증
+- Red: 최초 `UdpReceive_WhenHandlerIsBlocked_DoesNotPrefetchAdditionalDatagrams`는
+  blocked handler 중 보낸 두 번째 datagram 을 unblock 뒤 보장 수신한다고 기대해 timeout 으로 실패.
+- Green: D111 기준으로 no-prefetch 테스트를 pool 대여 미증가와 unblock 이후 loop 생존 검증으로 보정.
+- focused `RioTransportUdpTests` 8개 통과.
+- focused RIO tests 45개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build`: 318개 통과.
+
 ## 2026-06-26 (Codex - RIO UDP default readiness review)
 
 ### 작업 단위

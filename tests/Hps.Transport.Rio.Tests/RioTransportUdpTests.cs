@@ -166,6 +166,232 @@ namespace Hps.Transport.Rio.Tests
             }
         }
 
+        // RIO UDP handler 예외 정책 테스트: SAEA와 같이 handler 가 datagram 소유권을 받은 뒤 예외를 던져도
+        // background receive loop 를 fault 상태로 방치하지 않고 endpoint close notification 으로 수렴해야 한다.
+        [Fact]
+        public async Task UdpReceive_WhenHandlerThrowsAfterTakingOwnership_ClosesEndpointAndNotifiesHandler()
+        {
+            if (!IsRioDatagramAvailable())
+                return;
+
+            using (RioTransport transport = new RioTransport())
+            {
+                ThrowingAfterReleaseDatagramHandler datagramHandler = new ThrowingAfterReleaseDatagramHandler();
+                transport.SetDatagramHandler(datagramHandler);
+                await transport.StartAsync();
+
+                IUdpEndpoint? endpoint = null;
+                Socket? sender = null;
+
+                try
+                {
+                    endpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(endpoint.LocalEndPoint);
+
+                    sender = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    byte[] payload = new byte[] { 71, 72, 73 };
+                    int sent = await sender.SendToAsync(new ArraySegment<byte>(payload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(payload.Length, sent);
+
+                    IUdpEndpoint closedEndpoint = await WaitForClosedUdpEndpointAsync(datagramHandler.ClosedTask);
+
+                    Assert.Same(endpoint, closedEndpoint);
+                    await WaitForRioEndpointClosedAsync(Assert.IsType<RioUdpEndpoint>(endpoint));
+                    Assert.Equal(1, datagramHandler.ClosedCallCount);
+                }
+                finally
+                {
+                    sender?.Dispose();
+                    endpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
+        // RIO UDP receive backpressure 테스트: no-prefetch 모델에서는 handler 가 첫 datagram 을 처리 중일 때
+        // receive loop 가 다음 ReceiveEx/RentCounted 로 넘어가면 안 된다.
+        // RIO provider 는 outstanding ReceiveEx 가 없는 동안 들어온 datagram 을 재전달하지 않을 수 있으므로,
+        // 이 테스트는 blocked-window datagram 보존이 아니라 pool 대여 미증가와 unblock 이후 loop 생존만 검증한다.
+        [Fact]
+        public async Task UdpReceive_WhenHandlerIsBlocked_DoesNotPrefetchAdditionalDatagrams()
+        {
+            if (!IsRioDatagramAvailable())
+                return;
+
+            using (RioTransport transport = new RioTransport())
+            {
+                BlockingFirstDatagramHandler datagramHandler = new BlockingFirstDatagramHandler();
+                transport.SetDatagramHandler(datagramHandler);
+                await transport.StartAsync();
+
+                IUdpEndpoint? endpoint = null;
+                Socket? sender = null;
+
+                try
+                {
+                    endpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    RioUdpEndpoint rioEndpoint = Assert.IsType<RioUdpEndpoint>(endpoint);
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(endpoint.LocalEndPoint);
+
+                    sender = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+                    byte[] firstPayload = new byte[] { 81 };
+                    int firstSent = await sender.SendToAsync(new ArraySegment<byte>(firstPayload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(firstPayload.Length, firstSent);
+
+                    await WaitForSignalAsync(datagramHandler.FirstReceivedTask);
+                    Assert.Equal(1, datagramHandler.ReceivedCount);
+                    Assert.Equal(1, rioEndpoint.ReceivePool.RentedCount);
+
+                    byte[] secondPayload = new byte[] { 82 };
+                    int secondSent = await sender.SendToAsync(new ArraySegment<byte>(secondPayload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(secondPayload.Length, secondSent);
+
+                    await Task.Delay(TimeSpan.FromMilliseconds(150));
+
+                    Assert.Equal(1, datagramHandler.ReceivedCount);
+                    Assert.Equal(1, rioEndpoint.ReceivePool.RentedCount);
+
+                    datagramHandler.AllowFirstDatagramToComplete();
+                    await Task.Delay(TimeSpan.FromMilliseconds(50));
+
+                    byte[] postUnblockPayload = new byte[] { 83 };
+                    int postUnblockSent = await sender.SendToAsync(new ArraySegment<byte>(postUnblockPayload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(postUnblockPayload.Length, postUnblockSent);
+
+                    await WaitForSignalAsync(datagramHandler.SecondReceivedTask);
+                    Assert.True(datagramHandler.ReceivedCount >= 2);
+                    Assert.Equal(1, rioEndpoint.ReceivePool.RentedCount);
+
+                    endpoint.Close();
+                    endpoint = null;
+                    await WaitForRentedCountAsync(rioEndpoint.ReceivePool, 0);
+                }
+                finally
+                {
+                    datagramHandler.AllowFirstDatagramToComplete();
+                    sender?.Dispose();
+                    endpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
+        // RIO UDP close-drain 테스트: send pump 가 가져가기 전 endpoint 가 닫히면
+        // pending queue 가 소유한 datagram ref 를 endpoint close 경로에서 모두 반환해야 한다.
+        [Fact]
+        public void UdpSendTo_WhenEndpointClosesBeforePumpSends_DrainsQueuedDatagramRef()
+        {
+            using (RioTransport transport = new RioTransport())
+            {
+                RioUdpEndpoint? endpoint;
+                if (!TryCreateDetachedUdpEndpoint(transport, out endpoint))
+                    return;
+
+                RioUdpEndpoint rioEndpoint = endpoint!;
+                PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                RefCountedBuffer buffer = pool.RentCounted();
+                bool publisherRefReleased = false;
+
+                try
+                {
+                    byte[] payload = new byte[] { 91, 92, 93 };
+                    payload.CopyTo(buffer.Span);
+                    buffer.SetLength(payload.Length);
+                    buffer.AddRef();
+
+                    TransportSendBuffer sendBuffer = new TransportSendBuffer(buffer, 0, payload.Length);
+                    Assert.True(transport.TrySendTo(rioEndpoint, new IPEndPoint(IPAddress.Loopback, 9), sendBuffer));
+                    Assert.Equal(1, rioEndpoint.CreateSnapshot().PendingSendCount);
+
+                    buffer.Release();
+                    publisherRefReleased = true;
+                    Assert.Equal(1, pool.RentedCount);
+
+                    rioEndpoint.Close();
+
+                    Assert.Equal(0, rioEndpoint.CreateSnapshot().PendingSendCount);
+                    Assert.Equal(0, pool.RentedCount);
+                }
+                finally
+                {
+                    if (!publisherRefReleased)
+                        buffer.Release();
+
+                    rioEndpoint.Close();
+                }
+            }
+        }
+
+        // RIO UDP drop-oldest ownership 테스트: endpoint pending queue 가 capacity 를 넘으면
+        // 가장 오래된 Transport 소유 ref 를 정확히 한 번 Release 하고, 남은 항목과 high-watermark 를 SAEA와 같은 의미로 보존해야 한다.
+        [Fact]
+        public void UdpSendTo_WhenPendingQueueExceedsCapacity_DropsOldestAndKeepsDiagnostics()
+        {
+            const int Capacity = 16;
+            const int SendCount = Capacity + 2;
+
+            using (RioTransport transport = new RioTransport())
+            {
+                RioUdpEndpoint? endpoint;
+                if (!TryCreateDetachedUdpEndpoint(transport, out endpoint))
+                    return;
+
+                RioUdpEndpoint rioEndpoint = endpoint!;
+                PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                RefCountedBuffer[] buffers = RentNumberedUdpBuffers(pool, SendCount);
+                bool publisherRefsReleased = false;
+
+                try
+                {
+                    EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Loopback, 9);
+                    for (int index = 0; index < SendCount; index++)
+                    {
+                        buffers[index].AddRef();
+                        TransportSendBuffer sendBuffer = new TransportSendBuffer(buffers[index], 0, buffers[index].Length);
+
+                        Assert.True(transport.TrySendTo(rioEndpoint, remoteEndPoint, sendBuffer));
+                    }
+
+                    EndpointSnapshot fullSnapshot = rioEndpoint.CreateSnapshot();
+                    Assert.Equal(Capacity, fullSnapshot.PendingSendCount);
+                    Assert.Equal(Capacity, fullSnapshot.PendingSendQueueHighWatermark);
+                    Assert.Equal(2, fullSnapshot.DroppedPendingSendCount);
+
+                    ReleasePublisherRefs(buffers);
+                    publisherRefsReleased = true;
+
+                    Assert.Equal(Capacity, pool.RentedCount);
+
+                    for (int index = 2; index < SendCount; index++)
+                    {
+                        RioUdpEndpoint.UdpSendRequest sendRequest;
+                        Assert.True(rioEndpoint.TryBeginSend(out sendRequest));
+
+                        try
+                        {
+                            Assert.Same(buffers[index], sendRequest.SendBuffer.Buffer);
+                        }
+                        finally
+                        {
+                            sendRequest.SendBuffer.Buffer.Release();
+                        }
+                    }
+
+                    Assert.False(rioEndpoint.TryBeginSend(out _));
+                    Assert.Equal(0, rioEndpoint.CreateSnapshot().PendingSendCount);
+                    Assert.Equal(0, pool.RentedCount);
+                }
+                finally
+                {
+                    if (!publisherRefsReleased)
+                        ReleasePublisherRefs(buffers);
+
+                    rioEndpoint.Close();
+                }
+            }
+        }
+
         private static bool IsRioDatagramAvailable()
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
@@ -180,6 +406,31 @@ namespace Hps.Transport.Rio.Tests
                 native.SupportsDatagramOperations;
         }
 
+        private static bool TryCreateDetachedUdpEndpoint(RioTransport transport, out RioUdpEndpoint? endpoint)
+        {
+            endpoint = null;
+
+            if (!IsRioDatagramAvailable())
+                return false;
+
+            RioNative? native;
+            if (!RioNative.TryLoadFunctionTable(out native) || native == null || !native.SupportsDatagramOperations)
+                return false;
+
+            Socket? socket = RioNative.CreateUdpSocket();
+            try
+            {
+                socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                endpoint = new RioUdpEndpoint(transport, socket, native);
+                socket = null;
+                return true;
+            }
+            finally
+            {
+                socket?.Dispose();
+            }
+        }
+
         private static async Task<ReceivedDatagram> WaitForReceivedDatagramAsync(CapturingDatagramHandler datagramHandler)
         {
             Task<ReceivedDatagram> receivedTask = datagramHandler.ReceivedTask;
@@ -189,6 +440,77 @@ namespace Hps.Transport.Rio.Tests
 
             Assert.Same(receivedTask, completedTask);
             return await receivedTask;
+        }
+
+        private static async Task<IUdpEndpoint> WaitForClosedUdpEndpointAsync(Task<IUdpEndpoint> closedTask)
+        {
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(closedTask, timeoutTask);
+
+            Assert.Same(closedTask, completedTask);
+            return await closedTask;
+        }
+
+        private static async Task WaitForSignalAsync(Task signalTask)
+        {
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+            Task completedTask = await Task.WhenAny(signalTask, timeoutTask);
+
+            Assert.Same(signalTask, completedTask);
+            await signalTask;
+        }
+
+        private static async Task WaitForRioEndpointClosedAsync(RioUdpEndpoint endpoint)
+        {
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+
+            while (DateTime.UtcNow < deadline)
+            {
+                if (endpoint.IsClosed)
+                    return;
+
+                await Task.Delay(10);
+            }
+
+            Assert.True(endpoint.IsClosed);
+        }
+
+        private static async Task WaitForRentedCountAsync(PinnedBlockMemoryPool pool, int expected)
+        {
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+
+            while (DateTime.UtcNow < deadline)
+            {
+                if (pool.RentedCount == expected)
+                    return;
+
+                await Task.Delay(10);
+            }
+
+            Assert.Equal(expected, pool.RentedCount);
+        }
+
+        private static RefCountedBuffer[] RentNumberedUdpBuffers(PinnedBlockMemoryPool pool, int count)
+        {
+            RefCountedBuffer[] buffers = new RefCountedBuffer[count];
+
+            for (int index = 0; index < count; index++)
+            {
+                RefCountedBuffer buffer = pool.RentCounted();
+                buffer.Span[0] = (byte)(index + 1);
+                buffer.SetLength(1);
+                buffers[index] = buffer;
+            }
+
+            return buffers;
+        }
+
+        private static void ReleasePublisherRefs(RefCountedBuffer[] buffers)
+        {
+            for (int index = 0; index < buffers.Length; index++)
+            {
+                buffers[index].Release();
+            }
         }
 
         private static async Task<ReceivedSocketDatagram> ReceiveUdpDatagramAsync(Socket socket, int maxLength)
@@ -262,6 +584,94 @@ namespace Hps.Transport.Rio.Tests
 
                 datagram.Release();
                 datagram.Release();
+            }
+
+            public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
+            {
+            }
+        }
+
+        private sealed class ThrowingAfterReleaseDatagramHandler : ITransportDatagramHandler
+        {
+            private readonly TaskCompletionSource<IUdpEndpoint> _closed;
+            private int _closedCallCount;
+
+            internal ThrowingAfterReleaseDatagramHandler()
+            {
+                _closed = new TaskCompletionSource<IUdpEndpoint>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            internal Task<IUdpEndpoint> ClosedTask => _closed.Task;
+
+            internal int ClosedCallCount => Volatile.Read(ref _closedCallCount);
+
+            public void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+            {
+                datagram.Release();
+                throw new DatagramHandlerFailureException();
+            }
+
+            public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
+            {
+                Interlocked.Increment(ref _closedCallCount);
+                _closed.TrySetResult(endpoint);
+            }
+        }
+
+        private sealed class DatagramHandlerFailureException : Exception
+        {
+        }
+
+        private sealed class BlockingFirstDatagramHandler : ITransportDatagramHandler
+        {
+            private readonly ManualResetEventSlim _allowFirstDatagramToComplete;
+            private readonly TaskCompletionSource<bool> _firstReceived;
+            private readonly TaskCompletionSource<bool> _secondReceived;
+            private int _receivedCount;
+
+            internal BlockingFirstDatagramHandler()
+            {
+                _allowFirstDatagramToComplete = new ManualResetEventSlim(false);
+                _firstReceived = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _secondReceived = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            internal Task FirstReceivedTask => _firstReceived.Task;
+
+            internal Task SecondReceivedTask => _secondReceived.Task;
+
+            internal int ReceivedCount => Volatile.Read(ref _receivedCount);
+
+            internal void AllowFirstDatagramToComplete()
+            {
+                _allowFirstDatagramToComplete.Set();
+            }
+
+            public void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+            {
+                int receivedCount = Interlocked.Increment(ref _receivedCount);
+
+                if (receivedCount == 1)
+                {
+                    _firstReceived.TrySetResult(true);
+
+                    try
+                    {
+                        if (!_allowFirstDatagramToComplete.Wait(TimeSpan.FromSeconds(5)))
+                            throw new TimeoutException("첫 RIO UDP datagram handler 대기 해제가 시간 안에 수행되지 않았다.");
+                    }
+                    finally
+                    {
+                        datagram.Release();
+                    }
+
+                    return;
+                }
+
+                datagram.Release();
+
+                if (receivedCount == 2)
+                    _secondReceived.TrySetResult(true);
             }
 
             public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
