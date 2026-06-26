@@ -5,6 +5,34 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP completion signal shape)
+
+### 작업 단위
+- RIO UDP completion notification wait Task 1 endpoint signal resource shape 를 TDD로 구현했다.
+
+### 변경 내용
+- `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
+  `BindUdpAsync_WhenRioDatagramAvailable_CreatesUdpCompletionSignals`를 추가했다.
+  endpoint 가 receive/send `RioCompletionSignal` resource 를 갖는지 먼저 고정한다.
+- `src/Hps.Transport.Rio/RioUdpEndpoint.cs`:
+  receive/send `RioCompletionSignal`을 소유하고, UDP receive/send CQ를 notification completion pointer 로 생성한다.
+  receive/send drain 에서 각 signal 을 dispose 한다.
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  `BindUdpAsync(...)`가 TCP RIO와 같은 shared `RioCompletionPort`를 UDP endpoint 에 넘긴다.
+- `docs/superpowers/plans/2026-06-26-rio-udp-completion-notification-wait.md`:
+  새 테스트 Red 실행에는 새 테스트 컴파일이 필요하므로 Task 1 Red command 에서 `--no-build`를 제거했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 1 완료와 다음 Task 2 wait path 전환 진입점을 반영했다.
+
+### 검증
+- Red: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore --filter "FullyQualifiedName~BindUdpAsync_WhenRioDatagramAvailable_CreatesUdpCompletionSignals"`가
+  기존 endpoint 에서 `Assert.NotNull()` failure 로 실패했다.
+- Green: 같은 focused test 1개 통과.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore --filter "FullyQualifiedName~RioTransportUdpTests"`:
+  14개 통과.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`:
+  51개 통과.
+
 ## 2026-06-26 (Codex - RIO UDP completion notification wait plan)
 
 ### 작업 단위

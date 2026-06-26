@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,6 +33,44 @@ namespace Hps.Transport.Rio.Tests
                     IPEndPoint localEndPoint = Assert.IsType<IPEndPoint>(endpoint.LocalEndPoint);
                     Assert.Equal(IPAddress.Loopback, localEndPoint.Address);
                     Assert.NotEqual(0, localEndPoint.Port);
+                }
+                finally
+                {
+                    endpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
+        // UDP RIO completion wait 를 polling 이 아니라 IOCP notification 으로 바꾸려면 endpoint 가 receive/send signal 을 소유해야 한다.
+        // 이 테스트는 native wait path 를 바꾸기 전에 endpoint resource shape 가 TCP RIO와 같은 notification 기반으로 열렸는지 먼저 고정한다.
+        [Fact]
+        public async Task BindUdpAsync_WhenRioDatagramAvailable_CreatesUdpCompletionSignals()
+        {
+            if (!IsRioDatagramAvailable())
+                return;
+
+            IUdpEndpoint? endpoint = null;
+            using (RioTransport transport = new RioTransport())
+            {
+                await transport.StartAsync();
+
+                try
+                {
+                    endpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    RioUdpEndpoint rioEndpoint = Assert.IsType<RioUdpEndpoint>(endpoint);
+
+                    PropertyInfo? receiveSignalProperty = typeof(RioUdpEndpoint).GetProperty(
+                        "ReceiveSignal",
+                        BindingFlags.Instance | BindingFlags.NonPublic);
+                    PropertyInfo? sendSignalProperty = typeof(RioUdpEndpoint).GetProperty(
+                        "SendSignal",
+                        BindingFlags.Instance | BindingFlags.NonPublic);
+
+                    Assert.NotNull(receiveSignalProperty);
+                    Assert.NotNull(sendSignalProperty);
+                    Assert.NotNull(receiveSignalProperty!.GetValue(rioEndpoint));
+                    Assert.NotNull(sendSignalProperty!.GetValue(rioEndpoint));
                 }
                 finally
                 {
@@ -499,7 +538,7 @@ namespace Hps.Transport.Rio.Tests
             try
             {
                 socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
-                endpoint = new RioUdpEndpoint(transport, socket, native);
+                endpoint = new RioUdpEndpoint(transport, socket, native, RioCompletionPort.CreateForTests());
                 socket = null;
                 return true;
             }

@@ -47,11 +47,13 @@ namespace Hps.Transport
         private int _receiveResourcesDisposed;
         private int _sendResourcesDisposed;
 
-        internal RioUdpEndpoint(RioTransport transport, Socket socket, RioNative native)
+        internal RioUdpEndpoint(RioTransport transport, Socket socket, RioNative native, RioCompletionPort completionPort)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             _socket = socket ?? throw new ArgumentNullException(nameof(socket));
             Native = native ?? throw new ArgumentNullException(nameof(native));
+            if (completionPort == null)
+                throw new ArgumentNullException(nameof(completionPort));
 
             _localEndPoint = socket.LocalEndPoint ?? throw new InvalidOperationException("UDP socket LocalEndPoint 를 확인할 수 없습니다.");
             _completionGate = new object();
@@ -71,9 +73,14 @@ namespace Hps.Transport
             SendCompletionQueue = IntPtr.Zero;
             RequestQueue = IntPtr.Zero;
             _pendingSendCapacity = DefaultPendingSendCapacity;
+            ReceiveSignal = null!;
+            SendSignal = null!;
 
             try
             {
+                ReceiveSignal = completionPort.CreateSignal();
+                SendSignal = completionPort.CreateSignal();
+
                 // ReceiveEx 는 completion 때 remote SOCKADDR_INET 을 caller 제공 registered buffer 에 쓴다.
                 // one-deep receive 는 completion 직후 managed EndPoint 로 먼저 decode 한 뒤 다음 receive 를 post 하므로
                 // endpoint lifetime scratch block 하나를 계속 재사용할 수 있다.
@@ -82,8 +89,8 @@ namespace Hps.Transport
                 _sendAddressBlock = _sendAddressPool.Rent();
                 SendAddressBufferId = RegisterPinnedArray(Native, _sendAddressBlock);
 
-                ReceiveCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize);
-                SendCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize);
+                ReceiveCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize, ReceiveSignal.NotificationCompletionPointer);
+                SendCompletionQueue = Native.CreateCompletionQueue(CompletionQueueSize, SendSignal.NotificationCompletionPointer);
                 RequestQueue = Native.CreateRequestQueue(
                     _socket,
                     MaxOutstandingReceive,
@@ -109,6 +116,10 @@ namespace Hps.Transport
         internal RioNative Native { get; }
 
         internal PinnedBlockMemoryPool ReceivePool { get; }
+
+        internal RioCompletionSignal ReceiveSignal { get; private set; }
+
+        internal RioCompletionSignal SendSignal { get; private set; }
 
         internal byte[] RemoteAddressBlock
         {
@@ -313,6 +324,10 @@ namespace Hps.Transport
             if (remoteAddressBlock != null)
                 _remoteAddressPool.Return(remoteAddressBlock);
 
+            RioCompletionSignal? receiveSignal = ReceiveSignal;
+            ReceiveSignal = null!;
+            receiveSignal?.Dispose();
+
             TryMarkDisposed();
         }
 
@@ -341,6 +356,9 @@ namespace Hps.Transport
 
             PayloadRegistrationCache.Dispose();
             _sendSignal.Dispose();
+            RioCompletionSignal? sendSignal = SendSignal;
+            SendSignal = null!;
+            sendSignal?.Dispose();
             TryMarkDisposed();
         }
 

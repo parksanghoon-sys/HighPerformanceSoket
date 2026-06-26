@@ -1377,11 +1377,15 @@ TCP RIO는 이미 CQ notification pointer + `RIONotify` + IOCP signal wait patte
 D115 구현 계획도 완료했다.
 계획 문서는 `docs/superpowers/plans/2026-06-26-rio-udp-completion-notification-wait.md`다.
 계획은 Task 1 endpoint notification resource shape, Task 2 UDP wait notification 전환, Task 3 scratch benchmark/D116 판단으로 나뉜다.
-다음 작업은 Task 1 Red test 작성이다.
+Task 1 endpoint notification resource shape 구현을 완료했다.
+`RioUdpEndpoint`는 receive/send `RioCompletionSignal`을 소유하고, UDP receive/send CQ를 notification completion pointer 로 생성한다.
+`RioTransport.BindUdpAsync(...)`는 TCP RIO와 같은 shared `RioCompletionPort`를 endpoint 에 넘긴다.
+Red evidence 는 `BindUdpAsync_WhenRioDatagramAvailable_CreatesUdpCompletionSignals`가 기존 endpoint 에서 `Assert.NotNull()` failure 로 실패한 것이다.
+다음 작업은 Task 2로 UDP completion wait path 를 `RIONotify` + signal wait 로 전환하는 것이다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP completion notification wait Task 1 endpoint signal shape 를 TDD로 구현한다.
+이번 cycle 은 RIO UDP completion notification wait Task 2 wait path 전환을 TDD로 구현한다.
 
 - 범위: `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`,
   `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `src/Hps.Transport.Rio/RioTransport.cs`,
@@ -1392,7 +1396,6 @@ D115 구현 계획도 완료했다.
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
-- UDP wait path notification 전환(Task 2 범위)
 - scratch benchmark 재측정(Task 3 범위)
 - RIO unavailable fallback/default selection policy 구현
 - IPv6 UDP RIO 지원 구현

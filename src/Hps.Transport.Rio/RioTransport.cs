@@ -162,7 +162,7 @@ namespace Hps.Transport
             try
             {
                 socket.Bind(localEndPoint);
-                endpoint = new RioUdpEndpoint(this, socket, native);
+                endpoint = new RioUdpEndpoint(this, socket, native, GetOrCreateCompletionPort());
                 RegisterUdpEndpoint(endpoint);
                 endpoint.MarkPumpsStarted();
                 StartUdpReceiveLoop(endpoint);

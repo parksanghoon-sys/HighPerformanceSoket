@@ -93,12 +93,12 @@ public async Task BindUdpAsync_WhenRioDatagramAvailable_CreatesUdpCompletionSign
 Run:
 
 ```powershell
-dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-build --no-restore --filter "FullyQualifiedName~BindUdpAsync_WhenRioDatagramAvailable_CreatesUdpCompletionSignals"
+dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore --filter "FullyQualifiedName~BindUdpAsync_WhenRioDatagramAvailable_CreatesUdpCompletionSignals"
 ```
 
 Expected:
 
-- On machines without RIO datagram support, the test returns early and cannot serve as Red evidence. In that case run without `--no-build` after adding the test and use compile success plus the next RIO-capable run for Red.
+- On machines without RIO datagram support, the test returns early and cannot serve as Red evidence. Use the next RIO-capable run for Red.
 - On the current RIO-capable environment, fail with `Assert.NotNull()` because `RioUdpEndpoint.ReceiveSignal`/`SendSignal` do not exist.
 
 - [ ] **Step 3: Add UDP endpoint signals and notification-backed CQs**

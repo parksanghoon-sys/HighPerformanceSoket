@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` RIO UDP completion notification wait Task 1 endpoint signal shape 를 구현한다.
-  - 목적: D115 구현의 첫 단위로 `RioUdpEndpoint`가 receive/send `RioCompletionSignal`을 소유하고
-    UDP CQ를 notification pointer 로 생성할 수 있는 resource shape 를 TDD로 고정한다.
+- [ ] `P1_SOON` RIO UDP completion notification wait Task 2 wait path 를 구현한다.
+  - 목적: UDP completion wait 를 open 상태 bounded yield/delay polling 에서 TCP RIO와 같은
+    dequeue -> `RIONotify` arm -> signal wait 경로로 바꾼다.
   - 범위: `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`,
     `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `src/Hps.Transport.Rio/RioTransport.cs`.
-  - 현재 판단: 구현 계획은 `docs/superpowers/plans/2026-06-26-rio-udp-completion-notification-wait.md`에 있다.
-  - 다음 자연스러운 step: `BindUdpAsync_WhenRioDatagramAvailable_CreatesUdpCompletionSignals` Red test 를 추가하고
+  - 현재 판단: Task 1에서 `RioUdpEndpoint` receive/send signal resource 와 notification-backed CQ shape 는 준비됐다.
+  - 다음 자연스러운 step: `RioUdpEndpoint_WhenNotificationWaitIsExpected_ExposesArmNotificationHelper` Red test 를 추가하고
     `Assert.NotNull()` 실패를 확인한다.
   - 검증: focused Red/Green, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`, `git diff --check`.
 
@@ -52,6 +52,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP completion notification wait Task 1 endpoint signal shape 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `src/Hps.Transport.Rio/RioTransport.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, 구현 계획 문서, root 상태 문서.
+  - 결과: `RioUdpEndpoint`가 receive/send `RioCompletionSignal`을 소유하고,
+    UDP receive/send CQ를 notification completion pointer 로 생성한다.
+    `RioTransport.BindUdpAsync(...)`는 shared `RioCompletionPort`를 endpoint 에 넘긴다.
+  - Red: `BindUdpAsync_WhenRioDatagramAvailable_CreatesUdpCompletionSignals`가 기존 endpoint 에서
+    `Assert.NotNull()` failure 로 실패했다.
+  - Green/검증: focused Red test 1개 통과, focused `RioTransportUdpTests` 14개 통과,
+    focused `Hps.Transport.Rio.Tests` 51개 통과.
 
 - [x] RIO UDP IOCP/RIONotify completion wait 구현 계획을 작성했다.
   - 범위: `docs/superpowers/plans/2026-06-26-rio-udp-completion-notification-wait.md`, root 상태 문서.
