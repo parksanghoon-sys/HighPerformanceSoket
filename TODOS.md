@@ -9,14 +9,14 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` sample broker server transport selector Task 1 parser/model 을 구현한다.
-  - 목적: 기존 3 positional args 호환성을 유지하면서 optional `--transport <saea|rio|auto>`를 parser/model 에 보존한다.
-  - 범위: `samples/Hps.Sample.BrokerServer/SampleTransportMode.cs`,
-    `SampleBrokerServerCommandLine.cs`, `SampleBrokerServerCommandParser.cs`,
-    신규 `tests/Hps.Sample.BrokerServer.Tests/`, `HighPerformanceSocket.slnx`.
-  - 현재 판단: selector/factory 와 Program wiring 은 후속 Task 2/3으로 분리하고, 이번 단위는 parser contract 만 닫는다.
-  - 다음 자연스러운 step: reflection bootstrap Red tests 를 작성해 parser type 부재 assertion failure 를 확인한다.
-  - 검증: focused sample parser tests, `git diff --check`.
+- [ ] `P1_SOON` sample broker server transport selector Task 2 selection policy 를 구현한다.
+  - 목적: `saea`, explicit `rio`, preferred `auto` 선택 정책을 Program wiring 전 순수 selector 로 고정한다.
+  - 범위: `samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj`,
+    `SampleTransportSelection.cs`, `SampleTransportSelector.cs`,
+    `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`.
+  - 현재 판단: RIO capability status 와 transport factory delegates 를 주입해 tests 가 실제 OS/RIO availability 에 의존하지 않게 한다.
+  - 다음 자연스러운 step: selector type 부재 assertion failure Red tests 를 작성한다.
+  - 검증: focused selector tests, focused sample tests, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -41,6 +41,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] sample broker server transport selector Task 1 parser/model 을 구현했다.
+  - 범위: `HighPerformanceSocket.slnx`, `tests/Hps.Sample.BrokerServer.Tests/`,
+    `samples/Hps.Sample.BrokerServer/SampleTransportMode.cs`,
+    `SampleBrokerServerCommandLine.cs`, `SampleBrokerServerCommandParser.cs`.
+  - 결과: 기존 3 positional args 는 SAEA mode 로 해석되고,
+    optional `--transport rio|auto`는 parser model 에 보존된다.
+    값 누락과 unknown value 는 broker start 전 usage error 로 반환된다.
+  - Red: focused parser tests 5개가 parser type 부재 `Assert.NotNull()` failure 로 실패했다.
+  - Green/검증: focused parser tests 5개 통과, solution build 경고 0/오류 0,
+    solution tests 339개 통과, `git diff --check` 통과.
 
 - [x] sample broker server transport selector 구현 계획을 작성했다.
   - 범위: `docs/superpowers/plans/2026-06-26-sample-broker-transport-selector.md`, D120 설계 문서, sample/benchmark 구조.

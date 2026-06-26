@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - sample broker transport parser)
+
+### 작업 단위
+- sample broker transport selector Task 1 parser/model 을 TDD로 구현했다.
+
+### 변경 내용
+- `HighPerformanceSocket.slnx`:
+  `tests/Hps.Sample.BrokerServer.Tests` project 를 추가했다.
+- `tests/Hps.Sample.BrokerServer.Tests/SampleBrokerServerCommandParserTests.cs`:
+  기존 3 positional args 호환, `--transport rio`, `--transport auto`,
+  transport value 누락/unknown value 를 검증했다.
+- `samples/Hps.Sample.BrokerServer/SampleTransportMode.cs`,
+  `SampleBrokerServerCommandLine.cs`, `SampleBrokerServerCommandParser.cs`:
+  sample broker host 전용 parser/model 을 추가했다.
+- `docs/superpowers/plans/2026-06-26-sample-broker-transport-selector.md`,
+  `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 1 완료와 다음 Task 2 selection policy 진입점을 반영했다.
+
+### 검증
+- Red: focused parser tests 5개가 parser type 부재 `Assert.NotNull()` failure 로 실패했다.
+- Green: focused parser tests 5개 통과.
+- Refactor: tests 를 reflection bootstrap 에서 direct public API 호출로 정리한 뒤 focused parser tests 5개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 339개 통과.
+- `git diff --check`: 통과.
+
 ## 2026-06-26 (Codex - sample broker transport selector plan)
 
 ### 작업 단위

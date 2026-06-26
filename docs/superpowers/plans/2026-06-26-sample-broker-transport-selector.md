@@ -50,7 +50,7 @@
 - Create: `samples/Hps.Sample.BrokerServer/SampleBrokerServerCommandLine.cs`
 - Create: `samples/Hps.Sample.BrokerServer/SampleBrokerServerCommandParser.cs`
 
-- [ ] **Step 1: test project 를 추가한다**
+- [x] **Step 1: test project 를 추가한다**
 
 `tests/Hps.Sample.BrokerServer.Tests/Hps.Sample.BrokerServer.Tests.csproj`:
 
@@ -79,7 +79,7 @@
 <Project Path="tests/Hps.Sample.BrokerServer.Tests/Hps.Sample.BrokerServer.Tests.csproj" />
 ```
 
-- [ ] **Step 2: failing parser tests 를 작성한다**
+- [x] **Step 2: failing parser tests 를 작성한다**
 
 `tests/Hps.Sample.BrokerServer.Tests/SampleBrokerServerCommandParserTests.cs`:
 
@@ -203,7 +203,7 @@ namespace Hps.Sample.BrokerServer.Tests
 }
 ```
 
-- [ ] **Step 3: Red test 를 실행해 parser type 부재 실패를 확인한다**
+- [x] **Step 3: Red test 를 실행해 parser type 부재 실패를 확인한다**
 
 Run:
 
@@ -217,7 +217,7 @@ Expected:
 Assert.NotNull() Failure: Value is null
 ```
 
-- [ ] **Step 4: minimal parser/model 을 구현한다**
+- [x] **Step 4: minimal parser/model 을 구현한다**
 
 `samples/Hps.Sample.BrokerServer/SampleTransportMode.cs`:
 
@@ -334,7 +334,7 @@ namespace Hps.Sample.BrokerServer
 }
 ```
 
-- [ ] **Step 5: parser tests 를 통과시킨다**
+- [x] **Step 5: parser tests 를 통과시킨다**
 
 Run:
 
@@ -348,7 +348,7 @@ Expected:
 Passed!  - Failed: 0, Passed: 5
 ```
 
-- [ ] **Step 6: Task 1 commit**
+- [x] **Step 6: Task 1 commit**
 
 ```powershell
 git add HighPerformanceSocket.slnx samples\Hps.Sample.BrokerServer\SampleTransportMode.cs samples\Hps.Sample.BrokerServer\SampleBrokerServerCommandLine.cs samples\Hps.Sample.BrokerServer\SampleBrokerServerCommandParser.cs tests\Hps.Sample.BrokerServer.Tests\Hps.Sample.BrokerServer.Tests.csproj tests\Hps.Sample.BrokerServer.Tests\SampleBrokerServerCommandParserTests.cs

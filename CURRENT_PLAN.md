@@ -1425,19 +1425,26 @@ optional `--transport <saea|rio|auto>`를 추가하는 것이다. 기본값은 `
 sample broker transport selector 구현 계획도 완료했다.
 계획 문서는 `docs/superpowers/plans/2026-06-26-sample-broker-transport-selector.md`다.
 계획은 Task 1 parser/model, Task 2 transport selector policy, Task 3 Program wiring/smoke 검증으로 나눈다.
+Task 1 parser/model 구현도 완료했다.
+새 `Hps.Sample.BrokerServer.Tests` project 를 solution 에 추가했고,
+sample broker host 전용 `SampleTransportMode`, `SampleBrokerServerCommandLine`,
+`SampleBrokerServerCommandParser`를 추가했다.
+기존 3 positional args 는 SAEA mode 로 유지되고, optional `--transport rio|auto`는 parser model 에 보존된다.
+`--transport` 값 누락과 unknown value 는 broker start 전 usage error 로 구분한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 sample broker server transport selector Task 1 parser/model 을 TDD로 구현한다.
+이번 cycle 은 sample broker server transport selector Task 2 selection policy 를 TDD로 구현한다.
 
-- 범위: `samples/Hps.Sample.BrokerServer/Program.cs`, sample broker server csproj,
-  `tests/Hps.Sample.BrokerServer.Tests/`, solution file, D120 implementation plan Task 1.
-- 검증: parser Red assertion-failure 확인, focused sample parser tests, `git diff --check`.
+- 범위: `samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj`,
+  `SampleTransportSelection.cs`, `SampleTransportSelector.cs`,
+  `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`,
+  D120 implementation plan Task 2.
+- 검증: selector Red assertion-failure 확인, focused selector tests, focused sample tests, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
-- transport selector policy/factory 구현
 - Program startup wiring
 - 별도 selector package 생성
 - IPv6 UDP RIO 지원 구현

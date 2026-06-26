@@ -18,6 +18,7 @@
     <Project Path="tests/Hps.Broker.Tests/Hps.Broker.Tests.csproj" />
     <Project Path="tests/Hps.Buffers.Tests/Hps.Buffers.Tests.csproj" />
     <Project Path="tests/Hps.Protocol.Tests/Hps.Protocol.Tests.csproj" />
+    <Project Path="tests/Hps.Sample.BrokerServer.Tests/Hps.Sample.BrokerServer.Tests.csproj" />
     <Project Path="tests/Hps.Server.Tests/Hps.Server.Tests.csproj" />
     <Project Path="tests/Hps.Transport.Rio.Tests/Hps.Transport.Rio.Tests.csproj" />
     <Project Path="tests/Hps.Transport.Tests/Hps.Transport.Tests.csproj" />
