@@ -31,7 +31,7 @@ namespace Hps.Benchmarks
                 return UsageErrorExitCode;
             }
 
-            if (IsLoopbackExecutionCommand(commandLine.Command) &&
+            if (IsLoopbackExecutionCommandWithoutUdpRunner(commandLine.Command) &&
                 commandLine.LoopbackProtocol == LoopbackProtocol.Udp)
             {
                 Console.Error.WriteLine("protocol-not-implemented: udp loopback runner is not implemented yet.");
@@ -45,6 +45,9 @@ namespace Hps.Benchmarks
                     return SuccessExitCode;
 
                 case BenchmarkCommand.Smoke:
+                    if (commandLine.LoopbackProtocol == LoopbackProtocol.Udp)
+                        return CompleteRun(UdpLoopbackScenarioRunner.RunSmokeAsync(commandLine.TransportBackend).GetAwaiter().GetResult(), commandLine.ReportPath);
+
                     return CompleteRun(TcpLoopbackScenarioRunner.RunSmokeAsync(commandLine.TransportBackend).GetAwaiter().GetResult(), commandLine.ReportPath);
 
                 case BenchmarkCommand.Load:
@@ -159,10 +162,9 @@ namespace Hps.Benchmarks
             }
         }
 
-        private static bool IsLoopbackExecutionCommand(BenchmarkCommand command)
+        private static bool IsLoopbackExecutionCommandWithoutUdpRunner(BenchmarkCommand command)
         {
-            return command == BenchmarkCommand.Smoke ||
-                command == BenchmarkCommand.Load ||
+            return command == BenchmarkCommand.Load ||
                 command == BenchmarkCommand.LoadOpenLoop ||
                 command == BenchmarkCommand.BaselineSuite;
         }

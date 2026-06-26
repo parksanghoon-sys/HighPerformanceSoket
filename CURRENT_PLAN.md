@@ -1328,18 +1328,24 @@ summary/history/help/target 또는 runner 없는 위치에서는 `--protocol`을
 UDP runner 가 아직 연결되지 않았기 때문에 Program 은 `--protocol udp` 실행을 실패 처리해 TCP smoke report 가
 UDP evidence 로 잘못 저장되는 중간 상태를 막는다.
 
-다음 작업은 RIO UDP benchmark Task 2/3 UDP loopback runner dispatch 와 SAEA UDP smoke 구현이다.
-먼저 Program/report Red 테스트로 `--smoke --protocol udp --backend saea --report <temp>`가
-`udp-loopback-saea-baseline-smoke` raw report 를 만들어야 함을 고정한 뒤,
-`BrokerServer.StartUdpAsync(...)` 기반 UDP SUBSCRIBE/PUBLISH loopback smoke 를 연결한다.
+RIO UDP benchmark Task 2/3 UDP loopback runner dispatch 와 SAEA UDP smoke 구현을 완료했다.
+`--smoke --protocol udp --backend saea --report <path>`는 이제 `BrokerServer.StartUdpAsync(...)`와
+UDP `SUBSCRIBE`/`PUBLISH` datagram loopback 을 실행해 `udp-loopback-saea-baseline-smoke` raw report 를 만든다.
+report schema 는 기존 writer 를 재사용하고, identity 는 `benchmark-profile=udp-loopback-saea-v1`,
+`transport-backend=SaeaTransport`를 기록한다.
+
+다음 작업은 RIO UDP benchmark load/open-loop/baseline-suite 구현이다.
+현재 `--protocol udp --load`, `--load-open-loop`, `--baseline-suite`는 아직 Program guard 로 실패 처리된다.
+다음 Red 테스트는 `--load --protocol udp --backend saea --report <temp>`가
+`udp-loopback-saea-baseline` raw report 를 만들어야 한다는 계약으로 시작한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP benchmark Task 2/3 UDP loopback runner dispatch 와 SAEA UDP smoke 를 구현한다.
+이번 cycle 은 RIO UDP benchmark load/open-loop/baseline-suite 를 구현한다.
 
-- 범위: `tests/Hps.Benchmarks/Program.cs`, 새 UDP loopback runner 또는 protocol-aware runner 분기,
-  `BenchmarkRunIdentity` UDP profile, 기존 report writer schema, `tests/Hps.Benchmarks.Tests/` Program/report tests.
-- 검증: Program/report Red-Green, SAEA UDP smoke CLI, benchmark tests,
+- 범위: `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`, `Program.cs`, baseline-suite wiring,
+  `tests/Hps.Benchmarks.Tests/` Program/report tests, 필요 시 UDP runner helper 정리.
+- 검증: Program/report Red-Green, SAEA UDP load/open-loop CLI smoke, benchmark tests,
   `dotnet build HighPerformanceSocket.slnx --no-restore`, `dotnet test HighPerformanceSocket.slnx --no-build`,
   `git diff --check`.
 
@@ -1347,8 +1353,7 @@ UDP evidence 로 잘못 저장되는 중간 상태를 막는다.
 
 - `TransportFactory` 기본 선택 코드 변경
 - RIO UDP receive prefetch 구현
-- RIO UDP load/open-loop artifact 수집
-- RIO backend UDP benchmark 실행
+- RIO backend UDP benchmark artifact 수집
 - RIO unavailable fallback/default selection policy 구현
 - IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 정책 구현

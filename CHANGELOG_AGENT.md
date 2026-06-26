@@ -5,6 +5,35 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP benchmark smoke runner)
+
+### 작업 단위
+- RIO UDP benchmark Task 2/3 UDP loopback runner dispatch 와 SAEA UDP smoke 를 구현했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`:
+  `BrokerServer.StartUdpAsync(...)` 기반 UDP `SUBSCRIBE`/`PUBLISH` smoke loopback runner 를 추가했다.
+  subscriber outbound 는 TCP frame 이 아니라 raw payload datagram 으로 수신해 기존 payload layout 을 검증한다.
+- `tests/Hps.Benchmarks/Program.cs`:
+  `--smoke --protocol udp`를 UDP runner 로 dispatch 한다.
+  UDP load/open-loop/baseline-suite 는 다음 단위 전까지 계속 실패 처리한다.
+- `tests/Hps.Benchmarks/BenchmarkRunIdentity.cs`:
+  UDP SAEA/RIO benchmark profile helper 를 추가해 raw report 가 `udp-loopback-...` profile 을 기록하게 했다.
+- `tests/Hps.Benchmarks.Tests/BenchmarkProgramProtocolTests.cs`:
+  SAEA UDP smoke CLI가 raw report 를 쓰고 UDP scenario/profile/backend/delivery/drop/leak field 를 보존하는지 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  UDP smoke 완료와 다음 load/open-loop/baseline-suite 구현 진입점을 기록했다.
+
+### 검증
+- Red: Program protocol test 가 기존 guard 때문에 exit code 1로 실패.
+- Green: focused Program protocol test 1개 통과.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore`: 76개 통과.
+- 실제 CLI: `--smoke --protocol udp --backend saea --report <temp>` pass,
+  scenario `udp-loopback-saea-baseline-smoke`, profile `udp-loopback-saea-v1`,
+  sent/received 8/8, dropped 0, pool-rented 0 확인.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build`: 323개 통과.
+
 ## 2026-06-26 (Codex - RIO UDP benchmark protocol selector)
 
 ### 작업 단위

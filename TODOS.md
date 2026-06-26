@@ -9,16 +9,16 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP benchmark Task 2/3 UDP loopback runner dispatch 와 SAEA UDP smoke 를 구현한다.
-  - 목적: D112 protocol selector 가 실제 `BrokerServer.StartUdpAsync(...)` 기반 UDP smoke runner 로 연결되게 한다.
-  - 범위: `tests/Hps.Benchmarks/Program.cs`, 새 UDP loopback runner 또는 protocol-aware runner 분기,
-    `BenchmarkRunIdentity` UDP profile, `TcpLoopbackReportWriter` schema 재사용,
-    `tests/Hps.Benchmarks.Tests/` Program/report tests.
-  - 현재 판단: Task 1은 `--protocol udp`를 인식하지만 잘못된 TCP artifact 생성을 막기 위해 Program guard 로 실패 처리한다.
-    다음 단위는 이 guard 를 실제 UDP SAEA smoke runner 로 대체하고, load/open-loop 는 그 다음 확장으로 이어갈 수 있다.
-  - 다음 자연스러운 step: Red 테스트로 `--smoke --protocol udp --backend saea --report <temp>`가
-    `udp-loopback-saea-baseline-smoke` raw report 를 만들어야 함을 고정한다.
-  - 검증: focused Program/report test, SAEA UDP smoke CLI, benchmark tests, solution build/test, `git diff --check`.
+- [ ] RIO UDP benchmark load/open-loop/baseline-suite 를 구현한다.
+  - 목적: D112 UDP artifact 수집을 smoke 에서 Phase 4 핵심 workload 인 4096B x 100Hz load/open-loop 와 반복 suite 로 확장한다.
+  - 범위: `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`, `Program.cs`, `BaselineSuiteRunner` wiring,
+    `tests/Hps.Benchmarks.Tests/` Program/report tests, 필요 시 UDP runner helper 정리.
+  - 현재 판단: UDP SAEA smoke 는 `udp-loopback-saea-baseline-smoke` raw report 를 생성한다.
+    `--protocol udp --load`, `--load-open-loop`, `--baseline-suite`는 아직 Program guard 로 실패 처리된다.
+  - 다음 자연스러운 step: Red 테스트로 `--load --protocol udp --backend saea --report <temp>`가
+    `udp-loopback-saea-baseline` raw report 를 만들어야 함을 고정한다.
+  - 검증: focused Program/report tests, SAEA UDP load/open-loop CLI smoke, benchmark tests,
+    solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -84,6 +84,16 @@
     Program guard Red 는 `--smoke --protocol udp --report ...`가 exit code 0을 반환해 실패했다.
   - Green/검증: parser focused 22개 통과, Program guard focused 1개 통과,
     `Hps.Benchmarks.Tests` 76개 통과, solution build 0경고/0오류, solution tests 323개 통과.
+
+- [x] RIO UDP benchmark Task 2/3 UDP loopback runner dispatch 와 SAEA UDP smoke 를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`, `Program.cs`, `BenchmarkRunIdentity.cs`,
+    `tests/Hps.Benchmarks.Tests/BenchmarkProgramProtocolTests.cs`, root 상태 문서.
+  - 결과: `--smoke --protocol udp --backend saea --report <path>`가 `BrokerServer.StartUdpAsync(...)`와
+    UDP `SUBSCRIBE`/`PUBLISH` datagram loopback 을 실행해 `udp-loopback-saea-baseline-smoke` raw report 를 만든다.
+    report schema 는 기존 writer 를 재사용하며 `benchmark-profile=udp-loopback-saea-v1`을 기록한다.
+  - Red: Program test 가 기존 guard 때문에 exit code 1로 실패했다.
+  - Green/검증: focused Program protocol test 1개 통과, `Hps.Benchmarks.Tests` 76개 통과,
+    실제 SAEA UDP smoke CLI pass, solution build 0경고/0오류, solution tests 323개 통과.
 
 - [x] RIO/SAEA backend contract matrix 를 RIO UDP edge tests 로 보강했다.
   - 범위: `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D111 결정 문서, root 상태 문서.
