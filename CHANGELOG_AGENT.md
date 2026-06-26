@@ -5,6 +5,38 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP completion notification wait)
+
+### 작업 단위
+- RIO UDP completion notification wait Task 2 wait path 전환을 TDD로 구현했다.
+
+### 변경 내용
+- `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
+  `RioUdpEndpoint_WhenNotificationWaitIsExpected_ExposesArmNotificationHelper`를 추가했다.
+  UDP wait path 가 TCP RIO처럼 notification arm helper 를 갖는지 고정한다.
+- `src/Hps.Transport.Rio/RioUdpEndpoint.cs`:
+  `ArmNotification(...)`을 추가해 CQ drain 과 같은 lock 에서 `RIONotify` arm 을 직렬화한다.
+  `WSAEALREADY`는 TCP RIO 경로와 같은 benign race 로 처리한다.
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  UDP receive/send wait 호출부가 각각 `ReceiveSignal`/`SendSignal`을 넘기고,
+  `WaitForUdpCompletionAsync(...)`가 open 상태에서 `Task.Delay(1)` polling 대신 signal wait 를 사용한다.
+  close-drain fallback 은 owner cleanup 을 위해 제한적으로 유지한다.
+- `docs/superpowers/plans/2026-06-26-rio-udp-completion-notification-wait.md`,
+  `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 2 완료와 다음 Task 3 scratch benchmark/D116 판단 진입점을 반영했다.
+
+### 검증
+- Red: `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore --filter "FullyQualifiedName~RioUdpEndpoint_WhenNotificationWaitIsExpected_ExposesArmNotificationHelper"`가
+  기존 endpoint 에서 `Assert.NotNull()` failure 로 실패했다.
+- Green: 같은 focused test 1개 통과.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore --filter "FullyQualifiedName~RioTransportUdpTests"`:
+  15개 통과.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`:
+  52개 통과.
+- `git diff --check`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 333개 통과.
+
 ## 2026-06-26 (Codex - RIO UDP completion signal shape)
 
 ### 작업 단위

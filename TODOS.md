@@ -9,15 +9,14 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` RIO UDP completion notification wait Task 2 wait path 를 구현한다.
-  - 목적: UDP completion wait 를 open 상태 bounded yield/delay polling 에서 TCP RIO와 같은
-    dequeue -> `RIONotify` arm -> signal wait 경로로 바꾼다.
-  - 범위: `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`,
-    `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `src/Hps.Transport.Rio/RioTransport.cs`.
-  - 현재 판단: Task 1에서 `RioUdpEndpoint` receive/send signal resource 와 notification-backed CQ shape 는 준비됐다.
-  - 다음 자연스러운 step: `RioUdpEndpoint_WhenNotificationWaitIsExpected_ExposesArmNotificationHelper` Red test 를 추가하고
-    `Assert.NotNull()` 실패를 확인한다.
-  - 검증: focused Red/Green, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`, `git diff --check`.
+- [ ] `P1_SOON` RIO UDP completion notification wait Task 3 scratch benchmark 와 D116 판단을 수행한다.
+  - 목적: Task 2 notification wait 전환 뒤 RIO UDP 4096B x 100Hz load/open-loop p99 tail 과 open-loop receive loss 가
+    이전 16.7ms tail 및 3000/2409 결과에서 개선됐는지 재측정한다.
+  - 범위: `tests/Hps.Benchmarks`, `artifacts/benchmarks/rio-udp/2026-06-26/session-03/rio`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 현재 판단: UDP endpoint signal shape 와 open-state notification wait 구현은 focused/full RIO tests 에서 green 이다.
+  - 다음 자연스러운 step: RIO UDP baseline suite 를 1회 실행하고 summary 를 생성한 뒤 old RIO session-02 및 SAEA session-01 과 비교한다.
+  - 검증: benchmark raw/summary artifact 생성, `git diff --check`, solution build/test.
 
 ## Deferred Backlog
 
@@ -52,6 +51,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP completion notification wait Task 2 wait path 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `src/Hps.Transport.Rio/RioTransport.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, 구현 계획 문서, root 상태 문서.
+  - 결과: `RioUdpEndpoint.ArmNotification(...)`이 CQ drain 과 같은 lock 에서 `RIONotify`를 arm 하고,
+    `WaitForUdpCompletionAsync(...)`는 open 상태에서 `Task.Delay(1)` polling 없이 signal wait 로 대기한다.
+    close-drain fallback 은 owner cleanup 을 위해 제한적으로 유지한다.
+  - Red: `RioUdpEndpoint_WhenNotificationWaitIsExpected_ExposesArmNotificationHelper`가 기존 endpoint 에서
+    `Assert.NotNull()` failure 로 실패했다.
+  - 검증: Red/Green focused test, `RioTransportUdpTests` 15개, `Hps.Transport.Rio.Tests` 52개 통과.
 
 - [x] RIO UDP completion notification wait Task 1 endpoint signal shape 를 구현했다.
   - 범위: `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `src/Hps.Transport.Rio/RioTransport.cs`,

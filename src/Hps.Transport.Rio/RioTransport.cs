@@ -24,7 +24,6 @@ namespace Hps.Transport
         private const int SingleDataBufferPerRequest = 1;
         private const int TcpLengthPrefixSize = 4;
         private const int UdpAddressBlockSize = 32;
-        private const int UdpCompletionYieldBudget = 4096;
         private const int UdpCloseDrainDelayBudget = 8;
 
         private readonly object _gate;
@@ -397,6 +396,7 @@ namespace Hps.Transport
                     RioResult completion = await WaitForUdpCompletionAsync(
                         endpoint,
                         endpoint.ReceiveCompletionQueue,
+                        endpoint.ReceiveSignal,
                         allowAfterClose: true).ConfigureAwait(false);
 
                     received = active.Complete(completion);
@@ -719,6 +719,7 @@ namespace Hps.Transport
                     RioResult completion = await WaitForUdpCompletionAsync(
                         endpoint,
                         endpoint.SendCompletionQueue,
+                        endpoint.SendSignal,
                         allowAfterClose: false).ConfigureAwait(false);
 
                     if (completion.Status != 0 || completion.BytesTransferred != sendBuffer.Length)
@@ -800,10 +801,10 @@ namespace Hps.Transport
         private static async Task<RioResult> WaitForUdpCompletionAsync(
             RioUdpEndpoint endpoint,
             IntPtr completionQueue,
+            RioCompletionSignal signal,
             bool allowAfterClose)
         {
             RioResult[] results = new RioResult[1];
-            int yieldAttempts = 0;
             int closeDelayAttempts = 0;
 
             while (true)
@@ -820,13 +821,6 @@ namespace Hps.Transport
                     if (!allowAfterClose)
                         throw new ObjectDisposedException(nameof(RioUdpEndpoint));
 
-                    if (yieldAttempts < UdpCompletionYieldBudget)
-                    {
-                        yieldAttempts++;
-                        await Task.Yield();
-                        continue;
-                    }
-
                     if (closeDelayAttempts < UdpCloseDrainDelayBudget)
                     {
                         closeDelayAttempts++;
@@ -837,16 +831,10 @@ namespace Hps.Transport
                     throw new ObjectDisposedException(nameof(RioUdpEndpoint));
                 }
 
-                // UDP v1은 아직 TCP처럼 IOCP notification wait 를 쓰지 않는다.
-                // receive close-drain 경로에서는 close 이후에도 CQ를 먼저 살펴보고, completion 이 없을 때만 bounded fallback 으로 owner cleanup 에 맡긴다.
-                if (yieldAttempts < UdpCompletionYieldBudget)
-                {
-                    yieldAttempts++;
-                    await Task.Yield();
-                    continue;
-                }
-
-                await Task.Delay(1).ConfigureAwait(false);
+                // 정상 open 경로는 TCP RIO와 동일하게 CQ notification을 arm한 뒤 IOCP 신호를 기다린다.
+                // close-drain 경로만 owner 정리를 위해 제한된 delay fallback을 유지한다.
+                endpoint.ArmNotification(completionQueue, signal);
+                await signal.WaitAsync().ConfigureAwait(false);
             }
         }
 

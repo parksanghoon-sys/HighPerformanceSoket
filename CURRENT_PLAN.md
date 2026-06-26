@@ -1381,22 +1381,28 @@ Task 1 endpoint notification resource shape 구현을 완료했다.
 `RioUdpEndpoint`는 receive/send `RioCompletionSignal`을 소유하고, UDP receive/send CQ를 notification completion pointer 로 생성한다.
 `RioTransport.BindUdpAsync(...)`는 TCP RIO와 같은 shared `RioCompletionPort`를 endpoint 에 넘긴다.
 Red evidence 는 `BindUdpAsync_WhenRioDatagramAvailable_CreatesUdpCompletionSignals`가 기존 endpoint 에서 `Assert.NotNull()` failure 로 실패한 것이다.
-다음 작업은 Task 2로 UDP completion wait path 를 `RIONotify` + signal wait 로 전환하는 것이다.
+Task 2 wait path 전환도 완료했다.
+`RioUdpEndpoint.ArmNotification(...)`은 CQ drain 과 같은 lock 에서 `RIONotify`를 arm 하고,
+`WaitForUdpCompletionAsync(...)`는 open 상태에서 `Task.Delay(1)` polling 없이 signal wait 로 대기한다.
+close-drain fallback 은 owner cleanup 을 위해 제한적으로 유지한다.
+Red evidence 는 `RioUdpEndpoint_WhenNotificationWaitIsExpected_ExposesArmNotificationHelper`가 기존 endpoint 에서
+`Assert.NotNull()` failure 로 실패한 것이다.
+검증은 focused Red/Green, `RioTransportUdpTests` 15개, `Hps.Transport.Rio.Tests` 52개,
+solution build 경고 0/오류 0, solution test 333개 통과로 마쳤다.
+다음 작업은 Task 3으로 RIO UDP scratch benchmark 를 다시 수집하고 D116 채택/보류를 판단하는 것이다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP completion notification wait Task 2 wait path 전환을 TDD로 구현한다.
+이번 cycle 은 RIO UDP completion notification wait Task 3 scratch benchmark 와 D116 판단을 수행한다.
 
-- 범위: `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`,
-  `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `src/Hps.Transport.Rio/RioTransport.cs`,
-  RIO UDP completion notification wait 계획/상태 문서.
-- 검증: focused Red assertion failure, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`,
-  필요 시 solution build/test, `git diff --check`.
+- 범위: `tests/Hps.Benchmarks`, `artifacts/benchmarks/rio-udp/2026-06-26/session-03/rio`,
+  `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, RIO UDP completion notification wait 계획/상태 문서.
+- 검증: RIO UDP baseline suite raw/summary artifact 생성, old RIO session-02 및 SAEA session-01 비교,
+  `git diff --check`, solution build/test.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
-- scratch benchmark 재측정(Task 3 범위)
 - RIO unavailable fallback/default selection policy 구현
 - IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 정책 구현

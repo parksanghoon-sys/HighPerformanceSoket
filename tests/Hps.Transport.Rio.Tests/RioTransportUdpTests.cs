@@ -80,6 +80,18 @@ namespace Hps.Transport.Rio.Tests
             }
         }
 
+        // UDP wait path 가 TCP RIO처럼 notification arm helper 를 가져야 hot path 에서 Task.Delay fallback 을 제거할 수 있다.
+        // 기존 bounded yield/delay polling 구현에는 이 helper shape 가 없었기 때문에 회귀 시 다시 잡힌다.
+        [Fact]
+        public void RioUdpEndpoint_WhenNotificationWaitIsExpected_ExposesArmNotificationHelper()
+        {
+            MethodInfo? method = typeof(RioUdpEndpoint).GetMethod(
+                "ArmNotification",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(method);
+        }
+
         // RIO UDP receive loop 는 SAEA UDP 와 같은 public handler 계약을 지켜야 한다.
         // raw UDP client 가 보낸 datagram 이 owned RefCountedBuffer 로 전달되고,
         // remote endpoint 는 RIOReceiveEx 가 채운 SOCKADDR_INET buffer 에서 복원되어야 한다.

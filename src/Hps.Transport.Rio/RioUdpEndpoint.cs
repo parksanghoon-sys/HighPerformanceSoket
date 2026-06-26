@@ -269,6 +269,31 @@ namespace Hps.Transport
             }
         }
 
+        internal void ArmNotification(IntPtr completionQueue, RioCompletionSignal signal)
+        {
+            lock (_completionGate)
+            {
+                if (IsDisposed)
+                    throw new ObjectDisposedException(nameof(RioUdpEndpoint));
+
+                // RIONotify는 같은 CQ에 동시에 여러 번 arm할 수 없으므로 CQ drain과 같은 lock에서 직렬화한다.
+                // TryArmNotification이 이미 arm된 상태를 기억하면 중복 Notify를 피하고, WSAEALREADY는 TCP 경로와 같은 benign race로 본다.
+                if (!signal.TryArmNotification())
+                    return;
+
+                int notifyResult = Native.Notify(completionQueue);
+                if (notifyResult == 0)
+                    return;
+
+                const int WsaEAlready = 10037;
+                if (notifyResult == WsaEAlready)
+                    return;
+
+                signal.MarkNotificationArmFailed();
+                throw new SocketException(notifyResult);
+            }
+        }
+
         /// <inheritdoc />
         public void Close()
         {

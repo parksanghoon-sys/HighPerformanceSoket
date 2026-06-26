@@ -179,7 +179,7 @@ git commit -m "fix: add rio udp completion signals"
 - Modify: `src/Hps.Transport.Rio/RioUdpEndpoint.cs`
 - Modify: `src/Hps.Transport.Rio/RioTransport.cs`
 
-- [ ] **Step 1: Write the failing wait-shape test**
+- [x] **Step 1: Write the failing wait-shape test**
 
 Add this test near the signal shape test:
 
@@ -197,19 +197,23 @@ public void RioUdpEndpoint_WhenNotificationWaitIsExpected_ExposesArmNotification
 }
 ```
 
-- [ ] **Step 2: Run the focused Red test**
+- [x] **Step 2: Run the focused Red test**
 
 Run:
 
 ```powershell
-dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-build --no-restore --filter "FullyQualifiedName~RioUdpEndpoint_WhenNotificationWaitIsExpected_ExposesArmNotificationHelper"
+dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore --filter "FullyQualifiedName~RioUdpEndpoint_WhenNotificationWaitIsExpected_ExposesArmNotificationHelper"
 ```
 
 Expected:
 
 - Fail with `Assert.NotNull()` because `RioUdpEndpoint.ArmNotification(...)` does not exist.
 
-- [ ] **Step 3: Add UDP notification arm helper**
+Actual Red:
+
+- Failed with `Assert.NotNull() Failure: Value is null`.
+
+- [x] **Step 3: Add UDP notification arm helper**
 
 In `RioUdpEndpoint`, add:
 
@@ -243,7 +247,7 @@ internal void ArmNotification(IntPtr completionQueue, RioCompletionSignal signal
 
 This mirrors `RioConnectionResource.ArmNotification(...)`.
 
-- [ ] **Step 4: Change `WaitForUdpCompletionAsync(...)`**
+- [x] **Step 4: Change `WaitForUdpCompletionAsync(...)`**
 
 Change signature:
 
@@ -310,7 +314,7 @@ while (true)
 
 Do not keep `Task.Delay(1)` in the endpoint-open path. The close fallback stays because D114 close-drain may need a bounded cleanup exit when socket close does not surface a completion.
 
-- [ ] **Step 5: Run focused RIO UDP tests**
+- [x] **Step 5: Run focused RIO UDP tests**
 
 Run:
 
@@ -322,7 +326,12 @@ Expected:
 
 - All `RioTransportUdpTests` pass.
 
-- [ ] **Step 6: Run full RIO tests**
+Actual:
+
+- `RioUdpEndpoint_WhenNotificationWaitIsExpected_ExposesArmNotificationHelper`: 1 passed.
+- `RioTransportUdpTests`: 15 passed.
+
+- [x] **Step 6: Run full RIO tests**
 
 Run:
 
@@ -334,7 +343,11 @@ Expected:
 
 - All RIO tests pass.
 
-- [ ] **Step 7: Run solution build/test**
+Actual:
+
+- `Hps.Transport.Rio.Tests`: 52 passed.
+
+- [x] **Step 7: Run solution build/test**
 
 Run:
 
@@ -347,6 +360,12 @@ Expected:
 
 - Build warning 0/error 0.
 - All tests pass.
+
+Actual:
+
+- `git diff --check`: passed.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: warning 0/error 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 333 passed.
 
 - [ ] **Step 8: Commit Task 2**
 
