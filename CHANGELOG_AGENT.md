@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP open-loop residual loss/tail design)
+
+### 작업 단위
+- D114 이후 남은 RIO UDP open-loop delivery loss 와 p99 tail 을 source/benchmark evidence 로 재평가했다.
+- 구현은 하지 않고, 다음 구현 후보를 결정 문서와 설계 문서로 좁혔다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-26-rio-udp-open-loop-residual-loss-tail-design.md`:
+  RIO UDP `session-02/rio`와 SAEA UDP `session-01/saea` scratch 결과를 비교하고,
+  receive depth 확대, UDP IOCP/RIONotify wait, receive registration reuse 후보를 평가했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D115를 추가했다. 다음 구현 후보는 receive depth 확대가 아니라 UDP CQ completion wait 를
+  TCP RIO와 같은 IOCP/RIONotify pattern 으로 맞추는 것이다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  residual loss/tail 설계를 완료로 기록하고, 다음 실행 지점을 D115 구현 계획 작성으로 옮겼다.
+
+### 검증
+- RIO UDP `session-02/rio`: closed-loop sent/received 3000/3000, p99 16719.2 us, open-loop sent 3000 / received 2409,
+  p99 16709.1 us, elapsed 35003ms, hard-passed false.
+- SAEA UDP `session-01/saea`: closed-loop sent/received 3000/3000, p99 814.2 us, open-loop sent/received 3000/3000,
+  p99 852.2 us, hard-passed true.
+- `src/Hps.Transport.Rio/RioTransport.cs`: UDP wait 는 bounded `Task.Yield()` 이후 `Task.Delay(1)` fallback 을 사용한다.
+- `src/Hps.Transport.Rio/RioTransport.cs`: TCP RIO wait 는 CQ notification pointer, `RIONotify`, IOCP signal wait 를 사용한다.
+
 ## 2026-06-26 (Codex - RIO UDP receive window benchmark decision)
 
 ### 작업 단위

@@ -9,17 +9,16 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` RIO UDP open-loop residual loss/tail 재평가 설계를 작성한다.
-  - 목적: D114 one-deep pre-post 이후에도 남은 RIO UDP open-loop delivery loss 와 약 16.7ms p99 tail 의 원인을
-    구현 전에 source/benchmark evidence 로 좁힌다.
+- [ ] `P1_SOON` RIO UDP IOCP/RIONotify completion wait 구현 계획을 작성한다.
+  - 목적: D115 설계를 Red-Green 가능한 구현 단위로 나누고, UDP endpoint notification resource 와 wait path 변경의
+    검증 순서를 확정한다.
   - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`,
-    ignored scratch `artifacts/benchmarks/rio-udp/2026-06-26/session-01/`,
-    `artifacts/benchmarks/rio-udp/2026-06-26/session-02/`, RIO UDP hardening 설계/결정 문서.
-  - 현재 판단: session-02 closed-loop load 는 sent/received 3000/3000으로 delivery hard gate 를 통과했지만,
-    open-loop 는 sent 3000 / received 2409 / actual-rate 85.7 Hz / p99 16709.1 us 로 실패했다.
-  - 다음 자연스러운 step: receive completion wait, per-datagram registration/cache 비용, benchmark open-loop scheduler,
-    RIO UDP send path 병목 후보를 대조해 최소 다음 구현 후보를 설계 문서로 정리한다.
-  - 검증: source/benchmark artifact 대조, 설계 문서 placeholder scan, `git diff --check`.
+    `docs/superpowers/specs/2026-06-26-rio-udp-open-loop-residual-loss-tail-design.md`,
+    RIO UDP hardening 설계/결정 문서.
+  - 현재 판단: D115로 receive depth 확대보다 UDP CQ notification wait parity 를 먼저 검증하기로 결정했다.
+  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-26-rio-udp-completion-notification-wait.md`에
+    endpoint signal shape, wait path 전환, scratch benchmark 재측정 task 를 작성한다.
+  - 검증: D115 설계 coverage self-review, TCP RIO wait pattern 대조, 계획 문서 placeholder scan, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -54,6 +53,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP open-loop residual loss/tail 재평가 설계를 작성했다.
+  - 범위: `docs/superpowers/specs/2026-06-26-rio-udp-open-loop-residual-loss-tail-design.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: D115로 다음 구현 후보를 UDP CQ IOCP/RIONotify wait parity 로 결정했다.
+    receive depth 확대, receive payload registration reuse, latency hard gate 승격은 이번 다음 구현 범위에서 제외한다.
+  - 근거: RIO UDP p99 16.7ms tail 은 현재 `WaitForUdpCompletionAsync(...)`의 `Task.Delay(1)` fallback 및 Windows timer quantum 과 맞고,
+    SAEA UDP는 같은 harness 에서 p99 0.85ms 수준으로 통과했다.
+  - 다음: endpoint receive/send signal resource shape, UDP wait notification 전환, scratch benchmark 재측정을 구현 계획으로 나눈다.
 
 - [x] RIO UDP receive window hardening Task 2 benchmark 재수집과 D114 문서화를 완료했다.
   - 범위: `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, `CURRENT_PLAN.md`,
