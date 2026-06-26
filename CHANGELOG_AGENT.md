@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP default readiness review)
+
+### 작업 단위
+- RIO UDP parity 이후 default backend 승격 가능성을 재검토했다.
+
+### 변경 내용
+- `docs/agent-state/reviews/2026-06-26-rio-udp-parity-default-readiness-review.md`:
+  D109 RIO UDP 구현 이후에도 default backend 승격을 보류해야 하는 근거와 material failure mode 를 기록했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D110을 추가했다. RIO UDP parity 이후에도 `TransportFactory.CreateDefault()`는 계속 `SaeaTransport`를 반환하고,
+  다음 작업은 RIO/SAEA backend contract matrix 보강으로 둔다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  현재 실행 지점을 RIO/SAEA backend contract matrix 보강으로 이동하고,
+  RIO UDP benchmark artifact, fallback/default selection policy, IPv6 지원 판단을 deferred backlog 로 분리했다.
+
+### 검증
+- source/test/decision matrix 를 대조했다.
+- `git diff --check`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build`: 314개 통과.
+- 문서 전용 변경이므로 프로덕션 코드와 테스트 코드는 수정하지 않았다.
+
 ## 2026-06-26 (Codex - RIO UDP diagnostics parity)
 
 ### 작업 단위

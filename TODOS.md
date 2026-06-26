@@ -9,15 +9,47 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP backend self-review/default promotion readiness 를 재평가한다.
-  - 목적: D109 구현 완료 이후 D108 default backend promotion gate 중 남은 기능 parity, fallback, contract matrix 조건을 확인한다.
-  - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Runtime/TransportFactory.cs`,
-    RIO/SAEA transport tests, D108/D109 결정 문서, root 상태 문서.
-  - 현재 판단: RIO UDP native Ex, endpoint owner, receive loop, send loop, diagnostics parity 는 완료됐다.
-  - 다음 자연스러운 step: RIO/SAEA TCP/UDP contract matrix 를 대조하고 default promotion 을 지금 진행할지 또는 추가 gate 로 defer 할지 결정한다.
-  - 검증: source/test/decision matrix 대조, 필요 시 focused RIO/SAEA tests, solution build/test, `git diff --check`.
+- [ ] RIO/SAEA backend contract matrix 보강을 설계하거나 첫 Red test 로 착수한다.
+  - 목적: D110에 따라 RIO default promotion 전에 SAEA/RIO UDP의 공통 transport 계약을 같은 의미로 검증한다.
+  - 범위: `src/Hps.Transport/`, `src/Hps.Transport.Rio/`, `tests/Hps.Transport.Tests/`,
+    `tests/Hps.Transport.Rio.Tests/`, RIO/SAEA UDP endpoint tests.
+  - 현재 판단: RIO UDP native Ex, endpoint owner, receive loop, send loop, diagnostics parity 는 완료됐지만
+    close drain, drop-oldest/high-watermark, handler exception close notify, no-prefetch/pool ownership matrix 는
+    아직 default 승격 근거로 충분히 공유되지 않았다.
+  - 다음 자연스러운 step: 기존 SAEA/RIO UDP tests 를 대조해 공유 가능한 contract fixture 또는 첫 RIO UDP edge-case Red test 를 정한다.
+  - 검증: contract matrix 후보 정리, Red failure 확인, focused transport/RIO tests, 필요 시 solution build/test, `git diff --check`.
 
 ## Deferred Backlog
+
+- [ ] `P1_SOON` RIO UDP benchmark artifact 를 수집한다.
+  - 무엇이 남았는지: RIO UDP receive/send/diagnostics parity 이후 UDP datagram 경로의 benchmark artifact 가 아직 없다.
+  - 왜 defer 되었는지: D110에서 default promotion 의 즉시 blocker 는 benchmark 이전에 contract matrix 부족으로 판단했다.
+  - objective: RIO UDP가 SAEA UDP 대비 delivery/drop/leak/latency/HWM 관측에서 어떤 특성을 보이는지 raw report 로 남긴다.
+  - relevant context: D109, D110, `src/Hps.Transport.Rio/`, benchmark backend selector 구조.
+  - 관련 파일/범위: `tests/Hps.Benchmarks/`, RIO/SAEA transport benchmark runner, `docs/benchmarks/baselines/` 또는 scratch artifact 정책.
+  - 현재 상태 또는 이미 시도한 접근: TCP SAEA/RIO benchmark selector 와 raw report schema 는 존재하지만 UDP benchmark scenario 는 아직 별도화되지 않았다.
+  - known blockers 또는 open questions: UDP benchmark command shape, repository baseline 채택 여부, scratch artifact 위치.
+  - 가장 자연스러운 next step: contract matrix 보강 후 UDP benchmark scenario 설계를 별도 단위로 작성한다.
+
+- [ ] `P1_SOON` RIO unavailable fallback/default selection policy 를 설계한다.
+  - 무엇이 남았는지: Windows에서 RIO 사용 가능 여부에 따라 default backend 를 자동 선택할지, 명시 policy API를 둘지 결정하지 않았다.
+  - 왜 defer 되었는지: D110 기준으로 RIO는 아직 default 후보가 아니며, 먼저 SAEA/RIO contract parity 와 UDP benchmark evidence 가 필요하다.
+  - objective: `TransportFactory.CreateDefault()` 승격 여부와 실패 시 SAEA fallback/observability 정책을 명확히 한다.
+  - relevant context: D108, D110, `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/RioNative.cs`.
+  - 관련 파일/범위: transport factory, capability probe, benchmark/test opt-in path, runtime documentation.
+  - 현재 상태 또는 이미 시도한 접근: default factory 는 계속 `SaeaTransport`를 반환하고 RIO는 명시 opt-in/test/benchmark path 로만 생성한다.
+  - known blockers 또는 open questions: automatic selection vs explicit policy API, failure logging/diagnostics surface.
+  - 가장 자연스러운 next step: contract matrix 와 benchmark artifact 확보 뒤 별도 default policy 설계를 작성한다.
+
+- [ ] `P2_LATER` RIO UDP IPv6 지원 여부를 default promotion gate 전에 결정한다.
+  - 무엇이 남았는지: 현재 RIO UDP address encode/decode 는 IPv4 `SOCKADDR_INET` 경로만 구현되어 있다.
+  - 왜 defer 되었는지: v1 RIO UDP loopback parity 는 IPv4로 충분히 검증됐고, default promotion 은 아직 보류 상태다.
+  - objective: Interface Server 기본 backend 승격 전에 IPv6 UDP bind/send/receive 를 필수 gate 로 볼지 결정한다.
+  - relevant context: D109, D110, RIO `ReceiveEx`/`SendEx` address buffer handling.
+  - 관련 파일/범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, RIO UDP tests.
+  - 현재 상태 또는 이미 시도한 접근: IPv4 loopback bind/receive/echo tests 는 green 이다.
+  - known blockers 또는 open questions: IPv6 endpoint encode/decode shape, test environment availability, default backend compatibility expectation.
+  - 가장 자연스러운 next step: default promotion 재평가 전에 IPv6를 필수 gate 로 둘지 설계 결정한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -30,6 +62,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP parity/default promotion readiness 를 재검토했다.
+  - 범위: `src/Hps.Transport.Rio/`, `src/Hps.Transport/Runtime/TransportFactory.cs`,
+    RIO/SAEA transport tests, D108/D109/D110 결정 문서, root 상태 문서.
+  - 결과: RIO UDP native Ex, endpoint owner, receive loop, send loop, diagnostics parity 는 완료됐지만,
+    IPv4-only UDP, 공유 contract matrix 부족, fallback policy 부재, UDP benchmark evidence 부족 때문에
+    `TransportFactory.CreateDefault()`는 계속 `SaeaTransport`를 반환한다고 정리했다(D110).
+  - 검증: source/test/decision matrix 대조, review 문서 작성, `git diff --check`,
+    solution build 0경고/0오류, solution tests 314개 통과.
+  - 비고: 다음 작업은 default promotion 이 아니라 RIO/SAEA backend contract matrix 보강이다.
 
 - [x] RIO UDP Task 5 diagnostics parity 를 구현했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
