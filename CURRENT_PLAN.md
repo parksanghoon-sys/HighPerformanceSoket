@@ -1358,16 +1358,20 @@ receive operation resource 는 receive loop 단일 소유, handler exception 중
 receive loop 경로, remote address block 은 endpoint lifetime shared block + decode-before-next-post 로 고정한다.
 one-deep pre-post 구현 계획은 `docs/superpowers/plans/2026-06-26-rio-udp-receive-window-hardening.md`에 작성했다.
 계획은 close-safe one-deep receive loop 구현(Task 1)과 benchmark/D114 문서화(Task 2)로 나뉜다.
-다음 작업은 계획 Task 1의 Red 테스트를 작성하고 현재 no-prefetch 구현에서 실패를 확인하는 것이다.
+Task 1 close-safe one-deep receive loop 구현을 완료했다.
+`RioUdpReceiveOperation`이 receive datagram 과 data buffer registration id 를 단일 소유하고,
+`RioUdpEndpoint.Close()`는 shutdown request 로 제한되며 receive/send native resource 는 각 pump drain 이후 정리된다.
+Red evidence 는 one-deep 기대 테스트 2개가 기존 D111 no-prefetch 구현에서 `Expected: 2, Actual: 1`로 실패한 것이다.
+다음 작업은 Task 2로 RIO UDP scratch benchmark 를 재수집하고 구현 수락 상태에 맞춰 D114 문서화를 진행하는 것이다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP receive window hardening 계획 Task 1 Red 테스트 작성으로 시작한다.
+이번 cycle 은 RIO UDP receive window hardening Task 2 benchmark/D114 문서화를 진행한다.
 
-- 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-  `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D111/D113 결정, RIO UDP scratch benchmark evidence.
-- 검증: focused Red test assertion failure 확인, focused RIO UDP tests, focused RIO tests,
-  필요 시 solution build/test, `git diff --check`.
+- 범위: `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, `CURRENT_PLAN.md`, `TODOS.md`,
+  `CHANGELOG_AGENT.md`, ignored scratch `artifacts/benchmarks/rio-udp/2026-06-26/session-02/`.
+- 검증: RIO UDP `--baseline-suite --protocol udp --backend rio --runs 1`, summary JSON/Markdown 생성,
+  solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 

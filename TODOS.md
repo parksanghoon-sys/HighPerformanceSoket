@@ -9,17 +9,16 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP receive window hardening Task 1 close-safe one-deep receive loop 를 구현한다.
-  - 목적: handler dispatch 전에 다음 `RIOReceiveEx`를 하나 pre-post 하되, close/handler exception 경로에서
-    outstanding receive operation 을 누수 없이 정리한다.
-  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`.
-  - 현재 판단: 구현 계획은 `docs/superpowers/plans/2026-06-26-rio-udp-receive-window-hardening.md`에 있으며,
-    Task 1은 Red 테스트, `RioUdpReceiveOperation`, endpoint close/resource split, send/receive drain hook 을 한 coherent unit 으로 다룬다.
-  - 다음 자연스러운 step: `UdpReceive_WhenHandlerIsBlocked_PrePostsOneAdditionalReceive` Red 테스트를 작성하고
-    현재 D111 no-prefetch 구현에서 assertion failure 를 확인한다.
-  - 검증: focused Red/Green, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`,
-    필요 시 solution build/test, `git diff --check`.
+- [ ] RIO UDP receive window hardening Task 2 benchmark 재수집과 D114 문서화를 진행한다.
+  - 목적: Task 1 one-deep pre-post 구현 후 RIO UDP scratch benchmark 를 다시 수집하고,
+    구현 수락 상태에 맞춰 D111 supersede/D114 결정을 문서화한다.
+  - 범위: `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, `CURRENT_PLAN.md`,
+    `TODOS.md`, `CHANGELOG_AGENT.md`, ignored scratch `artifacts/benchmarks/rio-udp/2026-06-26/session-02/`.
+  - 현재 판단: Task 1은 focused RIO UDP/RIO tests 와 solution build/test 를 통과했다.
+    아직 benchmark evidence 와 D114 결정 문서화는 남아 있다.
+  - 다음 자연스러운 step: `--baseline-suite artifacts\benchmarks\rio-udp\2026-06-26\session-02\rio --runs 1 --protocol udp --backend rio`
+    scratch command 를 실행하고 summary artifact 를 만든다.
+  - 검증: benchmark command/summary 결과, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -54,6 +53,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP receive window hardening Task 1 close-safe one-deep receive loop 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, root 상태 문서.
+  - 결과: `RioUdpReceiveOperation` owner 를 추가하고 handler dispatch 전에 다음 receive 를 하나 pre-post 한다.
+    `RioUdpEndpoint.Close()`는 shutdown request 로 제한하고 receive/send native resource 는 각 pump drain 이후 정리한다.
+  - Red: one-deep receive/close 테스트 2개가 기존 no-prefetch 구현에서 `Expected: 2, Actual: 1`로 실패했다.
+  - Green/검증: focused one-deep tests 3개 통과, focused `RioTransportUdpTests` 13개 통과,
+    focused `Hps.Transport.Rio.Tests` 50개 통과, solution build 경고 0/오류 0,
+    solution tests 331개 통과.
 
 - [x] RIO UDP receive window hardening 구현 계획을 작성했다.
   - 범위: `docs/superpowers/plans/2026-06-26-rio-udp-receive-window-hardening.md`, root 상태 문서.

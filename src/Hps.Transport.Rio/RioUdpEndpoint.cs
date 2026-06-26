@@ -43,6 +43,9 @@ namespace Hps.Transport
         private int _pendingSendQueueHighWatermark;
         private int _closed;
         private int _disposed;
+        private int _pumpsStarted;
+        private int _receiveResourcesDisposed;
+        private int _sendResourcesDisposed;
 
         internal RioUdpEndpoint(RioTransport transport, Socket socket, RioNative native)
         {
@@ -72,7 +75,8 @@ namespace Hps.Transport
             try
             {
                 // ReceiveEx 는 completion 때 remote SOCKADDR_INET 을 caller 제공 registered buffer 에 쓴다.
-                // no-prefetch receive 라서 endpoint lifetime scratch block 하나를 안전하게 재사용할 수 있다.
+                // one-deep receive 는 completion 직후 managed EndPoint 로 먼저 decode 한 뒤 다음 receive 를 post 하므로
+                // endpoint lifetime scratch block 하나를 계속 재사용할 수 있다.
                 _remoteAddressBlock = _remoteAddressPool.Rent();
                 RemoteAddressBufferId = RegisterPinnedArray(Native, _remoteAddressBlock);
                 _sendAddressBlock = _sendAddressPool.Rent();
@@ -94,7 +98,7 @@ namespace Hps.Transport
             }
             catch
             {
-                DisposeNativeResources();
+                DisposeAllNativeResourcesAfterConstructorFailure();
                 throw;
             }
         }
@@ -155,6 +159,11 @@ namespace Hps.Transport
         internal bool IsClosed => Volatile.Read(ref _closed) != 0;
 
         internal bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
+        internal void MarkPumpsStarted()
+        {
+            Volatile.Write(ref _pumpsStarted, 1);
+        }
 
         internal bool TryAcceptSend(EndPoint remoteEndPoint, TransportSendBuffer sendBuffer)
         {
@@ -252,13 +261,25 @@ namespace Hps.Transport
         /// <inheritdoc />
         public void Close()
         {
-            if (Interlocked.Exchange(ref _closed, 1) != 0)
-                return;
+            RequestClose();
 
+            if (Volatile.Read(ref _pumpsStarted) == 0)
+            {
+                CompleteReceiveDrain();
+                CompleteSendDrain();
+            }
+        }
+
+        internal bool RequestClose()
+        {
+            if (Interlocked.Exchange(ref _closed, 1) != 0)
+                return false;
+
+            _socket.Dispose();
             DrainPendingSends();
             _sendSignal.Release();
-            DisposeNativeResources();
             _transport.UnregisterUdpEndpoint(this);
+            return true;
         }
 
         /// <inheritdoc />
@@ -267,25 +288,19 @@ namespace Hps.Transport
             Close();
         }
 
-        private void DisposeNativeResources()
+        internal void CompleteReceiveDrain()
         {
-            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            if (Interlocked.Exchange(ref _receiveResourcesDisposed, 1) != 0)
                 return;
-
-            _socket.Dispose();
 
             lock (_completionGate)
             {
-                // RIO completion queue close 와 dequeue/notify 는 같은 native handle 을 만지므로 직렬화한다.
+                // receive loop 가 outstanding receive operation 을 정리한 뒤에만 receive CQ 를 닫는다.
+                // Close()에서 즉시 닫으면 pre-post 된 completion 을 관측하지 못해 buffer id lifetime 이 깨질 수 있다.
                 IntPtr receiveCompletionQueue = ReceiveCompletionQueue;
                 ReceiveCompletionQueue = IntPtr.Zero;
                 if (receiveCompletionQueue != IntPtr.Zero)
                     Native.CloseCompletionQueue(receiveCompletionQueue);
-
-                IntPtr sendCompletionQueue = SendCompletionQueue;
-                SendCompletionQueue = IntPtr.Zero;
-                if (sendCompletionQueue != IntPtr.Zero)
-                    Native.CloseCompletionQueue(sendCompletionQueue);
             }
 
             IntPtr remoteAddressBufferId = RemoteAddressBufferId;
@@ -293,15 +308,31 @@ namespace Hps.Transport
             if (remoteAddressBufferId != IntPtr.Zero)
                 Native.DeregisterBuffer(remoteAddressBufferId);
 
-            IntPtr sendAddressBufferId = SendAddressBufferId;
-            SendAddressBufferId = IntPtr.Zero;
-            if (sendAddressBufferId != IntPtr.Zero)
-                Native.DeregisterBuffer(sendAddressBufferId);
-
             byte[]? remoteAddressBlock = _remoteAddressBlock;
             _remoteAddressBlock = null;
             if (remoteAddressBlock != null)
                 _remoteAddressPool.Return(remoteAddressBlock);
+
+            TryMarkDisposed();
+        }
+
+        internal void CompleteSendDrain()
+        {
+            if (Interlocked.Exchange(ref _sendResourcesDisposed, 1) != 0)
+                return;
+
+            lock (_completionGate)
+            {
+                IntPtr sendCompletionQueue = SendCompletionQueue;
+                SendCompletionQueue = IntPtr.Zero;
+                if (sendCompletionQueue != IntPtr.Zero)
+                    Native.CloseCompletionQueue(sendCompletionQueue);
+            }
+
+            IntPtr sendAddressBufferId = SendAddressBufferId;
+            SendAddressBufferId = IntPtr.Zero;
+            if (sendAddressBufferId != IntPtr.Zero)
+                Native.DeregisterBuffer(sendAddressBufferId);
 
             byte[]? sendAddressBlock = _sendAddressBlock;
             _sendAddressBlock = null;
@@ -310,6 +341,25 @@ namespace Hps.Transport
 
             PayloadRegistrationCache.Dispose();
             _sendSignal.Dispose();
+            TryMarkDisposed();
+        }
+
+        private void DisposeAllNativeResourcesAfterConstructorFailure()
+        {
+            RequestClose();
+            CompleteReceiveDrain();
+            CompleteSendDrain();
+        }
+
+        private void TryMarkDisposed()
+        {
+            if (Volatile.Read(ref _receiveResourcesDisposed) == 0)
+                return;
+
+            if (Volatile.Read(ref _sendResourcesDisposed) == 0)
+                return;
+
+            Interlocked.Exchange(ref _disposed, 1);
         }
 
         private long ReadDroppedPendingSendCount()

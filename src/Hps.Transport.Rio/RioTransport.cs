@@ -25,6 +25,7 @@ namespace Hps.Transport
         private const int TcpLengthPrefixSize = 4;
         private const int UdpAddressBlockSize = 32;
         private const int UdpCompletionYieldBudget = 4096;
+        private const int UdpCloseDrainDelayBudget = 8;
 
         private readonly object _gate;
         private readonly List<RioConnectionListener> _listeners;
@@ -163,6 +164,7 @@ namespace Hps.Transport
                 socket.Bind(localEndPoint);
                 endpoint = new RioUdpEndpoint(this, socket, native);
                 RegisterUdpEndpoint(endpoint);
+                endpoint.MarkPumpsStarted();
                 StartUdpReceiveLoop(endpoint);
                 StartUdpSendLoop(endpoint);
                 socket = null!;
@@ -338,8 +340,8 @@ namespace Hps.Transport
 
         private void StartUdpReceiveLoop(RioUdpEndpoint endpoint)
         {
-            // RIO UDP receive 는 SAEA 와 같은 no-prefetch 모델을 유지한다.
-            // handler 가 datagram 처리를 끝내기 전에는 다음 ReceiveEx 를 post 하지 않아 pool 과 fan-out 소유권 경계를 단순하게 둔다.
+            // RIO UDP receive 는 handler dispatch 전에 다음 ReceiveEx 를 하나만 미리 post 한다.
+            // handler 병렬 호출 없이 receive-not-armed window 를 줄이되, receive operation owner 가 current/next buffer 수명을 단일 경로로 정리한다.
             // async method 를 직접 시작하면 첫 await 전까지 현재 call stack 에서 실행되므로 BindUdpAsync 반환 전에 첫 ReceiveEx 가 post 된다.
             // RIO UDP 는 receive post 이전에 도착한 datagram 을 안정적으로 completion 하지 않을 수 있어, Task.Run scheduling race 를 피한다.
             _ = UdpReceiveLoopAsync(endpoint);
@@ -357,92 +359,218 @@ namespace Hps.Transport
 
         private async Task UdpSendLoopAsync(RioUdpEndpoint endpoint)
         {
-            while (true)
+            try
             {
-                await endpoint.WaitForSendSignalAsync().ConfigureAwait(false);
-
-                while (endpoint.TryBeginSend(out RioUdpEndpoint.UdpSendRequest sendRequest))
+                while (true)
                 {
-                    await SendUdpDatagramAsync(endpoint, sendRequest.RemoteEndPoint, sendRequest.SendBuffer).ConfigureAwait(false);
-                }
+                    await endpoint.WaitForSendSignalAsync().ConfigureAwait(false);
 
-                if (endpoint.IsClosed)
-                    return;
+                    while (endpoint.TryBeginSend(out RioUdpEndpoint.UdpSendRequest sendRequest))
+                    {
+                        await SendUdpDatagramAsync(endpoint, sendRequest.RemoteEndPoint, sendRequest.SendBuffer).ConfigureAwait(false);
+                    }
+
+                    if (endpoint.IsClosed)
+                        return;
+                }
+            }
+            finally
+            {
+                endpoint.CompleteSendDrain();
             }
         }
 
         private async Task UdpReceiveLoopAsync(RioUdpEndpoint endpoint)
         {
-            while (!endpoint.IsClosed)
+            RioUdpReceiveOperation? current = null;
+            RioUdpReceiveOperation? next = null;
+            ReceivedRioUdpDatagram? received = null;
+
+            try
             {
-                RefCountedBuffer? datagram = endpoint.ReceivePool.RentCounted();
-                IntPtr receiveBufferId = IntPtr.Zero;
+                current = new RioUdpReceiveOperation(endpoint);
+                current.Post();
 
-                try
+                while (true)
                 {
-                    ArraySegment<byte> receiveSegment = GetRefCountedBlockSegment(datagram, 0, endpoint.ReceivePool.BlockSize);
-                    if (receiveSegment.Array == null)
-                        throw new InvalidOperationException("RIO UDP receive 는 pinned byte[] 기반 RefCountedBuffer 만 지원합니다.");
-
-                    receiveBufferId = RegisterPinnedArray(endpoint.Native, receiveSegment.Array);
-                    RioBufferSegment dataSegment = new RioBufferSegment(
-                        receiveBufferId,
-                        receiveSegment.Offset,
-                        receiveSegment.Count);
-                    RioBufferSegment remoteAddressSegment = endpoint.RemoteAddressSegment;
-
-                    if (!endpoint.Native.ReceiveEx(endpoint.RequestQueue, dataSegment, null, remoteAddressSegment, IntPtr.Zero))
-                        throw new SocketException((int)SocketError.ConnectionReset);
-
+                    RioUdpReceiveOperation active = current ?? throw new ObjectDisposedException(nameof(RioUdpReceiveOperation));
                     RioResult completion = await WaitForUdpCompletionAsync(
                         endpoint,
-                        endpoint.ReceiveCompletionQueue).ConfigureAwait(false);
+                        endpoint.ReceiveCompletionQueue,
+                        allowAfterClose: true).ConfigureAwait(false);
 
-                    if (completion.Status != 0 || completion.BytesTransferred > endpoint.ReceivePool.BlockSize)
+                    received = active.Complete(completion);
+                    active.Dispose();
+                    current = null;
+
+                    if (!endpoint.IsClosed)
                     {
-                        datagram.Release();
-                        datagram = null;
+                        next = new RioUdpReceiveOperation(endpoint);
+                        next.Post();
+                    }
+
+                    try
+                    {
+                        RefCountedBuffer dispatchDatagram = received.Datagram;
+                        EndPoint dispatchRemoteEndPoint = received.RemoteEndPoint;
+                        received = null;
+                        DispatchDatagramReceived(endpoint, dispatchRemoteEndPoint, dispatchDatagram);
+                    }
+                    catch
+                    {
+                        next?.Dispose();
+                        next = null;
                         NotifyUdpEndpointClosed(endpoint);
                         return;
                     }
 
-                    datagram.SetLength(checked((int)completion.BytesTransferred));
-                    EndPoint remoteEndPoint = DecodeSockaddrInet(endpoint.RemoteAddressBlock);
+                    if (endpoint.IsClosed)
+                    {
+                        next?.Dispose();
+                        next = null;
+                        return;
+                    }
 
-                    // handler 는 받은 UDP datagram RefCountedBuffer 를 즉시 fan-out send queue 에 넘길 수 있다.
-                    // receive registration 을 유지한 채 같은 backing byte[]를 send registration/cache 에 다시 넣으면
-                    // RIO provider 관점에서 동일 메모리의 native ownership 이 겹친다. completion 이후에는 receive request 가
-                    // 끝난 상태이므로 dispatch 전에 등록을 해제해, 이후 send path 가 payload registration 을 단독으로 잡게 한다.
-                    endpoint.Native.DeregisterBuffer(receiveBufferId);
-                    receiveBufferId = IntPtr.Zero;
+                    current = next;
+                    next = null;
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                if (received != null)
+                {
+                    received.Datagram.Release();
+                    received = null;
+                }
 
-                    // 이 지점부터 datagram 최초 참조의 Release 책임은 handler 계약으로 넘어간다.
-                    RefCountedBuffer ownedDatagram = datagram;
-                    datagram = null;
-                    DispatchDatagramReceived(endpoint, remoteEndPoint, ownedDatagram);
-                }
-                catch (ObjectDisposedException)
+                current?.Dispose();
+                next?.Dispose();
+                return;
+            }
+            catch (SocketException)
+            {
+                if (received != null)
                 {
-                    datagram?.Release();
-                    return;
+                    received.Datagram.Release();
+                    received = null;
                 }
-                catch (SocketException)
+
+                current?.Dispose();
+                next?.Dispose();
+                NotifyUdpEndpointClosed(endpoint);
+                return;
+            }
+            catch
+            {
+                if (received != null)
                 {
-                    datagram?.Release();
-                    NotifyUdpEndpointClosed(endpoint);
-                    return;
+                    received.Datagram.Release();
+                    received = null;
                 }
-                catch
-                {
-                    datagram?.Release();
-                    NotifyUdpEndpointClosed(endpoint);
-                    return;
-                }
-                finally
-                {
-                    if (receiveBufferId != IntPtr.Zero)
-                        endpoint.Native.DeregisterBuffer(receiveBufferId);
-                }
+
+                current?.Dispose();
+                next?.Dispose();
+                NotifyUdpEndpointClosed(endpoint);
+                return;
+            }
+            finally
+            {
+                if (received != null)
+                    received.Datagram.Release();
+
+                current?.Dispose();
+                next?.Dispose();
+                endpoint.CompleteReceiveDrain();
+            }
+        }
+
+        private sealed class ReceivedRioUdpDatagram
+        {
+            internal ReceivedRioUdpDatagram(RefCountedBuffer datagram, EndPoint remoteEndPoint)
+            {
+                Datagram = datagram;
+                RemoteEndPoint = remoteEndPoint;
+            }
+
+            internal RefCountedBuffer Datagram { get; }
+
+            internal EndPoint RemoteEndPoint { get; }
+        }
+
+        private sealed class RioUdpReceiveOperation : IDisposable
+        {
+            private readonly RioUdpEndpoint _endpoint;
+            private RefCountedBuffer? _datagram;
+            private IntPtr _receiveBufferId;
+
+            internal RioUdpReceiveOperation(RioUdpEndpoint endpoint)
+            {
+                _endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
+                _datagram = endpoint.ReceivePool.RentCounted();
+                _receiveBufferId = IntPtr.Zero;
+            }
+
+            internal void Post()
+            {
+                RefCountedBuffer datagram = RequireDatagram();
+                ArraySegment<byte> receiveSegment = RioTransport.GetRefCountedBlockSegment(datagram, 0, _endpoint.ReceivePool.BlockSize);
+                if (receiveSegment.Array == null)
+                    throw new InvalidOperationException("RIO UDP receive 는 pinned byte[] 기반 RefCountedBuffer 만 지원합니다.");
+
+                _receiveBufferId = RioTransport.RegisterPinnedArray(_endpoint.Native, receiveSegment.Array);
+                RioBufferSegment dataSegment = new RioBufferSegment(
+                    _receiveBufferId,
+                    receiveSegment.Offset,
+                    receiveSegment.Count);
+                RioBufferSegment remoteAddressSegment = _endpoint.RemoteAddressSegment;
+
+                if (!_endpoint.Native.ReceiveEx(_endpoint.RequestQueue, dataSegment, null, remoteAddressSegment, IntPtr.Zero))
+                    throw new SocketException((int)SocketError.ConnectionReset);
+            }
+
+            internal ReceivedRioUdpDatagram Complete(RioResult completion)
+            {
+                RefCountedBuffer datagram = RequireDatagram();
+
+                if (completion.Status != 0 || completion.BytesTransferred > _endpoint.ReceivePool.BlockSize)
+                    throw new SocketException((int)SocketError.ConnectionReset);
+
+                datagram.SetLength(checked((int)completion.BytesTransferred));
+                EndPoint remoteEndPoint = RioTransport.DecodeSockaddrInet(_endpoint.RemoteAddressBlock);
+
+                // completion 후 data buffer registration 을 먼저 해제해야 handler fan-out send path 가 같은 backing byte[]를
+                // 독립 payload registration 으로 잡을 수 있다. datagram ref 자체는 handler 로 넘기기 전까지 이 owner 가 보유한다.
+                ReleaseRegistration();
+
+                _datagram = null;
+                return new ReceivedRioUdpDatagram(datagram, remoteEndPoint);
+            }
+
+            public void Dispose()
+            {
+                ReleaseRegistration();
+
+                RefCountedBuffer? datagram = _datagram;
+                _datagram = null;
+                if (datagram != null)
+                    datagram.Release();
+            }
+
+            private RefCountedBuffer RequireDatagram()
+            {
+                RefCountedBuffer? datagram = _datagram;
+                if (datagram == null)
+                    throw new ObjectDisposedException(nameof(RioUdpReceiveOperation));
+
+                return datagram;
+            }
+
+            private void ReleaseRegistration()
+            {
+                IntPtr receiveBufferId = _receiveBufferId;
+                _receiveBufferId = IntPtr.Zero;
+                if (receiveBufferId != IntPtr.Zero)
+                    _endpoint.Native.DeregisterBuffer(receiveBufferId);
             }
         }
 
@@ -590,7 +718,8 @@ namespace Hps.Transport
 
                     RioResult completion = await WaitForUdpCompletionAsync(
                         endpoint,
-                        endpoint.SendCompletionQueue).ConfigureAwait(false);
+                        endpoint.SendCompletionQueue,
+                        allowAfterClose: false).ConfigureAwait(false);
 
                     if (completion.Status != 0 || completion.BytesTransferred != sendBuffer.Length)
                         throw new SocketException((int)SocketError.MessageSize);
@@ -670,14 +799,16 @@ namespace Hps.Transport
 
         private static async Task<RioResult> WaitForUdpCompletionAsync(
             RioUdpEndpoint endpoint,
-            IntPtr completionQueue)
+            IntPtr completionQueue,
+            bool allowAfterClose)
         {
             RioResult[] results = new RioResult[1];
             int yieldAttempts = 0;
+            int closeDelayAttempts = 0;
 
             while (true)
             {
-                if (endpoint.IsClosed || endpoint.IsDisposed)
+                if (endpoint.IsDisposed)
                     throw new ObjectDisposedException(nameof(RioUdpEndpoint));
 
                 uint completed = endpoint.DequeueCompletion(completionQueue, results);
@@ -685,10 +816,29 @@ namespace Hps.Transport
                     return results[0];
 
                 if (endpoint.IsClosed)
-                    throw new ObjectDisposedException(nameof(RioUdpEndpoint));
+                {
+                    if (!allowAfterClose)
+                        throw new ObjectDisposedException(nameof(RioUdpEndpoint));
 
-                // UDP v1 receive parity 는 no-prefetch 단일 outstanding receive 이므로 bounded polling 으로도 resource 경계가 단순하다.
-                // TCP hot path 는 IOCP/RIONotify 를 계속 쓰고, UDP notification 최적화는 send/diagnostics parity 이후 별도 단위에서 다룬다.
+                    if (yieldAttempts < UdpCompletionYieldBudget)
+                    {
+                        yieldAttempts++;
+                        await Task.Yield();
+                        continue;
+                    }
+
+                    if (closeDelayAttempts < UdpCloseDrainDelayBudget)
+                    {
+                        closeDelayAttempts++;
+                        await Task.Delay(1).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    throw new ObjectDisposedException(nameof(RioUdpEndpoint));
+                }
+
+                // UDP v1은 아직 TCP처럼 IOCP notification wait 를 쓰지 않는다.
+                // receive close-drain 경로에서는 close 이후에도 CQ를 먼저 살펴보고, completion 이 없을 때만 bounded fallback 으로 owner cleanup 에 맡긴다.
                 if (yieldAttempts < UdpCompletionYieldBudget)
                 {
                     yieldAttempts++;
@@ -733,11 +883,12 @@ namespace Hps.Transport
 
         private void NotifyUdpEndpointClosed(RioUdpEndpoint endpoint)
         {
+            if (!endpoint.RequestClose())
+                return;
+
             ITransportDatagramHandler? datagramHandler = ReadDatagramHandlerSnapshot();
             if (datagramHandler != null)
                 datagramHandler.OnDatagramEndpointClosed(endpoint);
-
-            endpoint.Close();
         }
 
         private void EnsureRunning()

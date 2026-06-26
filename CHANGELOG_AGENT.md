@@ -5,6 +5,35 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP receive one-deep prepost)
+
+### 작업 단위
+- RIO UDP receive loop 를 D111 no-prefetch 에서 close-safe one-deep pre-post 로 전환했다.
+- endpoint close/resource owner 를 분리해 `Close()`는 shutdown request 만 수행하고, receive/send native resource 는 각 pump drain 이후 정리한다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  `RioUdpReceiveOperation` owner 를 추가하고, handler dispatch 전에 다음 `RIOReceiveEx`를 하나 pre-post 한다.
+  handler exception, socket/native failure, endpoint close 경로에서 current/next receive operation 을 receive loop cleanup 으로 수렴시킨다.
+  UDP send loop 는 종료 시 `CompleteSendDrain()`을 호출한다.
+- `src/Hps.Transport.Rio/RioUdpEndpoint.cs`:
+  `RequestClose()`, `CompleteReceiveDrain()`, `CompleteSendDrain()`을 분리했다.
+  detached endpoint 는 pump 가 없으므로 public `Close()`에서 즉시 receive/send drain 을 완료하고,
+  bound endpoint 는 receive/send pump 가 drain 을 마친 뒤 CQ/address/payload cache/signal resource 를 정리한다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
+  기존 no-prefetch 테스트를 one-deep pre-post 기대 테스트로 교체하고,
+  close 중 pre-post 된 receive cleanup, handler exception 중 pre-post 된 receive cleanup 을 검증하는 테스트를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 1 완료와 다음 Task 2 benchmark/D114 문서화 진입점을 반영했다.
+
+### 검증
+- Red: focused one-deep receive/close 테스트 2개가 기존 no-prefetch 구현에서 `Expected: 2, Actual: 1`로 실패했다.
+- Green: focused one-deep tests 3개 통과.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore --filter "FullyQualifiedName~RioTransportUdpTests"`: 13개 통과.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 50개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 331개 통과.
+
 ## 2026-06-26 (Codex - RIO UDP receive window implementation plan)
 
 ### 작업 단위
