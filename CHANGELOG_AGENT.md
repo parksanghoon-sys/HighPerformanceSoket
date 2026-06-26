@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO default selection policy)
+
+### 작업 단위
+- RIO UDP gate 이후 default selection policy 를 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-26-rio-default-selection-policy-after-udp-design.md`:
+  D118 이후에도 base `TransportFactory.CreateDefault()`를 RIO로 바꾸지 않는 이유를 정리했다.
+  RIO preferred fallback 정책은 host/composition layer 또는 별도 selector package 에 두고,
+  reflection 기반 default RIO loading 은 채택하지 않는다.
+- `docs/superpowers/specs/2026-06-25-rio-default-promotion-readiness-design.md`:
+  D108 당시 readiness 문서임을 표시하고 최신 판단 문서로 연결했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D119를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  default selection policy 설계를 완료로 기록하고 다음 실행 지점을 host/composition transport selection policy 설계로 옮겼다.
+
+### 검증
+- `TransportFactory.CreateDefault()`가 base `Hps.Transport` assembly 안에서 SAEA를 반환하는 현재 구조를 확인했다.
+- `RioCapabilityProbe.GetStatus()`가 unsupported/unavailable/available 상태를 명시 반환하는 것을 확인했다.
+- benchmark `--backend rio`는 explicit RIO path 이며 unavailable 시 SAEA fallback 으로 오염시키지 않는다는 정책을 유지했다.
+- D118 RIO UDP scratch evidence(load/open-loop 3000/3000, p99 831.8/889.4 us)를 default 승격의 성능 근거로만 사용하고,
+  assembly dependency/fallback observability 문제는 별도 D119 판단으로 분리했다.
+
 ## 2026-06-26 (Codex - RIO UDP bounded receive benchmark)
 
 ### 작업 단위

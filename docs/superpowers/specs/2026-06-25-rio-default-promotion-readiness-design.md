@@ -1,5 +1,10 @@
 # RIO default promotion readiness 설계
 
+> 상태 보정(2026-06-26): 이 문서는 D108 당시의 readiness 기준을 보존한다.
+> D118 이후 RIO UDP scratch gate 는 통과했지만, `TransportFactory.CreateDefault()`는 의존 방향과 fallback policy 때문에
+> 여전히 SAEA default 로 유지한다. 최신 policy 판단은
+> `docs/superpowers/specs/2026-06-26-rio-default-selection-policy-after-udp-design.md`를 본다.
+
 ## 상태
 
 Accepted.

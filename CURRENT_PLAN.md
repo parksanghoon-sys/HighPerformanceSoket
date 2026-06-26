@@ -1410,20 +1410,29 @@ RIO `session-04/load`는 sent/received 3000/3000, p99 831.8 us 로 통과했다.
 RIO `session-04/open-loop`은 sent/received 3000/3000, p99 889.4 us 로 통과했다.
 summary 는 hard-passed true, warning 0이다.
 D118로 bounded receive window 를 RIO UDP open-loop delivery hard gate 를 닫은 기준선으로 수락했다.
+RIO UDP gate 이후 default selection policy 설계도 완료했다(D119).
+설계 문서는 `docs/superpowers/specs/2026-06-26-rio-default-selection-policy-after-udp-design.md`다.
+결정은 `TransportFactory.CreateDefault()`를 계속 deterministic SAEA default 로 유지하고,
+RIO preferred fallback 정책은 `Hps.Transport` base assembly 가 아니라 RIO assembly 를 참조할 수 있는
+host/composition layer 또는 별도 selector package 에 두는 것이다.
+reflection 기반 default RIO loading 은 배포/버전/관측성 문제를 숨기므로 채택하지 않는다.
+explicit RIO benchmark 또는 explicit RIO backend 선택은 unavailable 시 SAEA로 fallback 하지 않고 실패한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO unavailable fallback/default selection policy 설계를 작성한다.
+이번 cycle 은 host/composition transport selection policy 설계를 작성한다.
 
-- 범위: `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/RioNative.cs`,
-  RIO/SAEA contract matrix, D108/D110/D118 decisions, benchmark/test opt-in path, runtime documentation.
-- 검증: current factory behavior, RIO capability probe, RIO TCP/UDP tests, scratch benchmark evidence,
-  decision/state docs consistency.
+- 범위: `src/Hps.Server/`, `samples/`, `tests/Hps.Benchmarks/`의 backend selector 선례,
+  `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`,
+  D108/D110/D118/D119 decisions.
+- 검증: 현재 host/sample composition entry point, benchmark `--backend <saea|rio>` explicit selector,
+  `BrokerServer` injected transport 경계, fallback 관측성 요구를 대조하고 설계 문서와 state docs consistency 를 확인한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
-- RIO unavailable fallback/default selection policy 구현
+- host/composition selector 구현 코드
+- 별도 selector package 생성
 - IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 정책 구현
 - CI artifact 자동 채택, pull_request trigger, schedule trigger

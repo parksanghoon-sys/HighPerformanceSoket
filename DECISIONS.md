@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D119 — RIO UDP gate 이후에도 base `TransportFactory.CreateDefault()`는 SAEA로 유지하고 preferred RIO는 composition layer policy 로 둔다.
 - D118 — RIO UDP bounded receive window 는 open-loop delivery hard gate 를 닫은 기준선으로 수락한다.
 - D117 — RIO UDP open-loop delivery loss 는 receive payload registration reuse 가 아니라 bounded receive slot window 로 먼저 다룬다.
 - D116 — RIO UDP IOCP/RIONotify wait 는 p99 wake tail 을 해소했지만 open-loop delivery loss 는 receive-side 후속으로 남긴다.

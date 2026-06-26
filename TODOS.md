@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` RIO unavailable fallback/default selection policy 를 설계한다.
-  - 목적: D118로 RIO UDP scratch gate 가 닫힌 뒤에도 `TransportFactory.CreateDefault()`를 언제/어떻게 RIO 후보로 승격할지 결정한다.
-  - 범위: `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/RioNative.cs`,
-    RIO/SAEA contract matrix, D108/D110/D118 decisions, benchmark/test opt-in path, runtime documentation.
-  - 현재 판단: RIO TCP/UDP opt-in path 는 통과했지만 default 승격은 fallback/error policy 와 backend contract matrix 를 먼저 정해야 한다.
-  - 다음 자연스러운 step: automatic selection vs explicit policy API, RIO unavailable fallback, observability surface 를 비교하는 설계를 작성한다.
-  - 검증: current factory behavior, RIO capability probe, RIO TCP/UDP tests, scratch benchmark evidence, decision/state docs consistency.
+- [ ] `P1_SOON` host/composition transport selection policy 를 설계한다.
+  - 목적: D119에 따라 base `TransportFactory.CreateDefault()`는 SAEA로 유지하면서, 실행 host 가 RIO preferred/auto 선택을 제공할지 결정한다.
+  - 범위: `src/Hps.Server/`, `samples/`, `tests/Hps.Benchmarks/`의 backend selector 선례,
+    `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`, D119 decision.
+  - 현재 판단: RIO preferred fallback 정책은 base assembly 가 아니라 RIO assembly 를 참조할 수 있는 composition layer 에 둬야 한다.
+  - 다음 자연스러운 step: `--transport saea|rio|auto` 같은 host option, fallback observability, explicit RIO failure semantics 를 비교하는 설계를 작성한다.
+  - 검증: host/sample entry point 와 benchmark selector 선례를 대조하고, selector 구현 없이 설계 문서와 state docs consistency 를 확인한다.
 
 ## Deferred Backlog
 
@@ -40,6 +40,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP gate 이후 default selection policy 설계를 완료했다.
+  - 범위: `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`,
+    D108/D110/D118 decisions, benchmark explicit RIO path, root 상태 문서.
+  - 결과: D119로 `TransportFactory.CreateDefault()`는 계속 deterministic SAEA default 를 반환하고,
+    RIO preferred fallback 정책은 host/composition layer 또는 별도 selector package 에 둔다고 기록했다.
+  - 비고: base factory 직접 RIO 참조와 reflection 기반 RIO loading 은 의존 방향/배포/관측성 문제로 채택하지 않는다.
+  - 검증: current factory behavior, RIO capability probe, explicit benchmark backend selector, D118 scratch evidence 를 대조했다.
 
 - [x] RIO UDP bounded receive window Task 1 depth-2 receive behavior 를 구현했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
