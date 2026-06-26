@@ -5,6 +5,29 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - sample broker transport program wiring)
+
+### 작업 단위
+- sample broker transport selector Task 3 Program wiring/smoke 를 TDD로 구현했다.
+
+### 변경 내용
+- `tests/Hps.Sample.BrokerServer.Tests/SampleBrokerServerProgramTests.cs`:
+  invalid `--transport` usage path 가 exit code 2와 transport usage text 를 반환하는지 검증했다.
+- `samples/Hps.Sample.BrokerServer/Program.cs`:
+  `SampleBrokerServerCommandParser`와 `SampleTransportSelector`를 사용해 transport 를 생성한다.
+  startup output 에 selected backend 를 표시하고, usage 에 `[--transport <saea|rio|auto>]`를 추가했다.
+- `docs/superpowers/plans/2026-06-26-sample-broker-transport-selector.md`,
+  `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 3 완료와 다음 self-review 진입점을 반영했다.
+
+### 검증
+- Red: focused Program tests 2개가 기존 usage output 에 `--transport <saea|rio|auto>`가 없어 `Assert.Contains()` failure 로 실패했다.
+- Green: focused Program tests 2개 통과.
+- Focused sample tests 12개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 346개 통과.
+- `git diff --check`: 통과.
+
 ## 2026-06-26 (Codex - sample broker transport selector policy)
 
 ### 작업 단위

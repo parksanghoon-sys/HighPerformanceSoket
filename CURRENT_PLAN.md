@@ -1436,16 +1436,19 @@ sample broker server project 가 `Hps.Transport.Rio`를 참조하고,
 `SampleTransportSelection`/`SampleTransportSelector`가 `saea`, explicit `rio`, preferred `auto` 정책을 구현한다.
 selector 는 RIO capability probe 와 transport factory delegate 를 주입받으므로 tests 가 실제 OS/RIO availability 에 의존하지 않는다.
 explicit `rio`는 unavailable 시 runtime failure `1`로 실패하고, `auto`는 unavailable/unsupported 시 SAEA fallback notice 를 반환한다.
+Task 3 Program wiring/smoke 구현도 완료했다.
+`samples/Hps.Sample.BrokerServer/Program.cs`는 `SampleBrokerServerCommandParser`와 `SampleTransportSelector`를 사용해
+transport 를 만들고, startup output 에 selected backend 를 표시한다.
+usage 는 `[--transport <saea|rio|auto>]`를 포함하며, invalid transport option 은 broker start 전에 exit code 2로 종료한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 sample broker server transport selector Task 3 Program wiring/smoke 를 TDD로 구현한다.
+이번 cycle 은 sample broker transport selector 구현 self-review 를 수행한다.
 
-- 범위: `samples/Hps.Sample.BrokerServer/Program.cs`,
-  `tests/Hps.Sample.BrokerServer.Tests/SampleBrokerServerProgramTests.cs`,
-  D120 implementation plan Task 3.
-- 검증: usage output Red 확인, focused Program tests, focused sample tests,
-  solution build/test, `git diff --check`.
+- 범위: `samples/Hps.Sample.BrokerServer/`, `tests/Hps.Sample.BrokerServer.Tests/`,
+  D120 설계/구현 계획, current diff/commits.
+- 검증: 설계 대비 구현 coverage, dependency direction, explicit rio/auto fallback semantics,
+  test quality, docs consistency 를 대조하고 필요 시 follow-up 을 `TODOS.md`에 남긴다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

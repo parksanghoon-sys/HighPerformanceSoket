@@ -648,7 +648,7 @@ git commit -m "feat: add sample broker transport selector"
 - Modify: `TODOS.md`
 - Modify: `CHANGELOG_AGENT.md`
 
-- [ ] **Step 1: failing Program usage tests 를 작성한다**
+- [x] **Step 1: failing Program usage tests 를 작성한다**
 
 `tests/Hps.Sample.BrokerServer.Tests/SampleBrokerServerProgramTests.cs`:
 
@@ -718,7 +718,7 @@ namespace Hps.Sample.BrokerServer.Tests
 }
 ```
 
-- [ ] **Step 2: Red test 를 실행해 기존 args.Length==3 path 때문에 실패를 확인한다**
+- [x] **Step 2: Red test 를 실행해 기존 args.Length==3 path 때문에 실패를 확인한다**
 
 Run:
 
@@ -733,7 +733,7 @@ Assert.Contains() Failure
 Not found: --transport <saea|rio|auto>
 ```
 
-- [ ] **Step 3: Program 을 parser/selector 로 wiring 한다**
+- [x] **Step 3: Program 을 parser/selector 로 wiring 한다**
 
 Modify `samples/Hps.Sample.BrokerServer/Program.cs`:
 
@@ -806,7 +806,7 @@ Console.Error.WriteLine("예시: Hps.Sample.BrokerServer 127.0.0.1 5000 65536");
 Console.Error.WriteLine("예시: Hps.Sample.BrokerServer 127.0.0.1 5000 65536 --transport auto");
 ```
 
-- [ ] **Step 4: focused sample tests 를 실행한다**
+- [x] **Step 4: focused sample tests 를 실행한다**
 
 Run:
 
@@ -820,7 +820,7 @@ Expected:
 Passed!  - Failed: 0
 ```
 
-- [ ] **Step 5: solution build/test 를 실행한다**
+- [x] **Step 5: solution build/test 를 실행한다**
 
 Run:
 
@@ -838,7 +838,7 @@ Failed: 0
 git diff --check exits 0
 ```
 
-- [ ] **Step 6: 상태 문서를 갱신한다**
+- [x] **Step 6: 상태 문서를 갱신한다**
 
 Update `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`:
 
@@ -847,7 +847,7 @@ Update `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`:
 - 다음 실행 후보.
 - build/test/diff-check 결과.
 
-- [ ] **Step 7: Task 3 commit**
+- [x] **Step 7: Task 3 commit**
 
 ```powershell
 git add samples\Hps.Sample.BrokerServer\Program.cs tests\Hps.Sample.BrokerServer.Tests\SampleBrokerServerProgramTests.cs CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md

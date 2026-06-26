@@ -9,13 +9,14 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` sample broker server transport selector Task 3 Program wiring/smoke 를 구현한다.
-  - 목적: parser/selector 를 실제 sample broker `Program.Main`에 연결하고 usage/startup output 을 갱신한다.
-  - 범위: `samples/Hps.Sample.BrokerServer/Program.cs`,
-    `tests/Hps.Sample.BrokerServer.Tests/SampleBrokerServerProgramTests.cs`.
-  - 현재 판단: valid broker start path 는 Ctrl+C wait 로 장기 실행되므로, Red는 invalid transport usage output 으로 잡고 selector behavior 는 Task 2 tests 로 보장한다.
-  - 다음 자연스러운 step: 기존 Program usage text 에 `--transport <saea|rio|auto>`가 없어 실패하는 focused Program tests 를 작성한다.
-  - 검증: focused Program tests, focused sample tests, solution build/test, `git diff --check`.
+- [ ] `P1_SOON` sample broker transport selector 구현 self-review 를 수행한다.
+  - 목적: D120 설계와 Task 1~3 구현이 일치하는지 확인하고, 남은 follow-up 이 있으면 명시적으로 분리한다.
+  - 범위: `samples/Hps.Sample.BrokerServer/`, `tests/Hps.Sample.BrokerServer.Tests/`,
+    `docs/superpowers/specs/2026-06-26-host-composition-transport-selection-policy-design.md`,
+    `docs/superpowers/plans/2026-06-26-sample-broker-transport-selector.md`.
+  - 현재 판단: 코드 구현은 완료됐고, 다음은 리뷰 관점에서 dependency direction, fallback semantics, tests, docs consistency 를 확인하는 단계다.
+  - 다음 자연스러운 step: implementation self-review 문서를 작성하거나 상태 문서에 review 결과와 follow-up 을 기록한다.
+  - 검증: code/spec/plan 대조, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -40,6 +41,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] sample broker server transport selector Task 3 Program wiring/smoke 를 구현했다.
+  - 범위: `samples/Hps.Sample.BrokerServer/Program.cs`,
+    `tests/Hps.Sample.BrokerServer.Tests/SampleBrokerServerProgramTests.cs`,
+    implementation plan/state docs.
+  - 결과: Program 이 parser/selector 로 transport 를 생성하고 startup output 에 selected backend 를 표시한다.
+    usage 는 `[--transport <saea|rio|auto>]`를 포함한다.
+  - Red: Program usage tests 2개가 기존 usage output 에 `--transport <saea|rio|auto>`가 없어 `Assert.Contains()` failure 로 실패했다.
+  - Green/검증: focused Program tests 2개 통과, focused sample tests 12개 통과,
+    solution build 경고 0/오류 0, solution tests 346개 통과, `git diff --check` 통과.
 
 - [x] sample broker server transport selector Task 2 selection policy 를 구현했다.
   - 범위: `samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj`,
