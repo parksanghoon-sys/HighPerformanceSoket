@@ -13,6 +13,9 @@ namespace Hps.Benchmarks
         public const string MessageBackendPathRequired = "--backend 옵션에는 saea 또는 rio 값이 필요합니다.";
         public const string MessageBackendInvalid = "--backend 옵션은 saea 또는 rio 값만 사용할 수 있습니다.";
         public const string MessageBackendExecutionOnly = "--backend 옵션은 benchmark 실행 명령에서만 사용할 수 있습니다.";
+        public const string MessageProtocolPathRequired = "--protocol 옵션에는 tcp 또는 udp 값이 필요합니다.";
+        public const string MessageProtocolInvalid = "--protocol 옵션은 tcp 또는 udp 값만 사용할 수 있습니다.";
+        public const string MessageProtocolExecutionOnly = "--protocol 옵션은 benchmark 실행 명령에서만 사용할 수 있습니다.";
         public const string MessageBaselineOutputRequired = "--baseline-suite 옵션에는 report directory 경로가 필요합니다.";
         public const string MessageBaselineRunsInvalid = "--runs 옵션에는 1 이상의 정수가 필요합니다.";
         public const string MessageBaselineReportNotAllowed = "--report 옵션은 --baseline-suite 와 함께 사용할 수 없습니다.";
@@ -79,6 +82,12 @@ namespace Hps.Benchmarks
                 return true;
             }
 
+            if (ContainsProtocolOption(args))
+            {
+                errorMessage = MessageProtocolExecutionOnly;
+                return true;
+            }
+
             return false;
         }
 
@@ -105,6 +114,7 @@ namespace Hps.Benchmarks
 
             int runCount = DefaultBaselineRunCount;
             TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea;
+            LoopbackProtocol loopbackProtocol = LoopbackProtocol.Tcp;
             for (int index = 2; index < args.Length; index += 2)
             {
                 if (index + 1 >= args.Length)
@@ -123,6 +133,11 @@ namespace Hps.Benchmarks
                     if (!TryParseTransportBackend(args[index + 1], out transportBackend, out errorMessage))
                         break;
                 }
+                else if (string.Equals(args[index], "--protocol", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!TryParseLoopbackProtocol(args[index + 1], out loopbackProtocol, out errorMessage))
+                        break;
+                }
                 else
                 {
                     errorMessage = MessageUnknownRunnerArgs;
@@ -130,7 +145,7 @@ namespace Hps.Benchmarks
                 }
             }
 
-            commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, args[1], runCount, null, null, null, null, null, null, transportBackend);
+            commandLine = new BenchmarkCommandLine(BenchmarkCommand.BaselineSuite, null, args[1], runCount, null, null, null, null, null, null, transportBackend, loopbackProtocol);
             return true;
         }
 
@@ -158,6 +173,12 @@ namespace Hps.Benchmarks
             if (ContainsBackendOption(args))
             {
                 errorMessage = MessageBackendExecutionOnly;
+                return true;
+            }
+
+            if (ContainsProtocolOption(args))
+            {
+                errorMessage = MessageProtocolExecutionOnly;
                 return true;
             }
 
@@ -232,6 +253,12 @@ namespace Hps.Benchmarks
                 return true;
             }
 
+            if (ContainsProtocolOption(args))
+            {
+                errorMessage = MessageProtocolExecutionOnly;
+                return true;
+            }
+
             if ((args.Length != 4 && args.Length != 6) || !string.Equals(args[2], "--history", StringComparison.OrdinalIgnoreCase))
             {
                 errorMessage = MessageHistoryOutputRequired;
@@ -284,8 +311,9 @@ namespace Hps.Benchmarks
         {
             string? reportPath;
             TcpLoopbackTransportBackend transportBackend;
-            ParseRunnerOptions(args, out reportPath, out transportBackend, out errorMessage);
-            commandLine = new BenchmarkCommandLine(command, reportPath, null, 0, null, null, null, null, null, null, transportBackend);
+            LoopbackProtocol loopbackProtocol;
+            ParseRunnerOptions(args, out reportPath, out transportBackend, out loopbackProtocol, out errorMessage);
+            commandLine = new BenchmarkCommandLine(command, reportPath, null, 0, null, null, null, null, null, null, transportBackend, loopbackProtocol);
             return true;
         }
 
@@ -293,10 +321,12 @@ namespace Hps.Benchmarks
             string[] args,
             out string? reportPath,
             out TcpLoopbackTransportBackend transportBackend,
+            out LoopbackProtocol loopbackProtocol,
             out string? errorMessage)
         {
             reportPath = null;
             transportBackend = TcpLoopbackTransportBackend.Saea;
+            loopbackProtocol = LoopbackProtocol.Tcp;
             errorMessage = null;
 
             for (int index = 1; index < args.Length; index += 2)
@@ -322,6 +352,11 @@ namespace Hps.Benchmarks
                     if (!TryParseTransportBackend(args[index + 1], out transportBackend, out errorMessage))
                         return;
                 }
+                else if (string.Equals(args[index], "--protocol", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!TryParseLoopbackProtocol(args[index + 1], out loopbackProtocol, out errorMessage))
+                        return;
+                }
                 else
                 {
                     errorMessage = MessageUnknownRunnerArgs;
@@ -340,6 +375,9 @@ namespace Hps.Benchmarks
 
             if (ContainsBackendOption(args))
                 return MessageBackendExecutionOnly;
+
+            if (ContainsProtocolOption(args))
+                return MessageProtocolExecutionOnly;
 
             return MessageUnknownRunnerArgs;
         }
@@ -360,6 +398,17 @@ namespace Hps.Benchmarks
             for (int i = 0; i < args.Length; i++)
             {
                 if (string.Equals(args[i], "--backend", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool ContainsProtocolOption(string[] args)
+        {
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (string.Equals(args[i], "--protocol", StringComparison.OrdinalIgnoreCase))
                     return true;
             }
 
@@ -390,6 +439,33 @@ namespace Hps.Benchmarks
             }
 
             errorMessage = MessageBackendInvalid;
+            return false;
+        }
+
+        private static bool TryParseLoopbackProtocol(
+            string value,
+            out LoopbackProtocol loopbackProtocol,
+            out string? errorMessage)
+        {
+            loopbackProtocol = LoopbackProtocol.Tcp;
+            errorMessage = null;
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                errorMessage = MessageProtocolPathRequired;
+                return false;
+            }
+
+            if (string.Equals(value, "tcp", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (string.Equals(value, "udp", StringComparison.OrdinalIgnoreCase))
+            {
+                loopbackProtocol = LoopbackProtocol.Udp;
+                return true;
+            }
+
+            errorMessage = MessageProtocolInvalid;
             return false;
         }
     }

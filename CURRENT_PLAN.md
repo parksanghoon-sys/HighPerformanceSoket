@@ -1322,25 +1322,33 @@ RIO UDP benchmark artifact 수집 범위와 command shape 설계를 완료했다
 UDP raw report 는 기존 schema 를 재사용하며 `benchmark-profile`/`scenario`를 `udp-loopback-...` 계열로 채워 구분한다.
 첫 RIO UDP evidence 는 repository baseline 이 아니라 `artifacts/benchmarks/rio-udp/...` scratch 영역에 수집한다.
 
-다음 작업은 RIO UDP benchmark Task 1 protocol selector model/parser 구현이다.
-먼저 parser Red 테스트로 `--load --protocol udp --backend rio --report out.json`이 protocol 을 보존해야 함을 고정하고,
-summary/history command 에서는 `--protocol`을 usage error 로 막는다.
+RIO UDP benchmark Task 1 protocol selector model/parser 구현을 완료했다.
+runner/baseline-suite command 는 이제 `--protocol <tcp|udp>`를 파싱해 `BenchmarkCommandLine.LoopbackProtocol`에 보존한다.
+summary/history/help/target 또는 runner 없는 위치에서는 `--protocol`을 usage error 로 막는다.
+UDP runner 가 아직 연결되지 않았기 때문에 Program 은 `--protocol udp` 실행을 실패 처리해 TCP smoke report 가
+UDP evidence 로 잘못 저장되는 중간 상태를 막는다.
+
+다음 작업은 RIO UDP benchmark Task 2/3 UDP loopback runner dispatch 와 SAEA UDP smoke 구현이다.
+먼저 Program/report Red 테스트로 `--smoke --protocol udp --backend saea --report <temp>`가
+`udp-loopback-saea-baseline-smoke` raw report 를 만들어야 함을 고정한 뒤,
+`BrokerServer.StartUdpAsync(...)` 기반 UDP SUBSCRIBE/PUBLISH loopback smoke 를 연결한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP benchmark Task 1 protocol selector model/parser 를 구현한다.
+이번 cycle 은 RIO UDP benchmark Task 2/3 UDP loopback runner dispatch 와 SAEA UDP smoke 를 구현한다.
 
-- 범위: `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`, `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`,
-  protocol enum, `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`.
-- 검증: parser Red/Green, focused benchmark parser tests,
-  `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore`, `git diff --check`.
+- 범위: `tests/Hps.Benchmarks/Program.cs`, 새 UDP loopback runner 또는 protocol-aware runner 분기,
+  `BenchmarkRunIdentity` UDP profile, 기존 report writer schema, `tests/Hps.Benchmarks.Tests/` Program/report tests.
+- 검증: Program/report Red-Green, SAEA UDP smoke CLI, benchmark tests,
+  `dotnet build HighPerformanceSocket.slnx --no-restore`, `dotnet test HighPerformanceSocket.slnx --no-build`,
+  `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
 - RIO UDP receive prefetch 구현
-- RIO UDP loopback runner 구현 코드
-- RIO UDP benchmark artifact 수집
+- RIO UDP load/open-loop artifact 수집
+- RIO backend UDP benchmark 실행
 - RIO unavailable fallback/default selection policy 구현
 - IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 정책 구현

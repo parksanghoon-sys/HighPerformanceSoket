@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP benchmark protocol selector)
+
+### 작업 단위
+- RIO UDP benchmark Task 1 protocol selector model/parser 를 구현했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/LoopbackProtocol.cs`:
+  benchmark runner protocol selector enum 을 추가했다. 기본은 TCP이고 UDP는 D112 artifact 경로의 명시 선택값이다.
+- `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`, `BenchmarkCommandParser.cs`:
+  runner/baseline-suite command 에서 `--protocol <tcp|udp>`를 파싱해 보존한다.
+  summary/history/help/target 또는 runner 없는 위치에서는 `--protocol`을 usage error 로 막는다.
+- `tests/Hps.Benchmarks/Program.cs`:
+  UDP runner 연결 전까지 `--protocol udp` 실행은 실패 처리해 TCP smoke report 가 UDP evidence 로 잘못 저장되지 않게 했다.
+- `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`, `BenchmarkProgramProtocolTests.cs`:
+  protocol selector parsing, aggregate command 차단, invalid protocol error, Program guard 를 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 1 완료와 다음 UDP loopback runner/SAEA smoke 구현 진입점을 기록했다.
+
+### 검증
+- Red: focused parser tests 4개가 `--protocol` 미인식/invalid protocol 메시지 부재로 실패.
+- Red: Program guard test 가 `--smoke --protocol udp --report ...` exit code 0으로 실패.
+- Green: focused parser tests 22개 통과, Program guard test 1개 통과.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore`: 76개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build`: 323개 통과.
+
 ## 2026-06-26 (Codex - RIO UDP benchmark artifact design)
 
 ### 작업 단위

@@ -47,6 +47,87 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal("Rio", GetRequiredProperty(commandLine, "TransportBackend")!.ToString());
         }
 
+        // UDP benchmark artifact 는 기존 runner 명령에 protocol selector 를 더하는 방식으로 수집한다.
+        // parser 가 이 값을 보존하지 않으면 다음 dispatch 단계가 TCP runner 로 흘러가 RIO UDP evidence 를 만들 수 없다.
+        [Fact]
+        public void TryParse_WhenLoadHasUdpProtocolAndRioBackend_ReturnsLoadCommandWithProtocolAndBackend()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--load", "--protocol", "udp", "--backend", "rio", "--report", "out/rio-udp-load.json" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal(BenchmarkCommand.Load, commandLine.Command);
+            Assert.Equal("out/rio-udp-load.json", commandLine.ReportPath);
+            Assert.Equal("Udp", GetRequiredProperty(commandLine, "LoopbackProtocol")!.ToString());
+            Assert.Equal("Rio", GetRequiredProperty(commandLine, "TransportBackend")!.ToString());
+        }
+
+        // baseline suite 도 같은 protocol 로 load/open-loop raw report 묶음을 만들어야 한다.
+        // 단일 runner 와 suite 가 서로 다른 parser state 를 쓰면 같은 CLI option 인데 artifact 종류가 달라지는 회귀가 생긴다.
+        [Fact]
+        public void TryParse_WhenBaselineSuiteHasUdpProtocol_ReturnsBaselineSuiteCommandWithProtocol()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--baseline-suite", "out/udp-baseline", "--protocol", "udp", "--runs", "2" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal(BenchmarkCommand.BaselineSuite, commandLine.Command);
+            Assert.Equal("out/udp-baseline", commandLine.BaselineOutputDirectory);
+            Assert.Equal(2, commandLine.BaselineRunCount);
+            Assert.Equal("Udp", GetRequiredProperty(commandLine, "LoopbackProtocol")!.ToString());
+        }
+
+        // summary/history 는 이미 raw report 안의 protocol/profile/scenario 를 읽는 aggregate 단계다.
+        // 여기서 --protocol 을 다시 받으면 입력 artifact 의미와 실행 selector 의미가 섞이므로 parser 에서 usage error 로 막는다.
+        [Fact]
+        public void TryParse_WhenSummarizeBaselineHasProtocol_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--summarize-baseline", "docs/baseline", "--summary", "out/summary.json", "--protocol", "udp" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Contains("--protocol", errorMessage);
+            Assert.Equal("SummarizeBaseline", commandLine.Command.ToString());
+        }
+
+        // protocol selector 는 benchmark workload 종류를 바꾸는 계약이므로 알 수 없는 값은 즉시 거부한다.
+        // 오타를 BenchmarkDotNet 인자나 report path 로 흘리면 잘못된 protocol artifact 가 조용히 생성될 수 있다.
+        [Fact]
+        public void TryParse_WhenRunnerHasInvalidProtocol_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--load", "--protocol", "quic", "--report", "out/load.json" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Contains("tcp", errorMessage);
+            Assert.Contains("udp", errorMessage);
+            Assert.Equal(BenchmarkCommand.Load, commandLine.Command);
+        }
+
         // --report 단독 사용은 실행할 runner 가 없으므로 usage error 로 남아야 한다.
         // 이 경계가 풀리면 사용자가 report 를 기대했는데 BenchmarkDotNet 인자로 해석될 수 있다.
         [Fact]

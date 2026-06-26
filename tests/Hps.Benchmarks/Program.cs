@@ -31,6 +31,13 @@ namespace Hps.Benchmarks
                 return UsageErrorExitCode;
             }
 
+            if (IsLoopbackExecutionCommand(commandLine.Command) &&
+                commandLine.LoopbackProtocol == LoopbackProtocol.Udp)
+            {
+                Console.Error.WriteLine("protocol-not-implemented: udp loopback runner is not implemented yet.");
+                return FailedRunExitCode;
+            }
+
             switch (commandLine.Command)
             {
                 case BenchmarkCommand.Target:
@@ -150,6 +157,14 @@ namespace Hps.Benchmarks
                 Console.Error.WriteLine("baseline-history-error: {0}", ex.Message);
                 return ReportWriteFailedExitCode;
             }
+        }
+
+        private static bool IsLoopbackExecutionCommand(BenchmarkCommand command)
+        {
+            return command == BenchmarkCommand.Smoke ||
+                command == BenchmarkCommand.Load ||
+                command == BenchmarkCommand.LoadOpenLoop ||
+                command == BenchmarkCommand.BaselineSuite;
         }
 
         private static void WriteBaselineHistoryMarkdown(string path, BaselineHistory history)

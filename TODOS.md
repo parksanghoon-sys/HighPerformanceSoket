@@ -9,15 +9,16 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP benchmark Task 1 protocol selector model/parser 를 구현한다.
-  - 목적: D112 설계의 첫 구현 단위로 benchmark runner/baseline-suite command 가 `--protocol <tcp|udp>`를 보존하게 한다.
-  - 범위: `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`, `BenchmarkCommandParser.cs`,
-    protocol enum, `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`.
-  - 현재 판단: 기존 `--backend <saea|rio>` parser 구조에 protocol option 을 병렬로 붙이면 된다.
-    summary/history command 는 raw report aggregate 단계이므로 `--protocol`을 usage error 로 막는다.
-  - 다음 자연스러운 step: Red 테스트로 `--load --protocol udp --backend rio --report out.json`이 protocol 을 보존해야 함을 먼저 고정한다.
-  - 검증: focused parser test, `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore`,
-    `git diff --check`.
+- [ ] RIO UDP benchmark Task 2/3 UDP loopback runner dispatch 와 SAEA UDP smoke 를 구현한다.
+  - 목적: D112 protocol selector 가 실제 `BrokerServer.StartUdpAsync(...)` 기반 UDP smoke runner 로 연결되게 한다.
+  - 범위: `tests/Hps.Benchmarks/Program.cs`, 새 UDP loopback runner 또는 protocol-aware runner 분기,
+    `BenchmarkRunIdentity` UDP profile, `TcpLoopbackReportWriter` schema 재사용,
+    `tests/Hps.Benchmarks.Tests/` Program/report tests.
+  - 현재 판단: Task 1은 `--protocol udp`를 인식하지만 잘못된 TCP artifact 생성을 막기 위해 Program guard 로 실패 처리한다.
+    다음 단위는 이 guard 를 실제 UDP SAEA smoke runner 로 대체하고, load/open-loop 는 그 다음 확장으로 이어갈 수 있다.
+  - 다음 자연스러운 step: Red 테스트로 `--smoke --protocol udp --backend saea --report <temp>`가
+    `udp-loopback-saea-baseline-smoke` raw report 를 만들어야 함을 고정한다.
+  - 검증: focused Program/report test, SAEA UDP smoke CLI, benchmark tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -72,6 +73,17 @@
     UDP report 는 기존 raw report schema 를 재사용하며 `benchmark-profile`/`scenario`로 TCP/UDP를 구분하기로 했다.
   - 비고: 첫 RIO UDP evidence 는 repository baseline 이 아니라 `artifacts/benchmarks/rio-udp/...` scratch 영역에 수집한다.
   - 검증: benchmark CLI/result/schema source 대조, 설계 문서 placeholder scan, `git diff --check`, solution build/test.
+
+- [x] RIO UDP benchmark Task 1 protocol selector model/parser 를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/BenchmarkCommandLine.cs`, `BenchmarkCommandParser.cs`, `LoopbackProtocol.cs`,
+    `Program.cs`, `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`, `BenchmarkProgramProtocolTests.cs`.
+  - 결과: runner/baseline-suite command 가 `--protocol <tcp|udp>`를 파싱해 `BenchmarkCommandLine.LoopbackProtocol`에 보존한다.
+    summary/history/help/target 또는 runner 없는 위치에서는 `--protocol`을 usage error 로 막는다.
+    UDP runner 연결 전까지는 Program guard 가 `--protocol udp` 실행을 실패 처리해 TCP artifact 오생성을 막는다.
+  - Red: parser focused run 에서 4개 테스트가 `알 수 없는 benchmark runner 인자입니다.` 또는 protocol 없는 usage error 로 실패했다.
+    Program guard Red 는 `--smoke --protocol udp --report ...`가 exit code 0을 반환해 실패했다.
+  - Green/검증: parser focused 22개 통과, Program guard focused 1개 통과,
+    `Hps.Benchmarks.Tests` 76개 통과, solution build 0경고/0오류, solution tests 323개 통과.
 
 - [x] RIO/SAEA backend contract matrix 를 RIO UDP edge tests 로 보강했다.
   - 범위: `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D111 결정 문서, root 상태 문서.
