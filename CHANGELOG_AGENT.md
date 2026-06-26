@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - rio udp ipv6 support gate design)
+
+### 작업 단위
+- RIO UDP IPv6 지원 여부를 default promotion gate 관점에서 설계하고, 다음 unsupported guard 구현 계획을 작성했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-26-rio-udp-ipv6-support-gate-design.md`:
+  RIO UDP v1을 IPv4-only opt-in backend 로 유지하고 IPv6는 default promotion gate 로 남긴다는 D121 설계를 작성했다.
+- `docs/superpowers/plans/2026-06-26-rio-udp-ipv6-unsupported-guard.md`:
+  IPv6 local bind explicit unsupported, IPv6 remote send synchronous `false` reject, no-enqueue diagnostics 검증을
+  한 작업 단위의 TDD 계획으로 정리했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D121을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 D121 unsupported boundary guard 구현으로 옮겼다.
+
+### 검증
+- `RioNative.CreateUdpSocket()`이 `AF_INET` registered UDP socket 으로 고정된 것을 확인했다.
+- `RioTransport`의 `EncodeSockaddrInet`/`DecodeSockaddrInet`가 IPv4 `IPEndPoint`만 지원하는 것을 확인했다.
+- SAEA UDP가 endpoint `AddressFamily`로 socket 과 receive remote placeholder 를 만드는 것을 대조했다.
+- D109/D110/D118/D119 결정과 충돌하지 않는지 확인했다.
+
 ## 2026-06-26 (Codex - sample broker transport selector self-review)
 
 ### 작업 단위

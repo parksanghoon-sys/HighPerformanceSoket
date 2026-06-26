@@ -1447,22 +1447,27 @@ parser 는 invalid port/max-frame-bytes 에 대해 구체적인 오류 메시지
 selector 는 정의되지 않은 `SampleTransportMode` 값을 auto fallback 으로 오해하지 않고 `ArgumentOutOfRangeException`으로 드러낸다.
 검증은 focused Red/Green, sample broker server tests 15개, solution build 경고 0/오류 0,
 solution tests 349개 통과, `git diff --check`로 마쳤다.
+RIO UDP IPv6 support gate 설계도 완료했다(D121).
+설계 문서는 `docs/superpowers/specs/2026-06-26-rio-udp-ipv6-support-gate-design.md`다.
+결정은 RIO UDP v1을 IPv4-only opt-in backend 로 유지하고, IPv6는 default promotion gate 로 남기는 것이다.
+지금 즉시 full IPv6를 구현하지 않고, unsupported IPv6 local/remote endpoint 를 RIO UDP public boundary 에서
+명시적으로 막는 guard 를 다음 구현 단위로 좁혔다.
+구현 계획은 `docs/superpowers/plans/2026-06-26-rio-udp-ipv6-unsupported-guard.md`에 있다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP IPv6 지원 여부를 default promotion gate 전에 결정하는 설계를 수행한다.
+이번 cycle 은 D121 RIO UDP IPv6 unsupported boundary guard 를 TDD로 구현한다.
 
 - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-  `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D109/D110/D118/D119, root 상태 문서.
-- 검증: RIO UDP address encode/decode 구현 상태, SAEA UDP IPv4/IPv6 contract 기대치,
-  Windows RIO `SOCKADDR_INET` handling 제약, default promotion gate 영향, 설계 문서 placeholder scan,
-  `git diff --check`.
+  `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D121 설계/계획, root 상태 문서.
+- 검증: IPv6 local bind explicit unsupported Red/Green, IPv6 remote send synchronous reject/no-enqueue Red/Green,
+  focused RIO UDP tests, focused RIO tests 전체, solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
 - 별도 selector package 생성
-- IPv6 UDP RIO 지원 구현 코드
+- full IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 정책 구현
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
 - Linux io_uring backend 구현

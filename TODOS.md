@@ -9,15 +9,13 @@
 
 ## Current TODOs
 
-- [ ] `P2_LATER` RIO UDP IPv6 지원 여부를 default promotion gate 전에 결정한다.
-  - 목적: RIO UDP address encode/decode 가 현재 IPv4에 머무르는 상태를 default promotion gate 에서 어떻게 다룰지 결정한다.
+- [ ] `P1_SOON` RIO UDP IPv6 unsupported boundary guard 를 TDD로 구현한다.
+  - 목적: D121 IPv4-only RIO UDP v1 정책을 public boundary 에서 강제해 unsupported IPv6가 background send/receive loop 로 흘러가지 않게 한다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D109/D110/D118/D119, 관련 상태 문서.
-  - 현재 판단: IPv4 loopback parity 와 4096B x 100Hz UDP scratch evidence 는 충분하지만,
-    RIO UDP IPv6 bind/send/receive 지원 여부는 default backend 승격 전 명시 결정이 필요하다.
-  - 다음 자연스러운 step: SAEA UDP IPv6 기대치와 RIO `SOCKADDR_INET` handling 구조를 대조해
-    IPv6를 필수 gate, deferred gate, 또는 explicit unsupported 로 둘지 설계 문서로 확정한다.
-  - 검증: source/test 대조, 설계 문서 placeholder scan, `git diff --check`.
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D121 설계/구현 계획, 관련 상태 문서.
+  - 현재 판단: full IPv6 구현은 보류하되, IPv6 local bind 와 IPv6 remote send 는 명시적으로 거부해야 한다.
+  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-26-rio-udp-ipv6-unsupported-guard.md`의 Task 1을 실행한다.
+  - 검증: IPv6 bind/send guard Red-Green, focused RIO tests, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -32,6 +30,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP IPv6 support gate 설계와 unsupported guard 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/specs/2026-06-26-rio-udp-ipv6-support-gate-design.md`,
+    `docs/superpowers/plans/2026-06-26-rio-udp-ipv6-unsupported-guard.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: D121로 RIO UDP v1을 IPv4-only opt-in backend 로 유지하고,
+    IPv6는 default promotion gate 로 남긴다고 결정했다.
+    다음 구현은 full IPv6가 아니라 unsupported local/remote endpoint boundary guard 다.
+  - 검증: RIO/SAEA UDP address-family source 대조, D109/D110/D118/D119 결정 대조,
+    설계/계획 placeholder self-review 를 수행했다.
 
 - [x] sample broker transport selector 구현 self-review 를 완료하고 minor hardening 2건을 보정했다.
   - 범위: `samples/Hps.Sample.BrokerServer/`, `tests/Hps.Sample.BrokerServer.Tests/`,
