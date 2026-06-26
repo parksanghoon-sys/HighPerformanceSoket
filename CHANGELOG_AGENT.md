@@ -5,6 +5,39 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP benchmark scratch evidence)
+
+### 작업 단위
+- RIO/SAEA UDP benchmark scratch artifact 를 수집하고, 수집 중 발견된 RIO UDP receive/fan-out 경계 버그를 보정했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  `RIOReceiveEx` completion 후 handler dispatch 전에 receive buffer registration 을 해제한다.
+  UDP handler 가 받은 datagram 을 즉시 fan-out send queue 로 넘길 때 같은 backing byte[]가 receive/send native registration 에 겹치지 않게 한다.
+- `src/Hps.Transport.Rio/RioUdpEndpoint.cs`:
+  UDP receive block 을 4096B에서 SAEA 기준선과 같은 8192B로 올렸다.
+  D112 UDP publish datagram 은 command envelope + 4096B payload 이므로 4096B block 으로는 benchmark target 을 담을 수 없다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
+  two-remote fan-out slice, 4096B 초과 datagram receive coverage 를 추가했다.
+- `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`,
+  `tests/Hps.Benchmarks.Tests/UdpLoopbackScenarioRunnerTests.cs`:
+  closed-loop timeout 도 failed raw report 로 남기고, open-loop sequence gap 을 payload corruption 과 분리한다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, `CURRENT_PLAN.md`, `TODOS.md`:
+  D113과 scratch evidence, 다음 RIO UDP receive window hardening 설계 진입점을 기록했다.
+
+### 검증
+- Red: `--smoke --protocol udp --backend rio`가 timeout.
+- Red: `UdpSendTo_WhenSecondRemoteTriggersSendToFirstRemote_FirstRemoteReceivesSlice`가 first remote receive timeout.
+- Red: `UdpReceive_WhenDatagramExceedsPayloadSizeButFitsBaselineEnvelope_DeliversFullDatagram`이 receive 대신 endpoint close 로 실패.
+- Red: `PayloadMatchesSequencePattern_WhenSequenceGapExistsButBytesMatch_ReturnsTrue`가 false 반환으로 실패.
+- Green: focused RIO UDP fan-out/large datagram tests 2개 통과.
+- Green: focused `UdpLoopbackScenarioRunnerTests` 3개 통과.
+- 실제 CLI: `--smoke --protocol udp --backend rio` pass.
+- Scratch artifact:
+  `artifacts/benchmarks/rio-udp/2026-06-26/session-01/saea` summary 는 hard-passed true, warning 0.
+  `artifacts/benchmarks/rio-udp/2026-06-26/session-01/rio` summary 는 hard-passed false, warning 3,
+  open-loop sent/received 3000/2263, payload-errors 0.
+
 ## 2026-06-26 (Codex - RIO UDP benchmark load runners)
 
 ### 작업 단위

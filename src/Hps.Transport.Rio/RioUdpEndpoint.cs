@@ -20,7 +20,9 @@ namespace Hps.Transport
         private const int MaxOutstandingReceive = 1;
         private const int MaxOutstandingSend = 1;
         private const int SingleDataBufferPerRequest = 1;
-        private const int ReceiveBlockSize = 4096;
+        // UDP broker publish datagram 은 command envelope + 4096B benchmark payload 를 함께 담는다.
+        // SAEA 기준선과 같은 8192B block 을 사용해 D112 UDP benchmark target 을 backend 차이 없이 수용한다.
+        private const int ReceiveBlockSize = 8192;
         private const int SockaddrInetBlockSize = 32;
         private const int DefaultPendingSendCapacity = 16;
 

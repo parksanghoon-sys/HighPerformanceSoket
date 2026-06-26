@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D113 — RIO UDP receive completion 은 handler dispatch 전 native receive registration 을 해제하고 8192B block 으로 SAEA UDP envelope 와 맞춘다.
 - D112 — UDP benchmark artifact 는 기존 benchmark command 에 protocol selector 를 추가해 수집한다.
 - D111 — RIO UDP no-prefetch 는 pool ownership 경계이며 blocked-window datagram retention 보장은 아니다.
 - D110 — RIO UDP parity 이후에도 default backend 승격은 보류하고 contract matrix 를 먼저 보강한다.

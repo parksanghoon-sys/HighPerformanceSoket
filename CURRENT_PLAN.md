@@ -1340,24 +1340,31 @@ closed-loop/open-loop 모두 기존 raw report schema 를 재사용한다.
 SAEA UDP CLI smoke 에서 4096B x 100Hz x 30초 load/open-loop 와 1-run baseline-suite 가
 sent/received 3000/3000, dropped 0, pool-rented 0 으로 통과했다.
 
-다음 작업은 RIO/SAEA UDP benchmark scratch artifact 수집이다.
-D112 기준으로 repository baseline 에 바로 넣지 않고
-`artifacts/benchmarks/rio-udp/2026-06-26/session-01/` 같은 scratch 영역에
-SAEA/RIO UDP load/open-loop raw report 와 summary 를 생성해 backend 비교 가능성을 확인한다.
+RIO/SAEA UDP benchmark scratch artifact 수집을 완료했다.
+D112 기준으로 repository baseline 에 넣지 않고 ignored scratch 영역
+`artifacts/benchmarks/rio-udp/2026-06-26/session-01/` 아래 backend별 raw report 와 summary 를 생성했다.
+SAEA UDP summary 는 hard-passed true, warning 0 이다.
+RIO UDP는 D113 fix 이후 smoke 와 closed-loop load delivery 는 통과했지만,
+open-loop 는 sent 3000 / received 2263 / payload-errors 0 으로 hard gate 실패다.
+RIO closed-loop/open-loop 모두 p99 가 약 16.7ms 로 남아 있어 UDP completion wait/no-prefetch window 가 다음 병목이다.
+
+다음 작업은 RIO UDP receive window hardening 설계다.
+D111의 no-prefetch 경계를 그대로 둘지, handler dispatch 전에 다음 receive 를 pre-post 하는 one-deep 방식으로 갈지,
+또는 bounded outstanding receive queue 로 승격할지 설계로 먼저 닫는다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO/SAEA UDP benchmark scratch artifact 를 수집한다.
+이번 cycle 은 RIO UDP receive window hardening 을 설계한다.
 
-- 범위: `tests/Hps.Benchmarks` CLI 실행 결과, `artifacts/benchmarks/rio-udp/...` scratch output,
-  필요 시 `CURRENT_PLAN.md`/`CHANGELOG_AGENT.md` 상태 기록.
-- 검증: SAEA/RIO UDP `--load`/`--load-open-loop` 또는 `--baseline-suite` CLI,
-  summary/history generation, delivery/drop/leak hard gate, `git diff --check`.
+- 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+  D111/D113 결정, RIO UDP tests, scratch benchmark evidence.
+- 검증: no-prefetch vs one-deep pre-post vs bounded prefetch failure mode 대조,
+  ownership/close drain 설계 self-review, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
-- RIO UDP receive prefetch 구현
+- RIO UDP receive prefetch 구현 코드
 - RIO unavailable fallback/default selection policy 구현
 - IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 정책 구현

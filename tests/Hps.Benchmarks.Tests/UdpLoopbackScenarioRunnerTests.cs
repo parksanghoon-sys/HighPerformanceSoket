@@ -1,3 +1,5 @@
+using System;
+using System.Buffers.Binary;
 using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
@@ -51,6 +53,27 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal(4, result.Received);
             Assert.Equal(0, result.PayloadErrors);
             Assert.Equal(0, result.PoolRented);
+        }
+
+        // UDP open-loop 에서는 datagram loss 때문에 sequence gap 이 생길 수 있다.
+        // gap 은 received < sent 로 이미 hard gate 에 반영되므로, payload byte pattern 이 해당 sequence 와 맞으면 payload corruption 으로 세지 않는다.
+        [Fact]
+        public void PayloadMatchesSequencePattern_WhenSequenceGapExistsButBytesMatch_ReturnsTrue()
+        {
+            byte[] payload = new byte[20];
+            int sequence = 7;
+            for (int index = 0; index < payload.Length; index++)
+                payload[index] = (byte)((sequence + index) & 0xFF);
+            BinaryPrimitives.WriteInt32BigEndian(new Span<byte>(payload, 8, 4), sequence);
+
+            MethodInfo? method = typeof(UdpLoopbackScenarioRunner).GetMethod(
+                "PayloadMatchesSequencePattern",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.NotNull(method);
+
+            bool result = (bool)method!.Invoke(null, new object[] { payload, sequence, 3 })!;
+
+            Assert.True(result);
         }
 
         private static async Task<TcpLoopbackRunResult> InvokeScenarioForTestAsync(

@@ -530,6 +530,147 @@ namespace Hps.Transport.Rio.Tests
             return new ReceivedSocketDatagram(result.RemoteEndPoint, payload);
         }
 
+        // Broker UDP fan-out 은 PUBLISH command header 를 건너뛴 payload slice 를 그대로 TrySendTo 에 넘긴다.
+        // RIO SendEx 가 buffer id 기준 offset 을 무시하면 raw echo 는 통과해도 broker publish payload 가 subscriber 에 도착하지 않는다.
+        [Fact]
+        public async Task UdpEcho_WhenHandlerQueuesResponseSlice_ClientReceivesOnlySlice()
+        {
+            if (!IsRioDatagramAvailable())
+                return;
+
+            using (RioTransport transport = new RioTransport())
+            {
+                SlicingEchoingDatagramHandler datagramHandler = new SlicingEchoingDatagramHandler(transport, offset: 2, length: 3);
+                transport.SetDatagramHandler(datagramHandler);
+                await transport.StartAsync();
+
+                IUdpEndpoint? endpoint = null;
+                Socket? client = null;
+
+                try
+                {
+                    endpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(endpoint.LocalEndPoint);
+
+                    client = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    client.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+
+                    byte[] payload = new byte[] { 61, 62, 63, 64, 65, 66 };
+                    int sent = await client.SendToAsync(new ArraySegment<byte>(payload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(payload.Length, sent);
+
+                    ReceivedSocketDatagram echoed = await ReceiveUdpDatagramAsync(client, 3);
+
+                    Assert.Equal(new byte[] { 63, 64, 65 }, echoed.Payload);
+                    Assert.Equal(boundEndPoint, echoed.RemoteEndPoint);
+                }
+                finally
+                {
+                    client?.Dispose();
+                    endpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
+        // UDP broker 는 SUBSCRIBE remote 와 PUBLISH remote 가 서로 달라도 subscriber remote 로 fan-out 해야 한다.
+        // 같은 remote echo 만 검증하면 RIO send path 가 이전 remote target 을 안정적으로 사용할 수 있는지 놓칠 수 있다.
+        [Fact]
+        public async Task UdpSendTo_WhenSecondRemoteTriggersSendToFirstRemote_FirstRemoteReceivesSlice()
+        {
+            if (!IsRioDatagramAvailable())
+                return;
+
+            using (RioTransport transport = new RioTransport())
+            {
+                TwoRemoteFanoutDatagramHandler datagramHandler = new TwoRemoteFanoutDatagramHandler(transport, offset: 1, length: 3);
+                transport.SetDatagramHandler(datagramHandler);
+                await transport.StartAsync();
+
+                IUdpEndpoint? endpoint = null;
+                Socket? firstClient = null;
+                Socket? secondClient = null;
+
+                try
+                {
+                    endpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(endpoint.LocalEndPoint);
+
+                    firstClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    firstClient.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                    secondClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    secondClient.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+
+                    byte[] firstPayload = new byte[] { 70 };
+                    int firstSent = await firstClient.SendToAsync(new ArraySegment<byte>(firstPayload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(firstPayload.Length, firstSent);
+                    await datagramHandler.FirstRemoteCapturedTask;
+
+                    byte[] secondPayload = new byte[] { 80, 81, 82, 83, 84 };
+                    int secondSent = await secondClient.SendToAsync(new ArraySegment<byte>(secondPayload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(secondPayload.Length, secondSent);
+
+                    ReceivedSocketDatagram fanout = await ReceiveUdpDatagramAsync(firstClient, 3);
+
+                    Assert.Equal(new byte[] { 81, 82, 83 }, fanout.Payload);
+                    Assert.Equal(boundEndPoint, fanout.RemoteEndPoint);
+                }
+                finally
+                {
+                    firstClient?.Dispose();
+                    secondClient?.Dispose();
+                    endpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
+        // UDP publish command 는 4096B payload 앞에 command envelope 가 붙으므로 실제 datagram 은 4096B를 초과한다.
+        // RIO UDP receive block 이 이 크기를 담지 못하면 broker benchmark 에서 endpoint 가 닫히고 fan-out 이 사라진다.
+        [Fact]
+        public async Task UdpReceive_WhenDatagramExceedsPayloadSizeButFitsBaselineEnvelope_DeliversFullDatagram()
+        {
+            if (!IsRioDatagramAvailable())
+                return;
+
+            using (RioTransport transport = new RioTransport())
+            {
+                CapturingDatagramHandler datagramHandler = new CapturingDatagramHandler();
+                transport.SetDatagramHandler(datagramHandler);
+                await transport.StartAsync();
+
+                IUdpEndpoint? endpoint = null;
+                Socket? client = null;
+
+                try
+                {
+                    endpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IPEndPoint boundEndPoint = Assert.IsType<IPEndPoint>(endpoint.LocalEndPoint);
+
+                    client = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    client.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+
+                    byte[] payload = new byte[4224];
+                    for (int index = 0; index < payload.Length; index++)
+                        payload[index] = (byte)(index & 0xFF);
+
+                    int sent = await client.SendToAsync(new ArraySegment<byte>(payload), SocketFlags.None, boundEndPoint);
+                    Assert.Equal(payload.Length, sent);
+
+                    ReceivedDatagram received = await WaitForReceivedDatagramAsync(datagramHandler);
+
+                    Assert.Equal(payload, received.Payload);
+                    Assert.Equal(client.LocalEndPoint, received.RemoteEndPoint);
+                }
+                finally
+                {
+                    client?.Dispose();
+                    endpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         private sealed class CapturingDatagramHandler : ITransportDatagramHandler
         {
             private readonly TaskCompletionSource<ReceivedDatagram> _received;
@@ -577,6 +718,96 @@ namespace Hps.Transport.Rio.Tests
                 TransportSendBuffer sendBuffer = new TransportSendBuffer(datagram, 0, datagram.Length);
 
                 if (_transport.TrySendTo(endpoint, remoteEndPoint, sendBuffer))
+                {
+                    datagram.Release();
+                    return;
+                }
+
+                datagram.Release();
+                datagram.Release();
+            }
+
+            public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
+            {
+            }
+        }
+
+        private sealed class SlicingEchoingDatagramHandler : ITransportDatagramHandler
+        {
+            private readonly RioTransport _transport;
+            private readonly int _offset;
+            private readonly int _length;
+
+            internal SlicingEchoingDatagramHandler(RioTransport transport, int offset, int length)
+            {
+                _transport = transport;
+                _offset = offset;
+                _length = length;
+            }
+
+            public void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+            {
+                // TransportSendBuffer 는 ownership 이 아니라 slice metadata 만 바꾸므로,
+                // enqueue 전 AddRef/실패 시 Release 규칙은 full echo handler 와 동일하다.
+                datagram.AddRef();
+                TransportSendBuffer sendBuffer = new TransportSendBuffer(datagram, _offset, _length);
+
+                if (_transport.TrySendTo(endpoint, remoteEndPoint, sendBuffer))
+                {
+                    datagram.Release();
+                    return;
+                }
+
+                datagram.Release();
+                datagram.Release();
+            }
+
+            public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
+            {
+            }
+        }
+
+        private sealed class TwoRemoteFanoutDatagramHandler : ITransportDatagramHandler
+        {
+            private readonly RioTransport _transport;
+            private readonly int _offset;
+            private readonly int _length;
+            private readonly object _gate;
+            private readonly TaskCompletionSource<bool> _firstRemoteCaptured;
+            private EndPoint? _firstRemote;
+
+            internal TwoRemoteFanoutDatagramHandler(RioTransport transport, int offset, int length)
+            {
+                _transport = transport;
+                _offset = offset;
+                _length = length;
+                _gate = new object();
+                _firstRemoteCaptured = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            internal Task FirstRemoteCapturedTask => _firstRemoteCaptured.Task;
+
+            public void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+            {
+                EndPoint? firstRemote;
+                lock (_gate)
+                {
+                    if (_firstRemote == null)
+                    {
+                        _firstRemote = remoteEndPoint;
+                        _firstRemoteCaptured.TrySetResult(true);
+                        datagram.Release();
+                        return;
+                    }
+
+                    firstRemote = _firstRemote;
+                }
+
+                // 두 번째 remote 의 datagram payload slice 를 첫 번째 remote 로 보내 broker fan-out 형태를 재현한다.
+                datagram.AddRef();
+                TransportSendBuffer sendBuffer = new TransportSendBuffer(datagram, _offset, _length);
+
+                if (_transport.TrySendTo(endpoint, firstRemote, sendBuffer))
                 {
                     datagram.Release();
                     return;

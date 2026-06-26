@@ -409,6 +409,13 @@ namespace Hps.Transport
                     datagram.SetLength(checked((int)completion.BytesTransferred));
                     EndPoint remoteEndPoint = DecodeSockaddrInet(endpoint.RemoteAddressBlock);
 
+                    // handler 는 받은 UDP datagram RefCountedBuffer 를 즉시 fan-out send queue 에 넘길 수 있다.
+                    // receive registration 을 유지한 채 같은 backing byte[]를 send registration/cache 에 다시 넣으면
+                    // RIO provider 관점에서 동일 메모리의 native ownership 이 겹친다. completion 이후에는 receive request 가
+                    // 끝난 상태이므로 dispatch 전에 등록을 해제해, 이후 send path 가 payload registration 을 단독으로 잡게 한다.
+                    endpoint.Native.DeregisterBuffer(receiveBufferId);
+                    receiveBufferId = IntPtr.Zero;
+
                     // 이 지점부터 datagram 최초 참조의 Release 책임은 handler 계약으로 넘어간다.
                     RefCountedBuffer ownedDatagram = datagram;
                     datagram = null;

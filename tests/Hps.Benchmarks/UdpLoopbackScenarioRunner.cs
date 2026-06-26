@@ -160,9 +160,20 @@ namespace Hps.Benchmarks
                                 CreatePublishCommand(BenchmarkTargets.DefaultTopic, payload)).ConfigureAwait(false);
                             sent++;
 
-                            byte[] receivedPayload = await ReceiveDatagramPayloadAsync(subscriber, BenchmarkTargets.PayloadBytes).ConfigureAwait(false);
+                            byte[] receivedPayload;
+                            try
+                            {
+                                receivedPayload = await ReceiveDatagramPayloadAsync(subscriber, BenchmarkTargets.PayloadBytes).ConfigureAwait(false);
+                            }
+                            catch (TimeoutException)
+                            {
+                                // closed-loop 도 transport/backend delivery 실패를 raw report 로 남겨야 한다.
+                                // 예외로 runner 를 중단하면 baseline-suite 가 실패 원인을 JSON artifact 로 보존하지 못한다.
+                                break;
+                            }
+
                             if (!PayloadEquals(payload, receivedPayload))
-                                throw new InvalidOperationException("UDP loopback payload 가 송신 원문과 다릅니다.");
+                                payloadErrors++;
 
                             long embeddedTimestamp = BinaryPrimitives.ReadInt64BigEndian(new ReadOnlySpan<byte>(receivedPayload, TimestampOffset, TimestampBytes));
                             latencyTicks[received] = Stopwatch.GetTimestamp() - embeddedTimestamp;
@@ -496,8 +507,9 @@ namespace Hps.Benchmarks
 
         private static bool PayloadMatchesSequencePattern(byte[] actual, int sequence, int expectedReceiveIndex)
         {
-            if (sequence != expectedReceiveIndex)
-                return false;
+            // open-loop UDP 는 delivery gap 이 생길 수 있으므로 receive 순번과 embedded sequence 가 달라도
+            // 그 자체를 payload corruption 으로 보지 않는다. loss 는 received < sent hard gate 로 따로 드러낸다.
+            _ = expectedReceiveIndex;
 
             for (int index = PayloadPatternOffset; index < actual.Length; index++)
             {

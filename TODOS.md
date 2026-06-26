@@ -9,17 +9,16 @@
 
 ## Current TODOs
 
-- [ ] RIO/SAEA UDP benchmark scratch artifact 를 수집한다.
-  - 목적: D112 UDP report command 로 실제 4096B x 100Hz load/open-loop artifact 를 만들고,
-    RIO UDP parity/default promotion 재평가에 필요한 첫 비교 evidence 를 확보한다.
-  - 범위: `tests/Hps.Benchmarks` CLI 실행, `artifacts/benchmarks/rio-udp/2026-06-26/session-01/` scratch output,
-    필요 시 summary/history artifact 와 root 상태 문서 기록.
-  - 현재 판단: UDP SAEA load/open-loop/baseline-suite 는 구현 및 검증 완료됐다.
-    RIO runner dispatch 도 같은 backend selector 를 사용하므로, 이제 실제 RIO UDP CLI 결과를 수집할 수 있다.
-  - 다음 자연스러운 step: scratch directory 에 SAEA/RIO UDP baseline-suite 를 각각 1회 실행하고,
-    summary JSON/Markdown 으로 delivery/drop/leak hard gate 와 latency/HWM 관측값을 비교한다.
-  - 검증: SAEA/RIO UDP `--baseline-suite ... --protocol udp --backend <saea|rio>`,
-    `--summarize-baseline`, 필요 시 focused CLI 재실행, `git diff --check`.
+- [ ] RIO UDP receive window hardening 을 설계한다.
+  - 목적: scratch artifact 에서 확인된 RIO UDP open-loop delivery loss 와 16ms대 p99 tail 을 줄이기 위한 receive posting 정책을 정한다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+    D111/D113 결정, RIO UDP tests, `artifacts/benchmarks/rio-udp/2026-06-26/session-01/` scratch evidence.
+  - 현재 판단: D113 fix 로 RIO UDP smoke/closed-loop load 는 delivery pass 가 가능해졌지만,
+    open-loop 는 sent 3000 / received 2263 / payload-errors 0 으로 fail 이다.
+    no-prefetch receive window 와 UDP completion polling tail 이 병목 후보로 남았다.
+  - 다음 자연스러운 step: no-prefetch 유지, one-deep pre-post, bounded outstanding receive queue 의
+    ownership/close-drain/drop 관측성 비용을 비교한 설계 문서를 작성한다.
+  - 검증: D111/D113과 scratch report 대조, SAEA/RIO UDP tests coverage 대조, 설계 문서 placeholder scan, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -43,18 +42,6 @@
   - known blockers 또는 open questions: IPv6 endpoint encode/decode shape, test environment availability, default backend compatibility expectation.
   - 가장 자연스러운 next step: default promotion 재평가 전에 IPv6를 필수 gate 로 둘지 설계 결정한다.
 
-- [ ] `P2_LATER` RIO UDP bounded receive prefetch 필요성을 설계한다.
-  - 무엇이 남았는지: D111 기준으로 RIO no-prefetch 는 pool ownership 경계이며 blocked-window datagram retention 을 보장하지 않는다.
-  - 왜 defer 되었는지: UDP 신뢰성/순서보장/혼잡제어는 v1 범위 밖이고, prefetch 를 추가하면 receive pool 대여 수와 datagram ownership/backpressure 의미가 바뀐다.
-  - objective: handler 가 느린 동안 RIO UDP datagram drop 을 줄이기 위해 bounded outstanding receive 를 둘지 결정한다.
-  - relevant context: D109, D111, `RioUdpEndpoint.MaxOutstandingReceive`, `RioTransport.UdpReceiveLoopAsync`.
-  - 관련 파일/범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-    RIO UDP receive tests, benchmark scenario.
-  - 현재 상태 또는 이미 시도한 접근: Red 테스트에서 blocked handler 중 보낸 두 번째 datagram 이 보장 전달되지 않음을 확인했고,
-    최종 테스트는 pool prefetch 없음과 unblock 이후 loop 생존만 검증하도록 보정했다.
-  - known blockers 또는 open questions: pre-post depth, buffer ownership queue, drop metrics, D111 유지 여부.
-  - 가장 자연스러운 next step: UDP benchmark artifact 를 본 뒤 burst absorption 이 필요하면 별도 설계로 승격한다.
-
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
   - 왜 defer 되었는지: 현재 서버는 단일 injected `ITransport` 를 감싼 얇은 host 이며, diagnostics 소비자는 테스트/benchmark 중심이다.
@@ -66,6 +53,23 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO/SAEA UDP benchmark scratch artifact 를 수집하고 RIO UDP receive/fan-out 경계 버그를 보정했다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`,
+    `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`,
+    `tests/Hps.Benchmarks.Tests/UdpLoopbackScenarioRunnerTests.cs`, state/decision docs.
+  - 결과: RIO UDP receive completion 뒤 handler dispatch 전에 native receive registration 을 해제하고,
+    UDP receive block 을 SAEA 기준선과 같은 8192B 로 올렸다(D113).
+    benchmark runner 는 closed-loop timeout 도 failed raw report 로 남기고,
+    open-loop sequence gap 을 payload corruption 과 분리한다.
+  - artifact: ignored scratch `artifacts/benchmarks/rio-udp/2026-06-26/session-01/`에 SAEA/RIO backend별 raw report 와 summary 를 생성했다.
+    SAEA summary 는 hard-passed true/warning 0.
+    RIO summary 는 open-loop sent 3000 / received 2263 / payload-errors 0 으로 hard-passed false/warning 3.
+  - Red: RIO UDP smoke/baseline-suite timeout, two-remote fan-out timeout,
+    4224B datagram endpoint close, sequence gap payload pattern assertion failure.
+  - Green/검증: focused RIO UDP fan-out/large datagram tests 통과, focused benchmark payload gap tests 통과,
+    RIO UDP smoke pass, SAEA/RIO scratch summary 생성.
 
 - [x] RIO UDP benchmark load/open-loop/baseline-suite 를 구현했다.
   - 범위: `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`, `tests/Hps.Benchmarks/Program.cs`,
