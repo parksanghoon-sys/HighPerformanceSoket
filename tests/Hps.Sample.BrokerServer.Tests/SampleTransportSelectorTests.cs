@@ -64,6 +64,18 @@ namespace Hps.Sample.BrokerServer.Tests
             Assert.Contains("RIO unavailable", selection.NoticeMessage!);
         }
 
+        // parser 밖에서 selector 를 직접 호출하는 경우에도 정의되지 않은 enum 값이 auto fallback 으로 해석되면 안 된다.
+        // 잘못된 enum 은 사용자 입력이 아니라 호출자 계약 위반이므로 즉시 프로그래밍 오류로 드러낸다.
+        [Fact]
+        public void Select_WhenModeIsUndefined_Throws()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                delegate
+                {
+                    Select((BrokerSample.SampleTransportMode)99, RioCapabilityStatus.Unavailable);
+                });
+        }
+
         private static BrokerSample.SampleTransportSelection Select(BrokerSample.SampleTransportMode mode, RioCapabilityStatus status)
         {
             Func<RioCapabilityStatus> probe = delegate { return status; };

@@ -9,26 +9,17 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` sample broker transport selector 구현 self-review 를 수행한다.
-  - 목적: D120 설계와 Task 1~3 구현이 일치하는지 확인하고, 남은 follow-up 이 있으면 명시적으로 분리한다.
-  - 범위: `samples/Hps.Sample.BrokerServer/`, `tests/Hps.Sample.BrokerServer.Tests/`,
-    `docs/superpowers/specs/2026-06-26-host-composition-transport-selection-policy-design.md`,
-    `docs/superpowers/plans/2026-06-26-sample-broker-transport-selector.md`.
-  - 현재 판단: 코드 구현은 완료됐고, 다음은 리뷰 관점에서 dependency direction, fallback semantics, tests, docs consistency 를 확인하는 단계다.
-  - 다음 자연스러운 step: implementation self-review 문서를 작성하거나 상태 문서에 review 결과와 follow-up 을 기록한다.
-  - 검증: code/spec/plan 대조, `git diff --check`.
+- [ ] `P2_LATER` RIO UDP IPv6 지원 여부를 default promotion gate 전에 결정한다.
+  - 목적: RIO UDP address encode/decode 가 현재 IPv4에 머무르는 상태를 default promotion gate 에서 어떻게 다룰지 결정한다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D109/D110/D118/D119, 관련 상태 문서.
+  - 현재 판단: IPv4 loopback parity 와 4096B x 100Hz UDP scratch evidence 는 충분하지만,
+    RIO UDP IPv6 bind/send/receive 지원 여부는 default backend 승격 전 명시 결정이 필요하다.
+  - 다음 자연스러운 step: SAEA UDP IPv6 기대치와 RIO `SOCKADDR_INET` handling 구조를 대조해
+    IPv6를 필수 gate, deferred gate, 또는 explicit unsupported 로 둘지 설계 문서로 확정한다.
+  - 검증: source/test 대조, 설계 문서 placeholder scan, `git diff --check`.
 
 ## Deferred Backlog
-
-- [ ] `P2_LATER` RIO UDP IPv6 지원 여부를 default promotion gate 전에 결정한다.
-  - 무엇이 남았는지: 현재 RIO UDP address encode/decode 는 IPv4 `SOCKADDR_INET` 경로만 구현되어 있다.
-  - 왜 defer 되었는지: v1 RIO UDP loopback parity 는 IPv4로 충분히 검증됐고, default promotion 은 아직 보류 상태다.
-  - objective: Interface Server 기본 backend 승격 전에 IPv6 UDP bind/send/receive 를 필수 gate 로 볼지 결정한다.
-  - relevant context: D109, D110, RIO `ReceiveEx`/`SendEx` address buffer handling.
-  - 관련 파일/범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, RIO UDP tests.
-  - 현재 상태 또는 이미 시도한 접근: IPv4 loopback bind/receive/echo tests 는 green 이다.
-  - known blockers 또는 open questions: IPv6 endpoint encode/decode shape, test environment availability, default backend compatibility expectation.
-  - 가장 자연스러운 next step: default promotion 재평가 전에 IPv6를 필수 gate 로 둘지 설계 결정한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -41,6 +32,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] sample broker transport selector 구현 self-review 를 완료하고 minor hardening 2건을 보정했다.
+  - 범위: `samples/Hps.Sample.BrokerServer/`, `tests/Hps.Sample.BrokerServer.Tests/`,
+    `docs/superpowers/specs/2026-06-26-host-composition-transport-selection-policy-design.md`,
+    `docs/superpowers/plans/2026-06-26-sample-broker-transport-selector.md`,
+    `docs/agent-state/reviews/2026-06-26-sample-broker-transport-selector-self-review.md`.
+  - 결과: D120 구현은 설계와 정합하고 Blocker/Major finding 은 없다.
+    parser invalid port/max-frame 메시지 누락과 undefined enum fallback 오해 가능성은 TDD로 보정했다.
+  - Red: invalid port/max-frame parser tests 2개가 `Assert.Equal()` failure 로 실패했고,
+    undefined enum selector test 1개가 `Assert.Throws()` failure 로 실패했다.
+  - Green/검증: focused parser/selector tests 13개 통과, sample broker server tests 15개 통과,
+    solution build 경고 0/오류 0, solution tests 349개 통과, `git diff --check` 통과.
 
 - [x] sample broker server transport selector Task 3 Program wiring/smoke 를 구현했다.
   - 범위: `samples/Hps.Sample.BrokerServer/Program.cs`,

@@ -5,6 +5,35 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - sample broker transport selector self-review)
+
+### 작업 단위
+- D120 sample broker transport selector 구현을 self-review 하고 minor hardening 2건을 TDD로 보정했다.
+
+### 변경 내용
+- `docs/agent-state/reviews/2026-06-26-sample-broker-transport-selector-self-review.md`:
+  D120 설계 대비 구현 coverage, findings, verification, deferred items 를 정리했다.
+- `tests/Hps.Sample.BrokerServer.Tests/SampleBrokerServerCommandParserTests.cs`:
+  invalid port 와 invalid max-frame-bytes 가 구체적인 parser error message 를 반환하는지 검증했다.
+- `samples/Hps.Sample.BrokerServer/SampleBrokerServerCommandParser.cs`:
+  `MessagePortInvalid`, `MessageMaxFrameBytesInvalid`를 추가해 Program validation 책임 이동 후에도
+  기존 sample 의 구체적인 입력 오류 피드백을 유지한다.
+- `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`,
+  `samples/Hps.Sample.BrokerServer/SampleTransportSelector.cs`:
+  정의되지 않은 `SampleTransportMode` 값이 `auto` fallback 으로 조용히 처리되지 않도록
+  `ArgumentOutOfRangeException` guard 를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  self-review 완료를 기록하고 다음 실행 지점을 RIO UDP IPv6 지원 여부 결정 설계로 옮겼다.
+
+### 검증
+- Red: invalid port/max-frame parser tests 2개가 `Assert.Equal()` failure 로 실패했다. Actual은 `null`.
+- Red: undefined enum selector test 1개가 `Assert.Throws()` failure 로 실패했다.
+- Green: focused parser/selector tests 13개 통과.
+- Green: `dotnet test tests\Hps.Sample.BrokerServer.Tests\Hps.Sample.BrokerServer.Tests.csproj --no-restore` 통과, 15개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 349개 통과.
+- `git diff --check`: 통과.
+
 ## 2026-06-26 (Codex - sample broker transport program wiring)
 
 ### 작업 단위

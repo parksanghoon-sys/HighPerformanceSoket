@@ -24,6 +24,13 @@ namespace Hps.Sample.BrokerServer
             if (createRio == null)
                 throw new ArgumentNullException(nameof(createRio));
 
+            if (mode != SampleTransportMode.Saea &&
+                mode != SampleTransportMode.Rio &&
+                mode != SampleTransportMode.Auto)
+            {
+                throw new ArgumentOutOfRangeException(nameof(mode));
+            }
+
             if (mode == SampleTransportMode.Saea)
                 return SampleTransportSelection.Success(createSaea(), "SaeaTransport", null);
 

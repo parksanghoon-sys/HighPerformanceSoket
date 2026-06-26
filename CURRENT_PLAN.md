@@ -1440,21 +1440,29 @@ Task 3 Program wiring/smoke 구현도 완료했다.
 `samples/Hps.Sample.BrokerServer/Program.cs`는 `SampleBrokerServerCommandParser`와 `SampleTransportSelector`를 사용해
 transport 를 만들고, startup output 에 selected backend 를 표시한다.
 usage 는 `[--transport <saea|rio|auto>]`를 포함하며, invalid transport option 은 broker start 전에 exit code 2로 종료한다.
+sample broker transport selector 구현 self-review 도 완료했다.
+검토 문서는 `docs/agent-state/reviews/2026-06-26-sample-broker-transport-selector-self-review.md`다.
+Blocker/Major finding 은 없고, self-review 중 발견한 minor 2건을 같은 단위에서 TDD로 보정했다.
+parser 는 invalid port/max-frame-bytes 에 대해 구체적인 오류 메시지를 반환하고,
+selector 는 정의되지 않은 `SampleTransportMode` 값을 auto fallback 으로 오해하지 않고 `ArgumentOutOfRangeException`으로 드러낸다.
+검증은 focused Red/Green, sample broker server tests 15개, solution build 경고 0/오류 0,
+solution tests 349개 통과, `git diff --check`로 마쳤다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 sample broker transport selector 구현 self-review 를 수행한다.
+이번 cycle 은 RIO UDP IPv6 지원 여부를 default promotion gate 전에 결정하는 설계를 수행한다.
 
-- 범위: `samples/Hps.Sample.BrokerServer/`, `tests/Hps.Sample.BrokerServer.Tests/`,
-  D120 설계/구현 계획, current diff/commits.
-- 검증: 설계 대비 구현 coverage, dependency direction, explicit rio/auto fallback semantics,
-  test quality, docs consistency 를 대조하고 필요 시 follow-up 을 `TODOS.md`에 남긴다.
+- 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+  `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D109/D110/D118/D119, root 상태 문서.
+- 검증: RIO UDP address encode/decode 구현 상태, SAEA UDP IPv4/IPv6 contract 기대치,
+  Windows RIO `SOCKADDR_INET` handling 제약, default promotion gate 영향, 설계 문서 placeholder scan,
+  `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
 - 별도 selector package 생성
-- IPv6 UDP RIO 지원 구현
+- IPv6 UDP RIO 지원 구현 코드
 - latency hard gate 또는 warning-as-failure 정책 구현
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
 - Linux io_uring backend 구현

@@ -8,6 +8,8 @@ namespace Hps.Sample.BrokerServer
     /// </summary>
     public static class SampleBrokerServerCommandParser
     {
+        public const string MessagePortInvalid = "port 는 1~65535 범위의 숫자여야 합니다.";
+        public const string MessageMaxFrameBytesInvalid = "max-frame-bytes 는 1 이상의 숫자여야 합니다.";
         public const string MessageTransportValueRequired = "--transport 옵션에는 saea, rio 또는 auto 값이 필요합니다.";
         public const string MessageTransportValueInvalid = "--transport 옵션은 saea, rio 또는 auto 값만 사용할 수 있습니다.";
 
@@ -30,11 +32,17 @@ namespace Hps.Sample.BrokerServer
 
             int port;
             if (!int.TryParse(args[1], out port) || port <= 0 || port > 65535)
+            {
+                errorMessage = MessagePortInvalid;
                 return false;
+            }
 
             int maxFrameBytes;
             if (!int.TryParse(args[2], out maxFrameBytes) || maxFrameBytes <= 0)
+            {
+                errorMessage = MessageMaxFrameBytesInvalid;
                 return false;
+            }
 
             SampleTransportMode transportMode = SampleTransportMode.Saea;
             if (args.Length == 5)
