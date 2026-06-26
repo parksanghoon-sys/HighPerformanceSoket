@@ -23,6 +23,8 @@ namespace Hps.Transport
         private const int MaxOutstandingSend = 1;
         private const int SingleDataBufferPerRequest = 1;
         private const int TcpLengthPrefixSize = 4;
+        private const int UdpAddressBlockSize = 32;
+        private const int UdpCompletionYieldBudget = 4096;
 
         private readonly object _gate;
         private readonly List<RioConnectionListener> _listeners;
@@ -159,8 +161,9 @@ namespace Hps.Transport
             try
             {
                 socket.Bind(localEndPoint);
-                endpoint = new RioUdpEndpoint(this, socket);
+                endpoint = new RioUdpEndpoint(this, socket, native);
                 RegisterUdpEndpoint(endpoint);
+                StartUdpReceiveLoop(endpoint);
                 socket = null!;
                 return new ValueTask<IUdpEndpoint>(endpoint);
             }
@@ -281,6 +284,83 @@ namespace Hps.Transport
             {
                 return SendLoopAsync(connection, resource);
             });
+        }
+
+        private void StartUdpReceiveLoop(RioUdpEndpoint endpoint)
+        {
+            // RIO UDP receive 는 SAEA 와 같은 no-prefetch 모델을 유지한다.
+            // handler 가 datagram 처리를 끝내기 전에는 다음 ReceiveEx 를 post 하지 않아 pool 과 fan-out 소유권 경계를 단순하게 둔다.
+            // async method 를 직접 시작하면 첫 await 전까지 현재 call stack 에서 실행되므로 BindUdpAsync 반환 전에 첫 ReceiveEx 가 post 된다.
+            // RIO UDP 는 receive post 이전에 도착한 datagram 을 안정적으로 completion 하지 않을 수 있어, Task.Run scheduling race 를 피한다.
+            _ = UdpReceiveLoopAsync(endpoint);
+        }
+
+        private async Task UdpReceiveLoopAsync(RioUdpEndpoint endpoint)
+        {
+            while (!endpoint.IsClosed)
+            {
+                RefCountedBuffer? datagram = endpoint.ReceivePool.RentCounted();
+                IntPtr receiveBufferId = IntPtr.Zero;
+
+                try
+                {
+                    ArraySegment<byte> receiveSegment = GetRefCountedBlockSegment(datagram, 0, endpoint.ReceivePool.BlockSize);
+                    if (receiveSegment.Array == null)
+                        throw new InvalidOperationException("RIO UDP receive 는 pinned byte[] 기반 RefCountedBuffer 만 지원합니다.");
+
+                    receiveBufferId = RegisterPinnedArray(endpoint.Native, receiveSegment.Array);
+                    RioBufferSegment dataSegment = new RioBufferSegment(
+                        receiveBufferId,
+                        receiveSegment.Offset,
+                        receiveSegment.Count);
+                    RioBufferSegment remoteAddressSegment = endpoint.RemoteAddressSegment;
+
+                    if (!endpoint.Native.ReceiveEx(endpoint.RequestQueue, dataSegment, null, remoteAddressSegment, IntPtr.Zero))
+                        throw new SocketException((int)SocketError.ConnectionReset);
+
+                    RioResult completion = await WaitForUdpCompletionAsync(
+                        endpoint,
+                        endpoint.ReceiveCompletionQueue).ConfigureAwait(false);
+
+                    if (completion.Status != 0 || completion.BytesTransferred > endpoint.ReceivePool.BlockSize)
+                    {
+                        datagram.Release();
+                        datagram = null;
+                        NotifyUdpEndpointClosed(endpoint);
+                        return;
+                    }
+
+                    datagram.SetLength(checked((int)completion.BytesTransferred));
+                    EndPoint remoteEndPoint = DecodeSockaddrInet(endpoint.RemoteAddressBlock);
+
+                    // 이 지점부터 datagram 최초 참조의 Release 책임은 handler 계약으로 넘어간다.
+                    RefCountedBuffer ownedDatagram = datagram;
+                    datagram = null;
+                    DispatchDatagramReceived(endpoint, remoteEndPoint, ownedDatagram);
+                }
+                catch (ObjectDisposedException)
+                {
+                    datagram?.Release();
+                    return;
+                }
+                catch (SocketException)
+                {
+                    datagram?.Release();
+                    NotifyUdpEndpointClosed(endpoint);
+                    return;
+                }
+                catch
+                {
+                    datagram?.Release();
+                    NotifyUdpEndpointClosed(endpoint);
+                    return;
+                }
+                finally
+                {
+                    if (receiveBufferId != IntPtr.Zero)
+                        endpoint.Native.DeregisterBuffer(receiveBufferId);
+                }
+            }
         }
 
         private async Task ReceiveLoopAsync(TransportConnection connection, RioConnectionResource resource)
@@ -462,6 +542,38 @@ namespace Hps.Transport
             }
         }
 
+        private static async Task<RioResult> WaitForUdpCompletionAsync(
+            RioUdpEndpoint endpoint,
+            IntPtr completionQueue)
+        {
+            RioResult[] results = new RioResult[1];
+            int yieldAttempts = 0;
+
+            while (true)
+            {
+                if (endpoint.IsClosed || endpoint.IsDisposed)
+                    throw new ObjectDisposedException(nameof(RioUdpEndpoint));
+
+                uint completed = endpoint.DequeueCompletion(completionQueue, results);
+                if (completed != 0)
+                    return results[0];
+
+                if (endpoint.IsClosed)
+                    throw new ObjectDisposedException(nameof(RioUdpEndpoint));
+
+                // UDP v1 receive parity 는 no-prefetch 단일 outstanding receive 이므로 bounded polling 으로도 resource 경계가 단순하다.
+                // TCP hot path 는 IOCP/RIONotify 를 계속 쓰고, UDP notification 최적화는 send/diagnostics parity 이후 별도 단위에서 다룬다.
+                if (yieldAttempts < UdpCompletionYieldBudget)
+                {
+                    yieldAttempts++;
+                    await Task.Yield();
+                    continue;
+                }
+
+                await Task.Delay(1).ConfigureAwait(false);
+            }
+        }
+
         private void DispatchReceived(TransportConnection connection, byte[] receiveBlock, int received)
         {
             ITransportReceiveHandler? receiveHandler = ReadReceiveHandlerSnapshot();
@@ -479,6 +591,27 @@ namespace Hps.Transport
             ITransportReceiveHandler? receiveHandler = ReadReceiveHandlerSnapshot();
             if (receiveHandler != null)
                 receiveHandler.OnConnectionClosed(connection);
+        }
+
+        private void DispatchDatagramReceived(RioUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+        {
+            ITransportDatagramHandler? datagramHandler = ReadDatagramHandlerSnapshot();
+            if (datagramHandler == null)
+            {
+                datagram.Release();
+                return;
+            }
+
+            datagramHandler.OnDatagramReceived(endpoint, remoteEndPoint, datagram);
+        }
+
+        private void NotifyUdpEndpointClosed(RioUdpEndpoint endpoint)
+        {
+            ITransportDatagramHandler? datagramHandler = ReadDatagramHandlerSnapshot();
+            if (datagramHandler != null)
+                datagramHandler.OnDatagramEndpointClosed(endpoint);
+
+            endpoint.Close();
         }
 
         private void EnsureRunning()
@@ -511,6 +644,41 @@ namespace Hps.Transport
             buffer[1] = (byte)((value >> 16) & 0xFF);
             buffer[2] = (byte)((value >> 8) & 0xFF);
             buffer[3] = (byte)(value & 0xFF);
+        }
+
+        private static ArraySegment<byte> GetRefCountedBlockSegment(RefCountedBuffer buffer, int offset, int length)
+        {
+            Memory<byte> memory = buffer.Memory.Slice(offset, length);
+            ArraySegment<byte> segment;
+
+            if (!MemoryMarshal.TryGetArray(memory, out segment))
+                throw new InvalidOperationException("RIO transport 는 pinned byte[] 기반 RefCountedBuffer 만 지원합니다.");
+
+            return segment;
+        }
+
+        private static EndPoint DecodeSockaddrInet(byte[] addressBlock)
+        {
+            if (addressBlock == null)
+                throw new ArgumentNullException(nameof(addressBlock));
+            if (addressBlock.Length < UdpAddressBlockSize)
+                throw new ArgumentException("SOCKADDR_INET buffer 크기가 부족합니다.", nameof(addressBlock));
+
+            int addressFamily = addressBlock[0] | (addressBlock[1] << 8);
+            if (addressFamily != (int)AddressFamily.InterNetwork)
+                throw new NotSupportedException("현재 RIO UDP receive 는 IPv4 SOCKADDR_INET 만 decode 합니다.");
+
+            // SOCKADDR_IN 에서 family 만 host byte order 이고 port/address 는 network byte order 이다.
+            int port = (addressBlock[2] << 8) | addressBlock[3];
+            byte[] addressBytes = new byte[]
+            {
+                addressBlock[4],
+                addressBlock[5],
+                addressBlock[6],
+                addressBlock[7]
+            };
+
+            return new IPEndPoint(new IPAddress(addressBytes), port);
         }
 
         private static unsafe IntPtr RegisterPinnedArray(RioNative native, byte[] block)

@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP receive loop)
+
+### 작업 단위
+- RIO UDP Task 3 receive loop 를 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  `BindUdpAsync(...)` 이후 RIO UDP receive pump 를 시작하고,
+  `RIOReceiveEx` completion 을 기다린 뒤 remote `SOCKADDR_INET`을 `EndPoint`로 decode 해 datagram handler 에 전달한다.
+  첫 receive post 는 bind 반환 전에 수행하고, UDP v1 completion wait 는 bounded dequeue polling 으로 둔다.
+- `src/Hps.Transport.Rio/RioUdpEndpoint.cs`:
+  UDP 전용 RQ/CQ, remote address registered buffer, receive pool, completion dequeue resource owner 를 추가했다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
+  raw UDP client datagram 이 RIO endpoint handler 에 owned `RefCountedBuffer`로 도착하는 loopback 테스트를 추가했다.
+- `tests/Hps.Transport.Rio.Tests/Properties/AssemblyInfo.cs`:
+  RIO native integration tests 가 같은 provider/CQ 자원을 공유하므로 test collection parallelization 을 비활성화했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 RIO UDP send loop 로 이동했다.
+
+### 검증
+- Red: `UdpReceive_WhenRawClientSendsDatagram_DeliversOwnedRefCountedBuffer`가 기존 skeleton 에서 5초 timeout 으로 실패.
+- focused UDP receive test 통과.
+- focused RIO tests 39개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build -m:1`: 통과.
+- `dotnet test HighPerformanceSocket.slnx --no-build`: 통과.
+
 ## 2026-06-25 (Codex - RIO UDP endpoint skeleton)
 
 ### 작업 단위

@@ -1081,29 +1081,32 @@ open-loop actual-rate 99.8 Hz/p50 293.8 us/p99 920.5 us 다.
 - Linux io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay
 
-RIO UDP Task 2 endpoint owner skeleton 구현을 완료했다.
-`RioNative.CreateUdpSocket()`은 `WSA_FLAG_REGISTERED_IO` UDP socket 을 만들고,
-`RioTransport.BindUdpAsync(...)`는 RIO datagram capability 를 확인한 뒤 socket bind, `RioUdpEndpoint` 생성,
-endpoint tracking 을 수행한다.
-`RioUdpEndpoint`는 현재 bind/close/unregister owner 만 제공하며 receive/send pump 와 diagnostics parity 는 후속 범위다.
-Red evidence 는 `BindUdpAsync_WhenRioDatagramAvailable_ReturnsEndpointWithLocalEndPoint`가 기존 `TransportBase.BindUdpAsync`
-`NotImplementedException`으로 실패한 것이다.
+RIO UDP Task 3 receive loop 구현을 완료했다.
+`RioUdpEndpoint`는 UDP 전용 RQ/CQ, remote address registered buffer, receive pool 을 소유하고,
+`RioTransport.BindUdpAsync(...)`는 endpoint 등록 후 receive pump 를 시작한다.
+receive pump 는 datagram 마다 `RefCountedBuffer`를 대여해 `RIOReceiveEx` data buffer 로 등록하고,
+completion 이후 remote `SOCKADDR_INET`을 `EndPoint`로 decode 한 뒤 `ITransportDatagramHandler`에 owned datagram 을 전달한다.
+handler 예외 또는 native/socket 오류는 SAEA UDP와 같이 endpoint close notification 으로 수렴한다.
+첫 receive post 는 `BindUdpAsync(...)` 반환 전에 수행해 RIO UDP post 이전 datagram race 를 피하고,
+UDP v1 completion wait 는 IOCP notification 이 아니라 bounded dequeue polling 으로 둔다.
+Red evidence 는 `UdpReceive_WhenRawClientSendsDatagram_DeliversOwnedRefCountedBuffer`가 기존 skeleton 에서 timeout 실패한 것이다.
+RIO native integration tests 는 같은 process 안의 provider/CQ 자원을 공유하므로
+`Hps.Transport.Rio.Tests` test collection parallelization 을 비활성화했다.
 
-다음 작업은 RIO UDP receive loop 설계/Red test 다.
-raw UDP client datagram 이 RIO endpoint handler 로 전달되는 loopback을 만들되,
-remote address registered buffer lifetime 과 handler exception close notify 정책을 SAEA와 맞춘다.
+다음 작업은 RIO UDP Task 4 send loop 구현이다.
+`ITransport.TrySendTo(IUdpEndpoint, EndPoint, TransportSendBuffer)`를 RIO endpoint-local pending queue/drop-oldest 와
+`RIOSendEx` remote address registered buffer path 로 연결한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP receive loop 를 설계하거나 Red test 로 착수한다.
+이번 cycle 은 RIO UDP send loop 를 Red test 로 착수한다.
 
 - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
   `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, root 상태 문서.
-- 검증: focused RIO UDP tests, focused RIO tests 전체, solution build/test, `git diff --check`.
+- 검증: focused RIO UDP echo/send tests, focused RIO tests 전체, solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
-- RIO UDP send loop
 - RIO UDP diagnostics parity 전체
 - `TransportFactory` 기본 선택 코드 변경
 - SAEA transport 동작 변경

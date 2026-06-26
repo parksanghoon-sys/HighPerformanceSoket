@@ -9,14 +9,13 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP receive loop 를 설계하거나 Red test 로 착수한다.
-  - 목적: raw UDP client datagram 이 RIO endpoint handler 로 전달되는 receive path 를 구현하기 시작한다.
+- [ ] RIO UDP send loop 를 Red test 로 착수한다.
+  - 목적: RIO UDP endpoint 로 받은 datagram 에 대해 `ITransport.TrySendTo(...)`가 remote UDP client 로 응답을 보낼 수 있게 한다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
     `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, root 상태 문서.
-  - 현재 판단: endpoint bind/close skeleton 은 완료됐고, 아직 `RIOReceiveEx` post/decode/dispatch 는 없다.
-  - 다음 자연스러운 step: remote address registered buffer lifetime 과 handler exception close notify 정책을 먼저 설계하거나,
-    receive loopback Red test 를 작성한다.
-  - 검증: focused RIO UDP tests, focused RIO tests 전체, solution build/test, `git diff --check`.
+  - 현재 판단: `RIOReceiveEx` 기반 receive loop 는 완료됐고, `TrySendTo(...)`는 아직 `TransportBase` 기본 `NotImplementedException` 경로다.
+  - 다음 자연스러운 step: RIO UDP echo loopback Red test 를 추가한 뒤 endpoint-local pending queue/drop-oldest 와 `RIOSendEx` send pump 를 연결한다.
+  - 검증: focused RIO UDP echo/send tests, focused RIO tests 전체, solution build/test, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -31,6 +30,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP Task 3 receive loop 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, `tests/Hps.Transport.Rio.Tests/Properties/AssemblyInfo.cs`,
+    root 상태 문서.
+  - 결과: `RIOReceiveEx` post/completion/decode/dispatch 경로를 추가하고,
+    `RioUdpEndpoint`가 UDP RQ/CQ, remote address registered buffer, receive pool 을 소유한다.
+    첫 receive post 는 `BindUdpAsync(...)` 반환 전에 수행하고, UDP v1 completion wait 는 bounded dequeue polling 으로 둔다.
+  - Red: `UdpReceive_WhenRawClientSendsDatagram_DeliversOwnedRefCountedBuffer`가 기존 skeleton 에서 handler timeout 으로 실패.
+  - Green/검증: focused UDP receive test 통과, focused RIO tests 39개 통과,
+    solution build 0경고/0오류, solution tests 312개 통과.
+  - 비고: RIO native integration tests 는 provider/CQ 자원 공유 때문에 test project collection parallelization 을 비활성화했다.
 
 - [x] RIO UDP Task 2 endpoint owner skeleton 을 구현했다.
   - 범위: `src/Hps.Transport.Rio/RioNative.cs`, `src/Hps.Transport.Rio/RioTransport.cs`,
