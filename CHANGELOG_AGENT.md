@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP receive window design review alignment)
+
+### 작업 단위
+- `.claude/review/2026-06-26-rio-udp-one-deep-prepost-design-review.md`의 설계 리뷰를 검토하고,
+  RIO UDP one-deep pre-post 설계의 close/resource ownership 블로커를 문서에 반영했다.
+- 코드와 테스트 구현은 아직 시작하지 않고, 구현 계획 작성 전제만 정렬했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-26-rio-udp-receive-window-hardening-design.md`:
+  `Close()`를 shutdown requester 로 제한하고, receive CQ/address registration 은 receive loop drain 이후 닫는 순서로 명시했다.
+  receive operation resource 는 receive loop 단일 소유로 두고, handler exception 중 이미 pre-post 된 next operation cleanup 도
+  같은 경로로 수렴시킨다.
+  remote address block 은 endpoint lifetime shared block 으로 유지하되 decode-before-next-post 불변식으로 안전성을 설명했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  현재 진입점을 설계 리뷰 대기에서 리뷰 반영된 설계 기준 구현 계획 작성으로 옮겼다.
+
+### 검증
+- 설계 리뷰 B1~B5와 보정된 스펙 항목을 대조했다.
+- D111 no-prefetch, D113 receive registration 보정, D114 예정 supersede 조건이 서로 충돌하지 않는지 확인했다.
+- `git diff --check`로 문서 whitespace 를 검증했다.
+
 ## 2026-06-26 (Codex - RIO UDP benchmark scratch evidence)
 
 ### 작업 단위

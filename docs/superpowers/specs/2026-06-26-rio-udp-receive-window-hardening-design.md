@@ -2,10 +2,12 @@
 
 ## 상태
 
-Proposed.
+Proposed, 2026-06-26 설계 리뷰 피드백 반영.
 
 이 문서는 D112 scratch benchmark 와 D113 receive registration 보정 이후 남은 RIO UDP open-loop delivery loss 를 다룬다.
 구현 전 검토 대상이며, 구현 계획은 이 설계가 수락된 뒤 별도 문서로 분리한다.
+2026-06-26 설계 리뷰에서 지적된 close-drain 블로커(B1)와 receive operation 소유권,
+handler exception cleanup, shared remote address block 보강(B2~B5)을 반영했다.
 
 ## 배경
 
@@ -108,9 +110,14 @@ receive depth 를 2~N 으로 열고, completion queue 에서 완료된 datagram 
 - handler dispatch 전에 다음 receive 를 post 한다.
 - 동시에 handler 는 하나만 호출한다.
 - outstanding receive 는 최대 1개만 유지한다.
-- receive operation 은 `RefCountedBuffer`, data buffer id, remote address block/id 를 함께 소유하는 작은 internal owner 로 둔다.
+- receive operation 은 `RefCountedBuffer`와 data buffer id 를 함께 소유하는 작은 internal owner 로 둔다.
 - completion 이 끝난 operation 은 handler dispatch 전에 data buffer id 를 해제한다(D113 유지).
-- post 된 다음 operation 이 endpoint close 로 취소되면 completion 을 관측한 뒤 buffer id 해제와 datagram release 를 수행한다.
+- remote address block 은 endpoint lifetime resource 로 유지한다. completion 직후 managed `IPEndPoint`로 decode 한 뒤 next receive 를 post 하므로,
+  depth 1에서는 공유 address block overwrite 가 current dispatch 에 영향을 주지 않는다.
+- post 된 다음 operation 이 endpoint close 로 취소되면 receive loop 가 terminal completion 또는 native close 신호를 관측한 뒤
+  data buffer id 해제와 datagram release 를 수행한다.
+- receive CQ 와 receive address buffer 는 receive loop drain 이후 닫는다. `Close()`가 CQ를 즉시 닫아 loop 가 outstanding completion 을
+  관측하지 못하는 구조는 금지한다.
 
 ## 예상 구조
 
@@ -122,15 +129,23 @@ receive depth 를 2~N 으로 열고, completion queue 에서 완료된 datagram 
 
 - `RefCountedBuffer` 대여.
 - receive data buffer registration id 보존.
-- remote address scratch block 과 registration id 보존.
 - `RIOReceiveEx` post.
-- completion 이후 `SetLength`, remote endpoint decode, data registration 해제.
+- completion 이후 `SetLength`, data registration 해제.
 - dispose/cancel cleanup 에서 datagram release 와 native deregister 를 정확히 1회 수행.
 
-remote address block 은 현재 endpoint lifetime block 하나를 공유하고 있다.
-one-deep pre-post 에서는 dispatch 중 다음 receive 가 같은 remote address block 을 덮을 수 있으므로,
-remote address block 은 operation-local 로 바꾼다.
+remote address block 은 operation-local 로 만들지 않는다.
+depth 1 구조에서 loop 는 current completion 의 remote address 를 managed `IPEndPoint`로 먼저 decode 하고,
+그 뒤 next receive 를 post 한다. next completion 이 handler dispatch 중 remote address block 을 덮어도
+current dispatch 는 이미 decode 된 managed endpoint 를 사용한다. 따라서 per-datagram address block rent/register/deregister churn 을 만들 필요가 없다.
+
 send address block 은 send loop 전용이므로 그대로 endpoint lifetime resource 로 유지한다.
+
+cleanup 규칙:
+
+- receive operation resource 는 receive loop task 만 소유한다.
+- `RioUdpEndpoint.DisposeNativeResources()`는 receive operation 의 `RefCountedBuffer`나 data buffer id 를 직접 해제하지 않는다.
+- operation cleanup 은 멱등이어야 한다. 정상 completion, post 실패, socket close, handler exception 중 어느 경로로 들어와도
+  data buffer id deregister 와 datagram release 는 각각 최대 1회만 수행한다.
 
 ### receive loop 흐름
 
@@ -151,12 +166,40 @@ send address block 은 send loop 전용이므로 그대로 endpoint lifetime res
 - current completion status 가 실패면 current 를 release 하고 endpoint close notify 로 수렴한다.
 - next post 실패면 current dispatch 전 endpoint close 로 수렴한다. 이 경우 current datagram 도 release 한다.
 - handler exception 은 기존 정책대로 endpoint close notify 로 수렴한다.
+  이미 post 된 next receive operation 은 receive loop 가 소유한 cleanup 경로에서 release/deregister 한다.
 
 close:
 
-- endpoint close 가 관측되면 이미 완료된 current datagram 은 release 한다.
-- post 된 next receive 는 socket close 로 completion/cancel 을 유도하고, loop 가 completion 을 관측해 deregister/release 한다.
-- completion 을 관측할 수 없는 native failure 경로가 있으면 endpoint close cleanup 이 leak 없이 끝나는지 별도 테스트로 고정한다.
+- endpoint close 는 먼저 close flag 를 세우고 socket close 로 outstanding receive 의 completion/cancel 을 유도한다.
+- 이 시점에 receive CQ를 닫지 않는다.
+- receive loop 는 outstanding current/next receive operation 의 terminal state 를 관측하거나, socket close 로 인해 더 이상 completion 을 기다릴 수 없음을
+  확인한 뒤 operation cleanup 을 수행한다.
+- receive loop 가 drained 상태를 기록한 뒤 receive CQ, endpoint-lifetime remote address buffer/id 를 닫는다.
+- completion 을 관측할 수 없는 native failure 경로가 있으면 operation owner 의 멱등 cleanup 으로 leak 없이 끝나는지 별도 테스트로 고정한다.
+
+### close/resource 소유권
+
+one-deep pre-post 구현에서는 endpoint close 와 native resource dispose 를 한 메서드에서 모두 끝내지 않는다.
+`Close()`는 shutdown 요청자이며, receive loop 가 receive-side resource 의 최종 소유자다.
+
+권장 분리:
+
+- `Close()`:
+  - `_closed`를 설정한다.
+  - UDP socket 을 닫아 outstanding receive/send completion 을 깨운다.
+  - pending send queue 를 drain 한다.
+  - transport tracking 에서 endpoint 를 unregister 한다.
+  - receive CQ 와 receive operation data buffer id 는 직접 닫지 않는다.
+- receive loop:
+  - current/next receive operation 을 정리한다.
+  - drain 완료 후 receive CQ 와 receive remote address registration 을 닫는다.
+- send loop:
+  - in-flight send buffer 를 release 한다.
+  - send CQ, send address registration, send signal 정리는 send loop drain 이후 닫는다.
+
+기존 synchronous `IUdpEndpoint.Close()` public contract 는 유지한다.
+단, close 반환 시점에 native receive loop drain 이 완전히 끝났음을 public contract 로 주장하지 않는다.
+leak-free 종료는 `StopAsync`와 테스트의 `RentedCount == 0`/diagnostics wait 로 검증한다.
 
 ## 테스트 전략
 
@@ -166,6 +209,8 @@ Red tests:
   기존 D111 테스트는 no-prefetch 를 기대했으므로 새 정책에 맞게 바뀐다.
 - endpoint close 중 outstanding next receive operation 이 leak 없이 정리된다.
 - handler exception 중 pre-post 된 next receive operation 이 leak 없이 정리되고 close notification 은 1회만 발생한다.
+- close 가 receive CQ를 먼저 닫아 outstanding receive completion 관측을 차단하지 않는지 검증한다.
+- shared remote address block 을 유지하되 decode-before-next-post 순서가 fan-out remote endpoint 를 보존하는지 검증한다.
 
 Green verification:
 
@@ -185,6 +230,7 @@ Green verification:
 
 구현이 수락되면 D111은 “no-prefetch”에서 “one-deep pre-post” 정책으로 대체하거나 D114로 supersede 한다.
 D113은 유지한다. receive registration 해제 시점과 8192B block size 는 one-deep pre-post 이후에도 필요하다.
+close-drain 순서도 D114에 포함한다. 특히 receive CQ close 는 receive loop drain 이후라는 조건을 결정으로 남긴다.
 
 ## 열린 질문
 

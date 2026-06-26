@@ -9,16 +9,18 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP receive window hardening 설계를 검토하고 구현 계획을 작성한다.
+- [ ] RIO UDP receive window hardening 구현 계획을 작성한다.
   - 목적: scratch artifact 에서 확인된 RIO UDP open-loop delivery loss 와 16ms대 p99 tail 을 줄이기 위한 receive posting 정책을 구현 가능한 task 로 나눈다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
     D111/D113 결정, RIO UDP tests, `artifacts/benchmarks/rio-udp/2026-06-26/session-01/` scratch evidence,
     `docs/superpowers/specs/2026-06-26-rio-udp-receive-window-hardening-design.md`.
   - 현재 판단: D113 fix 로 RIO UDP smoke/closed-loop load 는 delivery pass 가 가능해졌지만,
     open-loop 는 sent 3000 / received 2263 / payload-errors 0 으로 fail 이다.
-    설계 초안은 one-deep pre-post 를 권장하고, bounded depth 는 후속 후보로 둔다.
-  - 다음 자연스러운 step: 설계 검토 후 구현 계획 문서를 작성한다.
-  - 검증: 설계 문서 review, D111/D113과 scratch report 대조, SAEA/RIO UDP tests coverage 대조,
+    리뷰 반영된 설계는 one-deep pre-post 를 권장하고, bounded depth 는 후속 후보로 둔다.
+    close-drain 은 `Close()` shutdown request 이후 receive loop 가 outstanding receive operation 을 정리하고,
+    그 뒤 receive CQ/address registration 을 닫는 순서로 고정한다.
+  - 다음 자연스러운 step: 보정된 설계를 기준으로 Red-Green 구현 계획 문서를 작성한다.
+  - 검증: 설계 리뷰 B1~B5, D111/D113, scratch report, SAEA/RIO UDP tests coverage 대조,
     구현 계획 placeholder scan, `git diff --check`.
 
 ## Deferred Backlog
