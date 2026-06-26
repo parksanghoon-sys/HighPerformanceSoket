@@ -9,16 +9,15 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` RIO UDP IOCP/RIONotify completion wait 구현 계획을 작성한다.
-  - 목적: D115 설계를 Red-Green 가능한 구현 단위로 나누고, UDP endpoint notification resource 와 wait path 변경의
-    검증 순서를 확정한다.
-  - 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`,
-    `docs/superpowers/specs/2026-06-26-rio-udp-open-loop-residual-loss-tail-design.md`,
-    RIO UDP hardening 설계/결정 문서.
-  - 현재 판단: D115로 receive depth 확대보다 UDP CQ notification wait parity 를 먼저 검증하기로 결정했다.
-  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-26-rio-udp-completion-notification-wait.md`에
-    endpoint signal shape, wait path 전환, scratch benchmark 재측정 task 를 작성한다.
-  - 검증: D115 설계 coverage self-review, TCP RIO wait pattern 대조, 계획 문서 placeholder scan, `git diff --check`.
+- [ ] `P1_SOON` RIO UDP completion notification wait Task 1 endpoint signal shape 를 구현한다.
+  - 목적: D115 구현의 첫 단위로 `RioUdpEndpoint`가 receive/send `RioCompletionSignal`을 소유하고
+    UDP CQ를 notification pointer 로 생성할 수 있는 resource shape 를 TDD로 고정한다.
+  - 범위: `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`,
+    `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `src/Hps.Transport.Rio/RioTransport.cs`.
+  - 현재 판단: 구현 계획은 `docs/superpowers/plans/2026-06-26-rio-udp-completion-notification-wait.md`에 있다.
+  - 다음 자연스러운 step: `BindUdpAsync_WhenRioDatagramAvailable_CreatesUdpCompletionSignals` Red test 를 추가하고
+    `Assert.NotNull()` 실패를 확인한다.
+  - 검증: focused Red/Green, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -53,6 +52,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP IOCP/RIONotify completion wait 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-26-rio-udp-completion-notification-wait.md`, root 상태 문서.
+  - 결과: D115 설계를 endpoint signal resource shape, UDP wait notification 전환, scratch benchmark/D116 판단의
+    3개 작업 단위로 나눴다.
+  - 검증: D115 설계 coverage, TCP RIO completion wait working pattern, Red assertion-failure 경로,
+    commit boundary 를 self-review 했다.
 
 - [x] RIO UDP open-loop residual loss/tail 재평가 설계를 작성했다.
   - 범위: `docs/superpowers/specs/2026-06-26-rio-udp-open-loop-residual-loss-tail-design.md`,

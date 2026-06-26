@@ -5,6 +5,24 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP completion notification wait plan)
+
+### 작업 단위
+- D115 설계를 Red-Green 가능한 구현 계획으로 분리했다.
+- 구현은 아직 하지 않고, 다음 Task 1 Red test 진입점까지 정리했다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-06-26-rio-udp-completion-notification-wait.md`:
+  endpoint signal resource shape, UDP wait notification 전환, scratch benchmark/D116 판단의 3개 task 로 나눴다.
+  각 task 에 Red 기대 실패, Green 구현 shape, 검증 명령, 커밋 범위를 명시했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  구현 계획 완료와 다음 Task 1 endpoint signal shape 구현 진입점을 반영했다.
+
+### 검증
+- D115 설계 coverage self-review 를 수행했다.
+- TCP RIO `RioConnectionResource`의 completion signal/CQ notification pointer/`RIONotify` wait pattern 과 계획을 대조했다.
+- 계획 문서 placeholder scan 으로 신규 미정 항목이 없는지 확인한다.
+
 ## 2026-06-26 (Codex - RIO UDP open-loop residual loss/tail design)
 
 ### 작업 단위

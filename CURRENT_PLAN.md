@@ -1374,22 +1374,26 @@ RIO UDP open-loop residual loss/tail 재평가 설계도 완료했다.
 D115로 다음 구현 후보는 receive depth 확대가 아니라 UDP completion wait 의 IOCP/RIONotify parity 로 정했다.
 근거는 RIO UDP p99 16.7ms tail 이 현재 `WaitForUdpCompletionAsync(...)`의 `Task.Delay(1)` fallback 및 Windows timer quantum 과 맞고,
 TCP RIO는 이미 CQ notification pointer + `RIONotify` + IOCP signal wait pattern 을 사용한다는 점이다.
-다음 작업은 D115 구현 계획을 작성하는 것이다.
+D115 구현 계획도 완료했다.
+계획 문서는 `docs/superpowers/plans/2026-06-26-rio-udp-completion-notification-wait.md`다.
+계획은 Task 1 endpoint notification resource shape, Task 2 UDP wait notification 전환, Task 3 scratch benchmark/D116 판단으로 나뉜다.
+다음 작업은 Task 1 Red test 작성이다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP IOCP/RIONotify completion wait 구현 계획을 작성한다.
+이번 cycle 은 RIO UDP completion notification wait Task 1 endpoint signal shape 를 TDD로 구현한다.
 
-- 범위: `src/Hps.Transport.Rio/`, `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`,
-  `docs/superpowers/specs/2026-06-26-rio-udp-open-loop-residual-loss-tail-design.md`,
-  RIO UDP hardening 설계/결정/상태 문서.
-- 검증: D115 설계 coverage self-review, TCP RIO completion wait pattern 대조,
-  계획 문서 placeholder scan, `git diff --check`.
+- 범위: `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`,
+  `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `src/Hps.Transport.Rio/RioTransport.cs`,
+  RIO UDP completion notification wait 계획/상태 문서.
+- 검증: focused Red assertion failure, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`,
+  필요 시 solution build/test, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
-- RIO UDP receive/send 구현 코드
+- UDP wait path notification 전환(Task 2 범위)
+- scratch benchmark 재측정(Task 3 범위)
 - RIO unavailable fallback/default selection policy 구현
 - IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 정책 구현
