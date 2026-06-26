@@ -9,13 +9,14 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` sample broker server transport selector 구현 계획을 작성한다.
-  - 목적: D120 설계를 Red-Green 가능한 구현 단위로 나눈다.
-  - 범위: `samples/Hps.Sample.BrokerServer/Program.cs`, sample broker server csproj,
-    필요한 sample test project 후보, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`, D119/D120 decisions.
-  - 현재 판단: 첫 implementation 은 base factory 가 아니라 sample broker host 의 optional `--transport <saea|rio|auto>` parser/selection wiring 이다.
-  - 다음 자연스러운 step: parser model, capability probe 주입, Program wiring, smoke/usage 검증을 커밋 단위로 나누는 계획 문서를 작성한다.
-  - 검증: 계획 self-review, placeholder scan, `git diff --check`.
+- [ ] `P1_SOON` sample broker server transport selector Task 1 parser/model 을 구현한다.
+  - 목적: 기존 3 positional args 호환성을 유지하면서 optional `--transport <saea|rio|auto>`를 parser/model 에 보존한다.
+  - 범위: `samples/Hps.Sample.BrokerServer/SampleTransportMode.cs`,
+    `SampleBrokerServerCommandLine.cs`, `SampleBrokerServerCommandParser.cs`,
+    신규 `tests/Hps.Sample.BrokerServer.Tests/`, `HighPerformanceSocket.slnx`.
+  - 현재 판단: selector/factory 와 Program wiring 은 후속 Task 2/3으로 분리하고, 이번 단위는 parser contract 만 닫는다.
+  - 다음 자연스러운 step: reflection bootstrap Red tests 를 작성해 parser type 부재 assertion failure 를 확인한다.
+  - 검증: focused sample parser tests, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -40,6 +41,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] sample broker server transport selector 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-26-sample-broker-transport-selector.md`, D120 설계 문서, sample/benchmark 구조.
+  - 결과: 구현을 Task 1 parser/model, Task 2 selector policy, Task 3 Program wiring/smoke 로 나눴다.
+  - 비고: Task 1은 parser contract 만 닫고, RIO capability/fallback policy 와 Program wiring 은 후속 단위로 분리한다.
+  - 검증: spec coverage, placeholder scan, C# 접근성/async helper 제약 self-review 를 수행했다.
 
 - [x] host/composition transport selection policy 설계를 완료했다.
   - 범위: `samples/Hps.Sample.BrokerServer`, `tests/Hps.Benchmarks` backend selector 선례,

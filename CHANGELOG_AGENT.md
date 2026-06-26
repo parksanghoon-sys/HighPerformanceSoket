@@ -5,6 +5,23 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - sample broker transport selector plan)
+
+### 작업 단위
+- D120 설계를 구현 가능한 Task 로 분리했다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-06-26-sample-broker-transport-selector.md`:
+  sample broker transport selector 구현을 Task 1 parser/model, Task 2 selector policy,
+  Task 3 Program wiring/smoke 검증으로 나눴다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  구현 계획 완료를 기록하고 다음 실행 지점을 Task 1 parser/model TDD 구현으로 옮겼다.
+
+### 검증
+- D120 spec requirement 를 plan task 에 매핑했다.
+- placeholder scan 과 type consistency self-review 를 수행했다.
+- public command line property 와 enum 접근성, `TransportBase` fake abstract method, async helper `out` parameter 제약을 계획 단계에서 보정했다.
+
 ## 2026-06-26 (Codex - host composition transport selection policy)
 
 ### 작업 단위

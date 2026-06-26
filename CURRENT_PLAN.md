@@ -1422,21 +1422,23 @@ host/composition transport selection policy 설계도 완료했다(D120).
 결정은 첫 적용 대상을 `samples/Hps.Sample.BrokerServer`로 두고, 기존 positional arguments 를 유지하면서
 optional `--transport <saea|rio|auto>`를 추가하는 것이다. 기본값은 `saea`, explicit `rio`는 unavailable 시 실패,
 `auto`는 RIO available 시 RIO를 쓰고 unavailable/unsupported 시 관측 가능한 SAEA fallback 을 수행한다.
+sample broker transport selector 구현 계획도 완료했다.
+계획 문서는 `docs/superpowers/plans/2026-06-26-sample-broker-transport-selector.md`다.
+계획은 Task 1 parser/model, Task 2 transport selector policy, Task 3 Program wiring/smoke 검증으로 나눈다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 sample broker server transport selector 구현 계획을 작성한다.
+이번 cycle 은 sample broker server transport selector Task 1 parser/model 을 TDD로 구현한다.
 
 - 범위: `samples/Hps.Sample.BrokerServer/Program.cs`, sample broker server csproj,
-  필요한 sample test project 후보, `src/Hps.Transport.Rio/RioCapabilityProbe.cs`,
-  D119/D120 decisions.
-- 검증: 구현 계획이 Red assertion-failure 테스트, 최소 production wiring, explicit rio/auto fallback semantics,
-  existing 3-positional command compatibility 를 각각 커밋 가능한 단위로 나누는지 확인한다.
+  `tests/Hps.Sample.BrokerServer.Tests/`, solution file, D120 implementation plan Task 1.
+- 검증: parser Red assertion-failure 확인, focused sample parser tests, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
-- host/composition selector 구현 코드
+- transport selector policy/factory 구현
+- Program startup wiring
 - 별도 selector package 생성
 - IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 정책 구현
