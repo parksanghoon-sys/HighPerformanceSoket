@@ -5,6 +5,39 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP benchmark load runners)
+
+### 작업 단위
+- RIO UDP benchmark load/open-loop/baseline-suite 를 구현했다.
+
+### 변경 내용
+- `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`:
+  smoke/load/open-loop 를 하나의 scenario core 로 일반화했다.
+  closed-loop 는 publish 뒤 receive 를 기다리고, open-loop 는 receive task 와 publish schedule 을 분리한다.
+  UDP open-loop 에서 timeout/drop 이 생기면 runner 예외가 아니라 failed raw report 로 남기도록 했다.
+- `tests/Hps.Benchmarks/Program.cs`:
+  `--load --protocol udp`, `--load-open-loop --protocol udp`,
+  `--baseline-suite ... --protocol udp`를 UDP runner 로 dispatch 한다.
+- `tests/Hps.Benchmarks.Tests/UdpLoopbackScenarioRunnerTests.cs`:
+  30초 CLI workload 를 unit test 에 넣지 않고 작은 message count 로 closed-loop/open-loop result shape 를 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  load/open-loop 구현 완료와 다음 RIO/SAEA UDP scratch artifact 수집 진입점을 기록했다.
+
+### 검증
+- Red: focused `UdpLoopbackScenarioRunnerTests` 2개가 기존 private test entry point 부재로 `Assert.NotNull()` 실패.
+- Green: focused UDP runner tests 2개 통과.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --no-restore`: 78개 통과.
+- 실제 CLI: `--load --protocol udp --backend saea --report <temp>` pass,
+  scenario `udp-loopback-saea-baseline`, profile `udp-loopback-saea-v1`,
+  sent/received 3000/3000, dropped 0, pool-rented 0 확인.
+- 실제 CLI: `--load-open-loop --protocol udp --backend saea --report <temp>` pass,
+  scenario `udp-loopback-saea-baseline-open-loop`, sent/received 3000/3000,
+  dropped 0, pool-rented 0 확인.
+- 실제 CLI: `--baseline-suite <temp> --runs 1 --protocol udp --backend saea` pass,
+  `load-01.json`, `open-loop-01.json` 생성 확인.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build`: 325개 통과.
+
 ## 2026-06-26 (Codex - RIO UDP benchmark smoke runner)
 
 ### 작업 단위

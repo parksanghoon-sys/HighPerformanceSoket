@@ -33,20 +33,81 @@ namespace Hps.Benchmarks
 
         public static async Task<TcpLoopbackRunResult> RunSmokeAsync(TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea)
         {
-            return await RunSmokeCoreAsync(
-                BuildScenarioName(transportBackend, "-smoke"),
+            return await RunScenarioAsync(
+                "smoke",
+                "-smoke",
+                SmokeMessageCount,
+                0,
+                0,
+                false,
+                false,
                 transportBackend).ConfigureAwait(false);
         }
 
-        private static async Task<TcpLoopbackRunResult> RunSmokeCoreAsync(
-            string scenario,
+        public static async Task<TcpLoopbackRunResult> RunLoadAsync(TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea)
+        {
+            return await RunScenarioAsync(
+                "load",
+                string.Empty,
+                BenchmarkTargets.PlannedMessageCount,
+                BenchmarkTargets.PublishRateHz,
+                BenchmarkTargets.DurationSeconds,
+                true,
+                false,
+                transportBackend).ConfigureAwait(false);
+        }
+
+        public static async Task<TcpLoopbackRunResult> RunOpenLoopAsync(TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea)
+        {
+            return await RunScenarioAsync(
+                "open-loop",
+                "-open-loop",
+                BenchmarkTargets.PlannedMessageCount,
+                BenchmarkTargets.PublishRateHz,
+                BenchmarkTargets.DurationSeconds,
+                true,
+                true,
+                transportBackend).ConfigureAwait(false);
+        }
+
+        private static Task<TcpLoopbackRunResult> RunScenarioForTestAsync(
+            string resultName,
+            string scenarioSuffix,
+            int messageCount,
+            int publishRateHz,
+            int targetDurationSeconds,
+            bool pacePublishes,
+            bool openLoop,
+            TcpLoopbackTransportBackend transportBackend)
+        {
+            return RunScenarioAsync(
+                resultName,
+                scenarioSuffix,
+                messageCount,
+                publishRateHz,
+                targetDurationSeconds,
+                pacePublishes,
+                openLoop,
+                transportBackend);
+        }
+
+        private static async Task<TcpLoopbackRunResult> RunScenarioAsync(
+            string resultName,
+            string scenarioSuffix,
+            int messageCount,
+            int publishRateHz,
+            int targetDurationSeconds,
+            bool pacePublishes,
+            bool openLoop,
             TcpLoopbackTransportBackend transportBackend)
         {
             byte[] payload = new byte[BenchmarkTargets.PayloadBytes];
-            long[] latencyTicks = new long[SmokeMessageCount];
+            long[] latencyTicks = new long[messageCount];
             int sent = 0;
             int received = 0;
+            int payloadErrors = 0;
             Stopwatch elapsed = Stopwatch.StartNew();
+            Stopwatch pacingClock = new Stopwatch();
 
             PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(BenchmarkTargets.MaxFramePayloadBytes);
             using (ITransport transport = CreateTransport(transportBackend))
@@ -69,22 +130,44 @@ namespace Hps.Benchmarks
                         Encoding.ASCII.GetBytes("SUBSCRIBE " + BenchmarkTargets.DefaultTopic)).ConfigureAwait(false);
                     await WaitForSubscriberCountAsync(server, BenchmarkTargets.DefaultTopic, 1).ConfigureAwait(false);
 
-                    for (int index = 0; index < SmokeMessageCount; index++)
+                    pacingClock.Start();
+                    if (openLoop)
                     {
-                        PreparePayload(payload, index, Stopwatch.GetTimestamp());
-                        await SendDatagramAsync(
+                        PayloadExchangeResult exchangeResult = await RunOpenLoopExchangeAsync(
+                            subscriber,
                             publisher,
                             boundEndPoint,
-                            CreatePublishCommand(BenchmarkTargets.DefaultTopic, payload)).ConfigureAwait(false);
-                        sent++;
+                            payload,
+                            latencyTicks,
+                            messageCount,
+                            publishRateHz,
+                            pacingClock).ConfigureAwait(false);
+                        sent = exchangeResult.Sent;
+                        received = exchangeResult.Received;
+                        payloadErrors = exchangeResult.PayloadErrors;
+                    }
+                    else
+                    {
+                        for (int index = 0; index < messageCount; index++)
+                        {
+                            if (pacePublishes)
+                                await WaitForScheduledPublishAsync(pacingClock, index, publishRateHz).ConfigureAwait(false);
 
-                        byte[] receivedPayload = await ReceiveDatagramPayloadAsync(subscriber, BenchmarkTargets.PayloadBytes).ConfigureAwait(false);
-                        if (!PayloadEquals(payload, receivedPayload))
-                            throw new InvalidOperationException("UDP loopback payload 가 송신 원문과 다릅니다.");
+                            PreparePayload(payload, index, Stopwatch.GetTimestamp());
+                            await SendDatagramAsync(
+                                publisher,
+                                boundEndPoint,
+                                CreatePublishCommand(BenchmarkTargets.DefaultTopic, payload)).ConfigureAwait(false);
+                            sent++;
 
-                        long embeddedTimestamp = BinaryPrimitives.ReadInt64BigEndian(new ReadOnlySpan<byte>(receivedPayload, TimestampOffset, TimestampBytes));
-                        latencyTicks[received] = Stopwatch.GetTimestamp() - embeddedTimestamp;
-                        received++;
+                            byte[] receivedPayload = await ReceiveDatagramPayloadAsync(subscriber, BenchmarkTargets.PayloadBytes).ConfigureAwait(false);
+                            if (!PayloadEquals(payload, receivedPayload))
+                                throw new InvalidOperationException("UDP loopback payload 가 송신 원문과 다릅니다.");
+
+                            long embeddedTimestamp = BinaryPrimitives.ReadInt64BigEndian(new ReadOnlySpan<byte>(receivedPayload, TimestampOffset, TimestampBytes));
+                            latencyTicks[received] = Stopwatch.GetTimestamp() - embeddedTimestamp;
+                            received++;
+                        }
                     }
 
                     await WaitForRentedCountAsync(pool, 0).ConfigureAwait(false);
@@ -92,14 +175,17 @@ namespace Hps.Benchmarks
                     elapsed.Stop();
                     TransportDiagnosticsSnapshot diagnostics = ((ITransportDiagnostics)transport).GetDiagnosticsSnapshot();
                     return CreateResult(
-                        "smoke",
-                        scenario,
-                        SmokeMessageCount,
+                        resultName,
+                        BuildScenarioName(transportBackend, scenarioSuffix),
+                        publishRateHz,
+                        targetDurationSeconds,
+                        messageCount,
                         sent,
                         received,
                         diagnostics.DroppedPendingSendCount,
                         diagnostics.TcpPendingSendQueueHighWatermark,
                         diagnostics.UdpPendingSendQueueHighWatermark,
+                        payloadErrors,
                         pool.RentedCount,
                         latencyTicks,
                         elapsed.ElapsedMilliseconds,
@@ -117,12 +203,15 @@ namespace Hps.Benchmarks
         private static TcpLoopbackRunResult CreateResult(
             string resultName,
             string scenario,
+            int targetRateHz,
+            int targetDurationSeconds,
             int plannedMessageCount,
             int sent,
             int received,
             long dropped,
             int tcpPendingSendQueueHighWatermark,
             int udpPendingSendQueueHighWatermark,
+            int payloadErrors,
             int poolRented,
             long[] latencyTicks,
             long elapsedMilliseconds,
@@ -141,15 +230,15 @@ namespace Hps.Benchmarks
                 resultName,
                 scenario,
                 BenchmarkTargets.PayloadBytes,
-                0,
-                0,
+                targetRateHz,
+                targetDurationSeconds,
                 plannedMessageCount,
                 sent,
                 received,
                 dropped,
                 tcpPendingSendQueueHighWatermark,
                 udpPendingSendQueueHighWatermark,
-                0,
+                payloadErrors,
                 poolRented,
                 p50,
                 p99,
@@ -157,6 +246,85 @@ namespace Hps.Benchmarks
                 PercentileLatency(latencyTicks, firstHalfCount, secondHalfCount, 0.99),
                 elapsedMilliseconds,
                 identity);
+        }
+
+        private static async Task<PayloadExchangeResult> RunOpenLoopExchangeAsync(
+            Socket subscriber,
+            Socket publisher,
+            EndPoint serverEndPoint,
+            byte[] payload,
+            long[] latencyTicks,
+            int messageCount,
+            int publishRateHz,
+            Stopwatch pacingClock)
+        {
+            // open-loop 는 publisher 가 subscriber receive 완료를 기다리지 않는 경로다.
+            // receive task 를 먼저 걸어 둔 뒤 publish loop 는 schedule 만 보고 전송해 UDP send queue/drop 경로를 드러낸다.
+            Task<OpenLoopReceiveResult> receiveTask = ReceiveOpenLoopPayloadsAsync(subscriber, latencyTicks, messageCount);
+            int sent = 0;
+
+            for (int index = 0; index < messageCount; index++)
+            {
+                await WaitForScheduledPublishAsync(pacingClock, index, publishRateHz).ConfigureAwait(false);
+                PreparePayload(payload, index, Stopwatch.GetTimestamp());
+                await SendDatagramAsync(
+                    publisher,
+                    serverEndPoint,
+                    CreatePublishCommand(BenchmarkTargets.DefaultTopic, payload)).ConfigureAwait(false);
+                sent++;
+            }
+
+            OpenLoopReceiveResult receiveResult = await receiveTask.ConfigureAwait(false);
+            return new PayloadExchangeResult(sent, receiveResult.Received, receiveResult.PayloadErrors);
+        }
+
+        private static async Task<OpenLoopReceiveResult> ReceiveOpenLoopPayloadsAsync(Socket subscriber, long[] latencyTicks, int messageCount)
+        {
+            int received = 0;
+            int payloadErrors = 0;
+
+            while (received < messageCount)
+            {
+                byte[] receivedPayload;
+                try
+                {
+                    receivedPayload = await ReceiveDatagramPayloadAsync(subscriber, BenchmarkTargets.PayloadBytes).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    // UDP open-loop 에서 누락이 생기면 runner 를 예외로 죽이지 않고 failed report 로 남긴다.
+                    // 이후 summary/history 가 received < sent 또는 payload-errors 로 hard gate 실패를 관측한다.
+                    break;
+                }
+
+                int sequence = BinaryPrimitives.ReadInt32BigEndian(new ReadOnlySpan<byte>(receivedPayload, SequenceOffset, SequenceBytes));
+                if (!PayloadMatchesSequencePattern(receivedPayload, sequence, received))
+                    payloadErrors++;
+
+                long embeddedTimestamp = BinaryPrimitives.ReadInt64BigEndian(new ReadOnlySpan<byte>(receivedPayload, TimestampOffset, TimestampBytes));
+                latencyTicks[received] = Stopwatch.GetTimestamp() - embeddedTimestamp;
+                received++;
+            }
+
+            return new OpenLoopReceiveResult(received, payloadErrors);
+        }
+
+        private static async Task WaitForScheduledPublishAsync(Stopwatch stopwatch, int messageIndex, int publishRateHz)
+        {
+            if (publishRateHz <= 0)
+                return;
+
+            long targetTicks = (long)messageIndex * Stopwatch.Frequency / publishRateHz;
+            while (stopwatch.ElapsedTicks < targetTicks)
+            {
+                long remainingTicks = targetTicks - stopwatch.ElapsedTicks;
+                int remainingMilliseconds = (int)(remainingTicks * 1000 / Stopwatch.Frequency);
+
+                if (remainingMilliseconds > 1)
+                    await Task.Delay(remainingMilliseconds - 1).ConfigureAwait(false);
+                else
+                    await Task.Yield();
+            }
         }
 
         private static string BuildScenarioName(TcpLoopbackTransportBackend transportBackend, string suffix)
@@ -326,6 +494,20 @@ namespace Hps.Benchmarks
             return true;
         }
 
+        private static bool PayloadMatchesSequencePattern(byte[] actual, int sequence, int expectedReceiveIndex)
+        {
+            if (sequence != expectedReceiveIndex)
+                return false;
+
+            for (int index = PayloadPatternOffset; index < actual.Length; index++)
+            {
+                if (actual[index] != (byte)((sequence + index) & 0xFF))
+                    return false;
+            }
+
+            return true;
+        }
+
         private static double PercentileLatency(long[] latencyTicks, int startIndex, int count, double percentile)
         {
             if (count <= 0)
@@ -351,6 +533,35 @@ namespace Hps.Benchmarks
         private static double ToMicroseconds(long stopwatchTicks)
         {
             return stopwatchTicks * 1000000.0 / Stopwatch.Frequency;
+        }
+
+        private readonly struct PayloadExchangeResult
+        {
+            public PayloadExchangeResult(int sent, int received, int payloadErrors)
+            {
+                Sent = sent;
+                Received = received;
+                PayloadErrors = payloadErrors;
+            }
+
+            public int Sent { get; }
+
+            public int Received { get; }
+
+            public int PayloadErrors { get; }
+        }
+
+        private readonly struct OpenLoopReceiveResult
+        {
+            public OpenLoopReceiveResult(int received, int payloadErrors)
+            {
+                Received = received;
+                PayloadErrors = payloadErrors;
+            }
+
+            public int Received { get; }
+
+            public int PayloadErrors { get; }
         }
     }
 }

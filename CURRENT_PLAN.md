@@ -1334,26 +1334,30 @@ UDP `SUBSCRIBE`/`PUBLISH` datagram loopback 을 실행해 `udp-loopback-saea-bas
 report schema 는 기존 writer 를 재사용하고, identity 는 `benchmark-profile=udp-loopback-saea-v1`,
 `transport-backend=SaeaTransport`를 기록한다.
 
-다음 작업은 RIO UDP benchmark load/open-loop/baseline-suite 구현이다.
-현재 `--protocol udp --load`, `--load-open-loop`, `--baseline-suite`는 아직 Program guard 로 실패 처리된다.
-다음 Red 테스트는 `--load --protocol udp --backend saea --report <temp>`가
-`udp-loopback-saea-baseline` raw report 를 만들어야 한다는 계약으로 시작한다.
+RIO UDP benchmark load/open-loop/baseline-suite 구현을 완료했다.
+`--protocol udp --load`, `--load-open-loop`, `--baseline-suite`는 이제 UDP runner 로 dispatch 되고,
+closed-loop/open-loop 모두 기존 raw report schema 를 재사용한다.
+SAEA UDP CLI smoke 에서 4096B x 100Hz x 30초 load/open-loop 와 1-run baseline-suite 가
+sent/received 3000/3000, dropped 0, pool-rented 0 으로 통과했다.
+
+다음 작업은 RIO/SAEA UDP benchmark scratch artifact 수집이다.
+D112 기준으로 repository baseline 에 바로 넣지 않고
+`artifacts/benchmarks/rio-udp/2026-06-26/session-01/` 같은 scratch 영역에
+SAEA/RIO UDP load/open-loop raw report 와 summary 를 생성해 backend 비교 가능성을 확인한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP benchmark load/open-loop/baseline-suite 를 구현한다.
+이번 cycle 은 RIO/SAEA UDP benchmark scratch artifact 를 수집한다.
 
-- 범위: `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`, `Program.cs`, baseline-suite wiring,
-  `tests/Hps.Benchmarks.Tests/` Program/report tests, 필요 시 UDP runner helper 정리.
-- 검증: Program/report Red-Green, SAEA UDP load/open-loop CLI smoke, benchmark tests,
-  `dotnet build HighPerformanceSocket.slnx --no-restore`, `dotnet test HighPerformanceSocket.slnx --no-build`,
-  `git diff --check`.
+- 범위: `tests/Hps.Benchmarks` CLI 실행 결과, `artifacts/benchmarks/rio-udp/...` scratch output,
+  필요 시 `CURRENT_PLAN.md`/`CHANGELOG_AGENT.md` 상태 기록.
+- 검증: SAEA/RIO UDP `--load`/`--load-open-loop` 또는 `--baseline-suite` CLI,
+  summary/history generation, delivery/drop/leak hard gate, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
 - RIO UDP receive prefetch 구현
-- RIO backend UDP benchmark artifact 수집
 - RIO unavailable fallback/default selection policy 구현
 - IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 정책 구현

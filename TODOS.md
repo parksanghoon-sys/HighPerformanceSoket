@@ -9,16 +9,17 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP benchmark load/open-loop/baseline-suite 를 구현한다.
-  - 목적: D112 UDP artifact 수집을 smoke 에서 Phase 4 핵심 workload 인 4096B x 100Hz load/open-loop 와 반복 suite 로 확장한다.
-  - 범위: `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`, `Program.cs`, `BaselineSuiteRunner` wiring,
-    `tests/Hps.Benchmarks.Tests/` Program/report tests, 필요 시 UDP runner helper 정리.
-  - 현재 판단: UDP SAEA smoke 는 `udp-loopback-saea-baseline-smoke` raw report 를 생성한다.
-    `--protocol udp --load`, `--load-open-loop`, `--baseline-suite`는 아직 Program guard 로 실패 처리된다.
-  - 다음 자연스러운 step: Red 테스트로 `--load --protocol udp --backend saea --report <temp>`가
-    `udp-loopback-saea-baseline` raw report 를 만들어야 함을 고정한다.
-  - 검증: focused Program/report tests, SAEA UDP load/open-loop CLI smoke, benchmark tests,
-    solution build/test, `git diff --check`.
+- [ ] RIO/SAEA UDP benchmark scratch artifact 를 수집한다.
+  - 목적: D112 UDP report command 로 실제 4096B x 100Hz load/open-loop artifact 를 만들고,
+    RIO UDP parity/default promotion 재평가에 필요한 첫 비교 evidence 를 확보한다.
+  - 범위: `tests/Hps.Benchmarks` CLI 실행, `artifacts/benchmarks/rio-udp/2026-06-26/session-01/` scratch output,
+    필요 시 summary/history artifact 와 root 상태 문서 기록.
+  - 현재 판단: UDP SAEA load/open-loop/baseline-suite 는 구현 및 검증 완료됐다.
+    RIO runner dispatch 도 같은 backend selector 를 사용하므로, 이제 실제 RIO UDP CLI 결과를 수집할 수 있다.
+  - 다음 자연스러운 step: scratch directory 에 SAEA/RIO UDP baseline-suite 를 각각 1회 실행하고,
+    summary JSON/Markdown 으로 delivery/drop/leak hard gate 와 latency/HWM 관측값을 비교한다.
+  - 검증: SAEA/RIO UDP `--baseline-suite ... --protocol udp --backend <saea|rio>`,
+    `--summarize-baseline`, 필요 시 focused CLI 재실행, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -65,6 +66,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP benchmark load/open-loop/baseline-suite 를 구현했다.
+  - 범위: `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`, `tests/Hps.Benchmarks/Program.cs`,
+    `tests/Hps.Benchmarks.Tests/UdpLoopbackScenarioRunnerTests.cs`, root 상태 문서.
+  - 결과: UDP runner 가 smoke/load/open-loop 를 하나의 scenario core 로 실행하고,
+    baseline-suite 는 `--protocol udp` 선택값에 따라 UDP load/open-loop raw report 를 반복 생성한다.
+    closed-loop 는 publish 뒤 receive 를 기다리고, open-loop 는 receive task 와 publish schedule 을 분리해
+    delivery/drop/leak hard gate 를 report 로 남긴다.
+  - Red: focused `UdpLoopbackScenarioRunnerTests` 2개가 기존 private test entry point 부재로 `Assert.NotNull()` 실패했다.
+  - Green/검증: focused UDP runner tests 2개 통과, `Hps.Benchmarks.Tests` 78개 통과,
+    실제 SAEA UDP load/open-loop CLI pass, 실제 SAEA UDP baseline-suite 1-run pass,
+    solution build 경고 0/오류 0, solution tests 325개 통과.
 
 - [x] RIO UDP benchmark artifact 수집 범위와 command shape 를 설계했다.
   - 범위: `docs/superpowers/specs/2026-06-26-rio-udp-benchmark-artifact-design.md`,

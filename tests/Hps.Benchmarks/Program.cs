@@ -31,13 +31,6 @@ namespace Hps.Benchmarks
                 return UsageErrorExitCode;
             }
 
-            if (IsLoopbackExecutionCommandWithoutUdpRunner(commandLine.Command) &&
-                commandLine.LoopbackProtocol == LoopbackProtocol.Udp)
-            {
-                Console.Error.WriteLine("protocol-not-implemented: udp loopback runner is not implemented yet.");
-                return FailedRunExitCode;
-            }
-
             switch (commandLine.Command)
             {
                 case BenchmarkCommand.Target:
@@ -51,13 +44,19 @@ namespace Hps.Benchmarks
                     return CompleteRun(TcpLoopbackScenarioRunner.RunSmokeAsync(commandLine.TransportBackend).GetAwaiter().GetResult(), commandLine.ReportPath);
 
                 case BenchmarkCommand.Load:
+                    if (commandLine.LoopbackProtocol == LoopbackProtocol.Udp)
+                        return CompleteRun(UdpLoopbackScenarioRunner.RunLoadAsync(commandLine.TransportBackend).GetAwaiter().GetResult(), commandLine.ReportPath);
+
                     return CompleteRun(TcpLoopbackScenarioRunner.RunLoadAsync(commandLine.TransportBackend).GetAwaiter().GetResult(), commandLine.ReportPath);
 
                 case BenchmarkCommand.LoadOpenLoop:
+                    if (commandLine.LoopbackProtocol == LoopbackProtocol.Udp)
+                        return CompleteRun(UdpLoopbackScenarioRunner.RunOpenLoopAsync(commandLine.TransportBackend).GetAwaiter().GetResult(), commandLine.ReportPath);
+
                     return CompleteRun(TcpLoopbackScenarioRunner.RunOpenLoopAsync(commandLine.TransportBackend).GetAwaiter().GetResult(), commandLine.ReportPath);
 
                 case BenchmarkCommand.BaselineSuite:
-                    return CompleteBaselineSuite(commandLine.BaselineOutputDirectory!, commandLine.BaselineRunCount, commandLine.TransportBackend);
+                    return CompleteBaselineSuite(commandLine.BaselineOutputDirectory!, commandLine.BaselineRunCount, commandLine.TransportBackend, commandLine.LoopbackProtocol);
 
                 case BenchmarkCommand.SummarizeBaseline:
                     return CompleteBaselineSummary(commandLine.SummaryInputDirectory!, commandLine.SummaryOutputPath!, commandLine.SummaryMarkdownOutputPath);
@@ -94,13 +93,21 @@ namespace Hps.Benchmarks
             return result.Passed ? SuccessExitCode : FailedRunExitCode;
         }
 
-        private static int CompleteBaselineSuite(string outputDirectory, int runCount, TcpLoopbackTransportBackend transportBackend)
+        private static int CompleteBaselineSuite(string outputDirectory, int runCount, TcpLoopbackTransportBackend transportBackend, LoopbackProtocol loopbackProtocol)
         {
             BaselineSuiteRunner runner = new BaselineSuiteRunner(
                 kind =>
                 {
                     if (kind == BaselineRunKind.Load)
+                    {
+                        if (loopbackProtocol == LoopbackProtocol.Udp)
+                            return UdpLoopbackScenarioRunner.RunLoadAsync(transportBackend);
+
                         return TcpLoopbackScenarioRunner.RunLoadAsync(transportBackend);
+                    }
+
+                    if (loopbackProtocol == LoopbackProtocol.Udp)
+                        return UdpLoopbackScenarioRunner.RunOpenLoopAsync(transportBackend);
 
                     return TcpLoopbackScenarioRunner.RunOpenLoopAsync(transportBackend);
                 },
@@ -162,13 +169,6 @@ namespace Hps.Benchmarks
             }
         }
 
-        private static bool IsLoopbackExecutionCommandWithoutUdpRunner(BenchmarkCommand command)
-        {
-            return command == BenchmarkCommand.Load ||
-                command == BenchmarkCommand.LoadOpenLoop ||
-                command == BenchmarkCommand.BaselineSuite;
-        }
-
         private static void WriteBaselineHistoryMarkdown(string path, BaselineHistory history)
         {
             string fullPath = Path.GetFullPath(path);
@@ -199,10 +199,10 @@ namespace Hps.Benchmarks
         {
             writer.WriteLine(MessageUsage);
             writer.WriteLine("  Hps.Benchmarks --target");
-            writer.WriteLine("  Hps.Benchmarks --smoke [--backend <saea|rio>] [--report <path>]");
-            writer.WriteLine("  Hps.Benchmarks --load [--backend <saea|rio>] [--report <path>]");
-            writer.WriteLine("  Hps.Benchmarks --load-open-loop [--backend <saea|rio>] [--report <path>]");
-            writer.WriteLine("  Hps.Benchmarks --baseline-suite <output-dir> [--runs <count>] [--backend <saea|rio>]");
+            writer.WriteLine("  Hps.Benchmarks --smoke [--protocol <tcp|udp>] [--backend <saea|rio>] [--report <path>]");
+            writer.WriteLine("  Hps.Benchmarks --load [--protocol <tcp|udp>] [--backend <saea|rio>] [--report <path>]");
+            writer.WriteLine("  Hps.Benchmarks --load-open-loop [--protocol <tcp|udp>] [--backend <saea|rio>] [--report <path>]");
+            writer.WriteLine("  Hps.Benchmarks --baseline-suite <output-dir> [--runs <count>] [--protocol <tcp|udp>] [--backend <saea|rio>]");
             writer.WriteLine("  Hps.Benchmarks --summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]");
             writer.WriteLine("  Hps.Benchmarks --summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]");
             writer.WriteLine("  Hps.Benchmarks [BenchmarkDotNet arguments]");
