@@ -24,6 +24,9 @@
   closed-loop timeout 도 failed raw report 로 남기고, open-loop sequence gap 을 payload corruption 과 분리한다.
 - `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, `CURRENT_PLAN.md`, `TODOS.md`:
   D113과 scratch evidence, 다음 RIO UDP receive window hardening 설계 진입점을 기록했다.
+- `docs/superpowers/specs/2026-06-26-rio-udp-receive-window-hardening-design.md`:
+  RIO UDP no-prefetch 유지, one-deep pre-post, bounded outstanding receive queue 를 비교하고
+  one-deep pre-post 를 첫 구현 후보로 제안했다.
 
 ### 검증
 - Red: `--smoke --protocol udp --backend rio`가 timeout.
@@ -37,6 +40,7 @@
   `artifacts/benchmarks/rio-udp/2026-06-26/session-01/saea` summary 는 hard-passed true, warning 0.
   `artifacts/benchmarks/rio-udp/2026-06-26/session-01/rio` summary 는 hard-passed false, warning 3,
   open-loop sent/received 3000/2263, payload-errors 0.
+- 설계 문서 placeholder scan 통과.
 
 ## 2026-06-26 (Codex - RIO UDP benchmark load runners)
 

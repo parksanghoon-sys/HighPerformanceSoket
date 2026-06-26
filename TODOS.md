@@ -9,16 +9,17 @@
 
 ## Current TODOs
 
-- [ ] RIO UDP receive window hardening 을 설계한다.
-  - 목적: scratch artifact 에서 확인된 RIO UDP open-loop delivery loss 와 16ms대 p99 tail 을 줄이기 위한 receive posting 정책을 정한다.
+- [ ] RIO UDP receive window hardening 설계를 검토하고 구현 계획을 작성한다.
+  - 목적: scratch artifact 에서 확인된 RIO UDP open-loop delivery loss 와 16ms대 p99 tail 을 줄이기 위한 receive posting 정책을 구현 가능한 task 로 나눈다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-    D111/D113 결정, RIO UDP tests, `artifacts/benchmarks/rio-udp/2026-06-26/session-01/` scratch evidence.
+    D111/D113 결정, RIO UDP tests, `artifacts/benchmarks/rio-udp/2026-06-26/session-01/` scratch evidence,
+    `docs/superpowers/specs/2026-06-26-rio-udp-receive-window-hardening-design.md`.
   - 현재 판단: D113 fix 로 RIO UDP smoke/closed-loop load 는 delivery pass 가 가능해졌지만,
     open-loop 는 sent 3000 / received 2263 / payload-errors 0 으로 fail 이다.
-    no-prefetch receive window 와 UDP completion polling tail 이 병목 후보로 남았다.
-  - 다음 자연스러운 step: no-prefetch 유지, one-deep pre-post, bounded outstanding receive queue 의
-    ownership/close-drain/drop 관측성 비용을 비교한 설계 문서를 작성한다.
-  - 검증: D111/D113과 scratch report 대조, SAEA/RIO UDP tests coverage 대조, 설계 문서 placeholder scan, `git diff --check`.
+    설계 초안은 one-deep pre-post 를 권장하고, bounded depth 는 후속 후보로 둔다.
+  - 다음 자연스러운 step: 설계 검토 후 구현 계획 문서를 작성한다.
+  - 검증: 설계 문서 review, D111/D113과 scratch report 대조, SAEA/RIO UDP tests coverage 대조,
+    구현 계획 placeholder scan, `git diff --check`.
 
 ## Deferred Backlog
 
@@ -53,6 +54,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP receive window hardening 설계 초안을 작성했다.
+  - 범위: `docs/superpowers/specs/2026-06-26-rio-udp-receive-window-hardening-design.md`, root 상태 문서.
+  - 결과: no-prefetch 유지, one-deep pre-post, bounded outstanding receive queue 를 비교했고,
+    첫 구현 후보는 handler 병렬 호출 없이 다음 receive 를 dispatch 전에 post 하는 one-deep pre-post 로 정리했다.
+  - 검증: placeholder scan 통과, D111/D113과 scratch benchmark evidence 대조.
 
 - [x] RIO/SAEA UDP benchmark scratch artifact 를 수집하고 RIO UDP receive/fan-out 경계 버그를 보정했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,

@@ -1348,18 +1348,19 @@ RIO UDP는 D113 fix 이후 smoke 와 closed-loop load delivery 는 통과했지�
 open-loop 는 sent 3000 / received 2263 / payload-errors 0 으로 hard gate 실패다.
 RIO closed-loop/open-loop 모두 p99 가 약 16.7ms 로 남아 있어 UDP completion wait/no-prefetch window 가 다음 병목이다.
 
-다음 작업은 RIO UDP receive window hardening 설계다.
-D111의 no-prefetch 경계를 그대로 둘지, handler dispatch 전에 다음 receive 를 pre-post 하는 one-deep 방식으로 갈지,
-또는 bounded outstanding receive queue 로 승격할지 설계로 먼저 닫는다.
+RIO UDP receive window hardening 설계 초안을 작성했다.
+설계 문서는 `docs/superpowers/specs/2026-06-26-rio-udp-receive-window-hardening-design.md`다.
+권장안은 handler dispatch 전에 다음 receive 를 먼저 post 하는 one-deep pre-post 이며,
+handler 병렬 호출과 configurable receive depth 는 이번 범위에서 제외한다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP receive window hardening 을 설계한다.
+이번 cycle 은 RIO UDP receive window hardening 설계 검토 이후 구현 계획 작성 여부를 결정한다.
 
 - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
   D111/D113 결정, RIO UDP tests, scratch benchmark evidence.
-- 검증: no-prefetch vs one-deep pre-post vs bounded prefetch failure mode 대조,
-  ownership/close drain 설계 self-review, `git diff --check`.
+- 검증: 설계 문서 review, no-prefetch vs one-deep pre-post vs bounded prefetch failure mode 대조,
+  ownership/close drain 설계 self-review, 구현 계획 작성 전 `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
