@@ -156,6 +156,8 @@ namespace Hps.Transport
             if (!native.SupportsDatagramOperations)
                 throw new NotSupportedException("현재 RIO provider 는 RIO datagram operation 을 제공하지 않습니다.");
 
+            ThrowIfUnsupportedUdpLocalEndPoint(localEndPoint);
+
             Socket socket = RioNative.CreateUdpSocket();
             RioUdpEndpoint? endpoint = null;
             try
@@ -188,6 +190,9 @@ namespace Hps.Transport
 
             RefCountedBuffer buffer = sendBuffer.Buffer;
             _ = buffer.Memory;
+
+            if (!IsSupportedUdpEndPoint(remoteEndPoint))
+                return false;
 
             if (udpEndpoint.IsClosed)
                 return false;
@@ -981,6 +986,18 @@ namespace Hps.Transport
                 throw new NotSupportedException("현재 환경에서 Windows RIO function table을 사용할 수 없습니다.");
 
             return native;
+        }
+
+        private static bool IsSupportedUdpEndPoint(EndPoint endPoint)
+        {
+            IPEndPoint? ipEndPoint = endPoint as IPEndPoint;
+            return ipEndPoint != null && ipEndPoint.AddressFamily == AddressFamily.InterNetwork;
+        }
+
+        private static void ThrowIfUnsupportedUdpLocalEndPoint(EndPoint endPoint)
+        {
+            if (!IsSupportedUdpEndPoint(endPoint))
+                throw new NotSupportedException("RIO UDP v1은 IPv4 IPEndPoint 만 지원합니다.");
         }
 
         private static void WriteBigEndianLength(byte[] buffer, int value)

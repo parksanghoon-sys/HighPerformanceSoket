@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - rio udp ipv6 unsupported guard)
+
+### 작업 단위
+- D121에 따라 RIO UDP v1의 IPv4-only 정책을 public boundary 에서 강제했다.
+
+### 변경 내용
+- `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
+  IPv6 local bind 가 명시적 `NotSupportedException`으로 실패하는지,
+  IPv6 remote send 가 enqueue 없이 `false`를 반환하는지 검증했다.
+- `src/Hps.Transport.Rio/RioTransport.cs`:
+  UDP endpoint address-family guard helper 를 추가했다.
+  `BindUdpAsync(...)`는 IPv6 local endpoint 를 socket bind 전에 거부하고,
+  `TrySendTo(...)`는 IPv6 remote endpoint 를 pending queue 에 넣지 않고 `false`로 반환한다.
+- `docs/superpowers/plans/2026-06-26-rio-udp-ipv6-unsupported-guard.md`:
+  Task 1 실행 체크박스를 완료로 갱신했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  guard 구현 완료와 남은 deferred backlog 를 반영했다.
+
+### 검증
+- Red: IPv6 local bind test 는 기존 구현에서 `SocketException`으로 실패했다.
+- Red: IPv6 remote send test 는 기존 구현에서 `TrySendTo == true`로 실패했다.
+- Green: focused guard tests 2개 통과.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 55개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 351개 통과.
+- `git diff --check`: 통과.
+
 ## 2026-06-26 (Codex - rio udp ipv6 support gate design)
 
 ### 작업 단위

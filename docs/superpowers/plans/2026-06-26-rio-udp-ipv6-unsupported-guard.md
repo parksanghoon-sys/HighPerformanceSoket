@@ -52,7 +52,7 @@
   - RIO UDP local bind IPv6 explicit unsupported behavior.
   - RIO UDP remote send IPv6 synchronous `false` reject behavior.
 
-- [ ] **Step 1: Write the failing bind guard test**
+- [x] **Step 1: Write the failing bind guard test**
 
 Add to `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
 
@@ -81,7 +81,7 @@ Add to `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
         }
 ```
 
-- [ ] **Step 2: Write the failing remote send guard test**
+- [x] **Step 2: Write the failing remote send guard test**
 
 Add to `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
 
@@ -134,7 +134,7 @@ Add to `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`:
         }
 ```
 
-- [ ] **Step 3: Run Red tests**
+- [x] **Step 3: Run Red tests**
 
 Run:
 
@@ -155,7 +155,7 @@ Expected when RIO datagram is unavailable:
 Tests return early and pass; implementation still compiles.
 ```
 
-- [ ] **Step 4: Implement minimal guard helper**
+- [x] **Step 4: Implement minimal guard helper**
 
 Modify `src/Hps.Transport.Rio/RioTransport.cs`:
 
@@ -186,7 +186,7 @@ In `TrySendTo(...)`, before `udpEndpoint.IsClosed` check:
                 return false;
 ```
 
-- [ ] **Step 5: Run focused Green tests**
+- [x] **Step 5: Run focused Green tests**
 
 Run:
 
@@ -200,7 +200,7 @@ Expected:
 Passed! - Failed: 0
 ```
 
-- [ ] **Step 6: Run broader RIO verification**
+- [x] **Step 6: Run broader RIO verification**
 
 Run:
 
@@ -220,7 +220,7 @@ Solution tests fail 0.
 git diff --check exits 0.
 ```
 
-- [ ] **Step 7: Update state docs**
+- [x] **Step 7: Update state docs**
 
 Update:
 
@@ -233,7 +233,7 @@ Update:
 - `CHANGELOG_AGENT.md`
   - Red/Green evidence and verification commands.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Run:
 

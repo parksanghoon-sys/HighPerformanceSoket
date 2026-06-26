@@ -9,15 +9,26 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` RIO UDP IPv6 unsupported boundary guard 를 TDD로 구현한다.
-  - 목적: D121 IPv4-only RIO UDP v1 정책을 public boundary 에서 강제해 unsupported IPv6가 background send/receive loop 로 흘러가지 않게 한다.
-  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D121 설계/구현 계획, 관련 상태 문서.
-  - 현재 판단: full IPv6 구현은 보류하되, IPv6 local bind 와 IPv6 remote send 는 명시적으로 거부해야 한다.
-  - 다음 자연스러운 step: `docs/superpowers/plans/2026-06-26-rio-udp-ipv6-unsupported-guard.md`의 Task 1을 실행한다.
-  - 검증: IPv6 bind/send guard Red-Green, focused RIO tests, solution build/test, `git diff --check`.
+- 현재 즉시 실행 가능한 항목 없음.
+  - 남은 항목은 default promotion scope 또는 실제 host/metrics surface 가 열릴 때 Current TODO 로 승격한다.
 
 ## Deferred Backlog
+
+- [ ] `P2_LATER` RIO UDP full IPv6 지원 또는 address-family-aware fallback 정책을 default promotion 전에 결정/구현한다.
+  - 무엇이 남았는지: RIO UDP v1은 D121 기준 IPv4-only opt-in backend 이며, IPv6 local bind/send/receive 는 아직 지원하지 않는다.
+  - 왜 defer 되었는지: D118의 4096B x 100Hz RIO UDP scratch evidence 는 IPv4 loopback 기준으로 충분하고,
+    D119에 따라 base `TransportFactory.CreateDefault()`는 계속 SAEA default 다.
+  - objective: default backend promotion 을 다시 검토하기 전에 IPv6 UDP를 RIO에 구현할지,
+    또는 address-family-aware selector/composite fallback 으로 SAEA를 사용할지 확정한다.
+  - relevant context: D110, D118, D119, D121,
+    `docs/superpowers/specs/2026-06-26-rio-udp-ipv6-support-gate-design.md`.
+  - 관련 파일/범위: `src/Hps.Transport.Rio/RioNative.cs`, `src/Hps.Transport.Rio/RioTransport.cs`,
+    `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`,
+    default selection/host composition 문서.
+  - 현재 상태 또는 이미 시도한 접근: unsupported IPv6는 public boundary 에서 명시적으로 거부하도록 guard 구현이 완료됐다.
+  - known blockers 또는 open questions: `SOCKADDR_IN6` encode/decode, scope id, dual-mode socket 정책,
+    IPv6 benchmark artifact 채택 여부, default promotion 의 IPv6 compatibility 요구 수준.
+  - 가장 자연스러운 next step: default promotion scope 가 다시 열리면 full IPv6 구현안과 SAEA fallback/composite안을 비교하는 설계를 작성한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -30,6 +41,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP IPv6 unsupported boundary guard 를 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`,
+    `docs/superpowers/plans/2026-06-26-rio-udp-ipv6-unsupported-guard.md`, root 상태 문서.
+  - 결과: IPv6 local bind 는 명시적 `NotSupportedException`으로 거부하고,
+    IPv6 remote send 는 pending queue 에 넣지 않고 `false`를 반환한다.
+  - Red: 기존 구현에서 IPv6 bind 는 `SocketException`으로 실패했고, IPv6 remote `TrySendTo`는 `true`를 반환했다.
+  - Green/검증: focused guard tests 2개 통과, `Hps.Transport.Rio.Tests` 55개 통과,
+    solution build 경고 0/오류 0, solution tests 351개 통과, `git diff --check` 통과.
 
 - [x] RIO UDP IPv6 support gate 설계와 unsupported guard 구현 계획을 작성했다.
   - 범위: `docs/superpowers/specs/2026-06-26-rio-udp-ipv6-support-gate-design.md`,

@@ -1453,15 +1453,21 @@ RIO UDP IPv6 support gate 설계도 완료했다(D121).
 지금 즉시 full IPv6를 구현하지 않고, unsupported IPv6 local/remote endpoint 를 RIO UDP public boundary 에서
 명시적으로 막는 guard 를 다음 구현 단위로 좁혔다.
 구현 계획은 `docs/superpowers/plans/2026-06-26-rio-udp-ipv6-unsupported-guard.md`에 있다.
+RIO UDP IPv6 unsupported boundary guard 구현도 완료했다.
+`BindUdpAsync(...)`는 IPv6 local endpoint 를 명시적 `NotSupportedException`으로 거부하고,
+`TrySendTo(...)`는 IPv6 remote endpoint 를 enqueue 하지 않고 `false`로 반환한다.
+Red evidence 는 기존 구현에서 bind 가 `SocketException`으로 실패하고 send 가 `true`를 반환한 것이다.
+검증은 focused Red/Green, `Hps.Transport.Rio.Tests` 55개, solution build 경고 0/오류 0,
+solution tests 351개 통과, `git diff --check`로 마쳤다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 D121 RIO UDP IPv6 unsupported boundary guard 를 TDD로 구현한다.
+현재 즉시 실행 가능한 Current TODO 는 없다.
+남은 항목은 default promotion scope 가 다시 열릴 때 판단할 RIO UDP full IPv6 support 와,
+실제 host/metrics surface 가 생긴 뒤 설계할 server-level diagnostics model 이다.
 
-- 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-  `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, D121 설계/계획, root 상태 문서.
-- 검증: IPv6 local bind explicit unsupported Red/Green, IPv6 remote send synchronous reject/no-enqueue Red/Green,
-  focused RIO UDP tests, focused RIO tests 전체, solution build/test, `git diff --check`.
+- 다음 cycle 진입 조건: 사용자가 default backend promotion, full IPv6 RIO UDP, 또는 server diagnostics/metrics host scope 를 열어준다.
+- 현재 검증 기준: working tree 는 `.claude/review/` 사용자 검토 문서 외 clean 상태를 유지한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

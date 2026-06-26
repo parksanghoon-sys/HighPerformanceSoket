@@ -80,6 +80,29 @@ namespace Hps.Transport.Rio.Tests
             }
         }
 
+        // D121 정책 테스트: RIO UDP v1은 IPv4-only opt-in backend 이다.
+        // IPv6 bind 가 socket layer 의 모호한 오류로 떨어지면 default promotion gate 에서 원인을 구분하기 어렵다.
+        [Fact]
+        public async Task BindUdpAsync_WhenLocalEndpointIsIpv6_ThrowsExplicitNotSupported()
+        {
+            if (!IsRioDatagramAvailable())
+                return;
+
+            using (RioTransport transport = new RioTransport())
+            {
+                await transport.StartAsync();
+
+                NotSupportedException exception = await Assert.ThrowsAsync<NotSupportedException>(
+                    async delegate
+                    {
+                        await transport.BindUdpAsync(new IPEndPoint(IPAddress.IPv6Loopback, 0));
+                    });
+
+                Assert.Contains("IPv4", exception.Message);
+                await transport.StopAsync();
+            }
+        }
+
         // UDP wait path 가 TCP RIO처럼 notification arm helper 를 가져야 hot path 에서 Task.Delay fallback 을 제거할 수 있다.
         // 기존 bounded yield/delay polling 구현에는 이 helper shape 가 없었기 때문에 회귀 시 다시 잡힌다.
         [Fact]
@@ -179,6 +202,53 @@ namespace Hps.Transport.Rio.Tests
                     await transport.StopAsync();
                 }
             }
+        }
+
+        // D121 send boundary 테스트: IPv6 remote 는 background send pump 로 enqueue 하지 않고 즉시 false 로 거부해야 한다.
+        // false 는 caller 가 추가 ref 를 반환하는 기존 TrySendTo ownership 계약과 맞다.
+        [Fact]
+        public async Task TrySendTo_WhenRemoteEndpointIsIpv6_ReturnsFalseWithoutQueueing()
+        {
+            if (!IsRioDatagramAvailable())
+                return;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            RefCountedBuffer buffer = pool.RentCounted();
+            buffer.Span[0] = 7;
+            buffer.SetLength(1);
+            bool accepted = false;
+
+            using (RioTransport transport = new RioTransport())
+            {
+                await transport.StartAsync();
+                IUdpEndpoint? endpoint = null;
+
+                try
+                {
+                    endpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    buffer.AddRef();
+                    TransportSendBuffer sendBuffer = new TransportSendBuffer(buffer, 0, buffer.Length);
+
+                    accepted = transport.TrySendTo(endpoint, new IPEndPoint(IPAddress.IPv6Loopback, 9), sendBuffer);
+
+                    Assert.False(accepted);
+                    EndpointSnapshot snapshot = Assert.Single(((ITransportEndpointDiagnostics)transport).GetEndpointSnapshots());
+                    Assert.Equal(0, snapshot.PendingSendCount);
+                    Assert.Equal(0, snapshot.PendingSendQueueHighWatermark);
+                    Assert.Equal(0, snapshot.DroppedPendingSendCount);
+                }
+                finally
+                {
+                    if (!accepted)
+                        buffer.Release();
+
+                    buffer.Release();
+                    endpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+
+            await WaitForRentedCountAsync(pool, 0);
         }
 
         // RIO UDP diagnostics 는 SAEA UDP와 같은 endpoint snapshot capability 를 제공해야 한다.
