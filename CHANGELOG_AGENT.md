@@ -5,6 +5,49 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP bounded receive benchmark)
+
+### 작업 단위
+- RIO UDP bounded receive window Task 3 scratch benchmark 와 D118 판단을 수행했다.
+
+### 변경 내용
+- `artifacts/benchmarks/rio-udp/2026-06-26/session-04/rio/`:
+  RIO UDP `load-01.json`, `open-loop-01.json`, `summary.json`, `summary.md`를 생성했다.
+  scratch artifact 이므로 stage 하지 않는다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D118을 추가했다. RIO UDP bounded receive window 는 open-loop delivery hard gate 를 닫은 기준선으로 수락한다.
+- `docs/superpowers/plans/2026-06-26-rio-udp-bounded-receive-window.md`,
+  `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 3 측정 결과와 다음 실행점인 RIO unavailable fallback/default selection policy 설계를 반영했다.
+
+### 검증
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --baseline-suite artifacts\benchmarks\rio-udp\2026-06-26\session-04\rio --runs 1 --protocol udp --backend rio`:
+  exit 0, raw report 2개 생성, `baseline-suite-result: pass`.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --summarize-baseline artifacts\benchmarks\rio-udp\2026-06-26\session-04\rio --summary artifacts\benchmarks\rio-udp\2026-06-26\session-04\rio\summary.json --summary-md artifacts\benchmarks\rio-udp\2026-06-26\session-04\rio\summary.md`:
+  exit 0, `hard-passed: true`, `warning-count: 0`, `source-report-count: 2`.
+- RIO `session-04/load`: sent/received 3000/3000, dropped 0, payload-errors 0, pool-rented 0,
+  actual-rate 99.7 Hz, p50 245.5 us, p99 831.8 us, UDP HWM 1, passed true.
+- RIO `session-04/open-loop`: sent/received 3000/3000, dropped 0, payload-errors 0, pool-rented 0,
+  actual-rate 100 Hz, p50 250.4 us, p99 889.4 us, UDP HWM 2, passed true.
+- `git diff --check`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 334개 통과.
+
+## 2026-06-26 (Codex - RIO UDP bounded receive cleanup)
+
+### 작업 단위
+- RIO UDP bounded receive window Task 2 close/drain cleanup hardening 을 확인했다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-06-26-rio-udp-bounded-receive-window.md`:
+  Task 2를 별도 production 변경 없이 Task 1 slot cleanup 구현과 focused cleanup tests 로 닫았다고 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 2 완료와 다음 Task 3 scratch benchmark/D118 판단 진입점을 반영했다.
+
+### 검증
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore --filter "FullyQualifiedName~UdpReceive_WhenEndpointClosesWithPrePostedReceive|FullyQualifiedName~UdpReceive_WhenHandlerThrowsWithPrePostedReceive"`:
+  2개 통과.
+
 ## 2026-06-26 (Codex - RIO UDP bounded receive window Task 1)
 
 ### 작업 단위

@@ -1403,15 +1403,22 @@ bounded receive window Task 1 depth-2 receive behavior 구현도 완료했다.
 `UdpReceive_WhenHandlerIsBlocked_PreservesTwoQueuedDatagramsWithBoundedWindow`는 기존 one-deep 구현에서
 `Expected: 3`, `Actual: 2`로 실패했고, Green 이후 focused test 1개, `RioTransportUdpTests` 16개,
 `Hps.Transport.Rio.Tests` 53개가 통과했다.
+Task 2 close/drain cleanup hardening 은 별도 production 변경 없이 Task 1 slot cleanup 구현으로 닫았다.
+focused cleanup tests 2개가 통과했고, receive loop finally 는 slot 배열을 dispose 한 뒤 endpoint receive CQ를 닫는다.
+Task 3 scratch benchmark 와 D118 판단도 완료했다.
+RIO `session-04/load`는 sent/received 3000/3000, p99 831.8 us 로 통과했다.
+RIO `session-04/open-loop`은 sent/received 3000/3000, p99 889.4 us 로 통과했다.
+summary 는 hard-passed true, warning 0이다.
+D118로 bounded receive window 를 RIO UDP open-loop delivery hard gate 를 닫은 기준선으로 수락했다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP bounded receive window Task 2 close/drain cleanup hardening 을 TDD로 수행한다.
+이번 cycle 은 RIO unavailable fallback/default selection policy 설계를 작성한다.
 
-- 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-  `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, bounded receive window 구현 계획, root 상태 문서.
-- 검증: depth 2 close/handler-exception cleanup Red/Green, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`,
-  solution build/test, `git diff --check`.
+- 범위: `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/RioNative.cs`,
+  RIO/SAEA contract matrix, D108/D110/D118 decisions, benchmark/test opt-in path, runtime documentation.
+- 검증: current factory behavior, RIO capability probe, RIO TCP/UDP tests, scratch benchmark evidence,
+  decision/state docs consistency.
 
 ## 이번 작업에서 건드리지 않는 범위
 

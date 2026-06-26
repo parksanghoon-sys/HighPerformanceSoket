@@ -211,7 +211,7 @@ Actual verification:
 - Modify: `src/Hps.Transport.Rio/RioTransport.cs`
 - Modify: root state docs
 
-- [ ] **Step 1: Add depth-aware cleanup Red tests**
+- [x] **Step 1: Add depth-aware cleanup Red tests**
 
 Add/adjust tests:
 
@@ -224,7 +224,12 @@ Expected assertions:
 - After close or handler exception cleanup, `ReceivePool.RentedCount == 0`.
 - close notification remains once.
 
-- [ ] **Step 2: Implement explicit slot cleanup**
+Actual:
+
+- Task 1에서 기존 close/handler-exception tests 의 rented count 기대값과 주석을 depth 2 정책으로 조정했다.
+- 별도 production 변경 없이 focused cleanup tests 2개가 통과했다.
+
+- [x] **Step 2: Implement explicit slot cleanup**
 
 Rules:
 
@@ -233,9 +238,19 @@ Rules:
 - If endpoint is closed, do not post replacement receives.
 - Invalid or zero `RequestContext` should close endpoint via `SocketException` path, not corrupt slot ownership.
 
-- [ ] **Step 3: Verify and commit Task 2**
+Actual:
+
+- Task 1 `RioUdpReceiveSlot.Dispose()`가 data registration, slot-local remote address registration, outstanding datagram ref 를 모두 정리한다.
+- receive loop `finally`가 slot 배열을 dispose 한 뒤 endpoint receive CQ를 닫는다.
+
+- [x] **Step 3: Verify and commit Task 2**
 
 Run focused tests, full RIO tests, solution build/test.
+
+Actual:
+
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore --filter "FullyQualifiedName~UdpReceive_WhenEndpointClosesWithPrePostedReceive|FullyQualifiedName~UdpReceive_WhenHandlerThrowsWithPrePostedReceive"`: 2 passed.
+- 별도 commit 은 만들지 않고 Task 1 commit `0a03a17`에 포함된 cleanup 구현으로 닫는다.
 
 Commit:
 
@@ -251,14 +266,21 @@ git commit -m "test: harden rio udp bounded receive cleanup"
 - Modify: root state docs
 - Ignored scratch output: `artifacts/benchmarks/rio-udp/2026-06-26/session-04/rio/`
 
-- [ ] **Step 1: Run benchmark**
+- [x] **Step 1: Run benchmark**
 
 ```powershell
 dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --baseline-suite artifacts\benchmarks\rio-udp\2026-06-26\session-04\rio --runs 1 --protocol udp --backend rio
 dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --summarize-baseline artifacts\benchmarks\rio-udp\2026-06-26\session-04\rio --summary artifacts\benchmarks\rio-udp\2026-06-26\session-04\rio\summary.json --summary-md artifacts\benchmarks\rio-udp\2026-06-26\session-04\rio\summary.md
 ```
 
-- [ ] **Step 2: Decide D118**
+Actual:
+
+- baseline suite exit 0, `baseline-suite-result: pass`.
+- summary exit 0, `hard-passed: true`, `warning-count: 0`, `source-report-count: 2`.
+- RIO `session-04/load`: sent/received 3000/3000, dropped 0, payload-errors 0, pool-rented 0, actual-rate 99.7 Hz, p50 245.5 us, p99 831.8 us, UDP HWM 1, passed true.
+- RIO `session-04/open-loop`: sent/received 3000/3000, dropped 0, payload-errors 0, pool-rented 0, actual-rate 100 Hz, p50 250.4 us, p99 889.4 us, UDP HWM 2, passed true.
+
+- [x] **Step 2: Decide D118**
 
 Decision rule:
 
@@ -266,9 +288,19 @@ Decision rule:
 - partial: delivery improves but remains below 3000.
 - rejected as fix: delivery does not improve materially.
 
-- [ ] **Step 3: Verify and commit Task 3**
+Actual:
+
+- D118 accepted. Bounded receive window closes the RIO UDP open-loop delivery hard gate for the current 4096B x 100Hz scratch benchmark.
+
+- [x] **Step 3: Verify and commit Task 3**
 
 Run `git diff --check`, solution build/test, commit benchmark decision docs.
+
+Actual:
+
+- `git diff --check`: passed.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: warning 0/error 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 334 passed.
 
 ## Out of Scope
 

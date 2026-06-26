@@ -9,25 +9,15 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` RIO UDP bounded receive window Task 2 close/drain cleanup hardening 을 수행한다.
-  - 목적: depth 2 receive slot window 에서 endpoint close 와 handler exception 중 posted receive slots 가 모두 정리되는지 명시 테스트로 고정한다.
-  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
-    `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`, bounded receive window 구현 계획, root 상태 문서.
-  - 현재 판단: Task 1에서 request-context 기반 slot window 와 slot-local remote address buffer 는 focused/full RIO tests 에서 green 이다.
-  - 다음 자연스러운 step: 기존 close/handler-exception cleanup tests 를 depth 2 명시 이름/기대값으로 보강하거나 새 Red tests 로 분리한다.
-  - 검증: focused Red/Green, focused `RioTransportUdpTests`, focused `Hps.Transport.Rio.Tests`, solution build/test.
+- [ ] `P1_SOON` RIO unavailable fallback/default selection policy 를 설계한다.
+  - 목적: D118로 RIO UDP scratch gate 가 닫힌 뒤에도 `TransportFactory.CreateDefault()`를 언제/어떻게 RIO 후보로 승격할지 결정한다.
+  - 범위: `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/RioNative.cs`,
+    RIO/SAEA contract matrix, D108/D110/D118 decisions, benchmark/test opt-in path, runtime documentation.
+  - 현재 판단: RIO TCP/UDP opt-in path 는 통과했지만 default 승격은 fallback/error policy 와 backend contract matrix 를 먼저 정해야 한다.
+  - 다음 자연스러운 step: automatic selection vs explicit policy API, RIO unavailable fallback, observability surface 를 비교하는 설계를 작성한다.
+  - 검증: current factory behavior, RIO capability probe, RIO TCP/UDP tests, scratch benchmark evidence, decision/state docs consistency.
 
 ## Deferred Backlog
-
-- [ ] `P1_SOON` RIO unavailable fallback/default selection policy 를 설계한다.
-  - 무엇이 남았는지: Windows에서 RIO 사용 가능 여부에 따라 default backend 를 자동 선택할지, 명시 policy API를 둘지 결정하지 않았다.
-  - 왜 defer 되었는지: D110 기준으로 RIO는 아직 default 후보가 아니며, 먼저 SAEA/RIO contract parity 와 UDP benchmark evidence 가 필요하다.
-  - objective: `TransportFactory.CreateDefault()` 승격 여부와 실패 시 SAEA fallback/observability 정책을 명확히 한다.
-  - relevant context: D108, D110, `src/Hps.Transport/Runtime/TransportFactory.cs`, `src/Hps.Transport.Rio/RioNative.cs`.
-  - 관련 파일/범위: transport factory, capability probe, benchmark/test opt-in path, runtime documentation.
-  - 현재 상태 또는 이미 시도한 접근: default factory 는 계속 `SaeaTransport`를 반환하고 RIO는 명시 opt-in/test/benchmark path 로만 생성한다.
-  - known blockers 또는 open questions: automatic selection vs explicit policy API, failure logging/diagnostics surface.
-  - 가장 자연스러운 next step: contract matrix 와 benchmark artifact 확보 뒤 별도 default policy 설계를 작성한다.
 
 - [ ] `P2_LATER` RIO UDP IPv6 지원 여부를 default promotion gate 전에 결정한다.
   - 무엇이 남았는지: 현재 RIO UDP address encode/decode 는 IPv4 `SOCKADDR_INET` 경로만 구현되어 있다.
@@ -59,6 +49,21 @@
   - Red: `UdpReceive_WhenHandlerIsBlocked_PreservesTwoQueuedDatagramsWithBoundedWindow`가 기존 one-deep 구현에서
     `Expected: 3`, `Actual: 2`로 실패했다.
   - Green/검증: focused Red test 1개 통과, `RioTransportUdpTests` 16개 통과, `Hps.Transport.Rio.Tests` 53개 통과.
+
+- [x] RIO UDP bounded receive window Task 2 close/drain cleanup hardening 을 확인했다.
+  - 범위: bounded receive window 구현 계획, existing close/handler-exception cleanup tests, root 상태 문서.
+  - 결과: Task 1의 slot cleanup 구현이 data registration, slot-local remote address registration,
+    outstanding datagram ref 를 모두 정리하며, receive loop finally 가 slot 배열 dispose 후 endpoint receive CQ를 닫는다.
+  - 검증: focused cleanup tests 2개 통과.
+  - 비고: 별도 production 변경이나 별도 커밋 없이 Task 1 commit `0a03a17`의 구현으로 닫았다.
+
+- [x] RIO UDP bounded receive window Task 3 scratch benchmark 와 D118 판단을 완료했다.
+  - 범위: ignored scratch `artifacts/benchmarks/rio-udp/2026-06-26/session-04/rio/`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, bounded receive window 구현 계획, root 상태 문서.
+  - 결과: D118을 accepted 로 기록했다. RIO `session-04/load`는 sent/received 3000/3000, p99 831.8 us,
+    RIO `session-04/open-loop`은 sent/received 3000/3000, p99 889.4 us 로 hard-passed true/warning 0 이다.
+  - 검증: baseline suite exit 0, summary exit 0, old RIO session-03/session-02 및 SAEA session-01 비교.
+  - 비고: scratch artifact 는 `artifacts/` ignore 정책에 따라 stage 하지 않는다.
 
 - [x] RIO UDP open-loop delivery loss 의 receive-side 설계와 구현 계획을 작성했다.
   - 범위: `docs/superpowers/specs/2026-06-26-rio-udp-bounded-receive-window-design.md`,
