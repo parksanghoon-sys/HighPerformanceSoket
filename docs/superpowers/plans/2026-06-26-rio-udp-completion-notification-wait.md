@@ -367,12 +367,16 @@ Actual:
 - `dotnet build HighPerformanceSocket.slnx --no-restore`: warning 0/error 0.
 - `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 333 passed.
 
-- [ ] **Step 8: Commit Task 2**
+- [x] **Step 8: Commit Task 2**
 
 ```powershell
 git add src\Hps.Transport.Rio\RioUdpEndpoint.cs src\Hps.Transport.Rio\RioTransport.cs tests\Hps.Transport.Rio.Tests\RioTransportUdpTests.cs
 git commit -m "fix: wait for rio udp completions with notifications"
 ```
+
+Actual:
+
+- Commit: `953716b`.
 
 ---
 
@@ -386,7 +390,7 @@ git commit -m "fix: wait for rio udp completions with notifications"
 - Modify: `CHANGELOG_AGENT.md`
 - Ignored scratch output: `artifacts/benchmarks/rio-udp/2026-06-26/session-03/rio/`
 
-- [ ] **Step 1: Run RIO UDP scratch baseline suite**
+- [x] **Step 1: Run RIO UDP scratch baseline suite**
 
 Run:
 
@@ -399,7 +403,13 @@ Expected:
 - Creates `load-01.json` and `open-loop-01.json`.
 - Exit code may be 0 or 1. Do not treat exit code 1 as command failure if raw reports are written; it means hard gate failed and must be recorded.
 
-- [ ] **Step 2: Generate summary artifacts**
+Actual:
+
+- Exit code: 1.
+- Created `load-01.json` and `open-loop-01.json`.
+- `baseline-suite-result: fail`.
+
+- [x] **Step 2: Generate summary artifacts**
 
 Run:
 
@@ -412,7 +422,13 @@ Expected:
 - Creates `summary.json` and `summary.md`.
 - Exit code follows hard-passed status.
 
-- [ ] **Step 3: Extract metrics**
+Actual:
+
+- Exit code: 1.
+- Created `summary.json` and `summary.md`.
+- `hard-passed: false`, `warning-count: 1`, `source-report-count: 2`.
+
+- [x] **Step 3: Extract metrics**
 
 Run:
 
@@ -442,7 +458,14 @@ $s = Get-Content -Raw (Join-Path $dir 'summary.json') | ConvertFrom-Json
 } | Format-List
 ```
 
-- [ ] **Step 4: Record D116 or follow-up**
+Actual:
+
+- RIO `session-03/load-01.json`: sent 3000, received 3000, dropped 0, payload-errors 0, pool-rented 0, actual-rate 99.8 Hz, p50 201.2 us, p99 481 us, UDP HWM 1, passed true.
+- RIO `session-03/open-loop-01.json`: sent 3000, received 2373, dropped 0, payload-errors 0, pool-rented 0, actual-rate 85.7 Hz, p50 229.1 us, p99 647.6 us, UDP HWM 2, passed false.
+- Previous RIO `session-02/load`: p99 16719.2 us; previous RIO `session-02/open-loop`: sent/received 3000/2409, p99 16709.1 us.
+- SAEA `session-01/load`: sent/received 3000/3000, p99 814.2 us; SAEA `session-01/open-loop`: sent/received 3000/3000, p99 852.2 us.
+
+- [x] **Step 4: Record D116 or follow-up**
 
 Decision rule:
 
@@ -450,7 +473,12 @@ Decision rule:
 - If p99 improves but open-loop still loses messages, add D116 partial: IOCP wait fixed wake tail, but receive depth or registration reuse remains.
 - If p99 stays near 16.7ms, do not accept D116 as a fix. Record a P1 follow-up for additional trace instrumentation before more code changes.
 
-- [ ] **Step 5: Update state docs**
+Actual:
+
+- D116 partial: UDP IOCP/RIONotify wait removed the 16.7ms wake tail, but RIO UDP open-loop still loses messages.
+- Next work remains receive-side loss analysis, likely bounded receive depth and/or receive registration reuse, not another wake wait change.
+
+- [x] **Step 5: Update state docs**
 
 Update:
 
@@ -462,7 +490,7 @@ Update:
 
 Keep scratch artifacts under `artifacts/` ignored and do not stage them.
 
-- [ ] **Step 6: Verify docs/build/test**
+- [x] **Step 6: Verify docs/build/test**
 
 Run:
 
@@ -478,7 +506,13 @@ Expected:
 - Build warning 0/error 0.
 - All tests pass.
 
-- [ ] **Step 7: Commit Task 3**
+Actual:
+
+- `git diff --check`: passed.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: warning 0/error 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 333 passed.
+
+- [x] **Step 7: Commit Task 3**
 
 ```powershell
 git add DECISIONS.md docs\agent-state\decisions\2026-06.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md

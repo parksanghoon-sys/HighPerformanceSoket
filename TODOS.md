@@ -9,14 +9,13 @@
 
 ## Current TODOs
 
-- [ ] `P1_SOON` RIO UDP completion notification wait Task 3 scratch benchmark 와 D116 판단을 수행한다.
-  - 목적: Task 2 notification wait 전환 뒤 RIO UDP 4096B x 100Hz load/open-loop p99 tail 과 open-loop receive loss 가
-    이전 16.7ms tail 및 3000/2409 결과에서 개선됐는지 재측정한다.
-  - 범위: `tests/Hps.Benchmarks`, `artifacts/benchmarks/rio-udp/2026-06-26/session-03/rio`,
-    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
-  - 현재 판단: UDP endpoint signal shape 와 open-state notification wait 구현은 focused/full RIO tests 에서 green 이다.
-  - 다음 자연스러운 step: RIO UDP baseline suite 를 1회 실행하고 summary 를 생성한 뒤 old RIO session-02 및 SAEA session-01 과 비교한다.
-  - 검증: benchmark raw/summary artifact 생성, `git diff --check`, solution build/test.
+- [ ] `P1_SOON` RIO UDP open-loop delivery loss 의 receive-side 후속 설계를 작성한다.
+  - 목적: D116에서 p99 wake tail 은 해결됐지만 open-loop sent/received 3000/2373 으로 남은 delivery loss 의 다음 구현 단위를 정한다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+    RIO UDP receive operation ownership, receive registration lifecycle, benchmark evidence, 관련 specs/plans.
+  - 현재 판단: 추가 wake wait 조정이나 polling budget 확대가 아니라 bounded receive depth 또는 receive registration reuse 가 다음 후보이다.
+  - 다음 자연스러운 step: D116 evidence 와 현재 receive loop/registration cost 를 대조해 trace-first, bounded depth, registration reuse 중 가장 작은 안전 단위를 설계한다.
+  - 검증: 설계 문서와 D116/D115/D114 consistency, 현 코드 ownership 경계 재확인.
 
 ## Deferred Backlog
 
@@ -51,6 +50,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO UDP completion notification wait Task 3 scratch benchmark 와 D116 판단을 완료했다.
+  - 범위: scratch artifact `artifacts/benchmarks/rio-udp/2026-06-26/session-03/rio/`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서, 구현 계획 문서.
+  - 결과: D116을 partial 로 기록했다. RIO UDP p99 wake tail 은 16.7ms대에서 load 481 us, open-loop 647.6 us 로 개선됐지만,
+    open-loop delivery 는 sent/received 3000/2373 으로 hard gate 실패가 남았다.
+  - 검증: raw report 2개와 summary artifact 생성, old RIO session-02 및 SAEA session-01 과 비교.
+  - 비고: scratch artifact 는 `artifacts/` ignore 정책에 따라 stage 하지 않는다.
 
 - [x] RIO UDP completion notification wait Task 2 wait path 를 구현했다.
   - 범위: `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `src/Hps.Transport.Rio/RioTransport.cs`,

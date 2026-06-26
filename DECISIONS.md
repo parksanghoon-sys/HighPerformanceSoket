@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D116 — RIO UDP IOCP/RIONotify wait 는 p99 wake tail 을 해소했지만 open-loop delivery loss 는 receive-side 후속으로 남긴다.
 - D115 — RIO UDP residual p99 tail/loss 는 receive depth 확대 전에 UDP CQ IOCP/RIONotify wait parity 로 먼저 검증한다.
 - D114 — RIO UDP receive window 는 close-safe one-deep pre-post 로 전환하고, receive native resource 는 receive loop drain 뒤 닫는다.
 - D113 — RIO UDP receive completion 은 handler dispatch 전 native receive registration 을 해제하고 8192B block 으로 SAEA UDP envelope 와 맞춘다.

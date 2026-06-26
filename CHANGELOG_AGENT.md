@@ -5,6 +5,37 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-26 (Codex - RIO UDP completion benchmark decision)
+
+### 작업 단위
+- RIO UDP completion notification wait Task 3 scratch benchmark 와 D116 판단을 수행했다.
+
+### 변경 내용
+- `artifacts/benchmarks/rio-udp/2026-06-26/session-03/rio/`:
+  RIO UDP `load-01.json`, `open-loop-01.json`, `summary.json`, `summary.md`를 생성했다.
+  scratch artifact 이므로 stage 하지 않는다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D116 partial decision 을 추가했다. UDP IOCP/RIONotify wait 는 16.7ms p99 wake tail 을 해소했지만,
+  open-loop delivery loss 는 receive-side 후속으로 남긴다.
+- `docs/superpowers/plans/2026-06-26-rio-udp-completion-notification-wait.md`,
+  `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 3 측정 결과와 다음 실행점인 RIO UDP open-loop delivery loss receive-side 설계를 반영했다.
+
+### 검증
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --baseline-suite artifacts\benchmarks\rio-udp\2026-06-26\session-03\rio --runs 1 --protocol udp --backend rio`:
+  exit 1, raw report 2개 생성, `baseline-suite-result: fail`.
+- `dotnet run --project tests\Hps.Benchmarks\Hps.Benchmarks.csproj -- --summarize-baseline artifacts\benchmarks\rio-udp\2026-06-26\session-03\rio --summary artifacts\benchmarks\rio-udp\2026-06-26\session-03\rio\summary.json --summary-md artifacts\benchmarks\rio-udp\2026-06-26\session-03\rio\summary.md`:
+  exit 1, `hard-passed: false`, `warning-count: 1`, `source-report-count: 2`.
+- RIO `session-03/load`: sent/received 3000/3000, dropped 0, payload-errors 0, pool-rented 0,
+  actual-rate 99.8 Hz, p50 201.2 us, p99 481 us, UDP HWM 1, passed true.
+- RIO `session-03/open-loop`: sent/received 3000/2373, dropped 0, payload-errors 0, pool-rented 0,
+  actual-rate 85.7 Hz, p50 229.1 us, p99 647.6 us, UDP HWM 2, passed false.
+- 비교: RIO `session-02/open-loop`은 sent/received 3000/2409, p99 16709.1 us였고,
+  SAEA `session-01/open-loop`은 sent/received 3000/3000, p99 852.2 us였다.
+- `git diff --check`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 333개 통과.
+
 ## 2026-06-26 (Codex - RIO UDP completion notification wait)
 
 ### 작업 단위

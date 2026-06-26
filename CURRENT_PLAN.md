@@ -1389,16 +1389,18 @@ Red evidence 는 `RioUdpEndpoint_WhenNotificationWaitIsExpected_ExposesArmNotifi
 `Assert.NotNull()` failure 로 실패한 것이다.
 검증은 focused Red/Green, `RioTransportUdpTests` 15개, `Hps.Transport.Rio.Tests` 52개,
 solution build 경고 0/오류 0, solution test 333개 통과로 마쳤다.
-다음 작업은 Task 3으로 RIO UDP scratch benchmark 를 다시 수집하고 D116 채택/보류를 판단하는 것이다.
+Task 3 scratch benchmark 와 D116 판단도 완료했다.
+RIO `session-03/load`는 sent/received 3000/3000, p99 481 us 로 통과했다.
+RIO `session-03/open-loop`는 sent/received 3000/2373, p99 647.6 us 로 p99 tail 은 해결됐지만 delivery hard gate 는 실패했다.
+D116은 partial 로 기록했다. 다음 작업은 RIO UDP open-loop delivery loss 를 receive-side 관점에서 설계하는 것이다.
 
 ## 이번 단위의 검증 경로
 
-이번 cycle 은 RIO UDP completion notification wait Task 3 scratch benchmark 와 D116 판단을 수행한다.
+이번 cycle 은 RIO UDP open-loop delivery loss 의 receive-side 후속 설계를 작성한다.
 
-- 범위: `tests/Hps.Benchmarks`, `artifacts/benchmarks/rio-udp/2026-06-26/session-03/rio`,
-  `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, RIO UDP completion notification wait 계획/상태 문서.
-- 검증: RIO UDP baseline suite raw/summary artifact 생성, old RIO session-02 및 SAEA session-01 비교,
-  `git diff --check`, solution build/test.
+- 범위: `src/Hps.Transport.Rio/RioTransport.cs`, `src/Hps.Transport.Rio/RioUdpEndpoint.cs`,
+  RIO UDP receive operation ownership, receive registration lifecycle, benchmark evidence, 관련 specs/plans.
+- 검증: D116/D115/D114 consistency, 현 코드 ownership 경계 재확인, 다음 Red/Green 단위와 commit boundary 명확화.
 
 ## 이번 작업에서 건드리지 않는 범위
 
