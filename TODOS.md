@@ -9,11 +9,12 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 TCP-first io_uring queue/pump Task 7 state documents and full verification 을 수행한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 7.
-  - 목표: TCP-first io_uring pump boundary 를 D137로 기록하고 최신 표준 검증을 남긴다.
-  - 범위: DECISIONS/root state/archive decision 문서, solution build/test/diff check.
-  - 제외: UDP pump, Linux actual host verification.
+- [ ] Phase 6 io_uring 후속 후보를 재평가하고 다음 설계/구현 단위를 정한다.
+  - 입력: `PLAN.md` Phase 6, D133~D137, `docs/superpowers/specs/2026-06-29-iouring-tcp-first-pump-design.md`,
+    `src/Hps.Transport.IoUring/`, `tests/Hps.Transport.IoUring.Tests/`.
+  - 목표: Linux actual verification 이 현재 환경에서 불가능한 상태를 전제로, 다음 unblocked 후보를 설계 단위로 좁힌다.
+  - 후보: io_uring UDP pump 설계, fixed payload registration cache 설계, Linux benchmark/contract matrix 준비 중 하나.
+  - 제외: 실제 Linux host syscall loopback 실행, default backend promotion.
 
 ## Deferred Backlog
 
@@ -62,6 +63,19 @@
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
 
+- [x] Phase 6 TCP-first io_uring queue/pump Task 7 state documents and full verification 을 수행했다.
+  - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
+    `docs/agent-state/changelog/2026-06.md`, `docs/agent-state/decisions/2026-06.md`.
+  - 결과: D137로 TCP-first io_uring pump 구현 boundary 를 수락했다.
+    shared `IoUringQueue`/`IoUringCompletionLoop`, reusable operation context, 공통 `TransportConnection`
+    send queue 재사용이 현재 구현 기준이다.
+  - 비고: 실제 Linux available host receive/send loopback 은 현재 Windows 환경에서 직접 실행하지 못하므로
+    Deferred Backlog 의 `P1_SOON` 환경 의존 검증으로 유지한다.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 416개 통과,
+    `git diff --check` 통과.
+  - 다음: Phase 6 io_uring 후속 후보를 재평가하고 다음 설계/구현 단위를 정한다.
+
 - [x] Phase 6 TCP-first io_uring queue/pump Task 6 TCP send pump and ownership 을 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringQueue.cs`,
     `src/Hps.Transport.IoUring/IoUringTransport.cs`,
@@ -75,7 +89,7 @@
   - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
     `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 416개 통과,
     `git diff --check` 통과.
-  - 다음: Task 7 state documents and full verification 을 수행한다.
+  - 후속: Task 7 state documents and full verification 은 D137 문서 단위로 완료됐다.
 
 - [x] Phase 6 TCP-first io_uring queue/pump Task 5 TCP receive pump 를 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringQueue.cs`,
