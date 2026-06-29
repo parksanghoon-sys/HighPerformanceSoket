@@ -9,12 +9,12 @@
 
 ## Current TODOs
 
-- [ ] runner/profile scoped envelope comparison command 구현 계획을 작성한다.
-  - 입력: D125는 기존 `warning-count`를 유지하고 별도 `envelope comparison` artifact 를 추가하기로 결정했다.
-  - 목표: `--compare-baseline-envelope <candidate-json> --reference-history <reference-history-json> --envelope <output-json> [--envelope-md <output-md>]`
-    구현을 TDD 가능한 task 로 분리한다.
-  - 범위: parser/model, summary/history artifact reader, envelope generator/writer, Markdown writer, Program CLI smoke.
-  - 제외: 전역 warning threshold 변경, warning-as-failure, CI latency hard gate, CI artifact 자동 채택.
+- [ ] runner/profile scoped envelope comparison Task 1 parser contract 를 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-runner-profile-envelope-comparison.md`.
+  - 목표: `BenchmarkCommand.CompareBaselineEnvelope`와 candidate/reference/output path parser contract 를 TDD로 고정한다.
+  - 범위: `BenchmarkCommand`, `BenchmarkCommandLine`, `BenchmarkCommandParser`, usage text,
+    `BenchmarkCommandParserTests`, root 상태 문서.
+  - 제외: source reader, generator, JSON/Markdown writer, Program execution wiring.
 
 ## Deferred Backlog
 
@@ -48,6 +48,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] runner/profile scoped envelope comparison command 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-06-29-runner-profile-envelope-comparison.md`, root 상태 문서.
+  - 결과: 구현을 Task 1 parser contract, Task 2 source reader, Task 3 envelope generator,
+    Task 4 writer/Program wiring 으로 분리했다.
+  - 다음: Task 1 parser contract 를 TDD로 구현한다.
+  - 검증: D125 spec coverage, file structure, command shape, task 경계, placeholder/type consistency self-review 를 수행했다.
+    `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 355개 통과.
 
 - [x] runner/profile scoped warning envelope model 을 설계했다.
   - 범위: `docs/superpowers/specs/2026-06-29-runner-profile-warning-envelope-model-design.md`,

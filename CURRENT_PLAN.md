@@ -1493,15 +1493,20 @@ reference history 와 candidate summary/history 를 읽는 별도 envelope compa
 초기에는 process failure, CI failure, warning-as-failure 로 승격하지 않는다.
 검증은 D125 spec placeholder scan, `git diff --check`, solution build 경고 0/오류 0,
 solution tests 355개 통과로 마쳤다.
+runner/profile scoped envelope comparison command 구현 계획도 작성했다.
+계획 문서는 `docs/superpowers/plans/2026-06-29-runner-profile-envelope-comparison.md`이며,
+Task 1 parser contract, Task 2 source reader, Task 3 generator, Task 4 writer/Program wiring 으로 나뉜다.
+검증은 plan placeholder/type consistency scan, `git diff --check`, solution build 경고 0/오류 0,
+solution tests 355개 통과로 마쳤다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 runner/profile scoped envelope comparison command 구현 계획을 작성한다.
+다음 cycle 은 runner/profile scoped envelope comparison command Task 1 parser contract 를 TDD로 구현한다.
 
 - 범위: `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`, `BenchmarkCommandLine.cs`, `Program.cs`,
-  summary/history artifact reader/writer 주변 타입, `tests/Hps.Benchmarks.Tests/`.
-- 검증: D125 spec coverage, parser/model Red-Green 단위 분해, artifact reader/generator/writer task 분리,
-  placeholder/type consistency self-review, `git diff --check`.
+  `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`, root 상태 문서.
+- 검증: compare envelope parser Red assertion failure, focused parser tests, `git diff --check`,
+  solution build/test.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -1510,7 +1515,7 @@ solution tests 355개 통과로 마쳤다.
 - full IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 구현
 - `BaselineSummaryGenerator` threshold 상수 즉시 변경
-- envelope comparison command 실제 구현
+- envelope comparison source reader/generator/writer/Program wiring(Task 2 이후)
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
 - Linux io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay
