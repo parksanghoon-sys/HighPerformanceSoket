@@ -9,13 +9,12 @@
 
 ## Current TODOs
 
-- [ ] runner/profile scoped envelope comparison Task 2 source reader 를 구현한다.
+- [ ] runner/profile scoped envelope comparison Task 3 generator 를 구현한다.
   - 입력: `docs/superpowers/plans/2026-06-29-runner-profile-envelope-comparison.md`.
-  - 목표: candidate summary/history 와 reference history 를 같은 envelope source model 로 읽고,
-    history 의 `sessions[].summary-path`를 history 파일 directory 기준으로 다시 열어 full metric aggregate 를 보존한다.
-  - 범위: `BaselineComparisonJsonReader`, `BaselineEnvelopeSource*`, `BaselineEnvelopeSourceReader`,
-    `BaselineHistoryReader`, `BaselineEnvelopeSourceReaderTests`, `BaselineHistoryReaderTests`, root 상태 문서.
-  - 제외: envelope generator, JSON/Markdown writer, Program execution wiring.
+  - 목표: D125 reference envelope limit 계산과 signal/mismatch 정책을 `BaselineEnvelopeComparisonGenerator`에 고정한다.
+  - 범위: `BaselineEnvelopeComparison*` model, `BaselineEnvelopeComparisonGenerator`,
+    `BaselineEnvelopeComparisonGeneratorTests`, root 상태 문서.
+  - 제외: JSON/Markdown writer, Program execution wiring.
 
 ## Deferred Backlog
 
@@ -49,6 +48,21 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] runner/profile scoped envelope comparison Task 2 source reader 를 구현했다.
+  - 범위: `BaselineComparisonJsonReader`, `BaselineEnvelopeSourceKind`, `BaselineEnvelopeSummary`,
+    `BaselineEnvelopeSource`, `BaselineEnvelopeSourceReader`, `BaselineHistoryReader`,
+    `BaselineEnvelopeSourceReaderTests`, root 상태 문서.
+  - 결과: summary/history 입력 artifact 를 같은 envelope source model 로 읽고,
+    history 의 `sessions[].summary-path`를 history 파일 directory 기준으로 다시 열어 full `by-kind` aggregate 를 보존한다.
+  - 비고: summary/history comparison JSON parsing 은 `BaselineComparisonJsonReader`로 공유한다.
+    기존 `BaselineHistoryReader`의 legacy summary incompatible 처리 의미는 focused tests 로 유지했다.
+  - Red: reader contract type 부재 `Assert.NotNull()` failure 1개와,
+    stub reader `NotSupportedException` behavior failure 3건을 확인했다.
+  - Green: `BaselineEnvelopeSourceReaderTests` 4개 통과, `BaselineHistoryReaderTests` 7개 통과.
+  - 검증: `git diff --check` 통과, solution build 경고 0/오류 0,
+    solution tests 366개 통과.
+  - 다음: Task 3 generator 를 TDD로 구현한다.
 
 - [x] runner/profile scoped envelope comparison Task 1 parser contract 를 구현했다.
   - 범위: `BenchmarkCommand`, `BenchmarkCommandLine`, `BenchmarkCommandParser`, usage text,

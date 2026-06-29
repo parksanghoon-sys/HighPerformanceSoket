@@ -1505,18 +1505,24 @@ command 를 parser 가 인식하고, `BenchmarkCommandLine`에 candidate/referen
 Red evidence 는 compare envelope parser tests 7개가 기존 parser 에서 `parsed=false` 또는 `Command=None`으로 실패한 것이다.
 Green 확인은 compare envelope tests 7개와 전체 `BenchmarkCommandParserTests` 29개 통과로 마쳤다.
 표준 검증은 `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 362개 통과로 마쳤다.
+runner/profile scoped envelope comparison Task 2 source reader 구현을 완료했다.
+`BaselineEnvelopeSourceReader.Read(...)`는 candidate summary/history 와 reference history 를 같은 source model 로 수렴시키고,
+history 의 `sessions[].summary-path`를 history 파일 directory 기준으로 다시 열어 full `by-kind` aggregate 를 읽는다.
+`BaselineComparisonJsonReader`를 추가해 summary/history comparison JSON parsing 을 공유하고,
+기존 `BaselineHistoryReader`의 legacy summary incompatible 처리 의미를 유지한다.
+Red evidence 는 reader contract type 부재 `Assert.NotNull()` failure 와, stub reader 의 `NotSupportedException` behavior failure 3건이다.
+Green 확인은 `BaselineEnvelopeSourceReaderTests` 4개와 `BaselineHistoryReaderTests` 7개 통과로 마쳤다.
+표준 검증은 `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 366개 통과로 마쳤다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 runner/profile scoped envelope comparison command Task 2 source reader 를 TDD로 구현한다.
+다음 cycle 은 runner/profile scoped envelope comparison command Task 3 generator 를 TDD로 구현한다.
 
-- 범위: `tests/Hps.Benchmarks/BaselineComparisonJsonReader.cs`,
-  `BaselineEnvelopeSourceKind.cs`, `BaselineEnvelopeSummary.cs`, `BaselineEnvelopeSource.cs`,
-  `BaselineEnvelopeSourceReader.cs`, `BaselineHistoryReader.cs`,
-  `tests/Hps.Benchmarks.Tests/BaselineEnvelopeSourceReaderTests.cs`,
-  `tests/Hps.Benchmarks.Tests/BaselineHistoryReaderTests.cs`, root 상태 문서.
-- 검증: source reader contract Red assertion failure, focused reader/history tests,
-  `git diff --check`, solution build/test.
+- 범위: `tests/Hps.Benchmarks/BaselineEnvelopeComparison*.cs`,
+  `BaselineEnvelopeComparisonGenerator.cs`,
+  `tests/Hps.Benchmarks.Tests/BaselineEnvelopeComparisonGeneratorTests.cs`, root 상태 문서.
+- 검증: generator contract Red assertion failure, D125 metric limit behavior tests,
+  focused generator tests, `git diff --check`, solution build/test.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -1525,7 +1531,7 @@ Green 확인은 compare envelope tests 7개와 전체 `BenchmarkCommandParserTes
 - full IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 구현
 - `BaselineSummaryGenerator` threshold 상수 즉시 변경
-- envelope comparison generator/writer/Program wiring(Task 3 이후)
+- envelope comparison writer/Program wiring(Task 4)
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
 - Linux io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay
