@@ -34,13 +34,14 @@
 
 | runner id | runner kind | profile | transport backend | latest date root | 비고 |
 | --- | --- | --- | --- | --- | --- |
-| ci-windows-x64-01 | ci | tcp-loopback-saea-v1 | SaeaTransport | [2026-06-25](runners/ci-windows-x64-01/2026-06-25/history.json) | CI push-triggered artifact adopted manually, runner root [history.json](runners/ci-windows-x64-01/history.json) |
+| ci-windows-x64-01 | ci | tcp-loopback-saea-v1 | SaeaTransport | [2026-06-29](runners/ci-windows-x64-01/2026-06-29/history.json) | CI push-triggered artifacts adopted manually, runner root [history.json](runners/ci-windows-x64-01/history.json) |
 | local-win-x64-01 | local | tcp-loopback-saea-v1 | SaeaTransport | [2026-06-29](runners/local-win-x64-01/2026-06-29/history.json) | explicit runner 3-date-root reference 완료, runner root [history.json](runners/local-win-x64-01/history.json) |
 
 ## Runner Date-level History
 
 | runner id | 날짜 | history | human report | sessions | hard passed | warnings | comparison compatible |
 | --- | --- | --- | --- | ---: | --- | ---: | --- |
+| ci-windows-x64-01 | 2026-06-29 | [history.json](runners/ci-windows-x64-01/2026-06-29/history.json) | [history.md](runners/ci-windows-x64-01/2026-06-29/history.md) | 1 | true | 0 | true |
 | ci-windows-x64-01 | 2026-06-25 | [history.json](runners/ci-windows-x64-01/2026-06-25/history.json) | [history.md](runners/ci-windows-x64-01/2026-06-25/history.md) | 1 | true | 0 | true |
 | local-win-x64-01 | 2026-06-29 | [history.json](runners/local-win-x64-01/2026-06-29/history.json) | [history.md](runners/local-win-x64-01/2026-06-29/history.md) | 3 | true | 0 | true |
 | local-win-x64-01 | 2026-06-25 | [history.json](runners/local-win-x64-01/2026-06-25/history.json) | [history.md](runners/local-win-x64-01/2026-06-25/history.md) | 3 | true | 0 | true |
@@ -57,6 +58,7 @@
 
 | 날짜 | session | runner/scope | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | TCP HWM max |
 | --- | --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
+| 2026-06-29 | session-01 | ci-windows-x64-01 CI Windows TCP loopback SAEA, adopted from push run 28350456434 | [summary.json](runners/ci-windows-x64-01/2026-06-29/session-01/summary.json) | [summary.md](runners/ci-windows-x64-01/2026-06-29/session-01/summary.md) | 6 | true | 0 | 401 | 520.7 | 2 |
 | 2026-06-25 | session-01 | ci-windows-x64-01 CI Windows TCP loopback SAEA, adopted from push run 28145025444 | [summary.json](runners/ci-windows-x64-01/2026-06-25/session-01/summary.json) | [summary.md](runners/ci-windows-x64-01/2026-06-25/session-01/summary.md) | 6 | true | 0 | 275.3 | 322.9 | 2 |
 | 2026-06-29 | session-01 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-29/session-01/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-29/session-01/summary.md) | 6 | true | 0 | 844.6 | 948.8 | 2 |
 | 2026-06-29 | session-02 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-29/session-02/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-29/session-02/summary.md) | 6 | true | 0 | 856.7 | 878.3 | 2 |
@@ -96,26 +98,27 @@ latency, growth, HWM 은 max, actual rate 는 min 을 사용한다.
 
 ## ci-windows-x64-01 CI Runner Reference Latency Envelope
 
-???쒕뒗 D095 ?섎룞 梨꾪깮 ?덉감濡?repository baseline 援ъ“???ㅼ뼱??泥?CI runner reference ??
-CI hosted runner evidence ?대?濡?local runner envelope ? 吏곸젒 鍮꾧탳?섏? ?딄퀬, 媛숈? CI runner ?????꾩냽 session ??媛깆떊 湲곗??쇰줈留??ъ슜?쒕떎.
+이 표는 D095 수동 채택 절차로 repository baseline 구조에 들어온 CI runner reference 다.
+CI hosted runner evidence 이므로 local runner envelope 와 직접 비교하지 않고, 같은 CI runner 의 후속 session 을
+리뷰하는 기준으로만 사용한다.
 
-| ??ぉ | load | open-loop |
+| 항목 | load | open-loop |
 | --- | ---: | ---: |
-| compatible sessions | 1 | 1 |
-| raw runs | 3 | 3 |
-| p50 max us | 149 | 158.3 |
-| p99 max us | 275.3 | 322.9 |
-| p99 median max us | 262.5 | 263.3 |
+| compatible sessions | 2 | 2 |
+| raw runs | 6 | 6 |
+| p50 max us | 156.2 | 161.4 |
+| p99 max us | 401 | 520.7 |
+| p99 median max us | 293.9 | 279.2 |
 | p99 growth ratio max | 1.09 | 1.46 |
-| actual rate min hz | 99.9 | 100 |
+| actual rate min hz | 99.8 | 100 |
 | TCP HWM max | 1 | 2 |
 | dropped total | 0 | 0 |
 | payload error total | 0 | 0 |
 | pool rented max | 0 | 0 |
 
-이 CI envelope 는 D096 기준으로 1-session reference signal 이다. 값은 artifact chain 과 D095 수동 채택 절차가
-동작함을 보여주지만, date root 1개/session 1개뿐이므로 latency hard gate 또는 warning-as-failure 조건으로
-승격하지 않는다.
+이 CI envelope 는 D131 기준으로 2-date-root/2-session reference signal 이다. 값은 artifact chain, D127 envelope
+upload, D095 수동 채택 절차가 동작함을 보여주지만, CI runner 표본은 아직 latency hard gate 또는
+warning-as-failure 조건으로 승격하지 않는다.
 
 ## local-win-x64-01 Explicit Runner Reference Latency Envelope
 
@@ -160,6 +163,11 @@ D124 기준으로 이 표를 `local-win-x64-01`의 runner-local reference envelo
   별도 envelope comparison artifact 로 분리하기로 했다.
   warning-as-failure/CI latency gate 는 계속 승격하지 않는다.
   D090 기준으로 CI benchmark 는 `ci-windows-x64-01` 같은 별도 runner id 를 쓰고, latency/HWM/warning 은 report-only 로 둔다.
+- 2026-06-29 CI push run `28350456434`는 raw 6개, summary/history, envelope artifact 를 모두 업로드했고
+  workflow 도 성공했다. 업로드 artifact 의 envelope 는 이전 1-session CI reference 대비 load/open-loop p99 upper-bound
+  signal 2개를 기록했지만, D125/D127 기준 report-only 신호라서 D095 채택 차단 조건은 아니다.
+  repository baseline 으로 채택한 뒤 runner root history 는 2-session, hard-passed true, warning-count 0,
+  comparison-compatible true 상태다.
 - 2026-06-18 raw report 는 D079 runner identity/environment metadata 도입 전 artifact 이므로
   summary/history comparison 은 `unknown-runner` mismatch 로 `comparison-compatible=false`를 기록한다.
   이 값은 hard gate 실패가 아니라 비교 가능성 신호다.

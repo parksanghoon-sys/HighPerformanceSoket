@@ -9,22 +9,11 @@
 
 ## Current TODOs
 
-- [ ] D127 workflow 의 push-triggered CI artifact 결과를 검증한다.
-  - 입력: 다음 `Benchmark Artifacts` GitHub Actions run, uploaded artifact, D127/D128.
-  - 목표: upload artifact date root 에 raw report 6개, `summary.json`, `summary.md`, `history.json`, `history.md`,
-    `envelope.json`, `envelope.md`가 모두 포함되는지 확인한다.
-  - 범위: remote CI run 확인, artifact 내용 검증, 상태 문서 갱신.
-  - 제외: CI artifact 자동 baseline 채택, warning-as-failure, latency hard gate, pull_request/schedule trigger.
-  - 현재 상태: run `28347437734`의 RIO send probe timeout 은 D129로 해소했고,
-    사용자 push 뒤 run `28349754067`에서 `Test` 단계는 통과했다.
-    다만 `open-loop-03`이 sent 3000 / received 2876 / dropped 124 / payload-errors 347로 hard gate 실패해
-    `Run baseline suite`가 exit 1을 반환했다. 이로 인해 기존 workflow 는 raw report 6개만 업로드하고
-    summary/history/envelope 작성은 skip 했다.
-  - 로컬 조치: D130에 따라 hard gate 실패 exit code 를 저장하고 summary/history/envelope 작성과 upload 를 계속 수행한 뒤,
-    마지막 step 에서 최종 failure 로 복원하도록 workflow 를 보강했다.
-    focused workflow tests, benchmark tests, solution build/test 는 통과했다.
-  - 현재 blocker: 이 실행 환경에서 `git push origin master`는 정책상 거부된다.
-    현재 로컬 커밋을 원격 push 한 뒤 생성되는 새 `Benchmark Artifacts` run 과 artifact 를 기준으로 이어서 검증한다.
+- [ ] D131 이후 다음 실행 후보를 재평가한다.
+  - 입력: D127/D130 원격 검증 완료, D131 CI repository baseline 2-session 상태, D090/D095/D125/D128.
+  - 목표: CI latency gate/warning-as-failure 로 성급히 승격하지 않으면서, 다음으로 가장 가치 있는 Phase 4/5 작업을 하나 고른다.
+  - 범위: 최신 상태 문서, deferred backlog, RIO/default promotion 관련 결정, benchmark baseline 상태 대조.
+  - 제외: 이 TODO 자체에서 production code 변경, latency hard gate 구현, CI artifact 자동 채택.
 
 ## Deferred Backlog
 
@@ -58,6 +47,21 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D127/D130 push-triggered CI artifact 결과를 검증하고 D095 기준으로 두 번째 CI baseline 을 채택했다.
+  - 범위: GitHub Actions run `28350456434`, uploaded artifact,
+    `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-29/session-01/`,
+    `docs/benchmarks/baselines/runners/ci-windows-x64-01/history.json`,
+    `docs/benchmarks/baselines/index.md`, D095/D131 상태/결정 문서.
+  - 결과: run `28350456434`는 push event, head SHA `384f3c5932c1a2b22ff92116068bfcda22f56778`, conclusion success 다.
+    upload artifact 는 raw report 6개, `summary.json`, `summary.md`, `history.json`, `history.md`, `envelope.json`,
+    `envelope.md`를 모두 포함했다.
+  - 채택: raw report 6개를 `ci-windows-x64-01/2026-06-29/session-01`로 복사하고,
+    repository 경로 기준 summary/date history/runner history 를 재생성했다.
+    runner root history 는 2-session, hard-passed true, warning-count 0, comparison-compatible true 다.
+  - 비고: upload artifact envelope 는 이전 1-session CI reference 대비 p99 upper-bound signal 2개를 기록했지만,
+    D125/D127 기준 report-only 이므로 workflow failure, warning-count, 채택 차단 조건으로 처리하지 않았다.
+  - 검증: artifact file check, D095 adoption checklist, summary/history CLI 재생성 통과.
 
 - [x] D127 이후 Phase 4 다음 구현 후보를 다시 확정했다.
   - 범위: `.claude/review/2026-06-29-next-scope-decision-review.md`, D123~D127,

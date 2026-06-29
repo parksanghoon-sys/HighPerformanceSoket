@@ -156,10 +156,12 @@ dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-
 | 28143728630 | workflow_dispatch | `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28143728630-1` | true | 1 | true | warning 때문에 채택하지 않음 |
 | 28144480160 | workflow_dispatch | `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28144480160-1` | true | 0 | true | 채택 가능 후보 |
 | 28145025444 | push | `benchmark-artifacts-ci-windows-x64-01-2026-06-25-github-28145025444-1` | true | 0 | true | 채택 가능 후보 |
+| 28350456434 | push | `benchmark-artifacts-ci-windows-x64-01-2026-06-29-github-28350456434-1` | true | 0 | true | D131에서 두 번째 CI date root 로 채택 |
 
-두 채택 가능 후보가 모두 같은 날짜의 같은 CI runner evidence 이므로,
-다음 단위에서는 둘 중 하나를 `ci-windows-x64-01/2026-06-25/session-01`로 채택하는 것이 자연스럽다.
-동일 날짜에서 여러 CI artifact 를 모두 채택할지는 별도 판단이 필요하다.
+2026-06-25 후보 중에는 push-triggered run `28145025444`를 첫 CI repository baseline 으로 채택했다.
+2026-06-29 후보 `28350456434`는 D130 이후 workflow artifact completeness 를 원격으로 검증한 표본이기도 해서,
+같은 runner 의 두 번째 date root 로 채택했다.
+동일 날짜에서 여러 CI artifact 를 모두 채택할지는 계속 별도 판단으로 남긴다.
 
 ## 결정
 
@@ -167,8 +169,10 @@ CI artifact 는 자동 채택하지 않고, 위 checklist 를 통과한 artifact
 채택 시에는 raw report 6개만 repository baseline session directory 로 복사하고,
 summary/history/index 는 repository 경로 기준으로 재생성한다.
 
-첫 채택 후보는 warning 이 없는 최신 push-triggered run `28145025444`로 둔다.
-이 artifact 는 실제 D094 trigger 경로로 생성됐으므로 CI 자동 evidence 의 대표성이 가장 높다.
+첫 채택 후보는 warning 이 없는 push-triggered run `28145025444`로 두고, D096에서
+`ci-windows-x64-01/2026-06-25/session-01`로 채택했다.
+이후 D130 workflow 보강을 포함한 push-triggered run `28350456434`도 checklist 를 통과해
+D131에서 `ci-windows-x64-01/2026-06-29/session-01`로 채택했다.
 
 ## 검증 계획
 

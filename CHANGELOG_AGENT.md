@@ -5,6 +5,36 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - CI artifact remote validation and baseline adoption)
+
+### 작업 단위
+- D127/D130 push-triggered `Benchmark Artifacts` run 을 원격에서 검증하고, D095 checklist 를 통과한 artifact 를 두 번째 CI repository baseline 으로 채택했다.
+
+### 변경 내용
+- GitHub Actions run `28350456434` 확인:
+  remote `master`와 head SHA가 `384f3c5932c1a2b22ff92116068bfcda22f56778`로 일치했고,
+  `Build`, `Test`, baseline suite, summary/history/envelope 작성, upload, final hard gate 단계가 모두 success 로 끝났다.
+- 다운로드한 artifact `benchmark-artifacts-ci-windows-x64-01-2026-06-29-github-28350456434-1` 확인:
+  raw report 6개, `summary.json`, `summary.md`, `history.json`, `history.md`, `envelope.json`, `envelope.md`가 모두 포함됐다.
+- `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-29/session-01/`:
+  raw report 6개를 복사하고 repository 경로 기준으로 summary JSON/Markdown을 재생성했다.
+- `docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-29/`와 runner root:
+  date-level history 와 runner root history 를 재생성했다.
+  runner root history 는 2-session, hard-passed true, warning-count 0, comparison-compatible true 다.
+- `docs/benchmarks/baselines/index.md`, `docs/superpowers/specs/2026-06-25-ci-artifact-adoption-policy-design.md`,
+  `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서:
+  D131과 새 CI baseline 상태를 반영했다.
+
+### 검증
+- 원격 run `28350456434`: conclusion success, job success.
+- artifact file check: raw report 6개와 expected file 12개 모두 존재.
+- D095 adoption checklist: raw metadata, summary hard/warning/comparison, history hard/warning/comparison 조건 통과.
+- repository summary 재생성: `source-report-count=6`, `hard-passed=true`, `warning-count=0`.
+- date-level history 재생성: `session-count=1`, `hard-passed=true`, `warning-count=0`.
+- runner root history 재생성: `session-count=2`, `hard-passed=true`, `warning-count=0`.
+- 업로드 artifact envelope 는 `envelope-compatible=false`, `envelope-signal-count=2`를 기록했지만,
+  D125/D127 기준 report-only signal 이므로 CI failure 나 채택 차단 조건으로 처리하지 않았다.
+
 ## 2026-06-29 (Codex - CI hard gate artifact preservation)
 
 ### 작업 단위

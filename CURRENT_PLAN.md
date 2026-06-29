@@ -1551,26 +1551,27 @@ reference history 가 없으면 bootstrap 상태로 보고 skip 하며, envelope
 D127 이후 다음 후보 재평가도 완료했다(D128).
 `.claude/review/2026-06-29-next-scope-decision-review.md`의 local runner 2-date-root 전제는 D123 이후 stale 하며,
 RIO full IPv6와 server diagnostics 는 계속 deferred 로 유지한다.
-다음 실행 후보는 push-triggered CI artifact run 에서 D127 envelope 산출물이 실제 upload artifact 에 포함되는지 확인하는 것이다.
-Codex에서 `git push origin master`를 직접 실행하려는 시도는 현재 도구 정책에서 거부됐다.
-따라서 원격 push 자체는 사용자 또는 push 권한이 허용된 환경에서 수행해야 하며,
-push 이후 생성되는 `Benchmark Artifacts` run 을 확인하는 것이 다음 검증 지점이다.
+D130 workflow 보강 뒤 사용자 push 로 생성된 run `28350456434`를 검증했다(D131).
+이 run 은 remote `master` head SHA `384f3c5932c1a2b22ff92116068bfcda22f56778`와 일치했고,
+workflow conclusion 은 success 였다. upload artifact 는 raw report 6개, `summary.json`, `summary.md`,
+`history.json`, `history.md`, `envelope.json`, `envelope.md`를 모두 포함했다.
+run `28350456434` artifact 는 D095 checklist 를 통과해
+`docs/benchmarks/baselines/runners/ci-windows-x64-01/2026-06-29/session-01/`로 수동 채택했다(D131).
+runner root history 는 2-session, hard-passed true, warning-count 0, comparison-compatible true 다.
+업로드 artifact envelope 는 이전 1-session CI reference 대비 p99 upper-bound signal 2개를 기록했지만,
+D125/D127 기준 report-only signal 이므로 CI failure, warning-count, 채택 차단 조건으로 처리하지 않는다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 D127 workflow 의 원격 CI artifact 결과를 검증한다.
+다음 cycle 은 D131 이후 Phase 4/5 실행 후보를 재평가한다.
 
-- 범위: push-triggered `Benchmark Artifacts` run, 업로드 artifact, `summary.json`/`history.json`/`envelope.json`.
-- 검증: artifact 가 raw report 6개, summary/history JSON/Markdown, envelope JSON/Markdown을 포함하는지 확인한다.
-  envelope signal 은 report-only 로 해석하고, baseline 자동 채택은 별도 판단으로 남긴다.
-- 현재 상태: run `28347437734`의 RIO send probe timeout 은 D129로 해소됐고,
-  사용자 push 뒤 run `28349754067`에서 `Test` 단계는 통과했다.
-  그러나 `open-loop-03` hard gate 실패로 baseline suite 가 exit 1을 반환했고,
-  기존 workflow 는 raw report 6개만 업로드한 뒤 summary/history/envelope 작성을 skip 했다.
-  D130으로 hard gate failure 는 최종 job failure 로 유지하되 summary/history/envelope artifact 작성은 계속 수행하도록
-  workflow 를 보강했다.
-- 현재 blocker: 이 실행 환경의 정책이 `git push origin master`를 거부하므로,
-  현재 로컬 커밋이 원격 push 된 뒤 새 `Benchmark Artifacts` run id 또는 artifact 가 생기면 이어서 검증한다.
+- 범위: D131로 갱신된 CI runner 2-session baseline, D090/D095/D125/D128 결정, deferred backlog.
+- 검증: CI latency gate/warning-as-failure 승격 조건이 아직 충분한지 확인하고,
+  성급한 gate 승격 대신 다음으로 가장 가치 있는 작업 하나를 선택한다.
+- 현재 상태: CI runner 는 2-date-root/2-session reference 이고 hard-passed true, warning-count 0,
+  comparison-compatible true 다. 표본은 늘었지만 아직 gate 승격 기준으로 삼기에는 보수적으로 부족하다.
+- 다음 후보군: Phase 5 RIO/io_uring 방향 재평가, RIO full IPv6 deferred 유지 여부, server diagnostics deferred 유지 여부,
+  또는 benchmark/CI evidence 추가 수집 정책 보정.
 
 ## 이번 작업에서 건드리지 않는 범위
 
