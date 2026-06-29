@@ -382,6 +382,8 @@ namespace Hps.Transport.Rio.Tests
         }
 
         // 실제 connected socket 에 send 를 post 하고 CQ completion 과 peer receive 를 함께 확인한다.
+        // hosted Windows provider 에서는 peer 가 읽기 전 send completion 관측이 늦을 수 있으므로,
+        // 테스트는 실제 transport 처럼 peer receive 를 먼저 열어 두고 completion 자체는 별도로 검증한다.
         // 이 경계가 green 이어야 이후 Transport send pump 가 native posting 결과를 in-flight 완료로 바꿀 수 있다.
         [Fact]
         public unsafe void Send_WhenPosted_CompletesAndPeerReceivesByte()
@@ -422,11 +424,13 @@ namespace Hps.Transport.Rio.Tests
                             {
                                 RioBufferSegment[] buffers = new[] { new RioBufferSegment(bufferId, 0, 1) };
 
-                                Assert.True(native.Send(requestQueue, buffers, new IntPtr(202)));
-                                RioResult completion = WaitForCompletion(native, completionQueue);
-
                                 byte[] received = new byte[1];
+                                server.ReceiveTimeout = 2000;
+
+                                Assert.True(native.Send(requestQueue, buffers, new IntPtr(202)));
                                 Assert.Equal(1, server.Receive(received));
+
+                                RioResult completion = WaitForCompletion(native, completionQueue);
 
                                 Assert.Equal(0, completion.Status);
                                 Assert.Equal(1u, completion.BytesTransferred);
