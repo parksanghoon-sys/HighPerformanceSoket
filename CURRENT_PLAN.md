@@ -1486,15 +1486,22 @@ local 3-date-root evidence 기반 gate 승격 정책도 재평가했다(D124).
 기존 `BaselineSummaryGenerator` warning threshold 는 그대로 두고 warning-as-failure/CI latency gate 는 계속 보류하는 것이다.
 현재 warning threshold 는 runner/profile scoped 가 아닌 전역 상수이므로 local SAEA TCP loopback 수치를 전역 threshold 로 낮추면
 CI/RIO/UDP benchmark 에도 같은 기준이 적용된다.
+runner/profile scoped warning envelope model 설계도 완료했다(D125).
+결정은 기존 `warning-count`와 summary/history hard gate 의미를 유지하고,
+reference history 와 candidate summary/history 를 읽는 별도 envelope comparison artifact 를 추가하는 것이다.
+이 artifact 는 `envelope-compatible`, `envelope-signal-count`, kind별 reference/limit/candidate metric 을 기록하지만,
+초기에는 process failure, CI failure, warning-as-failure 로 승격하지 않는다.
+검증은 D125 spec placeholder scan, `git diff --check`, solution build 경고 0/오류 0,
+solution tests 355개 통과로 마쳤다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 runner/profile scoped warning envelope model 을 설계한다.
+다음 cycle 은 runner/profile scoped envelope comparison command 구현 계획을 작성한다.
 
-- 범위: `tests/Hps.Benchmarks/BaselineSummaryGenerator.cs`, summary/history artifact schema,
-  `docs/benchmarks/baselines/index.md`, D080/D090/D096/D123/D124 decision.
-- 검증: 현재 전역 warning threshold 경계 대조, runner/profile/workload scoped threshold 입력 모델 설계,
-  backward compatibility 확인, policy/spec 문서 placeholder scan, `git diff --check`.
+- 범위: `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`, `BenchmarkCommandLine.cs`, `Program.cs`,
+  summary/history artifact reader/writer 주변 타입, `tests/Hps.Benchmarks.Tests/`.
+- 검증: D125 spec coverage, parser/model Red-Green 단위 분해, artifact reader/generator/writer task 분리,
+  placeholder/type consistency self-review, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -1503,6 +1510,7 @@ CI/RIO/UDP benchmark 에도 같은 기준이 적용된다.
 - full IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 구현
 - `BaselineSummaryGenerator` threshold 상수 즉시 변경
+- envelope comparison command 실제 구현
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
 - Linux io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay

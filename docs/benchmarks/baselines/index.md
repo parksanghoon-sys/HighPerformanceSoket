@@ -18,6 +18,8 @@
 - `history.json`은 여러 session summary 를 묶은 date-level machine-readable artifact 다.
 - `history.md`는 date-level history 를 사람이 빠르게 확인하기 위한 보조 artifact 다.
 - `warning-count > 0`은 현재 hard failure 가 아니다. warning-as-failure 와 latency hard gate 는 별도 결정 전까지 보류한다.
+- D125 기준으로 runner/profile scoped 판단은 기존 `warning-count`가 아니라 별도 envelope comparison artifact 로 분리한다.
+  이 신호도 초기에는 report-only 이며 process failure 나 CI failure 로 쓰지 않는다.
 - CI benchmark 는 D090 기준으로 artifact-only 단계에서 시작한다.
   CI의 매 실행 artifact 는 `artifacts/benchmarks/runners/<ci-runner-id>/...` 같은 CI artifact 영역에 두고,
   이 index 에는 사람이 repository baseline 으로 채택한 결과만 추가한다.
@@ -151,8 +153,9 @@ D124 기준으로 이 표를 `local-win-x64-01`의 runner-local reference envelo
   2026-06-29 session-03 추가 후 runner root history 는 9-session 을 묶고 hard gate 와 comparison compatibility 를 통과한다.
   같은 runner 의 세 date root 가 각각 3-session reference 를 갖춰 D082의 evidence 조건은 충족했고,
   D124로 이 envelope 를 runner-local 수동 리뷰 기준으로 채택했다.
-  기존 `BaselineSummaryGenerator` warning threshold 는 runner/profile scoped 가 아니므로 그대로 유지하며,
-  warning-as-failure/CI latency gate 는 runner-scoped threshold 모델 전까지 계속 승격하지 않는다.
+  D125로 runner/profile scoped 판단은 기존 `BaselineSummaryGenerator` warning threshold 를 바꾸지 않고
+  별도 envelope comparison artifact 로 분리하기로 했다.
+  warning-as-failure/CI latency gate 는 계속 승격하지 않는다.
   D090 기준으로 CI benchmark 는 `ci-windows-x64-01` 같은 별도 runner id 를 쓰고, latency/HWM/warning 은 report-only 로 둔다.
 - 2026-06-18 raw report 는 D079 runner identity/environment metadata 도입 전 artifact 이므로
   summary/history comparison 은 `unknown-runner` mismatch 로 `comparison-compatible=false`를 기록한다.
@@ -171,3 +174,4 @@ D124 기준으로 이 표를 `local-win-x64-01`의 runner-local reference envelo
 5. 같은 runner 에 여러 날짜 root 가 생기면 runner root 에 대해 `--summarize-baseline-history <runner-root>`도 실행할 수 있다.
 6. 이 index 에 runner group, session row, date-level history row 를 갱신한다.
 7. hard failure, warning, comparison mismatch 가 있으면 `해석 메모`에 원인과 후속 판단을 짧게 남긴다.
+8. 후속 envelope comparison artifact 가 생기면 기존 `warning-count`와 분리해 `envelope-signal-count`만 해석 메모에 남긴다.

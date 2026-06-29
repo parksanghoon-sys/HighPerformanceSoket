@@ -9,13 +9,12 @@
 
 ## Current TODOs
 
-- [ ] runner/profile scoped warning envelope model 을 설계한다.
-  - 입력: D124는 `local-win-x64-01` 9-session envelope 를 runner-local reference 로 채택했지만,
-    현재 `BaselineSummaryGenerator` warning threshold 는 전역 상수라서 local 기준을 그대로 낮출 수 없다고 판단했다.
-  - 목표: benchmark profile, runner id/kind, backend, workload case 별 threshold 를 어떻게 표현하고 적용할지 설계한다.
-  - 범위: summary/history artifact schema, warning-count 유지 여부, 별도 envelope comparison result 도입 여부,
-    backward compatibility, CI/local runner 분리 정책.
-  - 제외: 즉시 threshold 상수 변경, warning-as-failure 구현, CI latency hard gate 구현.
+- [ ] runner/profile scoped envelope comparison command 구현 계획을 작성한다.
+  - 입력: D125는 기존 `warning-count`를 유지하고 별도 `envelope comparison` artifact 를 추가하기로 결정했다.
+  - 목표: `--compare-baseline-envelope <candidate-json> --reference-history <reference-history-json> --envelope <output-json> [--envelope-md <output-md>]`
+    구현을 TDD 가능한 task 로 분리한다.
+  - 범위: parser/model, summary/history artifact reader, envelope generator/writer, Markdown writer, Program CLI smoke.
+  - 제외: 전역 warning threshold 변경, warning-as-failure, CI latency hard gate, CI artifact 자동 채택.
 
 ## Deferred Backlog
 
@@ -49,6 +48,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] runner/profile scoped warning envelope model 을 설계했다.
+  - 범위: `docs/superpowers/specs/2026-06-29-runner-profile-warning-envelope-model-design.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, `docs/benchmarks/baselines/index.md`,
+    root 상태 문서.
+  - 결과: D125로 기존 `warning-count`와 `BaselineSummaryGenerator` 전역 threshold 는 유지하고,
+    runner/profile/workload scoped 판단은 별도 envelope comparison artifact 로 분리하기로 했다.
+  - 비고: reference envelope 는 `history.json`이 가리키는 session `summary.json`들을 재사용해 계산한다.
+    envelope signal 은 `envelope-signal-count`로 기록하고 process failure, CI failure, warning-as-failure 로 승격하지 않는다.
+  - 다음: envelope comparison command 구현 계획을 작성한다.
+  - 검증: 기존 summary/history schema, D080/D090/D096/D123/D124 결정, baseline index 를 대조했다.
+    placeholder scan 매칭 없음, `git diff --check` 통과, solution build 경고 0/오류 0,
+    solution tests 355개 통과.
 
 - [x] Phase 4 explicit runner 3-date-root evidence 기반 warning/gate promotion policy 를 재평가했다.
   - 범위: `docs/superpowers/specs/2026-06-29-phase4-gate-promotion-policy-after-local-3-date-roots.md`,
