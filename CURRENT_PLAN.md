@@ -1544,14 +1544,17 @@ SDK 선택 재현성 hardening 도 완료했다(D126).
 stale restore 산출물은 `dotnet restore --ignore-failed-sources`로 현재 사용자 package root 기준으로 재생성했다.
 기본 `dotnet --version`은 9.0.314를 반환하고, 기본 `dotnet build HighPerformanceSocket.slnx --no-restore`와
 `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`가 통과한다.
+CI benchmark workflow 의 report-only envelope comparison artifact 연결도 완료했다(D127).
+`benchmark-artifacts.yml`은 summary/history 생성 뒤 repository reference history 가 있을 때
+`envelope.json`과 `envelope.md`를 date root 에 생성해 upload artifact 에 포함한다.
+reference history 가 없으면 bootstrap 상태로 보고 skip 하며, envelope mismatch/signal 은 계속 CI failure 가 아니다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 최신 review/backlog 를 현재 상태와 다시 대조해 Phase 4 다음 구현 후보를 확정한다.
+다음 cycle 은 D127 이후 Phase 4 다음 구현 후보를 다시 확정한다.
 
-- 범위: `.claude/review/2026-06-29-next-scope-decision-review.md`, root 상태 문서,
-  D123~D126 이후 이미 충족된 baseline evidence 와 남은 backlog.
-- 검증: review 내용이 현재 D123~D126 상태와 stale 하지 않은지 확인하고,
+- 범위: `.claude/review/2026-06-29-next-scope-decision-review.md`, D123~D127, 현재 `Deferred Backlog`.
+- 검증: review 내용이 현재 D123~D127 상태와 stale 하지 않은지 확인하고,
   실행 가능한 다음 작업이 코드/문서/벤치마크 중 어디인지 명시한다.
 
 ## 이번 작업에서 건드리지 않는 범위

@@ -72,6 +72,21 @@ jobs:
         shell: pwsh
         run: dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --summarize-baseline-history "$env:BENCH_DATE_ROOT" --history "$env:BENCH_DATE_ROOT/history.json" --history-md "$env:BENCH_DATE_ROOT/history.md"
 
+      - name: Write baseline envelope comparison
+        shell: pwsh
+        run: |
+          $referenceHistory = "docs/benchmarks/baselines/runners/$env:HPS_BENCHMARK_RUNNER_ID/history.json"
+          if (Test-Path $referenceHistory) {
+            dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- `
+              --compare-baseline-envelope "$env:BENCH_SESSION_DIR/summary.json" `
+              --reference-history "$referenceHistory" `
+              --envelope "$env:BENCH_DATE_ROOT/envelope.json" `
+              --envelope-md "$env:BENCH_DATE_ROOT/envelope.md"
+          }
+          else {
+            Write-Host "baseline envelope reference not found; skipping envelope comparison."
+          }
+
       - name: Upload benchmark artifacts
         if: always()
         uses: actions/upload-artifact@v7.0.1

@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D127 — CI benchmark workflow 는 reference history 가 있을 때 report-only envelope comparison artifact 를 업로드한다.
 - D126 — net9.0 프로젝트 검증은 repository `global.json`으로 .NET SDK 9.0 계열을 선택한다.
 - D125 — runner/profile scoped 판단은 기존 warning-count 가 아니라 별도 baseline envelope comparison artifact 로 분리한다.
 - D124 — local 3-date-root evidence 는 runner-local reference envelope 로 채택하고 warning/gate 승격은 runner-scoped threshold 설계 뒤로 분리한다.

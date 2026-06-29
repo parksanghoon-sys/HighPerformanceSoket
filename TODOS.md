@@ -9,9 +9,9 @@
 
 ## Current TODOs
 
-- [ ] 최신 review/backlog 를 현재 상태와 다시 대조해 Phase 4 다음 구현 후보를 확정한다.
-  - 입력: `.claude/review/2026-06-29-next-scope-decision-review.md`, D123~D126, 현재 `Deferred Backlog`.
-  - 목표: 이미 완료된 baseline evidence 와 stale review 내용을 분리하고, 다음 실행 단위를 하나로 좁힌다.
+- [ ] D127 이후 Phase 4 다음 구현 후보를 다시 확정한다.
+  - 입력: `.claude/review/2026-06-29-next-scope-decision-review.md`, D123~D127, 현재 `Deferred Backlog`.
+  - 목표: 이미 완료된 baseline evidence, D125 envelope command, D127 CI artifact 연결을 분리하고 다음 실행 단위를 하나로 좁힌다.
   - 범위: review/state 문서 대조, 다음 후보 설계 또는 구현 계획 선택.
   - 제외: RIO full IPv6 즉시 구현, server diagnostics public API 즉시 추가, latency hard gate 즉시 승격.
 
@@ -48,6 +48,24 @@
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
 
+- [x] CI benchmark workflow 에 report-only envelope comparison artifact 를 연결했다.
+  - 범위: `.github/workflows/benchmark-artifacts.yml`,
+    `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`,
+    `docs/superpowers/specs/2026-06-29-ci-envelope-comparison-artifact-design.md`,
+    `docs/superpowers/specs/2026-06-29-runner-profile-warning-envelope-model-design.md`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: D127로 CI workflow 가 repository reference history 존재 시
+    `--compare-baseline-envelope`를 실행해 `envelope.json`과 `envelope.md`를 upload date root 에 포함한다.
+    reference history 가 없으면 bootstrap 상태로 보고 skip 한다.
+  - 비고: envelope mismatch/signal 은 D125 기준 report-only 이며 CI failure, warning-count, warning-as-failure 로 승격하지 않는다.
+  - Red: workflow 정적 테스트가 기존 workflow 의 envelope step 부재로 `Assert.True()` 실패했다.
+  - Green: focused workflow test 1개 통과.
+    현재 `ci-windows-x64-01` repository baseline 을 reference 로 한 CLI smoke 도 exit code 0,
+    `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
+  - 검증: `git diff --check` 통과, solution build 경고 0/오류 0,
+    solution tests 379개 통과.
+  - 다음: D127 이후 Phase 4 다음 후보를 다시 확정한다.
+
 - [x] SDK 선택 재현성 hardening 을 수행했다.
   - 범위: `global.json`, `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
   - 결과: 저장소 루트 기본 `dotnet` SDK 선택을 9.0.314 계열로 고정했다.
@@ -58,7 +76,7 @@
     기본 `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0/오류 0,
     `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 전체 378개 통과,
     `git diff --check` 통과.
-  - 다음: 최신 review/backlog 를 D123~D126 이후 상태와 다시 대조해 다음 실행 후보를 확정한다.
+  - 다음: D127 이후 상태를 포함해 최신 review/backlog 를 다시 대조하고 다음 실행 후보를 확정한다.
 
 - [x] runner/profile scoped envelope comparison command 구현 self-review 와 schema 보정을 수행했다.
   - 범위: D125 spec/plan, envelope comparison writer/model/tests/Program output, review 문서, root 상태 문서.

@@ -271,7 +271,7 @@ Envelope comparison 은 report-only 다.
 - `envelope-compatible=false`는 비교군이 맞지 않다는 신호이지 process failure 가 아니다.
 - `envelope-signal-count > 0`은 regression review signal 이지 process failure 가 아니다.
 - CI에서 이 command 를 쓰더라도 초기에는 artifact upload 를 위한 보조 산출물로만 쓴다.
-- warning-as-failure 또는 latency hard gate 승격은 별도 D126 이후에만 가능하다.
+- warning-as-failure 또는 latency hard gate 승격은 별도 후속 gate 결정 이후에만 가능하다.
 
 ## 첫 구현 경계
 

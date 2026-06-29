@@ -20,6 +20,9 @@
 - `warning-count > 0`은 현재 hard failure 가 아니다. warning-as-failure 와 latency hard gate 는 별도 결정 전까지 보류한다.
 - D125 기준으로 runner/profile scoped 판단은 기존 `warning-count`가 아니라 별도 envelope comparison artifact 로 분리한다.
   이 신호도 초기에는 report-only 이며 process failure 나 CI failure 로 쓰지 않는다.
+- D127 기준으로 CI benchmark workflow 는 repository reference history 가 있을 때 업로드 artifact date root 에
+  `envelope.json`과 `envelope.md`를 함께 생성한다. 이 artifact 의 mismatch/signal 도 report-only 이며
+  `warning-count`나 workflow failure 로 합산하지 않는다.
 - CI benchmark 는 D090 기준으로 artifact-only 단계에서 시작한다.
   CI의 매 실행 artifact 는 `artifacts/benchmarks/runners/<ci-runner-id>/...` 같은 CI artifact 영역에 두고,
   이 index 에는 사람이 repository baseline 으로 채택한 결과만 추가한다.
