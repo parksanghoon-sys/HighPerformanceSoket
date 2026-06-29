@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 Linux io_uring native wrapper shape Task 3 capability probe wiring 을 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 3.
-  - 목표: `IoUringCapabilityProbe.GetStatus()`가 Linux 에서 `IoUringQueue.TryCreateForProbe(...)` 결과를 사용하도록 연결한다.
+- [ ] Phase 6 Linux io_uring native wrapper shape Task 4 fixed buffer registration owner boundary 를 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 4.
+  - 목표: fixed buffer register/deregister 수명을 감싸는 `IoUringRegisteredBufferSet` owner boundary 를 추가한다.
   - 범위: reflection assertion Red, minimal Green, focused test, 상태 문서 갱신.
-  - 제외: TCP/UDP pump, fixed buffer registration owner, default backend promotion.
+  - 제외: TCP/UDP pump, capability probe 추가 확장, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +47,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 Linux io_uring native wrapper shape Task 3 capability probe wiring 을 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringCapabilityProbe.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringCapabilityProbeTests.cs`, root 상태 문서.
+  - 결과: `IoUringCapabilityProbe.GetStatus()`가 Linux 에서 `IoUringQueue.TryCreateForProbe(2)`를 사용해
+    작은 ring setup/close probe 결과를 capability status 로 수렴한다.
+  - Red: probe result mapping internal overload 부재를 `Assert.NotNull()` failure 1개로 확인했다.
+  - Green: focused `IoUringCapabilityProbeTests` 5개와 `Hps.Transport.IoUring.Tests` 전체 15개 통과.
+  - 검증: 전체 build/test/diff check 는 커밋 전 표준 검증으로 수행한다.
+  - 다음: Task 4 fixed buffer registration owner boundary 를 TDD로 구현한다.
 
 - [x] Phase 6 Linux io_uring native wrapper shape Task 2 queue setup owner 를 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringNative.cs`,

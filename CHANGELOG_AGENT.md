@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - io_uring capability probe wiring)
+
+### 작업 단위
+- Linux io_uring native wrapper shape Task 3 capability probe wiring 을 TDD로 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.IoUring/IoUringCapabilityProbe.cs`:
+  platform guard 뒤에 `IoUringQueue.TryCreateForProbe(2)`를 호출해 Linux 에서 실제 작은 ring setup/close probe 를 수행한다.
+- `tests/Hps.Transport.IoUring.Tests/IoUringCapabilityProbeTests.cs`:
+  probe result mapping internal overload 와 Linux 예외 격리 경로를 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 3 완료와 다음 Task 4 fixed buffer registration owner boundary 진입점을 반영했다.
+
+### 검증
+- Red: focused `IoUringCapabilityProbeTests` 실행으로 internal `GetStatus(IoUringQueueProbeResult)` overload 부재
+  `Assert.NotNull()` failure 1개를 확인했다.
+- Green: focused `IoUringCapabilityProbeTests` 5개 통과.
+- Project: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal` 15개 통과.
+- Full verification: 커밋 전 `dotnet build`, `dotnet test`, `git diff --check`로 수행한다.
+
 ## 2026-06-29 (Codex - io_uring queue owner)
 
 ### 작업 단위

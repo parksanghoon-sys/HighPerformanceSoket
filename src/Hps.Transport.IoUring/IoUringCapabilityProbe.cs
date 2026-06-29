@@ -1,21 +1,34 @@
-using System.Runtime.InteropServices;
+using System;
 
 namespace Hps.Transport
 {
     /// <summary>
     /// io_uring backend 사용 가능성을 부작용 없이 확인하는 진입점이다.
     ///
-    /// 첫 boundary 에서는 Linux 여부만 판단한다. 실제 syscall probe 는 native wrapper task 에서
-    /// 이 경계 뒤에 붙이며, 그 전까지 Linux 는 명시적으로 Unavailable 로 둔다.
+    /// non-Linux 는 syscall 로 들어가지 않고 즉시 unsupported 로 수렴한다. Linux 에서는 작은 ring 을
+    /// setup/close 해보는 probe 까지만 수행하며, 실제 TCP/UDP pump 는 열지 않는다.
     /// </summary>
     public static class IoUringCapabilityProbe
     {
+        /// <summary>
+        /// 현재 process 에서 io_uring backend 를 사용할 수 있는지 확인한다.
+        /// </summary>
         public static IoUringCapabilityStatus GetStatus()
         {
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                return IoUringCapabilityStatus.UnsupportedOperatingSystem;
+            IoUringCapabilityStatus platformStatus = IoUringNative.GetPlatformStatus();
+            if (platformStatus != IoUringCapabilityStatus.Available)
+                return platformStatus;
 
-            return IoUringCapabilityStatus.Unavailable;
+            IoUringQueueProbeResult result = IoUringQueue.TryCreateForProbe(2);
+            return GetStatus(result);
+        }
+
+        internal static IoUringCapabilityStatus GetStatus(IoUringQueueProbeResult result)
+        {
+            if (result == null)
+                throw new ArgumentNullException(nameof(result));
+
+            return result.Status;
         }
     }
 }
