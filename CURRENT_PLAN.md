@@ -1574,17 +1574,21 @@ Task 1 project skeleton/capability probe 를 완료했다.
 `Hps.Transport.IoUring` source/test project 를 solution 에 추가했고,
 `IoUringCapabilityStatus`와 `IoUringCapabilityProbe.GetStatus()`를 추가했다.
 non-Linux 는 `UnsupportedOperatingSystem`, Linux 는 native syscall probe 전까지 `Unavailable`로 반환한다.
+Task 2 `IoUringTransport` lifecycle/unsupported boundary 도 완료했다.
+`IoUringTransport` root type 은 native 자원을 아직 열지 않는 opt-in shell 이며,
+`StartAsync`/`StopAsync` no-op lifecycle 과 TCP listen/connect, UDP bind 의 명시적 unsupported boundary 를 제공한다.
+Windows/non-Linux 에서는 `NotSupportedException`으로 수렴하고, `TransportFactory.CreateDefault()`는 계속 SAEA 기준선을 유지한다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Phase 6 Linux io_uring boundary Task 2 `IoUringTransport` lifecycle/unsupported boundary 를 TDD로 구현한다.
+다음 cycle 은 Phase 6 Linux io_uring boundary Task 3 state docs/full verification 을 수행한다.
 
-- 범위: `docs/superpowers/plans/2026-06-29-iouring-boundary.md` Task 2,
-  `src/Hps.Transport.IoUring/IoUringTransport.cs`, `tests/Hps.Transport.IoUring.Tests/IoUringTransportTests.cs`.
-- 검증: `IoUringTransport` type 부재 assertion Red, focused `IoUringTransportTests` Green.
-- 현재 상태: source/test project 와 capability probe 는 존재하지만, opt-in transport root type 은 아직 없다.
-  default factory 는 계속 SAEA를 반환해야 한다.
-- 다음 산출물: `IoUringTransport` lifecycle no-op root 와 non-Linux unsupported operation boundary.
+- 범위: `docs/superpowers/plans/2026-06-29-iouring-boundary.md` Task 3,
+  root 상태 문서와 월간 archive, 전체 build/test/diff 검증.
+- 검증: solution build, solution test, `git diff --check`.
+- 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
+  실제 `io_uring_setup`, SQ/CQ mmap, fixed buffer registration, TCP/UDP pump 는 아직 구현하지 않았다.
+- 다음 산출물: Phase 6 boundary skeleton 완료 기록과 native io_uring syscall wrapper shape 설계 진입점.
 
 ## 이번 작업에서 건드리지 않는 범위
 

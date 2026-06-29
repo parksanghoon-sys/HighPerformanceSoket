@@ -9,10 +9,10 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 Linux io_uring boundary Task 2 `IoUringTransport` lifecycle/unsupported boundary 를 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-boundary.md` Task 2.
-  - 목표: opt-in `IoUringTransport` root type, Start/Stop lifecycle, non-Linux TCP/UDP operation unsupported boundary 를 추가한다.
-  - 범위: assertion-failure Red, minimal Green, focused test, 상태 문서 갱신.
+- [ ] Phase 6 Linux io_uring boundary Task 3 state docs/full verification 을 수행한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-boundary.md` Task 3.
+  - 목표: Task 1~2 boundary skeleton 완료를 상태 문서와 결정 로그에 정리하고 전체 build/test/diff 검증을 수행한다.
+  - 범위: root 상태 문서, 월간 archive, solution build/test, `git diff --check`.
   - 제외: 실제 io_uring P/Invoke, TCP/UDP pump, Linux integration test, default backend promotion.
 
 ## Deferred Backlog
@@ -47,6 +47,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 Linux io_uring boundary Task 2 `IoUringTransport` lifecycle/unsupported boundary 를 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringTransportTests.cs`, root 상태 문서.
+  - 결과: opt-in `IoUringTransport` root type 을 추가했다.
+    `StartAsync`/`StopAsync`는 native 자원 없이 lifecycle shell 만 제공하고,
+    TCP listen/connect 와 UDP bind 는 현재 capability 상태에 맞춰 명시적 `NotSupportedException`으로 수렴한다.
+  - Red: `IoUringTransport` type 부재를 reflection 기반 `Assert.NotNull()` failure 4개로 확인했다.
+  - Green: focused `IoUringTransportTests` 4개와 `Hps.Transport.IoUring.Tests` 전체 7개 통과.
+  - 비고: native SQ/CQ, mmap, fixed buffer registration, TCP/UDP pump 는 Task 3 이후 별도 설계/구현 범위다.
 
 - [x] Phase 6 Linux io_uring boundary Task 1 project skeleton/capability probe 를 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/`, `tests/Hps.Transport.IoUring.Tests/`, `HighPerformanceSocket.slnx`.
