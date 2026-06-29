@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 Linux io_uring native wrapper shape Task 1 native ABI shell/platform guard 를 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 1.
-  - 목표: `IoUringNative` internal type 과 platform/architecture guard 를 추가하고 non-Linux guard를 테스트한다.
+- [ ] Phase 6 Linux io_uring native wrapper shape Task 2 queue setup owner 를 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 2.
+  - 목표: setup fd 와 SQ/CQ/SQE mmap 수명을 감싸는 `IoUringQueue` owner 경계를 추가한다.
   - 범위: reflection assertion Red, minimal Green, focused test, 상태 문서 갱신.
-  - 제외: 실제 `io_uring_setup`, mmap, fixed buffer registration, TCP/UDP pump, default backend promotion.
+  - 제외: TCP/UDP pump, fixed buffer registration owner, capability probe wiring, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +47,20 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 Linux io_uring native wrapper shape Task 1 native ABI shell/platform guard 를 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringNative.cs`,
+    `src/Hps.Transport.IoUring/Properties/AssemblyInfo.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringNativeShapeTests.cs`, root 상태 문서.
+  - 결과: internal `IoUringNative` type, `GetPlatformStatus()`, `ThrowIfUnsupportedPlatform()`을 추가했다.
+    non-Linux 는 `UnsupportedOperatingSystem`과 `NotSupportedException`으로 수렴하고,
+    Linux x64/arm64만 후속 native setup 후보로 둔다.
+  - Red: `IoUringNative` type 부재를 reflection 기반 `Assert.NotNull()` failure 3개로 확인했다.
+  - Green: focused `IoUringNativeShapeTests` 3개와 `Hps.Transport.IoUring.Tests` 전체 10개 통과.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 390개 통과,
+    `git diff --check` 통과.
+  - 다음: Task 2 queue setup owner 를 TDD로 구현한다.
 
 - [x] Phase 6 Linux io_uring native syscall wrapper shape 설계와 구현 계획을 완료했다.
   - 범위: D133, RIO native wrapper 기존 경계, `src/Hps.Transport.IoUring/`, `tests/Hps.Transport.IoUring.Tests/`.
