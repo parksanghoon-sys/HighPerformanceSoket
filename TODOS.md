@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 Linux io_uring boundary Task 3 state docs/full verification 을 수행한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-boundary.md` Task 3.
-  - 목표: Task 1~2 boundary skeleton 완료를 상태 문서와 결정 로그에 정리하고 전체 build/test/diff 검증을 수행한다.
-  - 범위: root 상태 문서, 월간 archive, solution build/test, `git diff --check`.
-  - 제외: 실제 io_uring P/Invoke, TCP/UDP pump, Linux integration test, default backend promotion.
+- [ ] Phase 6 Linux io_uring native syscall wrapper shape 를 설계한다.
+  - 입력: D133, `src/Hps.Transport.IoUring/`, `TransportBase`/RIO native wrapper 기존 경계.
+  - 목표: `io_uring_setup`/`io_uring_enter`, SQ/CQ mmap, fixed buffer registration 을 어떤 internal wrapper 와 owner 로 나눌지 정한다.
+  - 범위: 설계 문서, 결정 로그, 후속 TDD 구현 계획.
+  - 제외: 실제 io_uring P/Invoke 구현, TCP/UDP pump 구현, Linux integration test, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +47,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 Linux io_uring boundary Task 3 state docs/full verification 을 완료했다.
+  - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
+    `docs/agent-state/changelog/2026-06.md`, `docs/agent-state/decisions/2026-06.md`.
+  - 결과: D133으로 Phase 6 첫 io_uring 구현을 skeleton/probe/unsupported boundary 까지로 제한하고,
+    native syscall wrapper 와 TCP/UDP pump 는 후속 task 로 분리했다.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 387개 통과,
+    `git diff --check` 통과.
+  - 다음: Linux io_uring native syscall wrapper shape 설계를 작성한다.
 
 - [x] Phase 6 Linux io_uring boundary Task 2 `IoUringTransport` lifecycle/unsupported boundary 를 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringTransport.cs`,

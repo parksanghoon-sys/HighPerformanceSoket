@@ -19,7 +19,7 @@
 
 ## 현재 Phase
 
-Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Server endpoint/send-side 관측성 설계.
+Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
 
 ## 현재 상태 요약
 
@@ -1578,17 +1578,21 @@ Task 2 `IoUringTransport` lifecycle/unsupported boundary 도 완료했다.
 `IoUringTransport` root type 은 native 자원을 아직 열지 않는 opt-in shell 이며,
 `StartAsync`/`StopAsync` no-op lifecycle 과 TCP listen/connect, UDP bind 의 명시적 unsupported boundary 를 제공한다.
 Windows/non-Linux 에서는 `NotSupportedException`으로 수렴하고, `TransportFactory.CreateDefault()`는 계속 SAEA 기준선을 유지한다.
+Task 3 state docs/full verification 도 완료했다(D133).
+Phase 6 첫 io_uring 구현은 skeleton/probe/unsupported boundary 까지로 제한하고,
+native syscall wrapper 와 TCP/UDP pump 는 후속 설계/구현 task 로 분리한다.
+최신 검증은 solution build 경고 0/오류 0, solution tests 387개 통과, `git diff --check` 통과다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Phase 6 Linux io_uring boundary Task 3 state docs/full verification 을 수행한다.
+다음 cycle 은 Linux io_uring native syscall wrapper shape 를 설계한다.
 
-- 범위: `docs/superpowers/plans/2026-06-29-iouring-boundary.md` Task 3,
-  root 상태 문서와 월간 archive, 전체 build/test/diff 검증.
-- 검증: solution build, solution test, `git diff --check`.
+- 범위: native wrapper 설계 문서, `IoUringCapabilityProbe` 후속 probe 방향,
+  `io_uring_setup`/`io_uring_enter`, SQ/CQ mmap, fixed buffer registration owner boundary.
+- 검증: 설계 self-review, placeholder/type consistency scan, 필요 시 build/test/diff check.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   실제 `io_uring_setup`, SQ/CQ mmap, fixed buffer registration, TCP/UDP pump 는 아직 구현하지 않았다.
-- 다음 산출물: Phase 6 boundary skeleton 완료 기록과 native io_uring syscall wrapper shape 설계 진입점.
+- 다음 산출물: Linux native syscall wrapper 의 최소 public/internal boundary 와 TDD 구현 계획.
 
 ## 이번 작업에서 건드리지 않는 범위
 
