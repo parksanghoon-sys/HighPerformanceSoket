@@ -15,6 +15,8 @@
     `envelope.json`, `envelope.md`가 모두 포함되는지 확인한다.
   - 범위: remote CI run 확인, artifact 내용 검증, 상태 문서 갱신.
   - 제외: CI artifact 자동 baseline 채택, warning-as-failure, latency hard gate, pull_request/schedule trigger.
+  - 현재 blocker: 이 실행 환경에서 `git push origin master`는 정책상 거부됐다.
+    사용자 또는 push 가능한 환경에서 원격 push 가 이뤄진 뒤 생성된 CI run/artifact 를 기준으로 이어서 검증한다.
 
 ## Deferred Backlog
 
@@ -56,6 +58,8 @@
     D123~D127 이후 RIO full IPv6/default promotion 과 server diagnostics 는 계속 deferred 로 유지하고,
     다음 후보를 D127 workflow 의 push-triggered CI artifact 검증으로 좁혔다(D128).
   - 비고: envelope signal 은 계속 report-only 이며, CI artifact 자동 baseline 채택이나 hard gate 승격으로 이어지지 않는다.
+    이후 `git push origin master`를 직접 실행하려 했으나 현재 도구 정책에서 거부되어,
+    remote CI 검증은 원격 push 이후로 남겼다.
   - 검증: 최신 review/state/backlog 대조, `git diff --check` 통과,
     solution build 경고 0/오류 0, solution tests 379개 통과.
 

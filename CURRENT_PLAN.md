@@ -1552,6 +1552,9 @@ D127 이후 다음 후보 재평가도 완료했다(D128).
 `.claude/review/2026-06-29-next-scope-decision-review.md`의 local runner 2-date-root 전제는 D123 이후 stale 하며,
 RIO full IPv6와 server diagnostics 는 계속 deferred 로 유지한다.
 다음 실행 후보는 push-triggered CI artifact run 에서 D127 envelope 산출물이 실제 upload artifact 에 포함되는지 확인하는 것이다.
+Codex에서 `git push origin master`를 직접 실행하려는 시도는 현재 도구 정책에서 거부됐다.
+따라서 원격 push 자체는 사용자 또는 push 권한이 허용된 환경에서 수행해야 하며,
+push 이후 생성되는 `Benchmark Artifacts` run 을 확인하는 것이 다음 검증 지점이다.
 
 ## 이번 단위의 검증 경로
 
@@ -1560,6 +1563,7 @@ RIO full IPv6와 server diagnostics 는 계속 deferred 로 유지한다.
 - 범위: push-triggered `Benchmark Artifacts` run, 업로드 artifact, `summary.json`/`history.json`/`envelope.json`.
 - 검증: artifact 가 raw report 6개, summary/history JSON/Markdown, envelope JSON/Markdown을 포함하는지 확인한다.
   envelope signal 은 report-only 로 해석하고, baseline 자동 채택은 별도 판단으로 남긴다.
+- 현재 blocker: 이 실행 환경의 정책이 `git push origin master`를 거부했으므로, 원격 push 후 CI run id 또는 artifact 가 생기면 이어서 검증한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
