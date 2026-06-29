@@ -1570,17 +1570,21 @@ Phase 6 Linux io_uring boundary 구현 계획도 작성했다.
 계획 문서는 `docs/superpowers/plans/2026-06-29-iouring-boundary.md`이며,
 Task 1 project skeleton/capability probe, Task 2 `IoUringTransport` lifecycle/unsupported boundary,
 Task 3 state docs/full verification 으로 나뉜다.
+Task 1 project skeleton/capability probe 를 완료했다.
+`Hps.Transport.IoUring` source/test project 를 solution 에 추가했고,
+`IoUringCapabilityStatus`와 `IoUringCapabilityProbe.GetStatus()`를 추가했다.
+non-Linux 는 `UnsupportedOperatingSystem`, Linux 는 native syscall probe 전까지 `Unavailable`로 반환한다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Phase 6 Linux io_uring boundary Task 1 project skeleton/capability probe 를 TDD로 구현한다.
+다음 cycle 은 Phase 6 Linux io_uring boundary Task 2 `IoUringTransport` lifecycle/unsupported boundary 를 TDD로 구현한다.
 
-- 범위: `docs/superpowers/plans/2026-06-29-iouring-boundary.md` Task 1,
-  `src/Hps.Transport.IoUring/`, `tests/Hps.Transport.IoUring.Tests/`, `HighPerformanceSocket.slnx`.
-- 검증: reflection assertion Red, focused io_uring test project Green, solution build/test.
-- 현재 상태: `Hps.Transport.Rio`는 존재하지만 `Hps.Transport.IoUring` project 는 없다.
+- 범위: `docs/superpowers/plans/2026-06-29-iouring-boundary.md` Task 2,
+  `src/Hps.Transport.IoUring/IoUringTransport.cs`, `tests/Hps.Transport.IoUring.Tests/IoUringTransportTests.cs`.
+- 검증: `IoUringTransport` type 부재 assertion Red, focused `IoUringTransportTests` Green.
+- 현재 상태: source/test project 와 capability probe 는 존재하지만, opt-in transport root type 은 아직 없다.
   default factory 는 계속 SAEA를 반환해야 한다.
-- 다음 산출물: `IoUringCapabilityStatus`, `IoUringCapabilityProbe`, source/test project skeleton.
+- 다음 산출물: `IoUringTransport` lifecycle no-op root 와 non-Linux unsupported operation boundary.
 
 ## 이번 작업에서 건드리지 않는 범위
 

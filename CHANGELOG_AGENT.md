@@ -37,6 +37,26 @@
 ### 검증
 - D132 spec coverage, RIO skeleton/probe 기존 패턴, `TransportBase` abstract member, solution project layout 을 대조했다.
 
+## 2026-06-29 (Codex - io_uring capability probe)
+
+### 작업 단위
+- Phase 6 Linux io_uring boundary Task 1 project skeleton/capability probe 를 TDD로 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.IoUring/`:
+  새 source project 와 `IoUringCapabilityStatus`, `IoUringCapabilityProbe.GetStatus()`를 추가했다.
+  non-Linux 는 `UnsupportedOperatingSystem`, Linux 는 native syscall probe 전까지 `Unavailable`로 반환한다.
+- `tests/Hps.Transport.IoUring.Tests/`:
+  새 test project 와 reflection 기반 capability probe/default factory regression tests 를 추가했다.
+- `HighPerformanceSocket.slnx`:
+  io_uring source/test project 를 solution 에 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 1 완료와 다음 Task 2 `IoUringTransport` lifecycle/unsupported boundary 진입점을 반영했다.
+
+### 검증
+- Red: source project 없이 reflection tests 를 먼저 추가해 `Assert.NotNull()` failure 2개를 확인했다.
+- Green: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal` 3개 통과.
+
 ## 2026-06-29 (Codex - CI artifact remote validation and baseline adoption)
 
 ### 작업 단위

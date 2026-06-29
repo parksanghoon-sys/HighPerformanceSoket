@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 Linux io_uring boundary Task 1 project skeleton/capability probe 를 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-boundary.md` Task 1.
-  - 목표: `Hps.Transport.IoUring` source/test project, `IoUringCapabilityStatus`, `IoUringCapabilityProbe`를 추가한다.
-  - 범위: assertion-failure Red, minimal Green, focused test, solution build/test, 상태 문서 갱신.
-  - 제외: `IoUringTransport`, native P/Invoke, TCP/UDP pump, Linux integration test, default backend promotion.
+- [ ] Phase 6 Linux io_uring boundary Task 2 `IoUringTransport` lifecycle/unsupported boundary 를 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-boundary.md` Task 2.
+  - 목표: opt-in `IoUringTransport` root type, Start/Stop lifecycle, non-Linux TCP/UDP operation unsupported boundary 를 추가한다.
+  - 범위: assertion-failure Red, minimal Green, focused test, 상태 문서 갱신.
+  - 제외: 실제 io_uring P/Invoke, TCP/UDP pump, Linux integration test, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +47,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 Linux io_uring boundary Task 1 project skeleton/capability probe 를 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/`, `tests/Hps.Transport.IoUring.Tests/`, `HighPerformanceSocket.slnx`.
+  - 결과: `IoUringCapabilityStatus`, `IoUringCapabilityProbe.GetStatus()`를 추가했다.
+    non-Linux 는 `UnsupportedOperatingSystem`, Linux 는 native syscall probe 전까지 `Unavailable`로 반환한다.
+    `TransportFactory.CreateDefault()`는 계속 `SaeaTransport`를 반환한다.
+  - Red: source project 없이 reflection tests 를 먼저 추가해 `Assert.NotNull()` failure 2개를 확인했다.
+  - Green: source project/probe/status 추가 후 `Hps.Transport.IoUring.Tests` 3개 통과.
+  - 비고: `IoUringTransport`, native P/Invoke, TCP/UDP pump 는 Task 2 이후 범위다.
 
 - [x] Phase 6 Linux io_uring boundary 첫 구현 계획을 작성했다.
   - 범위: D132 spec, `PLAN.md` Phase 6, RIO skeleton/probe 기존 패턴, current project layout.
