@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - runner/profile envelope generator)
+
+### 작업 단위
+- runner/profile scoped envelope comparison command Task 3 generator 를 TDD로 구현했다.
+
+### 변경 내용
+- `BaselineEnvelopeComparison`, `BaselineEnvelopeKindComparison`, `BaselineEnvelopeMetricComparison`,
+  `BaselineEnvelopeMismatch`, `BaselineEnvelopeSignal`:
+  writer/Program 이 공유할 envelope comparison model 을 추가했다.
+- `BaselineEnvelopeComparisonGenerator`:
+  reference history/candidate source comparison key gate, eligible reference summary selection,
+  kind별 metric row, D125 upper/lower limit, signal/mismatch 계산을 구현했다.
+- `BaselineEnvelopeComparisonGeneratorTests`:
+  compatible no-signal, runner key mismatch, p99 upper-bound signal, actual-rate lower-bound signal,
+  eligible reference 없음 경로를 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 3 완료와 다음 실행 지점인 Task 4 writer/Program wiring 을 반영했다.
+
+### 검증
+- Red: generator type 부재로 `Assert.NotNull()` failure 1개를 확인했다.
+- Red: stub generator 상태에서 compatible/key/signal/no-reference behavior tests 5개가 실패했다.
+- Green: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --filter FullyQualifiedName~BaselineEnvelopeComparisonGeneratorTests`:
+  6개 통과.
+- `git diff --check`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 372개 통과.
+
 ## 2026-06-29 (Codex - runner/profile envelope source reader)
 
 ### 작업 단위

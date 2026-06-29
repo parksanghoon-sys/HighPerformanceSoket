@@ -9,12 +9,13 @@
 
 ## Current TODOs
 
-- [ ] runner/profile scoped envelope comparison Task 3 generator 를 구현한다.
+- [ ] runner/profile scoped envelope comparison Task 4 writer/Program wiring 을 구현한다.
   - 입력: `docs/superpowers/plans/2026-06-29-runner-profile-envelope-comparison.md`.
-  - 목표: D125 reference envelope limit 계산과 signal/mismatch 정책을 `BaselineEnvelopeComparisonGenerator`에 고정한다.
-  - 범위: `BaselineEnvelopeComparison*` model, `BaselineEnvelopeComparisonGenerator`,
-    `BaselineEnvelopeComparisonGeneratorTests`, root 상태 문서.
-  - 제외: JSON/Markdown writer, Program execution wiring.
+  - 목표: envelope JSON/Markdown artifact writer 를 추가하고,
+    `--compare-baseline-envelope` CLI branch 를 reader/generator/writer 경로로 연결한다.
+  - 범위: `BaselineEnvelopeComparisonWriter`, `BaselineEnvelopeComparisonMarkdownWriter`, `Program`,
+    writer/program tests, root 상태 문서.
+  - 제외: warning-as-failure, CI hard gate, latency hard gate 승격.
 
 ## Deferred Backlog
 
@@ -48,6 +49,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] runner/profile scoped envelope comparison Task 3 generator 를 구현했다.
+  - 범위: `BaselineEnvelopeComparison*` model, `BaselineEnvelopeComparisonGenerator`,
+    `BaselineEnvelopeComparisonGeneratorTests`, root 상태 문서.
+  - 결과: reference history/candidate source 의 comparison key gate, eligible reference summary selection,
+    kind별 metric row, D125 upper/lower limit, signal/mismatch model 을 추가했다.
+  - 비고: envelope signal 은 기존 `warning-count`에 합산하지 않는 별도 model 로 남긴다.
+  - Red: generator type 부재 `Assert.NotNull()` failure 1개와,
+    stub generator compatible/key/signal/no-reference behavior failure 5건을 확인했다.
+  - Green: `BaselineEnvelopeComparisonGeneratorTests` 6개 통과.
+  - 검증: `git diff --check` 통과, solution build 경고 0/오류 0,
+    solution tests 372개 통과.
+  - 다음: Task 4 writer/Program wiring 을 TDD로 구현한다.
 
 - [x] runner/profile scoped envelope comparison Task 2 source reader 를 구현했다.
   - 범위: `BaselineComparisonJsonReader`, `BaselineEnvelopeSourceKind`, `BaselineEnvelopeSummary`,
