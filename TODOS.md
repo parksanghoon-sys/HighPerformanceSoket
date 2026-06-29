@@ -9,11 +9,12 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 Linux io_uring native wrapper shape Task 5 state documents and full verification 을 수행한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 5.
-  - 목표: native wrapper shape 완료 상태를 D135로 기록하고, 다음 TCP-first io_uring pump 설계 진입점을 명확히 한다.
-  - 범위: 상태/결정 문서 갱신, solution build/test, `git diff --check`.
-  - 제외: TCP/UDP pump 구현, Linux benchmark, default backend promotion.
+- [ ] Phase 6 TCP-first io_uring queue/pump 설계를 작성한다.
+  - 입력: D135, `src/Hps.Transport.IoUring/`, 기존 SAEA/RIO transport contract, D009/D010/D011/D100.
+  - 목표: TCP listen/connect/receive/send/close 경로를 io_uring queue owner 위에 어떻게 올릴지 설계하고,
+    TDD 구현 계획으로 분해한다.
+  - 범위: TCP-first 설계 문서, 구현 task 경계, 검증 전략.
+  - 제외: 설계 없는 pump 구현, UDP pump, Linux benchmark, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +48,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 Linux io_uring native wrapper shape Task 5 state documents and full verification 을 수행했다.
+  - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
+    `docs/agent-state/changelog/2026-06.md`, `docs/agent-state/decisions/2026-06.md`.
+  - 결과: D135로 native wrapper boundary 완료와 TCP/UDP pump 후속 분리를 기록하고,
+    다음 실행 지점을 TCP-first io_uring queue/pump 설계로 넘겼다.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 397개 통과,
+    `git diff --check` 통과.
+  - 다음: TCP-first io_uring queue/pump 설계를 작성한다.
 
 - [x] Phase 6 Linux io_uring native wrapper shape Task 4 fixed buffer registration owner boundary 를 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringNative.cs`,

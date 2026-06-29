@@ -5,6 +5,24 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - io_uring native wrapper boundary record)
+
+### 작업 단위
+- Linux io_uring native wrapper shape Task 5 state documents and full verification 을 수행했다.
+
+### 변경 내용
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D135로 native wrapper boundary 완료와 TCP/UDP pump 후속 분리를 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  현재 실행 지점을 TCP-first io_uring queue/pump 설계로 넘겼다.
+- `CHANGELOG_AGENT.md`, `docs/agent-state/changelog/2026-06.md`:
+  Task 5 결과와 검증 요약을 기록했다.
+
+### 검증
+- `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 통과, 전체 397개 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-29 (Codex - io_uring fixed buffer registration owner)
 
 ### 작업 단위
