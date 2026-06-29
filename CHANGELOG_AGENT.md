@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - io_uring linux contract gate state)
+
+### 작업 단위
+- Linux io_uring contract gate Task 3 state documents and decision 을 수행했다.
+
+### 변경 내용
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D138이 active/archive decision 에 기록된 상태를 유지했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  workflow local validation 완료와 remote `workflow_dispatch` artifact 미실행 상태를 명시했다.
+  다음 실행 지점은 원격 `iouring-linux-contract` artifact 검토다.
+- `CHANGELOG_AGENT.md`, `docs/agent-state/changelog/2026-06.md`:
+  이번 state 정리와 검증 결과를 기록했다.
+
+### 검증
+- D138/state consistency scan 으로 D138, workflow path, current TODO 연결을 확인한다.
+- `git diff --check` 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 통과, 전체 417개 통과.
+- 원격 GitHub workflow 실행은 아직 수행하지 않았다.
+
 ## 2026-06-29 (Codex - io_uring linux contract workflow)
 
 ### 작업 단위

@@ -9,11 +9,13 @@
 
 ## Current TODOs
 
-- [ ] Linux io_uring contract gate Task 3 state documents and decision 을 수행한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md` Task 3.
-  - 목표: D138 gate 완료 상태와 원격 workflow 실행/채택 기준을 최종 상태 문서에 정리한다.
-  - 범위: `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
-  - 제외: production transport 변경, 원격 workflow 직접 실행.
+- [ ] 원격 `iouring-linux-contract` workflow 실행 결과 artifact 를 검토한다.
+  - 입력: GitHub Actions `iouring-linux-contract` run artifact.
+  - 목표: `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`에서 test exit code, capability status,
+    Linux actual TCP receive/send loopback 실행 여부를 확인한다.
+  - 현재 상태: workflow 파일과 local build/test 검증은 완료됐지만, 원격 workflow 실행 artifact 는 아직 없다.
+  - blocker: `workflow_dispatch` 수동 실행 또는 원격 실행 결과가 필요하다.
+  - 제외: artifact 확인 전 UDP pump/zero-copy 구현 착수.
 
 ## Deferred Backlog
 
@@ -61,6 +63,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Linux io_uring contract gate Task 3 state documents and decision 을 수행했다.
+  - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
+    `docs/agent-state/changelog/2026-06.md`, `docs/agent-state/decisions/2026-06.md`.
+  - 결과: D138 gate 완료 상태, workflow local validation, remote artifact 미실행 상태를 root/archive 문서에 정리했다.
+  - 비고: 원격 `workflow_dispatch` 실행 결과가 아직 없으므로 Linux actual syscall loopback 검증은 완료되지 않았다.
+  - 검증: D138/state consistency scan, `git diff --check`, solution build 경고 0/오류 0, solution tests 417개 통과.
+  - 다음: 원격 workflow artifact 가 생기면 결과를 검토한다.
 
 - [x] Linux io_uring contract gate Task 2 Linux contract workflow 를 추가했다.
   - 범위: `.github/workflows/iouring-linux-contract.yml`, root 상태 문서.
