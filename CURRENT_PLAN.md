@@ -1591,18 +1591,23 @@ native wrapper shape Task 1도 완료했다.
 `IoUringNative` internal type 과 platform/architecture guard 를 추가했고,
 non-Linux 에서는 `UnsupportedOperatingSystem` 또는 명시적 `NotSupportedException`으로 수렴한다.
 최신 검증은 solution build 경고 0/오류 0, solution tests 390개 통과, `git diff --check` 통과다.
+native wrapper shape Task 2 queue setup owner 도 완료했다.
+`IoUringSafeHandle`, `IoUringMemoryMap`, `IoUringQueue`, `IoUringQueueProbeResult`를 추가했고,
+Linux 에서만 `io_uring_setup`/mmap probe 로 진입하도록 non-Linux guard 를 유지한다.
+최신 검증은 solution build 경고 0/오류 0, solution tests 393개 통과, `git diff --check` 통과다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Linux io_uring native wrapper shape Task 2 queue setup owner 를 TDD로 구현한다.
+다음 cycle 은 Linux io_uring native wrapper shape Task 3 capability probe wiring 을 TDD로 구현한다.
 
-- 범위: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 2,
-  `IoUringSafeHandle`, `IoUringMemoryMap`, `IoUringQueue`, queue probe result.
-- 검증: reflection 기반 Red, focused `IoUringQueueTests` Green, io_uring test project, 필요 시 solution build/test/diff check.
+- 범위: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 3,
+  `IoUringCapabilityProbe.GetStatus()`와 `IoUringQueue.TryCreateForProbe(...)` 연결.
+- 검증: deterministic probe result mapping Red, focused capability probe tests Green, io_uring test project,
+  필요 시 solution build/test/diff check.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
-  `IoUringNative` platform guard 는 존재하지만 실제 `io_uring_setup`, SQ/CQ mmap, fixed buffer registration,
-  TCP/UDP pump 는 아직 구현하지 않았다.
-- 다음 산출물: setup fd 와 SQ/CQ/SQE mmap 수명을 감싸는 queue owner boundary.
+  `IoUringNative` platform guard 와 `IoUringQueue` setup/mmap owner 는 존재하지만,
+  public capability probe 는 아직 real queue probe 를 사용하지 않는다.
+- 다음 산출물: Linux 에서 real setup/close probe 를 수행하는 capability probe path.
 
 ## 이번 작업에서 건드리지 않는 범위
 

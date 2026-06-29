@@ -5,6 +5,29 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - io_uring queue owner)
+
+### 작업 단위
+- Linux io_uring native wrapper shape Task 2 queue setup owner 를 TDD로 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.IoUring/IoUringNative.cs`:
+  `io_uring_setup`, `mmap`, `munmap`, `close` adapter 와 ABI struct 를 추가했다.
+- `src/Hps.Transport.IoUring/IoUringSafeHandle.cs`, `IoUringMemoryMap.cs`, `IoUringQueue.cs`:
+  fd, mmap, queue setup owner 를 추가했다.
+- `tests/Hps.Transport.IoUring.Tests/IoUringQueueTests.cs`:
+  queue owner type 존재, non-Linux unsupported boundary, Linux probe result escape 방지를 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 2 완료와 다음 Task 3 capability probe wiring 진입점을 반영했다.
+
+### 검증
+- Red: focused `IoUringQueueTests` 실행으로 `IoUringQueue` type 부재 `Assert.NotNull()` failure 2개를 확인했다.
+- Green: focused `IoUringQueueTests` 3개 통과.
+- Project: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal` 13개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 통과, 전체 393개 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-29 (Codex - io_uring native guard)
 
 ### 작업 단위

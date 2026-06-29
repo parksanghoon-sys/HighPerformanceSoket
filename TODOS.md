@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 Linux io_uring native wrapper shape Task 2 queue setup owner 를 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 2.
-  - 목표: setup fd 와 SQ/CQ/SQE mmap 수명을 감싸는 `IoUringQueue` owner 경계를 추가한다.
+- [ ] Phase 6 Linux io_uring native wrapper shape Task 3 capability probe wiring 을 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 3.
+  - 목표: `IoUringCapabilityProbe.GetStatus()`가 Linux 에서 `IoUringQueue.TryCreateForProbe(...)` 결과를 사용하도록 연결한다.
   - 범위: reflection assertion Red, minimal Green, focused test, 상태 문서 갱신.
-  - 제외: TCP/UDP pump, fixed buffer registration owner, capability probe wiring, default backend promotion.
+  - 제외: TCP/UDP pump, fixed buffer registration owner, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +47,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 Linux io_uring native wrapper shape Task 2 queue setup owner 를 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringNative.cs`,
+    `src/Hps.Transport.IoUring/IoUringSafeHandle.cs`, `IoUringMemoryMap.cs`, `IoUringQueue.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringQueueTests.cs`, root 상태 문서.
+  - 결과: setup fd close owner, mmap owner, queue setup/mmap owner, queue probe result 를 추가했다.
+    non-Linux 는 setup syscall 로 진입하지 않고, Linux 에서만 작은 ring setup/mmap probe 를 시도할 수 있다.
+  - Red: `IoUringQueue` type 부재를 reflection 기반 `Assert.NotNull()` failure 2개로 확인했다.
+  - Green: focused `IoUringQueueTests` 3개와 `Hps.Transport.IoUring.Tests` 전체 13개 통과.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 393개 통과,
+    `git diff --check` 통과.
+  - 다음: Task 3 capability probe wiring 을 TDD로 구현한다.
 
 - [x] Phase 6 Linux io_uring native wrapper shape Task 1 native ABI shell/platform guard 를 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringNative.cs`,
