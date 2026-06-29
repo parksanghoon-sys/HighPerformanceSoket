@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] Phase 4 explicit runner 3-date-root evidence 기반 warning/gate promotion policy 를 재평가한다.
-  - 입력: `local-win-x64-01` runner root history 는 2026-06-24/2026-06-25/2026-06-29 세 date root,
-    총 9-session, hard-passed true, warning-count 0, comparison-compatible true 다.
-  - 목표: warning-as-failure, latency envelope 초과 처리, CI latency gate 를 지금 승격할지 또는 계속 report-only 로 둘지
-    D082/D089/D090/D096/D123 기준으로 설계 판단을 정리한다.
-  - 범위: baseline index/history artifact, CI/local runner 분리 정책, gate 승격 조건 문서화.
-  - 제외: 즉시 CI hard failure 구현, pull_request/schedule trigger 추가, 새 benchmark 수집.
+- [ ] runner/profile scoped warning envelope model 을 설계한다.
+  - 입력: D124는 `local-win-x64-01` 9-session envelope 를 runner-local reference 로 채택했지만,
+    현재 `BaselineSummaryGenerator` warning threshold 는 전역 상수라서 local 기준을 그대로 낮출 수 없다고 판단했다.
+  - 목표: benchmark profile, runner id/kind, backend, workload case 별 threshold 를 어떻게 표현하고 적용할지 설계한다.
+  - 범위: summary/history artifact schema, warning-count 유지 여부, 별도 envelope comparison result 도입 여부,
+    backward compatibility, CI/local runner 분리 정책.
+  - 제외: 즉시 threshold 상수 변경, warning-as-failure 구현, CI latency hard gate 구현.
 
 ## Deferred Backlog
 
@@ -49,6 +49,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 4 explicit runner 3-date-root evidence 기반 warning/gate promotion policy 를 재평가했다.
+  - 범위: `docs/superpowers/specs/2026-06-29-phase4-gate-promotion-policy-after-local-3-date-roots.md`,
+    `docs/benchmarks/baselines/index.md`, `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`,
+    root 상태 문서.
+  - 결과: D124로 `local-win-x64-01` 9-session envelope 를 runner-local reference envelope 로 채택했다.
+    이 envelope 는 후속 local baseline 수동 리뷰 기준이며, CLI exit code, CI failure, process failure 로 자동 승격하지 않는다.
+  - 비고: 현재 `BaselineSummaryGenerator` warning threshold 는 runner/profile scoped 가 아닌 전역 상수다.
+    local SAEA TCP loopback 수치를 전역 threshold 로 낮추면 CI/RIO/UDP benchmark 에도 같은 기준이 적용되므로,
+    기존 soft warning threshold 는 그대로 둔다.
+  - 다음: runner/profile scoped warning envelope model 을 별도 설계한다.
+  - 검증: local/CI runner history 와 warning threshold 구조를 대조했다.
+    `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 355개 통과.
 
 - [x] `local-win-x64-01/2026-06-29` explicit runner baseline 3-session 을 수집했다.
   - 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-29/`,

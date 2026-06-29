@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - gate promotion policy after local 3-date roots)
+
+### 작업 단위
+- `local-win-x64-01` 3-date-root/9-session evidence 이후 warning-as-failure, latency hard gate,
+  CI latency gate 를 지금 승격할 수 있는지 재평가했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-29-phase4-gate-promotion-policy-after-local-3-date-roots.md`:
+  local 9-session evidence, CI 1-session 상태, 현재 global warning threshold 구조를 대조하고
+  gate 승격 정책을 정리했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D124를 추가했다. `local-win-x64-01` envelope 는 runner-local reference 로 채택하지만,
+  warning/gate 승격은 runner-scoped threshold 설계 뒤로 분리한다.
+- `docs/benchmarks/baselines/index.md`:
+  local explicit runner envelope 설명을 D124 기준의 수동 리뷰 기준으로 보정했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 runner/profile scoped warning envelope model 설계로 옮겼다.
+
+### 검증
+- local runner root history: session-count 9, hard-passed true, warning-count 0, comparison-compatible true.
+- CI runner root history: session-count 1, hard-passed true, warning-count 0, comparison-compatible true.
+- `BaselineSummaryGenerator`의 warning threshold 가 runner/profile scoped 가 아닌 전역 상수임을 확인했다.
+- `git diff --check`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 355개 통과.
+
 ## 2026-06-29 (Codex - local explicit runner third date root)
 
 ### 작업 단위

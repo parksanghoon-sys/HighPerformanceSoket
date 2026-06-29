@@ -130,6 +130,9 @@ Phase 4 — 벤치마크 하니스, SAEA 기준선 수치 기록, Interface Serv
   warning-as-failure 와 CI latency hard gate 는 계속 보류한다(D089).
   다음 단위는 CI workflow 구현이 아니라 CI runner identity, artifact 저장 위치, local/CI baseline 분리,
   exit code 정책을 먼저 닫는 CI artifact-only benchmark 정책 설계다.
+- 이후 `local-win-x64-01/2026-06-29` 세 session 을 추가해 3-date-root/9-session evidence 조건을 충족했다(D123).
+  D124 기준으로 이 envelope 는 runner-local 수동 리뷰 기준으로 채택하지만,
+  현재 warning threshold 는 runner/profile scoped 가 아닌 전역 상수이므로 warning-as-failure 와 CI latency hard gate 는 계속 보류한다.
 - CI artifact-only benchmark 정책을 설계했다(D090).
   권장 CI runner id 는 `ci-windows-x64-01`, runner kind 는 `ci`다.
   CI 매 실행 artifact 는 docs baseline 과 섞지 않고 `artifacts/benchmarks/runners/<ci-runner-id>/...` 같은
@@ -1478,23 +1481,28 @@ hard-passed true, warning-count 0, comparison-compatible true 를 유지한다.
 explicit runner envelope 는 load p99 max 935.6 us, open-loop p99 max 1077.4 us 로 기존 maxima 를 유지한다.
 D082의 explicit runner 3-date-root evidence 조건은 충족했지만, warning-as-failure 또는 CI latency gate 승격은
 threshold/운영 정책을 별도 단위에서 재평가한 뒤 결정한다.
+local 3-date-root evidence 기반 gate 승격 정책도 재평가했다(D124).
+결론은 `local-win-x64-01` 9-session envelope 를 runner-local reference envelope 로 채택하되,
+기존 `BaselineSummaryGenerator` warning threshold 는 그대로 두고 warning-as-failure/CI latency gate 는 계속 보류하는 것이다.
+현재 warning threshold 는 runner/profile scoped 가 아닌 전역 상수이므로 local SAEA TCP loopback 수치를 전역 threshold 로 낮추면
+CI/RIO/UDP benchmark 에도 같은 기준이 적용된다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 `local-win-x64-01` 9-session explicit runner evidence 를 기준으로
-Phase 4 warning threshold / latency envelope / CI gate promotion policy 를 재평가한다.
+다음 cycle 은 runner/profile scoped warning envelope model 을 설계한다.
 
-- 범위: `docs/benchmarks/baselines/index.md`, `docs/benchmarks/baselines/runners/local-win-x64-01/history.json`,
-  D082/D089/D090/D096/D123 decision, CI artifact-only workflow policy.
-- 검증: baseline index/history 대조, gate 승격 조건과 runner 분리 정책 충돌 여부 확인,
-  policy/spec 문서 placeholder scan, `git diff --check`, 필요 시 benchmark summary/history CLI smoke.
+- 범위: `tests/Hps.Benchmarks/BaselineSummaryGenerator.cs`, summary/history artifact schema,
+  `docs/benchmarks/baselines/index.md`, D080/D090/D096/D123/D124 decision.
+- 검증: 현재 전역 warning threshold 경계 대조, runner/profile/workload scoped threshold 입력 모델 설계,
+  backward compatibility 확인, policy/spec 문서 placeholder scan, `git diff --check`.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
 - 별도 selector package 생성
 - full IPv6 UDP RIO 지원 구현
-- latency hard gate 또는 warning-as-failure 정책 구현 없이 설계/정책 재평가만 수행
+- latency hard gate 또는 warning-as-failure 구현
+- `BaselineSummaryGenerator` threshold 상수 즉시 변경
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
 - Linux io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay
