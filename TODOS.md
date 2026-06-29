@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Linux io_uring contract gate Task 2 Linux contract workflow 를 수행한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md` Task 2.
-  - 목표: `workflow_dispatch` 전용 Linux workflow 로 io_uring tests TRX, dotnet-info, summary artifact 를 남긴다.
-  - 범위: `.github/workflows/iouring-linux-contract.yml`, root 상태 문서.
-  - 제외: production transport 변경, push trigger, UDP pump.
+- [ ] Linux io_uring contract gate Task 3 state documents and decision 을 수행한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md` Task 3.
+  - 목표: D138 gate 완료 상태와 원격 workflow 실행/채택 기준을 최종 상태 문서에 정리한다.
+  - 범위: `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 제외: production transport 변경, 원격 workflow 직접 실행.
 
 ## Deferred Backlog
 
@@ -61,6 +61,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Linux io_uring contract gate Task 2 Linux contract workflow 를 추가했다.
+  - 범위: `.github/workflows/iouring-linux-contract.yml`, root 상태 문서.
+  - 결과: `workflow_dispatch` 전용 `ubuntu-latest` workflow 를 추가했다.
+    workflow 는 io_uring tests TRX, `dotnet-info.txt`, `summary.md`를 upload artifact 로 남긴다.
+  - 비고: capability unavailable 은 workflow failure 가 아니다. restore/build/test command 실패만 failure 로 취급한다.
+    원격 Linux workflow 실행은 아직 수행하지 않았다.
+  - 검증: workflow marker scan 통과, `git diff --check` 통과,
+    solution build 경고 0/오류 0, solution tests 417개 통과.
+  - 다음: Task 3 state documents and decision 을 수행한다.
 
 - [x] Linux io_uring contract gate Task 1 capability evidence test 를 추가했다.
   - 범위: `tests/Hps.Transport.IoUring.Tests/IoUringCapabilityEvidenceTests.cs`, root 상태 문서.

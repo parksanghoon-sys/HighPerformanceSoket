@@ -1,0 +1,97 @@
+name: io_uring Linux Contract
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  iouring-linux-contract:
+    name: io_uring contract (linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5.3.0
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Prepare artifact paths
+        shell: bash
+        run: |
+          date_root="$(date -u +%F)"
+          artifact_root="artifacts/iouring/linux-contract/${date_root}/run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          artifact_name="iouring-linux-contract-${date_root}-github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          mkdir -p "$artifact_root"
+          {
+            echo "IOURING_CONTRACT_ROOT=$artifact_root"
+            echo "IOURING_ARTIFACT_NAME=$artifact_name"
+          } >> "$GITHUB_ENV"
+
+      - name: Restore
+        run: dotnet restore HighPerformanceSocket.slnx
+
+      - name: Build
+        run: dotnet build HighPerformanceSocket.slnx --no-restore
+
+      - name: Capture dotnet info
+        shell: bash
+        run: dotnet --info > "$IOURING_CONTRACT_ROOT/dotnet-info.txt"
+
+      - name: Run io_uring tests
+        shell: bash
+        run: |
+          set +e
+          dotnet test tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj \
+            --no-build \
+            --no-restore \
+            --logger "trx;LogFileName=iouring-tests.trx" \
+            --results-directory "$IOURING_CONTRACT_ROOT"
+          exit_code=$?
+          echo "IOURING_TEST_EXIT=$exit_code" >> "$GITHUB_ENV"
+          exit 0
+
+      - name: Write contract summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "# io_uring Linux contract"
+            echo
+            echo "- Runner OS: $(uname -a)"
+            echo "- .NET SDK: $(dotnet --version)"
+            echo "- Test command: dotnet test tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj --no-build --no-restore"
+            echo "- Test exit code: ${IOURING_TEST_EXIT:-not-run}"
+            echo "- TRX: iouring-tests.trx"
+            echo
+            echo "Capability unavailable is not a workflow failure. Inspect the TRX output from IoUringCapabilityEvidenceTests to determine whether TCP loopback tests used the real io_uring syscall path."
+          } > "$IOURING_CONTRACT_ROOT/summary.md"
+
+      - name: Upload io_uring contract artifact
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ${{ env.IOURING_ARTIFACT_NAME }}
+          path: ${{ env.IOURING_CONTRACT_ROOT }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail if io_uring tests failed
+        if: always()
+        shell: bash
+        run: |
+          if [ "${IOURING_TEST_EXIT:-1}" != "0" ]; then
+            echo "io_uring tests failed with exit code ${IOURING_TEST_EXIT:-not-run}"
+            exit 1
+          fi
+
+          echo "io_uring Linux contract completed successfully."

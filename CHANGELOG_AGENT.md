@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - io_uring linux contract workflow)
+
+### 작업 단위
+- Linux io_uring contract gate Task 2 Linux contract workflow 를 추가했다.
+
+### 변경 내용
+- `.github/workflows/iouring-linux-contract.yml`:
+  `workflow_dispatch` 전용 `ubuntu-latest` workflow 를 추가했다.
+  workflow 는 `Hps.Transport.IoUring.Tests`를 실행하고 TRX, `dotnet-info.txt`, `summary.md`를 upload artifact 로 남긴다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 2 완료와 다음 Task 3 state documents and decision 진입점을 반영했다.
+
+### 검증
+- workflow marker scan: `workflow_dispatch`, `ubuntu-latest`, `IOURING_CONTRACT_ROOT`, `iouring-tests.trx`, `upload-artifact` 확인.
+- `git diff --check` 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 통과, 전체 417개 통과.
+- 원격 GitHub workflow 실행은 아직 수행하지 않았다.
+
 ## 2026-06-29 (Codex - io_uring capability evidence test)
 
 ### 작업 단위

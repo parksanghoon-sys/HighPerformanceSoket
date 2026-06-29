@@ -1667,20 +1667,26 @@ Linux io_uring contract gate Task 1 capability evidence test 도 완료했다.
 xUnit output 으로 남겨 원격 TRX artifact 에서 available/unavailable 상태를 확인할 수 있게 한다.
 최신 focused 검증은 `IoUringCapabilityEvidenceTests` 1개와 `Hps.Transport.IoUring.Tests` 37개 통과다.
 최신 표준 검증은 solution build 경고 0/오류 0, solution tests 417개 통과, `git diff --check` 통과다.
+Linux io_uring contract gate Task 2 Linux contract workflow 도 추가했다.
+`.github/workflows/iouring-linux-contract.yml`은 `workflow_dispatch` 전용으로 `ubuntu-latest`에서
+io_uring tests TRX, `dotnet-info.txt`, `summary.md`를 upload artifact 로 남긴다.
+capability unavailable 은 workflow failure 가 아니며, restore/build/test command 실패만 failure 로 취급한다.
+현재 로컬에서는 workflow marker scan, solution build 경고 0/오류 0, solution tests 417개 통과까지 확인했고,
+원격 Linux workflow 실행은 아직 수행하지 않았다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Linux io_uring contract gate implementation plan Task 2 Linux contract workflow 를 수행한다.
+다음 cycle 은 Linux io_uring contract gate implementation plan Task 3 state documents and decision 을 수행한다.
 
-- 범위: `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md` Task 2,
-  `.github/workflows/iouring-linux-contract.yml`, root 상태 문서.
-- 검증: workflow marker scan, solution build/test, `git diff --check`.
+- 범위: `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md` Task 3,
+  `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+- 검증: D138/state consistency scan, solution build/test, `git diff --check`.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
   `IoUringRegisteredBufferSet` fixed buffer registration owner boundary, SQE/CQE/enter ABI shape,
   operation registry/context, completion loop dispatch boundary, TCP listener/resource skeleton, receive/send pump shape 가 존재한다.
 - 현재 제한: 실제 Linux available host syscall loopback 은 아직 미검증이다.
-- 다음 산출물: workflow_dispatch 전용 Linux contract workflow 를 추가해 TRX, dotnet-info, summary artifact 를 남긴다.
+- 다음 산출물: D138 gate 완료 상태와 원격 workflow 실행/채택 기준을 최종 상태 문서에 정리한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
