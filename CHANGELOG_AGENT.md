@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - SDK selection reproducibility)
+
+### 작업 단위
+- envelope command self-review 뒤 발견한 기본 SDK 10.0.203 build failure 를 재현성 인프라 문제로 분리하고,
+  repository 기본 SDK 선택을 net9.0 프로젝트에 맞게 고정했다.
+
+### 변경 내용
+- `global.json`:
+  SDK `9.0.314`, `rollForward: latestFeature`를 추가해 저장소 루트 기본 `dotnet`이 10.0 계열로 넘어가지 않게 했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D126을 추가했다. SDK pin 과 stale restore 산출물 재생성 필요성을 함께 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  SDK hardening 완료와 다음 실행 지점인 최신 review/backlog 재평가를 반영했다.
+
+### 검증
+- `dotnet --version`: 9.0.314.
+- `dotnet restore HighPerformanceSocket.slnx --ignore-failed-sources -v minimal`: 성공.
+  이후 `tests/Hps.Benchmarks/obj/project.assets.json`의 package root 가 현재 사용자 NuGet cache 로 정렬됨을 확인했다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal`: 전체 378개 통과/실패 0.
+- `git diff --check`: 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-29 (Codex - runner/profile envelope schema self-review)
 
 ### 작업 단위

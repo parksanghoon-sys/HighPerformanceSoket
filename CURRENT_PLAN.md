@@ -1539,14 +1539,20 @@ writer schema 를 `reference-history-path`/`candidate-path`/`candidate-kind`/sum
 상세 리뷰는 `docs/agent-state/reviews/2026-06-29-envelope-command-self-review.md`를 본다.
 검증은 writer tests 4개, Program tests 2개, envelope 관련 tests 16개, local runner artifact CLI smoke,
 `git diff --check`, .NET 9.0.314 MSBuild 기준 solution build, solution tests 378개 통과로 마쳤다.
+SDK 선택 재현성 hardening 도 완료했다(D126).
+루트 `global.json`이 기본 `dotnet` SDK 선택을 9.0 계열로 고정하고,
+stale restore 산출물은 `dotnet restore --ignore-failed-sources`로 현재 사용자 package root 기준으로 재생성했다.
+기본 `dotnet --version`은 9.0.314를 반환하고, 기본 `dotnet build HighPerformanceSocket.slnx --no-restore`와
+`dotnet test HighPerformanceSocket.slnx --no-build --no-restore`가 통과한다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 SDK 선택 재현성 hardening 을 수행한다.
+다음 cycle 은 최신 review/backlog 를 현재 상태와 다시 대조해 Phase 4 다음 구현 후보를 확정한다.
 
-- 범위: SDK 선택/검증 인프라, root 상태 문서.
-- 검증: 기본 `dotnet --version`, 기본 `dotnet build HighPerformanceSocket.slnx --no-restore`,
-  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`, `git diff --check`.
+- 범위: `.claude/review/2026-06-29-next-scope-decision-review.md`, root 상태 문서,
+  D123~D126 이후 이미 충족된 baseline evidence 와 남은 backlog.
+- 검증: review 내용이 현재 D123~D126 상태와 stale 하지 않은지 확인하고,
+  실행 가능한 다음 작업이 코드/문서/벤치마크 중 어디인지 명시한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

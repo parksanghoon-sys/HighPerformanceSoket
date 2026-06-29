@@ -9,12 +9,11 @@
 
 ## Current TODOs
 
-- [ ] SDK 선택 재현성 hardening 을 수행한다.
-  - 입력: envelope command self-review 와 로컬 검증 중 발견한 SDK 10.0.203 benchmark build failure.
-  - 목표: net9.0 프로젝트가 기본 `dotnet build`에서도 의도한 SDK로 빌드되게 하거나,
-    동등한 검증 환경 고정 방식을 기록한다.
-  - 범위: SDK 선택/검증 인프라, root 상태 문서.
-  - 제외: benchmark 기능 변경, package upgrade, warning-as-failure, CI latency hard gate.
+- [ ] 최신 review/backlog 를 현재 상태와 다시 대조해 Phase 4 다음 구현 후보를 확정한다.
+  - 입력: `.claude/review/2026-06-29-next-scope-decision-review.md`, D123~D126, 현재 `Deferred Backlog`.
+  - 목표: 이미 완료된 baseline evidence 와 stale review 내용을 분리하고, 다음 실행 단위를 하나로 좁힌다.
+  - 범위: review/state 문서 대조, 다음 후보 설계 또는 구현 계획 선택.
+  - 제외: RIO full IPv6 즉시 구현, server diagnostics public API 즉시 추가, latency hard gate 즉시 승격.
 
 ## Deferred Backlog
 
@@ -48,6 +47,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] SDK 선택 재현성 hardening 을 수행했다.
+  - 범위: `global.json`, `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+  - 결과: 저장소 루트 기본 `dotnet` SDK 선택을 9.0.314 계열로 고정했다.
+    stale restore 산출물은 `dotnet restore --ignore-failed-sources`로 현재 사용자 package root 기준으로 재생성했다.
+  - 원인: `global.json` 부재 상태에서 기본 SDK 10.0.203이 선택됐고,
+    이전 실행 환경 package root 를 가리키는 `project.assets.json` 때문에 BenchmarkDotNet transitive analyzer metadata `CS0006`가 재현됐다.
+  - 검증: 기본 `dotnet --version` 9.0.314 확인,
+    기본 `dotnet build HighPerformanceSocket.slnx --no-restore` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 전체 378개 통과,
+    `git diff --check` 통과.
+  - 다음: 최신 review/backlog 를 D123~D126 이후 상태와 다시 대조해 다음 실행 후보를 확정한다.
 
 - [x] runner/profile scoped envelope comparison command 구현 self-review 와 schema 보정을 수행했다.
   - 범위: D125 spec/plan, envelope comparison writer/model/tests/Program output, review 문서, root 상태 문서.
