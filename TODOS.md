@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 TCP-first io_uring queue/pump Task 6 TCP send pump and ownership 을 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 6.
-  - 목표: pending send queue 를 io_uring SEND SQE로 drain 하고 in-flight buffer ownership release 를 보장한다.
-  - 범위: Windows에서 실행 가능한 send pump shape/ownership Red, Linux-available gated loopback, 상태 문서 갱신.
-  - 제외: UDP pump.
+- [ ] Phase 6 TCP-first io_uring queue/pump Task 7 state documents and full verification 을 수행한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 7.
+  - 목표: TCP-first io_uring pump boundary 를 D137로 기록하고 최신 표준 검증을 남긴다.
+  - 범위: DECISIONS/root state/archive decision 문서, solution build/test/diff check.
+  - 제외: UDP pump, Linux actual host verification.
 
 ## Deferred Backlog
 
@@ -61,6 +61,21 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 TCP-first io_uring queue/pump Task 6 TCP send pump and ownership 을 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringQueue.cs`,
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringSendPumpShapeTests.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringTransportTcpTests.cs`, root 상태 문서.
+  - 결과: SEND SQE submit helper 와 `TransportConnection` pending queue 기반 send loop 를 추가했다.
+    length-prefix 는 pinned prefix block 을 먼저 보내고, payload 는 `TransportSendBuffer` slice metadata 를 따른다.
+  - Red: send pump queue/transport shape 부재를 reflection 기반 `Assert.NotNull()` failure 1개로 확인했다.
+  - Green: focused `IoUringSendPumpShapeTests` 1개와 `Hps.Transport.IoUring.Tests` 전체 36개 통과.
+  - 비고: 현재 Windows 검증에서는 Linux-gated send loopback 이 early-return 한다. 실제 Linux available host 검증은 Deferred Backlog 로 남겼다.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 416개 통과,
+    `git diff --check` 통과.
+  - 다음: Task 7 state documents and full verification 을 수행한다.
 
 - [x] Phase 6 TCP-first io_uring queue/pump Task 5 TCP receive pump 를 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringQueue.cs`,

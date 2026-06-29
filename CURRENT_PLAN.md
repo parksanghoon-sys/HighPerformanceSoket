@@ -1643,20 +1643,28 @@ TCP-first io_uring queue/pump Task 5 TCP receive pump 도 구현했다.
 실제 Linux available host loopback 실행은 환경 의존 검증으로 남는다.
 최신 focused 검증은 `IoUringReceivePumpShapeTests` 1개와 `Hps.Transport.IoUring.Tests` 34개 통과다.
 최신 표준 검증은 solution build 경고 0/오류 0, solution tests 414개 통과, `git diff --check` 통과다.
+TCP-first io_uring queue/pump Task 6 TCP send pump and ownership 도 구현했다.
+`IoUringQueue.TrySubmitSend(...)`를 추가하고, `IoUringTransport` send loop가 기존
+`TransportConnection` pending queue/in-flight ownership을 drain 해 SEND SQE completion 이후 ref를 release 하도록 연결했다.
+length-prefix send 는 connection resource 의 pinned 4-byte prefix block 을 먼저 보내고, payload 는 기존
+`TransportSendBuffer` slice metadata 를 사용한다.
+현재 Windows 검증에서는 send pump shape 와 Linux-gated send loopback early-return 까지만 확인했고,
+실제 Linux available host loopback 실행은 receive pump 와 함께 Deferred Backlog 로 남는다.
+최신 focused 검증은 `IoUringSendPumpShapeTests` 1개와 `Hps.Transport.IoUring.Tests` 36개 통과다.
+최신 표준 검증은 solution build 경고 0/오류 0, solution tests 416개 통과, `git diff --check` 통과다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 TCP-first io_uring queue/pump implementation plan Task 6 TCP send pump and ownership 을 TDD로 구현한다.
+다음 cycle 은 TCP-first io_uring queue/pump implementation plan Task 7 state documents and full verification 을 수행한다.
 
-- 범위: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 6,
-  `IoUringQueue` send submission, `IoUringTransport` send loop, `TransportConnection` ownership release.
-- 검증: Windows에서 실행 가능한 send pump shape/ownership Red, Linux-available gated loopback, io_uring test project,
-  필요 시 solution build/test/diff check.
+- 범위: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 7,
+  `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, root 상태 문서.
+- 검증: decision/state docs consistency, solution build/test, `git diff --check`.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
   `IoUringRegisteredBufferSet` fixed buffer registration owner boundary, SQE/CQE/enter ABI shape,
-  operation registry/context, completion loop dispatch boundary, TCP listener/resource skeleton, receive pump shape 가 존재한다.
-- 다음 산출물: pending send queue 를 io_uring SEND SQE로 drain 하는 send pump.
+  operation registry/context, completion loop dispatch boundary, TCP listener/resource skeleton, receive/send pump shape 가 존재한다.
+- 다음 산출물: TCP-first io_uring pump boundary 를 D137로 기록하고, 남은 Linux actual verification 한계를 명시한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

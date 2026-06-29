@@ -161,6 +161,43 @@ namespace Hps.Transport
             return true;
         }
 
+        internal unsafe bool TrySubmitSend(int fileDescriptor, byte[] buffer, int offset, int length, ulong token)
+        {
+            if (fileDescriptor < 0)
+                throw new ArgumentOutOfRangeException(nameof(fileDescriptor), "socket file descriptor가 유효하지 않습니다.");
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+            if (offset < 0 || offset > buffer.Length)
+                throw new ArgumentOutOfRangeException(nameof(offset), "send offset은 buffer 범위 안에 있어야 합니다.");
+            if (length <= 0 || length > buffer.Length - offset)
+                throw new ArgumentOutOfRangeException(nameof(length), "send length는 buffer 범위 안의 양수여야 합니다.");
+            if (token == 0)
+                throw new ArgumentOutOfRangeException(nameof(token), "io_uring user_data token은 0을 사용하지 않습니다.");
+
+            ThrowIfDisposed();
+
+            fixed (byte* bufferPointer = buffer)
+            {
+                lock (_submissionGate)
+                {
+                    IoUringSubmissionQueueEntry* submission = TryAcquireSubmissionEntry();
+                    if (submission == null)
+                        return false;
+
+                    *submission = default(IoUringSubmissionQueueEntry);
+                    submission->Opcode = IoUringNative.OperationSend;
+                    submission->FileDescriptor = fileDescriptor;
+                    submission->Address = (ulong)(bufferPointer + offset);
+                    submission->Length = (uint)length;
+                    submission->UserData = token;
+                    PublishSubmissionEntry(submission);
+                }
+            }
+
+            IoUringNative.Enter(FileDescriptor, 1, 0, 0);
+            return true;
+        }
+
         internal unsafe bool TryDequeueCompletion(out IoUringCompletion completion)
         {
             ThrowIfDisposed();

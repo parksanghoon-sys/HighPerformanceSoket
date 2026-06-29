@@ -125,6 +125,50 @@ namespace Hps.Transport.IoUring.Tests
             }
         }
 
+        // Linux에서 capability가 실제 available일 때만 send pump loopback을 검증한다.
+        // caller ref와 transport ref가 모두 해제되어 pool count가 0으로 돌아오는지도 같이 확인한다.
+        [Fact]
+        public async Task TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer()
+        {
+            if (IoUringCapabilityProbe.GetStatus() != IoUringCapabilityStatus.Available)
+                return;
+
+            using (IoUringTransport transport = new IoUringTransport())
+            {
+                await transport.StartAsync();
+
+                IConnectionListener listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                Socket client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                try
+                {
+                    await client.ConnectAsync(listener.LocalEndPoint);
+                    IConnection server = await listener.AcceptAsync();
+
+                    byte[] payload = new byte[] { 9, 8, 7 };
+                    RefCountedBuffer buffer = pool.RentCounted();
+                    payload.CopyTo(buffer.Span);
+                    buffer.SetLength(payload.Length);
+                    buffer.AddRef();
+
+                    Assert.True(transport.TrySend(server, new TransportSendBuffer(buffer, 0, payload.Length)));
+                    buffer.Release();
+
+                    byte[] received = await ReceiveExactAsync(client, payload.Length);
+
+                    Assert.Equal(payload, received);
+                    server.Close();
+                }
+                finally
+                {
+                    client.Dispose();
+                    listener.Close();
+                    await transport.StopAsync();
+                    Assert.Equal(0, pool.RentedCount);
+                }
+            }
+        }
+
         private static Type RequiredType(string name)
         {
             Type? type = Type.GetType(name);
@@ -154,6 +198,30 @@ namespace Hps.Transport.IoUring.Tests
             object? result = property!.GetValue(target);
             Assert.NotNull(result);
             return result!;
+        }
+
+        private static async Task<byte[]> ReceiveExactAsync(Socket socket, int length)
+        {
+            byte[] buffer = new byte[length];
+            int received = 0;
+
+            while (received < length)
+            {
+                Task<int> receiveTask = socket.ReceiveAsync(
+                    new ArraySegment<byte>(buffer, received, length - received),
+                    SocketFlags.None);
+                Task completed = await Task.WhenAny(receiveTask, Task.Delay(TimeSpan.FromSeconds(3))).ConfigureAwait(false);
+                if (completed != receiveTask)
+                    throw new TimeoutException("io_uring send pump가 제한 시간 안에 payload를 전달하지 않았습니다.");
+
+                int count = await receiveTask.ConfigureAwait(false);
+                if (count == 0)
+                    throw new InvalidOperationException("payload 수신 전에 socket이 닫혔습니다.");
+
+                received += count;
+            }
+
+            return buffer;
         }
 
         private sealed class RecordingReceiveHandler : ITransportReceiveHandler

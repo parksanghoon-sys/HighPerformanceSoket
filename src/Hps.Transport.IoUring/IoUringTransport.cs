@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Hps.Buffers;
 
 namespace Hps.Transport
 {
@@ -198,6 +200,7 @@ namespace Hps.Transport
             {
                 RegisterConnection(connection);
                 StartReceiveLoop(connection, resource);
+                StartSendLoop(connection, resource);
                 return connection;
             }
             catch
@@ -236,6 +239,14 @@ namespace Hps.Transport
             _ = Task.Run(delegate()
             {
                 return ReceiveLoopAsync(connection, resource);
+            });
+        }
+
+        private void StartSendLoop(TransportConnection connection, IoUringTcpConnectionResource resource)
+        {
+            _ = Task.Run(delegate()
+            {
+                return SendLoopAsync(connection, resource);
             });
         }
 
@@ -302,6 +313,122 @@ namespace Hps.Transport
             ITransportReceiveHandler? receiveHandler = ReadReceiveHandlerSnapshot();
             if (receiveHandler != null)
                 receiveHandler.OnConnectionClosed(connection);
+        }
+
+        private async Task SendLoopAsync(TransportConnection connection, IoUringTcpConnectionResource resource)
+        {
+            while (true)
+            {
+                await connection.WaitForSendSignalAsync().ConfigureAwait(false);
+
+                while (connection.TryBeginInFlightSend(out TransportConnection.InFlightSend? inFlightSend))
+                {
+                    TransportConnection.InFlightSend inFlight = inFlightSend!;
+
+                    using (inFlight)
+                    {
+                        try
+                        {
+                            await SendInFlightAsync(resource, connection, inFlight.SendBuffer).ConfigureAwait(false);
+                            inFlight.Complete();
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            return;
+                        }
+                        catch (SocketException)
+                        {
+                            NotifyConnectionClosed(connection);
+                            return;
+                        }
+                    }
+                }
+
+                if (connection.IsClosed)
+                    return;
+            }
+        }
+
+        private async Task SendInFlightAsync(
+            IoUringTcpConnectionResource resource,
+            TransportConnection connection,
+            TransportSendBuffer sendBuffer)
+        {
+            if (sendBuffer.PrependLengthPrefix)
+            {
+                WriteBigEndianLength(resource.LengthPrefixBlock, sendBuffer.Length);
+                await SendArrayAsync(resource, connection, resource.LengthPrefixBlock, 0, 4).ConfigureAwait(false);
+            }
+
+            if (sendBuffer.Length == 0)
+                return;
+
+            ArraySegment<byte> segment = GetRefCountedBlockSegment(sendBuffer.Buffer, sendBuffer.Offset, sendBuffer.Length);
+            if (segment.Array == null)
+                throw new InvalidOperationException("io_uring TCP send는 pinned byte[] 기반 RefCountedBuffer만 지원합니다.");
+
+            await SendArrayAsync(resource, connection, segment.Array, segment.Offset, segment.Count).ConfigureAwait(false);
+        }
+
+        private static async Task SendArrayAsync(
+            IoUringTcpConnectionResource resource,
+            TransportConnection connection,
+            byte[] buffer,
+            int offset,
+            int length)
+        {
+            int currentOffset = offset;
+            int remaining = length;
+
+            while (remaining != 0)
+            {
+                if (connection.IsClosed || resource.IsDisposed)
+                    throw new ObjectDisposedException(nameof(TransportConnection));
+
+                IoUringOperationContext context = resource.SendContext;
+                context.Reset(context.Token, IoUringOperationKind.Send);
+                ValueTask<IoUringCompletion> wait = context.WaitAsync();
+
+                bool submitted = resource.Queue.TrySubmitSend(
+                    resource.SocketFileDescriptor,
+                    buffer,
+                    currentOffset,
+                    remaining,
+                    context.Token);
+                if (!submitted)
+                    throw new SocketException((int)SocketError.NoBufferSpaceAvailable);
+
+                IoUringCompletion completion = await wait.ConfigureAwait(false);
+                if (completion.Result <= 0 || completion.Result > remaining)
+                    throw new SocketException((int)SocketError.ConnectionReset);
+
+                currentOffset += completion.Result;
+                remaining -= completion.Result;
+            }
+        }
+
+        private static void WriteBigEndianLength(byte[] buffer, int value)
+        {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+            if (buffer.Length < 4)
+                throw new ArgumentException("TCP length prefix buffer는 최소 4바이트여야 합니다.", nameof(buffer));
+
+            buffer[0] = (byte)((value >> 24) & 0xFF);
+            buffer[1] = (byte)((value >> 16) & 0xFF);
+            buffer[2] = (byte)((value >> 8) & 0xFF);
+            buffer[3] = (byte)(value & 0xFF);
+        }
+
+        private static ArraySegment<byte> GetRefCountedBlockSegment(RefCountedBuffer buffer, int offset, int length)
+        {
+            Memory<byte> memory = buffer.Memory.Slice(offset, length);
+            ArraySegment<byte> segment;
+
+            if (!MemoryMarshal.TryGetArray(memory, out segment))
+                throw new InvalidOperationException("io_uring TCP send는 pinned byte[] 기반 RefCountedBuffer만 지원합니다.");
+
+            return segment;
         }
 
         private void StopCore()
