@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 TCP-first io_uring queue/pump Task 4 TCP resource and listener wiring 을 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 4.
-  - 목표: TCP listener/resource boundary skeleton 을 추가하고 non-Linux unsupported 경계를 보존한다.
-  - 범위: reflection/behavior assertion Red, minimal Green, focused test, 상태 문서 갱신.
-  - 제외: TCP receive/send SQE pump.
+- [ ] Phase 6 TCP-first io_uring queue/pump Task 5 TCP receive pump 를 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 5.
+  - 목표: Linux available host 에서 TCP receive SQE completion 을 receive handler 로 전달한다.
+  - 범위: Linux-available gated loopback Red/Green, Windows/unavailable early-return 유지, 상태 문서 갱신.
+  - 제외: TCP send pump.
 
 ## Deferred Backlog
 
@@ -47,6 +47,22 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 TCP-first io_uring queue/pump Task 4 TCP resource and listener wiring 을 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringConnectionListener.cs`,
+    `src/Hps.Transport.IoUring/IoUringTcpConnectionResource.cs`,
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `src/Hps.Transport/Properties/AssemblyInfo.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringTransportTcpTests.cs`, root 상태 문서.
+  - 결과: TCP listener/resource skeleton 을 추가하고, resource dispose 가 pinned block 반환과 registry unregister 를 수행하게 했다.
+    `IoUringTransport`는 Linux capability available 상태에서 queue/registry/completion loop 를 준비하고,
+    non-Linux 는 기존처럼 명시적 `NotSupportedException`으로 수렴한다.
+  - Red: TCP listener/resource type 부재를 reflection 기반 `Assert.NotNull()` failure 2개로 확인했다.
+  - Green: focused `IoUringTransportTcpTests` 4개와 `Hps.Transport.IoUring.Tests` 전체 32개 통과.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 412개 통과,
+    `git diff --check` 통과.
+  - 다음: Task 5 TCP receive pump 를 TDD로 구현한다.
 
 - [x] Phase 6 TCP-first io_uring queue/pump Task 3 shared completion loop boundary 를 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringCompletionLoop.cs`,
