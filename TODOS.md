@@ -14,21 +14,24 @@
 
 ## Deferred Backlog
 
-- [ ] `P2_LATER` RIO UDP full IPv6 지원 또는 address-family-aware fallback 정책을 default promotion 전에 결정/구현한다.
-  - 무엇이 남았는지: RIO UDP v1은 D121 기준 IPv4-only opt-in backend 이며, IPv6 local bind/send/receive 는 아직 지원하지 않는다.
-  - 왜 defer 되었는지: D118의 4096B x 100Hz RIO UDP scratch evidence 는 IPv4 loopback 기준으로 충분하고,
-    D119에 따라 base `TransportFactory.CreateDefault()`는 계속 SAEA default 다.
-  - objective: default backend promotion 을 다시 검토하기 전에 IPv6 UDP를 RIO에 구현할지,
-    또는 address-family-aware selector/composite fallback 으로 SAEA를 사용할지 확정한다.
-  - relevant context: D110, D118, D119, D121,
-    `docs/superpowers/specs/2026-06-26-rio-udp-ipv6-support-gate-design.md`.
+- [ ] `P2_LATER` RIO full IPv6 지원은 default promotion scope 가 다시 열릴 때 별도 설계로 판단한다.
+  - 무엇이 남았는지: RIO backend 는 D122 기준 TCP/UDP 모두 현재 IPv4 `IPEndPoint` 전용이다.
+    sample broker host 의 `auto` mode 는 non-IPv4 listen endpoint 에서 SAEA fallback 을 제공하므로,
+    즉시 운영 가능한 fallback 정책은 구현되어 있다.
+  - 왜 defer 되었는지: D118의 4096B x 100Hz RIO UDP scratch evidence 는 IPv4 loopback 기준이고,
+    D119/D122에 따라 base default promotion 은 아직 열려 있지 않다.
+  - objective: RIO를 IPv6 endpoint 에서도 직접 backend 로 사용하거나 default promotion 대상으로 다시 평가하려면
+    TCP/UDP IPv6 socket, sockaddr, tests, benchmark evidence 를 완성한다.
+  - relevant context: D110, D118, D119, D121, D122,
+    `docs/superpowers/specs/2026-06-26-rio-udp-ipv6-support-gate-design.md`,
+    `docs/superpowers/specs/2026-06-29-rio-address-family-aware-selection-policy-design.md`.
   - 관련 파일/범위: `src/Hps.Transport.Rio/RioNative.cs`, `src/Hps.Transport.Rio/RioTransport.cs`,
-    `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, `tests/Hps.Transport.Rio.Tests/RioTransportUdpTests.cs`,
-    default selection/host composition 문서.
-  - 현재 상태 또는 이미 시도한 접근: unsupported IPv6는 public boundary 에서 명시적으로 거부하도록 guard 구현이 완료됐다.
+    `src/Hps.Transport.Rio/RioUdpEndpoint.cs`, RIO TCP/UDP contract tests, benchmark explicit RIO path.
+  - 현재 상태 또는 이미 시도한 접근: UDP IPv6 local/remote guard 와 TCP IPv6 listen/connect guard 가 구현됐다.
+    sample broker host 는 address-family-aware selector 로 IPv6 auto fallback/explicit rio failure 를 제공한다.
   - known blockers 또는 open questions: `SOCKADDR_IN6` encode/decode, scope id, dual-mode socket 정책,
     IPv6 benchmark artifact 채택 여부, default promotion 의 IPv6 compatibility 요구 수준.
-  - 가장 자연스러운 next step: default promotion scope 가 다시 열리면 full IPv6 구현안과 SAEA fallback/composite안을 비교하는 설계를 작성한다.
+  - 가장 자연스러운 next step: default promotion scope 가 열리면 full IPv6 implementation plan 과 composite/fallback 유지안을 비교한다.
 
 - [ ] `P3_NICE` 실제 host/metrics surface 가 생기면 server-level diagnostics model 을 설계한다.
   - 무엇이 남았는지: D068로 `BrokerServer` 단순 pass-through diagnostics API 는 v1에 추가하지 않기로 했다.
@@ -41,6 +44,24 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] RIO address-family-aware host selection 정책과 TCP IPv6 guard 를 구현했다.
+  - 범위: `src/Hps.Transport.Rio/RioTransport.cs`,
+    `samples/Hps.Sample.BrokerServer/Program.cs`,
+    `samples/Hps.Sample.BrokerServer/SampleTransportSelector.cs`,
+    `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,
+    `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`,
+    `docs/superpowers/specs/2026-06-29-rio-address-family-aware-selection-policy-design.md`,
+    `docs/superpowers/plans/2026-06-29-rio-address-family-aware-selection.md`.
+  - 결과: D122로 RIO backend 현재 지원 범위를 TCP/UDP IPv4-only opt-in 으로 명시했다.
+    RIO TCP listen/connect 는 IPv6 endpoint 를 socket 계층 전에 `NotSupportedException`으로 거부한다.
+    sample broker `auto`는 IPv6/non-IPv4 listen endpoint 에서 SAEA fallback notice 를 반환하고,
+    explicit `rio`는 runtime failure 를 반환한다.
+  - Red: RIO TCP IPv6 listen 은 기존 구현에서 `SocketException`으로 실패했고, connect 는 `IPv4` 없는 메시지로 실패했다.
+    selector IPv6 tests 는 새 address-family-aware overload 부재 `Assert.NotNull()` failure 로 실패했다.
+  - Green/검증: focused guard tests 2개 통과, focused selector tests 2개 통과,
+    `Hps.Transport.Rio.Tests` 57개 통과, `Hps.Sample.BrokerServer.Tests` 17개 통과,
+    solution build 경고 0/오류 0, solution tests 355개 통과, `git diff --check` 통과.
 
 - [x] RIO UDP IPv6 unsupported boundary guard 를 TDD로 구현했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`,

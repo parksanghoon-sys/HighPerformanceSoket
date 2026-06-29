@@ -36,6 +36,43 @@ namespace Hps.Transport.Rio.Tests
             }
         }
 
+        // D122 정책 테스트: 현재 RIO TCP socket 은 IPv4 registered socket 으로만 생성된다.
+        // IPv6 listen 주소를 socket layer 까지 넘기면 capability failure 와 endpoint unsupported 가 섞이므로,
+        // public boundary 에서 IPv4-only 계약을 먼저 드러내야 한다.
+        [Fact]
+        public async Task ListenTcpAsync_WhenLocalEndpointIsIpv6_ThrowsExplicitNotSupported()
+        {
+            using (RioTransport transport = new RioTransport())
+            {
+                await transport.StartAsync();
+
+                NotSupportedException exception = await Assert.ThrowsAsync<NotSupportedException>(async delegate()
+                {
+                    await transport.ListenTcpAsync(new IPEndPoint(IPAddress.IPv6Loopback, 0));
+                });
+
+                Assert.Contains("IPv4", exception.Message, StringComparison.Ordinal);
+            }
+        }
+
+        // D122 정책 테스트: RIO TCP connect 도 listen 과 같은 IPv4-only public contract 를 가져야 한다.
+        // 연결 시도 전에 remote endpoint address family 를 확인해야 background/native 오류와 사용 오류를 구분할 수 있다.
+        [Fact]
+        public async Task ConnectTcpAsync_WhenRemoteEndpointIsIpv6_ThrowsExplicitNotSupported()
+        {
+            using (RioTransport transport = new RioTransport())
+            {
+                await transport.StartAsync();
+
+                NotSupportedException exception = await Assert.ThrowsAsync<NotSupportedException>(async delegate()
+                {
+                    await transport.ConnectTcpAsync(new IPEndPoint(IPAddress.IPv6Loopback, 9));
+                });
+
+                Assert.Contains("IPv4", exception.Message, StringComparison.Ordinal);
+            }
+        }
+
         // RIO transport 는 native socket 경계만이 아니라 ITransport 계약에서도 receive/send loopback 을 만족해야 한다.
         // 이 테스트는 RIO available 환경에서 TrySend payload 가 peer connection 의 receive handler 로 도착하는지 검증한다.
         [Fact]

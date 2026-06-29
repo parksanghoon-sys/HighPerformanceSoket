@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D122 — RIO backend 는 TCP/UDP 모두 현재 IPv4-only opt-in 이며 host auto selection 은 address-family-aware fallback 을 수행한다.
 - D121 — RIO UDP v1은 IPv4-only opt-in backend 로 유지하고 IPv6는 default promotion gate 로 남긴다.
 - D120 — RIO preferred/default selection 은 base factory 가 아니라 host composition 책임으로 두고 sample broker server 에 optional transport selector 를 추가한다.
 - D119 — RIO UDP gate 이후에도 base `TransportFactory.CreateDefault()`는 SAEA로 유지하고 preferred RIO는 composition layer policy 로 둔다.

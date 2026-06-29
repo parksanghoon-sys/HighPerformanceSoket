@@ -1459,15 +1459,27 @@ RIO UDP IPv6 unsupported boundary guard 구현도 완료했다.
 Red evidence 는 기존 구현에서 bind 가 `SocketException`으로 실패하고 send 가 `true`를 반환한 것이다.
 검증은 focused Red/Green, `Hps.Transport.Rio.Tests` 55개, solution build 경고 0/오류 0,
 solution tests 351개 통과, `git diff --check`로 마쳤다.
+RIO address-family-aware selection policy 설계와 구현도 완료했다(D122).
+설계 문서는 `docs/superpowers/specs/2026-06-29-rio-address-family-aware-selection-policy-design.md`,
+구현 계획은 `docs/superpowers/plans/2026-06-29-rio-address-family-aware-selection.md`다.
+결정은 RIO backend 의 현재 public support matrix 를 TCP/UDP IPv4 `IPEndPoint` 전용으로 명시하고,
+full IPv6 RIO 구현은 default promotion gate 로 남기는 것이다.
+`RioTransport.ListenTcpAsync(...)`와 `ConnectTcpAsync(...)`는 IPv6 endpoint 를 socket bind/connect 전에
+명시적 `NotSupportedException`으로 거부한다.
+sample broker `--transport auto`는 IPv6/non-IPv4 listen endpoint 에서 RIO available 여부와 무관하게
+SAEA fallback notice 를 반환하고, explicit `--transport rio`는 runtime failure 를 반환한다.
+검증은 focused Red/Green, `Hps.Transport.Rio.Tests` 57개,
+`Hps.Sample.BrokerServer.Tests` 17개, solution build 경고 0/오류 0,
+solution tests 355개 통과, `git diff --check` 통과로 마쳤다.
 
 ## 이번 단위의 검증 경로
 
 현재 즉시 실행 가능한 Current TODO 는 없다.
-남은 항목은 default promotion scope 가 다시 열릴 때 판단할 RIO UDP full IPv6 support 와,
+남은 항목은 default promotion scope 가 다시 열릴 때 판단할 RIO full IPv6 support 와,
 실제 host/metrics surface 가 생긴 뒤 설계할 server-level diagnostics model 이다.
 
-- 다음 cycle 진입 조건: 사용자가 default backend promotion, full IPv6 RIO UDP, 또는 server diagnostics/metrics host scope 를 열어준다.
-- 현재 검증 기준: working tree 는 `.claude/review/` 사용자 검토 문서 외 clean 상태를 유지한다.
+- 다음 cycle 진입 조건: 사용자가 default backend promotion, full IPv6 RIO, 또는 server diagnostics/metrics host scope 를 열어준다.
+- 현재 검증 기준: solution build/test 및 `git diff --check`까지 통과했으며, `.claude/review/` 사용자 검토 문서 외 clean 상태로 커밋한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

@@ -5,6 +5,41 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - RIO address-family-aware selection)
+
+### 작업 단위
+- D122에 따라 RIO backend 의 현재 IPv4-only 지원 범위를 TCP public boundary 와 sample broker host selection 에 반영했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-29-rio-address-family-aware-selection-policy-design.md`:
+  RIO backend 를 TCP/UDP IPv4 `IPEndPoint` 전용 opt-in 으로 두고,
+  host `auto`가 IPv6/non-IPv4 endpoint 에서 SAEA fallback 을 수행하는 정책을 D122로 설계했다.
+- `docs/superpowers/plans/2026-06-29-rio-address-family-aware-selection.md`:
+  TCP guard, sample selector, state/verification 작업을 한 구현 계획으로 정리했다.
+- `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`,
+  `src/Hps.Transport.Rio/RioTransport.cs`:
+  RIO TCP listen/connect 가 IPv6 endpoint 를 socket layer 전에 명시적 `NotSupportedException`으로 거부하도록 했다.
+- `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`,
+  `samples/Hps.Sample.BrokerServer/SampleTransportSelector.cs`,
+  `samples/Hps.Sample.BrokerServer/Program.cs`:
+  sample broker selector 에 listen `AddressFamily` 입력을 추가했다.
+  `auto`는 IPv6/non-IPv4 listen endpoint 에서 SAEA fallback notice 를 반환하고,
+  explicit `rio`는 runtime failure 를 반환한다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, `CURRENT_PLAN.md`, `TODOS.md`:
+  D122와 완료/후속 상태를 반영했다.
+
+### 검증
+- Red: RIO TCP IPv6 listen 은 기존 구현에서 `SocketException`으로 실패했다.
+- Red: RIO TCP IPv6 connect 는 기존 구현에서 `IPv4` 없는 protocol error message 로 실패했다.
+- Red: sample selector IPv6 tests 는 새 address-family-aware overload 부재 `Assert.NotNull()` failure 로 실패했다.
+- Green: focused RIO TCP guard tests 2개 통과.
+- Green: focused sample selector tests 2개 통과.
+- `dotnet test tests\Hps.Sample.BrokerServer.Tests\Hps.Sample.BrokerServer.Tests.csproj --no-restore`: 17개 통과.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --no-restore`: 57개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 355개 통과.
+- `git diff --check`: 통과.
+
 ## 2026-06-26 (Codex - rio udp ipv6 unsupported guard)
 
 ### 작업 단위

@@ -100,6 +100,7 @@ namespace Hps.Transport
 
             cancellationToken.ThrowIfCancellationRequested();
             EnsureRunning();
+            ThrowIfUnsupportedTcpEndPoint(localEndPoint);
             EnsureRioAvailable();
 
             Socket listenSocket = RioNative.CreateTcpSocket();
@@ -127,6 +128,7 @@ namespace Hps.Transport
 
             cancellationToken.ThrowIfCancellationRequested();
             EnsureRunning();
+            ThrowIfUnsupportedTcpEndPoint(remoteEndPoint);
             EnsureRioAvailable();
 
             Socket socket = RioNative.CreateTcpSocket();
@@ -990,8 +992,19 @@ namespace Hps.Transport
 
         private static bool IsSupportedUdpEndPoint(EndPoint endPoint)
         {
+            return IsSupportedRioIpEndPoint(endPoint);
+        }
+
+        private static bool IsSupportedRioIpEndPoint(EndPoint endPoint)
+        {
             IPEndPoint? ipEndPoint = endPoint as IPEndPoint;
             return ipEndPoint != null && ipEndPoint.AddressFamily == AddressFamily.InterNetwork;
+        }
+
+        private static void ThrowIfUnsupportedTcpEndPoint(EndPoint endPoint)
+        {
+            if (!IsSupportedRioIpEndPoint(endPoint))
+                throw new NotSupportedException("RIO TCP v1은 IPv4 IPEndPoint 만 지원합니다.");
         }
 
         private static void ThrowIfUnsupportedUdpLocalEndPoint(EndPoint endPoint)

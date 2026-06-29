@@ -37,6 +37,7 @@ namespace Hps.Sample.BrokerServer
 
             SampleTransportSelection selection = SampleTransportSelector.Select(
                 parsedCommandLine.TransportMode,
+                address.AddressFamily,
                 RioCapabilityProbe.GetStatus,
                 delegate { return new SaeaTransport(); },
                 delegate { return new RioTransport(); });
