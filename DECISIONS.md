@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D136 — io_uring TCP-first pump 설계는 transport shared queue/completion loop 와 reusable operation context 를 채택한다.
 - D135 — io_uring native wrapper boundary 는 구현 완료하고 TCP/UDP pump 는 후속 설계로 분리한다.
 - D134 — io_uring native wrapper 는 native adapter, queue owner, fixed buffer registration owner 로 분리한다.
 - D133 — Phase 6 io_uring 첫 구현은 skeleton/probe/unsupported boundary 로 제한하고 native syscall wrapper 는 후속 task 로 분리한다.

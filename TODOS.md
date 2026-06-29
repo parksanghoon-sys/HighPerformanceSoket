@@ -9,12 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 TCP-first io_uring queue/pump 설계를 작성한다.
-  - 입력: D135, `src/Hps.Transport.IoUring/`, 기존 SAEA/RIO transport contract, D009/D010/D011/D100.
-  - 목표: TCP listen/connect/receive/send/close 경로를 io_uring queue owner 위에 어떻게 올릴지 설계하고,
-    TDD 구현 계획으로 분해한다.
-  - 범위: TCP-first 설계 문서, 구현 task 경계, 검증 전략.
-  - 제외: 설계 없는 pump 구현, UDP pump, Linux benchmark, default backend promotion.
+- [ ] Phase 6 TCP-first io_uring queue/pump Task 1 native SQE/CQE/enter shape 를 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 1.
+  - 목표: TCP send/receive SQE 제출과 CQE 결과 해석에 필요한 native ABI shape 를 추가한다.
+  - 범위: reflection assertion Red, minimal Green, focused test, 상태 문서 갱신.
+  - 제외: operation registry, completion loop, TCP resource/listener, receive/send pump.
 
 ## Deferred Backlog
 
@@ -48,6 +47,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 TCP-first io_uring queue/pump 설계와 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/specs/2026-06-29-iouring-tcp-first-pump-design.md`,
+    `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md`,
+    `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
+    `docs/agent-state/changelog/2026-06.md`, `docs/agent-state/decisions/2026-06.md`.
+  - 결과: D136으로 transport shared queue/completion loop 와 reusable operation context 설계를 채택했다.
+    구현 계획은 native shape, operation registry, completion loop, TCP resource/listener, receive pump, send pump,
+    state docs/full verification 의 7개 단위로 나눴다.
+  - 검증: spec/plan placeholder scan, type consistency scan, `git diff --check` 통과,
+    solution build 경고 0/오류 0, solution tests 397개 통과.
+  - 다음: implementation plan Task 1 native SQE/CQE/enter shape 를 TDD로 구현한다.
 
 - [x] Phase 6 Linux io_uring native wrapper shape Task 5 state documents and full verification 을 수행했다.
   - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,

@@ -1607,19 +1607,23 @@ native wrapper shape Task 5 state documents/full verification 도 완료했다(D
 io_uring native wrapper boundary 는 `IoUringNative`, `IoUringQueue`, `IoUringRegisteredBufferSet`까지 구현된 상태로 수락하고,
 TCP/UDP pump 는 후속 설계와 TDD 구현 계획으로 분리한다.
 최신 표준 검증은 solution build 경고 0/오류 0, solution tests 397개 통과, `git diff --check` 통과다.
+TCP-first io_uring queue/pump 설계와 구현 계획도 완료했다(D136).
+설계는 transport당 shared `IoUringQueue`/completion loop 와 connection별 reusable operation context 를 채택한다.
+구현 계획은 `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md`이며,
+Task 1은 native SQE/CQE/`io_uring_enter` shape 를 TDD로 고정하는 단위다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 TCP-first io_uring queue/pump 설계를 작성한다.
+다음 cycle 은 TCP-first io_uring queue/pump implementation plan Task 1 native SQE/CQE/enter shape 를 TDD로 구현한다.
 
-- 범위: `IoUringTransport` TCP listen/connect, accepted/client connection resource, receive loop, send loop,
-  fixed buffer registration 사용 경계, close/drain cleanup 정책 설계.
-- 검증: 기존 SAEA/RIO transport contract matrix, D009/D010/D011/D100 ownership 규칙,
-  current `TransportConnection` pending queue 계약과 대조한다.
+- 범위: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 1,
+  `IoUringNative` `io_uring_enter`, TCP `SEND`/`RECV` opcode, SQE/CQE ABI shape.
+- 검증: reflection assertion Red, focused `IoUringSubmissionShapeTests` Green, io_uring test project,
+  필요 시 solution build/test/diff check.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
   `IoUringRegisteredBufferSet` fixed buffer registration owner boundary 가 존재한다.
-- 다음 산출물: TCP-first io_uring pump 설계 문서와 implementation plan.
+- 다음 산출물: TCP send/receive SQE 제출에 필요한 native ABI shape.
 
 ## 이번 작업에서 건드리지 않는 범위
 
