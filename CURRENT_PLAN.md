@@ -1566,18 +1566,21 @@ CI gate 승격, RIO default promotion/full IPv6, server-level diagnostics public
 현재 Windows 환경에서는 Linux native integration 을 바로 검증할 수 없으므로,
 첫 구현 후보는 `Hps.Transport.IoUring` skeleton, capability probe, non-Linux unsupported boundary,
 default SAEA 유지 regression 으로 제한한다.
+Phase 6 Linux io_uring boundary 구현 계획도 작성했다.
+계획 문서는 `docs/superpowers/plans/2026-06-29-iouring-boundary.md`이며,
+Task 1 project skeleton/capability probe, Task 2 `IoUringTransport` lifecycle/unsupported boundary,
+Task 3 state docs/full verification 으로 나뉜다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Phase 6 Linux io_uring boundary 첫 구현 계획을 작성한다.
+다음 cycle 은 Phase 6 Linux io_uring boundary Task 1 project skeleton/capability probe 를 TDD로 구현한다.
 
-- 범위: `docs/superpowers/specs/2026-06-29-phase6-iouring-boundary-next-candidate-design.md`, `PLAN.md` Phase 6,
-  현재 `src/Hps.Transport.IoUring/` 부재 상태.
-- 검증: Windows 환경에서도 검증 가능한 skeleton/probe/unsupported boundary task 로 나누고,
-  Linux native P/Invoke 와 integration test 는 후속 task 로 명확히 분리한다.
+- 범위: `docs/superpowers/plans/2026-06-29-iouring-boundary.md` Task 1,
+  `src/Hps.Transport.IoUring/`, `tests/Hps.Transport.IoUring.Tests/`, `HighPerformanceSocket.slnx`.
+- 검증: reflection assertion Red, focused io_uring test project Green, solution build/test.
 - 현재 상태: `Hps.Transport.Rio`는 존재하지만 `Hps.Transport.IoUring` project 는 없다.
   default factory 는 계속 SAEA를 반환해야 한다.
-- 다음 산출물: `docs/superpowers/plans/2026-06-29-iouring-boundary.md`.
+- 다음 산출물: `IoUringCapabilityStatus`, `IoUringCapabilityProbe`, source/test project skeleton.
 
 ## 이번 작업에서 건드리지 않는 범위
 

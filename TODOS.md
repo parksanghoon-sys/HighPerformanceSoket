@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 Linux io_uring boundary 첫 구현 계획을 작성한다.
-  - 입력: D132, `docs/superpowers/specs/2026-06-29-phase6-iouring-boundary-next-candidate-design.md`, `PLAN.md` Phase 6.
-  - 목표: `Hps.Transport.IoUring` skeleton/capability probe/unsupported boundary 를 TDD task 로 분해한다.
-  - 범위: 계획 문서, root 상태 문서 갱신, 검증 경로 정의.
-  - 제외: 실제 io_uring P/Invoke, TCP/UDP pump, Linux integration test, default backend promotion.
+- [ ] Phase 6 Linux io_uring boundary Task 1 project skeleton/capability probe 를 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-boundary.md` Task 1.
+  - 목표: `Hps.Transport.IoUring` source/test project, `IoUringCapabilityStatus`, `IoUringCapabilityProbe`를 추가한다.
+  - 범위: assertion-failure Red, minimal Green, focused test, solution build/test, 상태 문서 갱신.
+  - 제외: `IoUringTransport`, native P/Invoke, TCP/UDP pump, Linux integration test, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +47,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 Linux io_uring boundary 첫 구현 계획을 작성했다.
+  - 범위: D132 spec, `PLAN.md` Phase 6, RIO skeleton/probe 기존 패턴, current project layout.
+  - 결과: `docs/superpowers/plans/2026-06-29-iouring-boundary.md`를 작성했다.
+    계획은 Task 1 project skeleton/capability probe, Task 2 `IoUringTransport` lifecycle/unsupported boundary,
+    Task 3 state docs/full verification 으로 나뉜다.
+  - 비고: 첫 Red가 compile failure 가 아니라 reflection assertion failure 로 나도록 test project reference 순서를 명시했다.
 
 - [x] D131 이후 다음 실행 후보를 재평가했다.
   - 범위: D131 CI baseline 2-session 상태, D090/D095/D119/D122/D125/D128 결정,
