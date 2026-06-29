@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D130 — CI benchmark hard gate 실패도 summary/history/envelope artifact 작성 뒤 최종 실패로 복원한다.
 - D129 — RIO native send probe 는 peer receive 를 먼저 열어 실제 transport drain 조건에서 completion 을 검증한다.
 - D128 — D127 이후 다음 실행 후보는 push-triggered CI artifact 에 envelope 산출물이 포함되는지 검증하는 것이다.
 - D127 — CI benchmark workflow 는 reference history 가 있을 때 report-only envelope comparison artifact 를 업로드한다.

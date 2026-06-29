@@ -15,12 +15,16 @@
     `envelope.json`, `envelope.md`가 모두 포함되는지 확인한다.
   - 범위: remote CI run 확인, artifact 내용 검증, 상태 문서 갱신.
   - 제외: CI artifact 자동 baseline 채택, warning-as-failure, latency hard gate, pull_request/schedule trigger.
-  - 현재 상태: 사용자 push 뒤 생성된 run `28347437734`는 push trigger 와 head SHA 일치를 확인했지만,
-    artifact 생성 전 `Test` 단계에서 RIO send native probe timeout 으로 실패했다.
-    로컬에서는 D129에 따라 RIO send probe ordering 을 보정했고 focused/RIO 전체/solution 검증은 통과했다.
-  - 현재 blocker: 이 실행 환경에서 `git push origin master`는 정책상 다시 거부됐다.
-    사용자 또는 push 가능한 환경에서 현재 로컬 커밋을 원격 push 한 뒤 생성되는 새 `Benchmark Artifacts`
-    run 과 artifact 를 기준으로 이어서 검증한다.
+  - 현재 상태: run `28347437734`의 RIO send probe timeout 은 D129로 해소했고,
+    사용자 push 뒤 run `28349754067`에서 `Test` 단계는 통과했다.
+    다만 `open-loop-03`이 sent 3000 / received 2876 / dropped 124 / payload-errors 347로 hard gate 실패해
+    `Run baseline suite`가 exit 1을 반환했다. 이로 인해 기존 workflow 는 raw report 6개만 업로드하고
+    summary/history/envelope 작성은 skip 했다.
+  - 로컬 조치: D130에 따라 hard gate 실패 exit code 를 저장하고 summary/history/envelope 작성과 upload 를 계속 수행한 뒤,
+    마지막 step 에서 최종 failure 로 복원하도록 workflow 를 보강했다.
+    focused workflow tests, benchmark tests, solution build/test 는 통과했다.
+  - 현재 blocker: 이 실행 환경에서 `git push origin master`는 정책상 거부된다.
+    현재 로컬 커밋을 원격 push 한 뒤 생성되는 새 `Benchmark Artifacts` run 과 artifact 를 기준으로 이어서 검증한다.
 
 ## Deferred Backlog
 

@@ -28,6 +28,35 @@ namespace Hps.Benchmarks.Tests
             Assert.Contains("--envelope-md \"$env:BENCH_DATE_ROOT/envelope.md\"", workflow);
         }
 
+        // CI benchmark hard gate 가 실패해도 raw report 만 업로드하고 멈추면 실패 원인을 요약 artifact 로 볼 수 없다.
+        // workflow 는 각 report writer 의 exit code 를 저장해 마지막에 job failure 로 되돌리되,
+        // summary/history/envelope 작성과 upload 는 계속 진행해야 한다.
+        [Fact]
+        public void Workflow_WhenBaselineHardGateFails_StillWritesAnalysisArtifactsBeforeFinalFailure()
+        {
+            string workflow = ReadBenchmarkArtifactWorkflow();
+
+            int baselineIndex = workflow.IndexOf("name: Run baseline suite", StringComparison.Ordinal);
+            int summaryIndex = workflow.IndexOf("name: Write baseline summary", StringComparison.Ordinal);
+            int historyIndex = workflow.IndexOf("name: Write baseline history", StringComparison.Ordinal);
+            int envelopeIndex = workflow.IndexOf("name: Write baseline envelope comparison", StringComparison.Ordinal);
+            int uploadIndex = workflow.IndexOf("name: Upload benchmark artifacts", StringComparison.Ordinal);
+            int finalGateIndex = workflow.IndexOf("name: Fail if benchmark hard gate failed", StringComparison.Ordinal);
+
+            Assert.True(baselineIndex >= 0);
+            Assert.True(summaryIndex > baselineIndex);
+            Assert.True(historyIndex > summaryIndex);
+            Assert.True(envelopeIndex > historyIndex);
+            Assert.True(uploadIndex > envelopeIndex);
+            Assert.True(finalGateIndex > uploadIndex);
+            Assert.Contains("BENCH_BASELINE_EXIT=", workflow);
+            Assert.Contains("BENCH_SUMMARY_EXIT=", workflow);
+            Assert.Contains("BENCH_HISTORY_EXIT=", workflow);
+            Assert.Contains("BENCH_ENVELOPE_EXIT=", workflow);
+            Assert.Contains("exit 0", workflow);
+            Assert.Contains("if: always()", workflow);
+        }
+
         private static string ReadBenchmarkArtifactWorkflow()
         {
             string root = FindRepositoryRoot();

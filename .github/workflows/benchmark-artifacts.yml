@@ -62,15 +62,36 @@ jobs:
 
       - name: Run baseline suite
         shell: pwsh
-        run: dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite "$env:BENCH_SESSION_DIR" --runs 3
+        run: |
+          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite "$env:BENCH_SESSION_DIR" --runs 3
+          $exitCode = $LASTEXITCODE
+          "BENCH_BASELINE_EXIT=$exitCode" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          if ($exitCode -ne 0) {
+            Write-Host "baseline suite exited with $exitCode; continuing to write analysis artifacts."
+          }
+          exit 0
 
       - name: Write baseline summary
         shell: pwsh
-        run: dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --summarize-baseline "$env:BENCH_SESSION_DIR" --summary "$env:BENCH_SESSION_DIR/summary.json" --summary-md "$env:BENCH_SESSION_DIR/summary.md"
+        run: |
+          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --summarize-baseline "$env:BENCH_SESSION_DIR" --summary "$env:BENCH_SESSION_DIR/summary.json" --summary-md "$env:BENCH_SESSION_DIR/summary.md"
+          $exitCode = $LASTEXITCODE
+          "BENCH_SUMMARY_EXIT=$exitCode" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          if ($exitCode -ne 0) {
+            Write-Host "baseline summary exited with $exitCode; continuing to write remaining analysis artifacts."
+          }
+          exit 0
 
       - name: Write baseline history
         shell: pwsh
-        run: dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --summarize-baseline-history "$env:BENCH_DATE_ROOT" --history "$env:BENCH_DATE_ROOT/history.json" --history-md "$env:BENCH_DATE_ROOT/history.md"
+        run: |
+          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --summarize-baseline-history "$env:BENCH_DATE_ROOT" --history "$env:BENCH_DATE_ROOT/history.json" --history-md "$env:BENCH_DATE_ROOT/history.md"
+          $exitCode = $LASTEXITCODE
+          "BENCH_HISTORY_EXIT=$exitCode" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          if ($exitCode -ne 0) {
+            Write-Host "baseline history exited with $exitCode; continuing to write remaining analysis artifacts."
+          }
+          exit 0
 
       - name: Write baseline envelope comparison
         shell: pwsh
@@ -82,10 +103,17 @@ jobs:
               --reference-history "$referenceHistory" `
               --envelope "$env:BENCH_DATE_ROOT/envelope.json" `
               --envelope-md "$env:BENCH_DATE_ROOT/envelope.md"
+            $exitCode = $LASTEXITCODE
+            "BENCH_ENVELOPE_EXIT=$exitCode" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            if ($exitCode -ne 0) {
+              Write-Host "baseline envelope comparison exited with $exitCode; continuing to upload artifacts."
+            }
           }
           else {
+            "BENCH_ENVELOPE_EXIT=0" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
             Write-Host "baseline envelope reference not found; skipping envelope comparison."
           }
+          exit 0
 
       - name: Upload benchmark artifacts
         if: always()
@@ -95,3 +123,23 @@ jobs:
           path: ${{ env.BENCH_DATE_ROOT }}
           if-no-files-found: error
           retention-days: 14
+
+      - name: Fail if benchmark hard gate failed
+        if: always()
+        shell: pwsh
+        run: |
+          $exitCodes = @(
+            "$env:BENCH_BASELINE_EXIT",
+            "$env:BENCH_SUMMARY_EXIT",
+            "$env:BENCH_HISTORY_EXIT",
+            "$env:BENCH_ENVELOPE_EXIT"
+          )
+
+          foreach ($exitCode in $exitCodes) {
+            if ($exitCode -ne "0") {
+              Write-Error "benchmark artifact generation completed with non-zero exit code; baseline=$env:BENCH_BASELINE_EXIT summary=$env:BENCH_SUMMARY_EXIT history=$env:BENCH_HISTORY_EXIT envelope=$env:BENCH_ENVELOPE_EXIT"
+              exit 1
+            }
+          }
+
+          Write-Host "benchmark artifact generation completed successfully."

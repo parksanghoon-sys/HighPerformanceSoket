@@ -5,6 +5,39 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - CI hard gate artifact preservation)
+
+### 작업 단위
+- push-triggered `Benchmark Artifacts` run 이 benchmark hard gate 실패 시 raw report 만 남기고 분석 artifact 를 skip 하는 문제를 보정했다.
+
+### 변경 내용
+- GitHub Actions run `28349754067` 확인:
+  D129 이후 `Test` 단계는 통과했지만, `Run baseline suite` 단계에서 `open-loop-03`이
+  sent 3000 / received 2876 / dropped 124 / payload-errors 347로 실패해 exit code 1을 반환했다.
+  기존 workflow 는 이 지점에서 summary/history/envelope 작성을 skip 하고 raw report 6개만 upload 했다.
+- `.github/workflows/benchmark-artifacts.yml`:
+  baseline suite, summary, history, envelope step 의 exit code 를 각각
+  `BENCH_BASELINE_EXIT`, `BENCH_SUMMARY_EXIT`, `BENCH_HISTORY_EXIT`, `BENCH_ENVELOPE_EXIT`로 저장하고,
+  artifact 작성 단계는 계속 진행하도록 했다.
+  upload 이후 `Fail if benchmark hard gate failed` step 이 non-zero exit code 를 최종 job failure 로 복원한다.
+- `BenchmarkArtifactWorkflowTests`:
+  hard gate 실패 시에도 summary/history/envelope 작성과 upload 가 final failure step 보다 먼저 실행되는지 검증하는
+  workflow 정적 회귀 테스트를 추가했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`, `CURRENT_PLAN.md`, `TODOS.md`:
+  D130 결정과 다음 원격 검증 지점을 반영했다.
+
+### 검증
+- Red: 새 workflow 테스트가 final failure step 부재로 `Assert.True()` 실패했다.
+- Green: `BenchmarkArtifactWorkflowTests` 2개 통과.
+- 실패 partial artifact 재현:
+  run `28349754067` raw report 6개로 summary 는 `hard-passed=false`, `warning-count=5`, exit 1 상태에서 파일을 생성했다.
+  date-root 구조에서 history 도 `hard-passed=false`, `warning-count=5`, exit 1 상태에서 파일을 생성했다.
+  envelope 는 `envelope-compatible=false`, `envelope-signal-count=8`, exit 0 상태로 생성됐다.
+- `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj -v minimal`: 104개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal`: 전체 380개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-29 (Codex - RIO send probe CI hardening)
 
 ### 작업 단위
