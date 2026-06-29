@@ -197,6 +197,7 @@ namespace Hps.Transport
             try
             {
                 RegisterConnection(connection);
+                StartReceiveLoop(connection, resource);
                 return connection;
             }
             catch
@@ -228,6 +229,79 @@ namespace Hps.Transport
             {
                 _connections.Remove(connection);
             }
+        }
+
+        private void StartReceiveLoop(TransportConnection connection, IoUringTcpConnectionResource resource)
+        {
+            _ = Task.Run(delegate()
+            {
+                return ReceiveLoopAsync(connection, resource);
+            });
+        }
+
+        private async Task ReceiveLoopAsync(TransportConnection connection, IoUringTcpConnectionResource resource)
+        {
+            try
+            {
+                while (true)
+                {
+                    if (connection.IsClosed || resource.IsDisposed)
+                        return;
+
+                    IoUringOperationContext context = resource.ReceiveContext;
+                    context.Reset(context.Token, IoUringOperationKind.Receive);
+                    ValueTask<IoUringCompletion> wait = context.WaitAsync();
+
+                    byte[] receiveBlock = resource.ReceiveBlock;
+                    bool submitted = resource.Queue.TrySubmitReceive(
+                        resource.SocketFileDescriptor,
+                        receiveBlock,
+                        receiveBlock.Length,
+                        context.Token);
+                    if (!submitted)
+                        throw new SocketException((int)SocketError.NoBufferSpaceAvailable);
+
+                    IoUringCompletion completion = await wait.ConfigureAwait(false);
+                    if (completion.Result <= 0 || completion.Result > receiveBlock.Length)
+                    {
+                        NotifyConnectionClosed(connection);
+                        return;
+                    }
+
+                    DispatchReceived(connection, receiveBlock, completion.Result);
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
+            catch (SocketException)
+            {
+                NotifyConnectionClosed(connection);
+            }
+            catch
+            {
+                NotifyConnectionClosed(connection);
+            }
+        }
+
+        private void DispatchReceived(TransportConnection connection, byte[] receiveBlock, int received)
+        {
+            ITransportReceiveHandler? receiveHandler = ReadReceiveHandlerSnapshot();
+            if (receiveHandler == null)
+                return;
+
+            receiveHandler.OnReceived(connection, new TransportReceiveBuffer(new ReadOnlySpan<byte>(receiveBlock, 0, received)));
+        }
+
+        private void NotifyConnectionClosed(TransportConnection connection)
+        {
+            if (!connection.TryClose())
+                return;
+
+            ITransportReceiveHandler? receiveHandler = ReadReceiveHandlerSnapshot();
+            if (receiveHandler != null)
+                receiveHandler.OnConnectionClosed(connection);
         }
 
         private void StopCore()

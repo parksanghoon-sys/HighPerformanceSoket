@@ -50,11 +50,28 @@ namespace Hps.Transport
 
         internal Socket Socket { get; }
 
+        internal int SocketFileDescriptor
+        {
+            get
+            {
+                long handle = Socket.SafeHandle.DangerousGetHandle().ToInt64();
+                if (handle < 0 || handle > int.MaxValue)
+                    throw new InvalidOperationException("socket file descriptor가 io_uring syscall 범위에 맞지 않습니다.");
+
+                return checked((int)handle);
+            }
+        }
+
         internal PinnedBlockMemoryPool ReceivePool { get; }
 
         internal PinnedBlockMemoryPool LengthPrefixPool { get; }
 
         internal IoUringCompletionLoop CompletionLoop { get; }
+
+        internal IoUringQueue Queue
+        {
+            get { return CompletionLoop.Queue; }
+        }
 
         internal IoUringOperationContext ReceiveContext
         {

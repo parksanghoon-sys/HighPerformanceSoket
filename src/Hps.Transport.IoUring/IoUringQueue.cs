@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 
 namespace Hps.Transport
 {
@@ -15,6 +16,7 @@ namespace Hps.Transport
         private IoUringMemoryMap? _sqRing;
         private IoUringMemoryMap? _cqRing;
         private IoUringMemoryMap? _sqes;
+        private readonly object _submissionGate;
         private bool _disposed;
 
         private IoUringQueue(
@@ -29,6 +31,7 @@ namespace Hps.Transport
             _cqRing = cqRing;
             _sqes = sqes;
             _parameters = parameters;
+            _submissionGate = new object();
         }
 
         internal uint SubmissionQueueEntries
@@ -123,6 +126,68 @@ namespace Hps.Transport
             }
         }
 
+        internal unsafe bool TrySubmitReceive(int fileDescriptor, byte[] buffer, int length, ulong token)
+        {
+            if (fileDescriptor < 0)
+                throw new ArgumentOutOfRangeException(nameof(fileDescriptor), "socket file descriptor가 유효하지 않습니다.");
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+            if (length <= 0 || length > buffer.Length)
+                throw new ArgumentOutOfRangeException(nameof(length), "receive length는 buffer 범위 안의 양수여야 합니다.");
+            if (token == 0)
+                throw new ArgumentOutOfRangeException(nameof(token), "io_uring user_data token은 0을 사용하지 않습니다.");
+
+            ThrowIfDisposed();
+
+            fixed (byte* receivePointer = buffer)
+            {
+                lock (_submissionGate)
+                {
+                    IoUringSubmissionQueueEntry* submission = TryAcquireSubmissionEntry();
+                    if (submission == null)
+                        return false;
+
+                    *submission = default(IoUringSubmissionQueueEntry);
+                    submission->Opcode = IoUringNative.OperationReceive;
+                    submission->FileDescriptor = fileDescriptor;
+                    submission->Address = (ulong)receivePointer;
+                    submission->Length = (uint)length;
+                    submission->UserData = token;
+                    PublishSubmissionEntry(submission);
+                }
+            }
+
+            IoUringNative.Enter(FileDescriptor, 1, 0, 0);
+            return true;
+        }
+
+        internal unsafe bool TryDequeueCompletion(out IoUringCompletion completion)
+        {
+            ThrowIfDisposed();
+
+            IntPtr completionRing = GetCompletionRingPointer();
+            byte* completionRingBase = (byte*)completionRing;
+            uint* headPointer = (uint*)(completionRingBase + _parameters.CqOffsets.Head);
+            uint* tailPointer = (uint*)(completionRingBase + _parameters.CqOffsets.Tail);
+            uint* maskPointer = (uint*)(completionRingBase + _parameters.CqOffsets.RingMask);
+
+            uint head = Volatile.Read(ref *headPointer);
+            uint tail = Volatile.Read(ref *tailPointer);
+            if (head == tail)
+            {
+                completion = default(IoUringCompletion);
+                return false;
+            }
+
+            uint index = head & Volatile.Read(ref *maskPointer);
+            IoUringCompletionQueueEntry* entries = (IoUringCompletionQueueEntry*)(completionRingBase + _parameters.CqOffsets.Cqes);
+            IoUringCompletionQueueEntry* entry = entries + index;
+
+            completion = new IoUringCompletion(entry->UserData, entry->Result, entry->Flags);
+            Volatile.Write(ref *headPointer, head + 1);
+            return true;
+        }
+
         public void Dispose()
         {
             if (_disposed)
@@ -137,6 +202,82 @@ namespace Hps.Transport
             _cqRing = null;
             _sqRing = null;
             _handle = null;
+        }
+
+        private unsafe IoUringSubmissionQueueEntry* TryAcquireSubmissionEntry()
+        {
+            IntPtr submissionRing = GetSubmissionRingPointer();
+            byte* submissionRingBase = (byte*)submissionRing;
+            uint* headPointer = (uint*)(submissionRingBase + _parameters.SqOffsets.Head);
+            uint* tailPointer = (uint*)(submissionRingBase + _parameters.SqOffsets.Tail);
+            uint* entriesPointer = (uint*)(submissionRingBase + _parameters.SqOffsets.RingEntries);
+
+            uint head = Volatile.Read(ref *headPointer);
+            uint tail = Volatile.Read(ref *tailPointer);
+            uint entries = Volatile.Read(ref *entriesPointer);
+            if (tail - head >= entries)
+                return null;
+
+            uint* maskPointer = (uint*)(submissionRingBase + _parameters.SqOffsets.RingMask);
+            uint index = tail & Volatile.Read(ref *maskPointer);
+            byte* submissionEntries = (byte*)GetSubmissionEntriesPointer();
+            return (IoUringSubmissionQueueEntry*)(submissionEntries + (index * IoUringNative.SubmissionQueueEntrySize));
+        }
+
+        private unsafe void PublishSubmissionEntry(IoUringSubmissionQueueEntry* submissionEntry)
+        {
+            IntPtr submissionRing = GetSubmissionRingPointer();
+            byte* submissionRingBase = (byte*)submissionRing;
+            uint* tailPointer = (uint*)(submissionRingBase + _parameters.SqOffsets.Tail);
+            uint* maskPointer = (uint*)(submissionRingBase + _parameters.SqOffsets.RingMask);
+            uint* arrayPointer = (uint*)(submissionRingBase + _parameters.SqOffsets.Array);
+
+            uint tail = Volatile.Read(ref *tailPointer);
+            uint index = tail & Volatile.Read(ref *maskPointer);
+            uint submissionIndex = checked((uint)(((byte*)submissionEntry - (byte*)GetSubmissionEntriesPointer()) / IoUringNative.SubmissionQueueEntrySize));
+
+            Volatile.Write(ref arrayPointer[index], submissionIndex);
+            Volatile.Write(ref *tailPointer, tail + 1);
+        }
+
+        private IntPtr GetSubmissionRingPointer()
+        {
+            IoUringMemoryMap? sqRing = _sqRing;
+            if (_disposed || sqRing == null)
+                throw new ObjectDisposedException(nameof(IoUringQueue));
+
+            return sqRing.Pointer;
+        }
+
+        private IntPtr GetCompletionRingPointer()
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(IoUringQueue));
+
+            IoUringMemoryMap? cqRing = _cqRing;
+            if (cqRing != null)
+                return cqRing.Pointer;
+
+            IoUringMemoryMap? sqRing = _sqRing;
+            if (sqRing == null)
+                throw new ObjectDisposedException(nameof(IoUringQueue));
+
+            return sqRing.Pointer;
+        }
+
+        private IntPtr GetSubmissionEntriesPointer()
+        {
+            IoUringMemoryMap? sqes = _sqes;
+            if (_disposed || sqes == null)
+                throw new ObjectDisposedException(nameof(IoUringQueue));
+
+            return sqes.Pointer;
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(IoUringQueue));
         }
 
         private static ulong CalculateSubmissionQueueRingSize(IoUringParams parameters)

@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 TCP-first io_uring queue/pump Task 5 TCP receive pump 를 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 5.
-  - 목표: Linux available host 에서 TCP receive SQE completion 을 receive handler 로 전달한다.
-  - 범위: Linux-available gated loopback Red/Green, Windows/unavailable early-return 유지, 상태 문서 갱신.
-  - 제외: TCP send pump.
+- [ ] Phase 6 TCP-first io_uring queue/pump Task 6 TCP send pump and ownership 을 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 6.
+  - 목표: pending send queue 를 io_uring SEND SQE로 drain 하고 in-flight buffer ownership release 를 보장한다.
+  - 범위: Windows에서 실행 가능한 send pump shape/ownership Red, Linux-available gated loopback, 상태 문서 갱신.
+  - 제외: UDP pump.
 
 ## Deferred Backlog
 
@@ -44,9 +44,40 @@
   - 관련 파일/범위: `src/Hps.Server/`, `src/Hps.Transport/`, host/sample 코드, 관련 tests.
   - next step: metrics/exporter 또는 server-only consumer 요구가 나오면 별도 설계로 승격한다.
 
+- [ ] `P1_SOON` Linux io_uring available host 에서 TCP receive/send loopback 검증을 실행한다.
+  - 무엇이 남았는지: 현재 Windows 환경에서는 `IoUringCapabilityProbe.GetStatus()`가 unsupported 이므로,
+    Linux-gated io_uring loopback tests 는 early-return 으로 통과한다.
+  - 왜 defer 되었는지: 현재 실행 환경이 Windows라 실제 `io_uring_setup`/`io_uring_enter` 경로를 실행할 수 없다.
+  - objective: Linux x64/arm64 host 중 io_uring capability 가 available 인 환경에서
+    `Hps.Transport.IoUring.Tests`의 TCP receive/send loopback tests 를 실제 syscall 경로로 통과시킨다.
+  - relevant context: D133~D136, `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md`,
+    `src/Hps.Transport.IoUring/`, `tests/Hps.Transport.IoUring.Tests/`.
+  - 현재 상태: Windows에서는 receive pump shape test 와 gated loopback early-return 이 통과한다.
+  - known blockers 또는 open questions: Linux test host availability, kernel/seccomp io_uring 허용 여부,
+    `Socket.SafeHandle` fd 와 raw io_uring SQE field 동작 검증.
+  - 가장 자연스러운 next step: Linux available host 또는 CI job 이 준비되면
+    `dotnet test tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj -v minimal`을 실행한다.
+
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 TCP-first io_uring queue/pump Task 5 TCP receive pump 를 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringQueue.cs`,
+    `src/Hps.Transport.IoUring/IoUringCompletionLoop.cs`,
+    `src/Hps.Transport.IoUring/IoUringTcpConnectionResource.cs`,
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringReceivePumpShapeTests.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringTransportTcpTests.cs`, root 상태 문서.
+  - 결과: RECV SQE submit helper, CQE drain helper, completion loop polling drain, TCP receive loop을 추가했다.
+    positive completion 은 receive handler 로 전달하고, 0/음수 completion 과 handler 예외는 connection close notify 로 수렴한다.
+  - Red: receive pump queue/transport shape 부재를 reflection 기반 `Assert.NotNull()` failure 1개로 확인했다.
+  - Green: focused `IoUringReceivePumpShapeTests` 1개와 `Hps.Transport.IoUring.Tests` 전체 34개 통과.
+  - 비고: 현재 Windows 검증에서는 Linux-gated loopback 이 early-return 한다. 실제 Linux available host 검증은 Deferred Backlog 로 남겼다.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 414개 통과,
+    `git diff --check` 통과.
+  - 다음: Task 6 TCP send pump and ownership 을 TDD로 구현한다.
 
 - [x] Phase 6 TCP-first io_uring queue/pump Task 4 TCP resource and listener wiring 을 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringConnectionListener.cs`,

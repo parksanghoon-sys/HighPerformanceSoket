@@ -5,6 +5,36 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - io_uring tcp receive pump)
+
+### 작업 단위
+- Phase 6 TCP-first io_uring queue/pump Task 5 TCP receive pump 를 TDD로 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.IoUring/IoUringQueue.cs`:
+  `TrySubmitReceive(...)`와 `TryDequeueCompletion(...)`을 추가해 RECV SQE submit 과 CQE drain 경계를 제공한다.
+- `src/Hps.Transport.IoUring/IoUringCompletionLoop.cs`:
+  queue completion 을 polling drain 해 registry context 로 dispatch 하는 background loop 를 추가했다.
+- `src/Hps.Transport.IoUring/IoUringTcpConnectionResource.cs`:
+  receive pump 가 사용할 socket fd 와 queue 접근자를 제공한다.
+- `src/Hps.Transport.IoUring/IoUringTransport.cs`:
+  connection 생성 후 receive loop를 시작하고, positive completion 을 receive handler 로 전달한다.
+- `tests/Hps.Transport.IoUring.Tests/IoUringReceivePumpShapeTests.cs`,
+  `tests/Hps.Transport.IoUring.Tests/IoUringTransportTcpTests.cs`:
+  Windows에서 실행 가능한 receive pump shape Red와 Linux-available gated loopback을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 5 완료와 다음 Task 6 TCP send pump 진입점을 반영했고,
+  실제 Linux available host 검증은 Deferred Backlog 로 남겼다.
+
+### 검증
+- Red: focused `IoUringReceivePumpShapeTests` 실행으로 receive pump queue/transport shape 부재 `Assert.NotNull()` failure 1개를 확인했다.
+- Green: focused `IoUringReceivePumpShapeTests` 1개 통과.
+- Project: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal` 34개 통과.
+- 실제 Linux io_uring syscall loopback 은 현재 Windows 환경에서 실행되지 않아 deferred 로 기록했다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 통과, 전체 414개 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-29 (Codex - io_uring tcp resource boundary)
 
 ### 작업 단위

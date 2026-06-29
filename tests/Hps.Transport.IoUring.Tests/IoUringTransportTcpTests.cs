@@ -87,6 +87,44 @@ namespace Hps.Transport.IoUring.Tests
             }
         }
 
+        // Linux에서 capability가 실제 available일 때만 receive pump loopback을 검증한다.
+        // Windows와 unavailable Linux에서는 이 테스트가 기본 개발 경로를 깨지 않도록 early return 한다.
+        [Fact]
+        public async Task TcpLoopback_WhenIoUringAvailable_DeliversReceivedBytes()
+        {
+            if (IoUringCapabilityProbe.GetStatus() != IoUringCapabilityStatus.Available)
+                return;
+
+            RecordingReceiveHandler handler = new RecordingReceiveHandler(expectedLength: 3);
+            using (IoUringTransport transport = new IoUringTransport())
+            {
+                transport.SetReceiveHandler(handler);
+                await transport.StartAsync();
+
+                IConnectionListener listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                Socket client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                try
+                {
+                    await client.ConnectAsync(listener.LocalEndPoint);
+                    IConnection server = await listener.AcceptAsync();
+
+                    byte[] payload = new byte[] { 1, 2, 3 };
+                    await client.SendAsync(payload, SocketFlags.None);
+
+                    byte[] received = await handler.ReceiveAsync();
+
+                    Assert.Equal(payload, received);
+                    server.Close();
+                }
+                finally
+                {
+                    client.Dispose();
+                    listener.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         private static Type RequiredType(string name)
         {
             Type? type = Type.GetType(name);
@@ -116,6 +154,42 @@ namespace Hps.Transport.IoUring.Tests
             object? result = property!.GetValue(target);
             Assert.NotNull(result);
             return result!;
+        }
+
+        private sealed class RecordingReceiveHandler : ITransportReceiveHandler
+        {
+            private readonly int _expectedLength;
+            private readonly TaskCompletionSource<byte[]> _completion;
+
+            internal RecordingReceiveHandler(int expectedLength)
+            {
+                _expectedLength = expectedLength;
+                _completion = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            public void OnReceived(IConnection connection, TransportReceiveBuffer buffer)
+            {
+                if (buffer.Length < _expectedLength)
+                    return;
+
+                byte[] copy = new byte[_expectedLength];
+                buffer.Span.Slice(0, _expectedLength).CopyTo(copy);
+                _completion.TrySetResult(copy);
+            }
+
+            public void OnConnectionClosed(IConnection connection)
+            {
+                _completion.TrySetException(new InvalidOperationException("receive 완료 전에 connection이 닫혔습니다."));
+            }
+
+            internal async Task<byte[]> ReceiveAsync()
+            {
+                Task completed = await Task.WhenAny(_completion.Task, Task.Delay(TimeSpan.FromSeconds(3))).ConfigureAwait(false);
+                if (completed != _completion.Task)
+                    throw new TimeoutException("io_uring receive pump가 제한 시간 안에 payload를 전달하지 않았습니다.");
+
+                return await _completion.Task.ConfigureAwait(false);
+            }
         }
     }
 }

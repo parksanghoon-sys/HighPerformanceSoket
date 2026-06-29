@@ -15,6 +15,8 @@ namespace Hps.Transport
     {
         private readonly IoUringQueue? _queue;
         private readonly IoUringOperationRegistry _registry;
+        private CancellationTokenSource? _stopSource;
+        private Task? _loopTask;
         private bool _disposed;
 
         internal IoUringCompletionLoop(IoUringQueue queue, IoUringOperationRegistry registry)
@@ -43,15 +45,63 @@ namespace Hps.Transport
             ThrowIfDisposed();
             cancellationToken.ThrowIfCancellationRequested();
 
+            if (_queue == null)
+                return default(ValueTask);
+            if (_loopTask != null)
+                return default(ValueTask);
+
+            CancellationTokenSource stopSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _stopSource = stopSource;
+            _loopTask = Task.Run(delegate()
+            {
+                return RunLoopAsync(stopSource.Token);
+            });
+
             return default(ValueTask);
         }
 
-        internal ValueTask StopAsync()
+        internal async ValueTask StopAsync()
         {
             if (_disposed)
-                return default(ValueTask);
+                return;
 
-            return default(ValueTask);
+            CancellationTokenSource? stopSource = _stopSource;
+            Task? loopTask = _loopTask;
+            _stopSource = null;
+            _loopTask = null;
+
+            if (stopSource != null)
+                stopSource.Cancel();
+
+            if (loopTask != null)
+            {
+                try
+                {
+                    await loopTask.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+
+            stopSource?.Dispose();
+        }
+
+        internal IoUringQueue Queue
+        {
+            get
+            {
+                IoUringQueue? queue = _queue;
+                if (queue == null)
+                    throw new InvalidOperationException("test completion loop에는 io_uring queue가 없습니다.");
+
+                return queue;
+            }
+        }
+
+        internal Task RunOnceForTestsAsync()
+        {
+            return DrainAvailableCompletionsAsync(CancellationToken.None);
         }
 
         internal void DispatchCompletion(IoUringCompletion completion)
@@ -67,8 +117,33 @@ namespace Hps.Transport
             if (_disposed)
                 return;
 
+            StopAsync().AsTask().GetAwaiter().GetResult();
             _disposed = true;
             GC.KeepAlive(_queue);
+        }
+
+        private async Task RunLoopAsync(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+                await DrainAvailableCompletionsAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task DrainAvailableCompletionsAsync(CancellationToken cancellationToken)
+        {
+            IoUringQueue? queue = _queue;
+            if (queue == null)
+                return;
+
+            bool drainedAny = false;
+            IoUringCompletion completion;
+            while (queue.TryDequeueCompletion(out completion))
+            {
+                drainedAny = true;
+                DispatchCompletion(completion);
+            }
+
+            if (!drainedAny)
+                await Task.Delay(1, cancellationToken).ConfigureAwait(false);
         }
 
         private void ThrowIfDisposed()
