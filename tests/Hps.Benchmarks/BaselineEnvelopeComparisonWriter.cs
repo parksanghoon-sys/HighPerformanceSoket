@@ -30,8 +30,11 @@ namespace Hps.Benchmarks
                 {
                     writer.WriteStartObject();
                     writer.WriteNumber("envelope-version", 1);
-                    writer.WriteString("reference-source-path", comparison.ReferenceSourcePath);
-                    writer.WriteString("candidate-source-path", comparison.CandidateSourcePath);
+                    writer.WriteString("reference-history-path", comparison.ReferenceSourcePath);
+                    writer.WriteString("candidate-path", comparison.CandidateSourcePath);
+                    writer.WriteString("candidate-kind", FormatSourceKind(comparison.CandidateKind));
+                    writer.WriteNumber("reference-summary-count", comparison.ReferenceSummaryCount);
+                    writer.WriteNumber("candidate-summary-count", comparison.CandidateSummaryCount);
                     writer.WriteBoolean("envelope-compatible", comparison.EnvelopeCompatible);
                     writer.WriteNumber("envelope-signal-count", comparison.SignalCount);
                     WriteComparisonKey(writer, "reference-key", comparison.ReferenceKey);
@@ -81,7 +84,7 @@ namespace Hps.Benchmarks
 
         private static void WriteMismatches(Utf8JsonWriter writer, BaselineEnvelopeComparison comparison)
         {
-            writer.WritePropertyName("mismatches");
+            writer.WritePropertyName("envelope-mismatches");
             writer.WriteStartArray();
             for (int i = 0; i < comparison.Mismatches.Count; i++)
             {
@@ -131,6 +134,7 @@ namespace Hps.Benchmarks
             {
                 BaselineEnvelopeSignal signal = comparison.Signals[i];
                 writer.WriteStartObject();
+                writer.WriteString("code", CreateSignalCode(signal.Direction));
                 writer.WriteString("kind", signal.Kind);
                 writer.WriteString("metric", signal.Metric);
                 writer.WriteString("direction", signal.Direction);
@@ -140,6 +144,18 @@ namespace Hps.Benchmarks
                 writer.WriteEndObject();
             }
             writer.WriteEndArray();
+        }
+
+        private static string FormatSourceKind(BaselineEnvelopeSourceKind kind)
+        {
+            return kind == BaselineEnvelopeSourceKind.History ? "history" : "summary";
+        }
+
+        private static string CreateSignalCode(string direction)
+        {
+            return string.Equals(direction, "lower", StringComparison.Ordinal)
+                ? "envelope-lower-bound-exceeded"
+                : "envelope-upper-bound-exceeded";
         }
     }
 }

@@ -31,8 +31,15 @@ namespace Hps.Benchmarks.Tests
             Assert.True(File.Exists(envelopeMarkdown));
             using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(envelopeJson)))
             {
-                Assert.True(document.RootElement.GetProperty("envelope-compatible").GetBoolean());
-                Assert.Equal(0, document.RootElement.GetProperty("envelope-signal-count").GetInt32());
+                JsonElement rootElement = document.RootElement;
+                Assert.True(rootElement.GetProperty("envelope-compatible").GetBoolean());
+                Assert.Equal(0, rootElement.GetProperty("envelope-signal-count").GetInt32());
+                Assert.Equal(referenceHistory, rootElement.GetProperty("reference-history-path").GetString());
+                Assert.Equal(candidateSummary, rootElement.GetProperty("candidate-path").GetString());
+                Assert.Equal("summary", rootElement.GetProperty("candidate-kind").GetString());
+                Assert.Equal(1, rootElement.GetProperty("reference-summary-count").GetInt32());
+                Assert.Equal(1, rootElement.GetProperty("candidate-summary-count").GetInt32());
+                Assert.Equal(0, rootElement.GetProperty("envelope-mismatches").GetArrayLength());
             }
         }
 

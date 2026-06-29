@@ -10,6 +10,9 @@ namespace Hps.Benchmarks
             bool envelopeCompatible,
             BaselineComparisonKey? referenceKey,
             BaselineComparisonKey? candidateKey,
+            BaselineEnvelopeSourceKind candidateKind,
+            int referenceSummaryCount,
+            int candidateSummaryCount,
             IReadOnlyList<BaselineEnvelopeKindComparison> kinds,
             IReadOnlyList<BaselineEnvelopeMismatch> mismatches,
             IReadOnlyList<BaselineEnvelopeSignal> signals)
@@ -19,6 +22,9 @@ namespace Hps.Benchmarks
             EnvelopeCompatible = envelopeCompatible;
             ReferenceKey = referenceKey;
             CandidateKey = candidateKey;
+            CandidateKind = candidateKind;
+            ReferenceSummaryCount = referenceSummaryCount;
+            CandidateSummaryCount = candidateSummaryCount;
             Kinds = kinds;
             Mismatches = mismatches;
             Signals = signals;
@@ -33,6 +39,12 @@ namespace Hps.Benchmarks
         public BaselineComparisonKey? ReferenceKey { get; }
 
         public BaselineComparisonKey? CandidateKey { get; }
+
+        public BaselineEnvelopeSourceKind CandidateKind { get; }
+
+        public int ReferenceSummaryCount { get; }
+
+        public int CandidateSummaryCount { get; }
 
         public IReadOnlyList<BaselineEnvelopeKindComparison> Kinds { get; }
 

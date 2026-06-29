@@ -9,12 +9,12 @@
 
 ## Current TODOs
 
-- [ ] runner/profile scoped envelope comparison command 구현 self-review 와 Phase 4 다음 실행 후보를 재평가한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-runner-profile-envelope-comparison.md`.
-  - 목표: Task 1~4 구현이 D125와 계획의 범위를 만족하는지 대조하고,
-    다음 Phase 4 후보를 review/backlog 기준으로 재평가한다.
-  - 범위: envelope command 구현/테스트/spec/plan/root 상태 문서.
-  - 제외: 새 기능 구현, warning-as-failure, CI hard gate, latency hard gate 승격.
+- [ ] SDK 선택 재현성 hardening 을 수행한다.
+  - 입력: envelope command self-review 와 로컬 검증 중 발견한 SDK 10.0.203 benchmark build failure.
+  - 목표: net9.0 프로젝트가 기본 `dotnet build`에서도 의도한 SDK로 빌드되게 하거나,
+    동등한 검증 환경 고정 방식을 기록한다.
+  - 범위: SDK 선택/검증 인프라, root 상태 문서.
+  - 제외: benchmark 기능 변경, package upgrade, warning-as-failure, CI latency hard gate.
 
 ## Deferred Backlog
 
@@ -48,6 +48,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] runner/profile scoped envelope comparison command 구현 self-review 와 schema 보정을 수행했다.
+  - 범위: D125 spec/plan, envelope comparison writer/model/tests/Program output, review 문서, root 상태 문서.
+  - 결과: D125와 다른 field name 을 쓰던 `reference-source-path`, `candidate-source-path`, `mismatches`를
+    `reference-history-path`, `candidate-path`, `envelope-mismatches`로 정렬하고,
+    `candidate-kind`, reference/candidate summary count, signal `code`를 추가했다.
+  - Red: writer schema test 가 기존 `reference-history-path` 누락으로 `KeyNotFoundException` 실패했다.
+  - Green: writer tests 4개, Program tests 2개, envelope 관련 tests 16개 통과.
+    실제 local runner artifact CLI smoke 도 exit code 0, schema field/count 확인으로 통과했다.
+  - 검증: `git diff --check` 통과, .NET 9.0.314 MSBuild 기준 solution build 통과
+    (`NU1900` vulnerability feed 조회 경고 1건), solution tests 378개 통과.
+  - 다음: SDK 선택 재현성 hardening 을 수행한다.
 
 - [x] runner/profile scoped envelope comparison Task 4 writer/Program wiring 을 구현했다.
   - 범위: `BaselineEnvelopeComparisonWriter`, `BaselineEnvelopeComparisonMarkdownWriter`, `Program`,

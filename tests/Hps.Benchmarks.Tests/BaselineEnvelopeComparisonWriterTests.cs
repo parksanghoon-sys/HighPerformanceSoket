@@ -38,10 +38,16 @@ namespace Hps.Benchmarks.Tests
             {
                 JsonElement root = document.RootElement;
                 Assert.Equal(1, root.GetProperty("envelope-version").GetInt32());
+                Assert.Equal("reference/history.json", root.GetProperty("reference-history-path").GetString());
+                Assert.Equal("candidate/summary.json", root.GetProperty("candidate-path").GetString());
+                Assert.Equal("summary", root.GetProperty("candidate-kind").GetString());
+                Assert.Equal(9, root.GetProperty("reference-summary-count").GetInt32());
+                Assert.Equal(1, root.GetProperty("candidate-summary-count").GetInt32());
                 Assert.False(root.GetProperty("envelope-compatible").GetBoolean());
                 Assert.Equal(1, root.GetProperty("envelope-signal-count").GetInt32());
                 Assert.Equal("runner-a", root.GetProperty("reference-key").GetProperty("runner-id").GetString());
                 Assert.Equal("runner-a", root.GetProperty("candidate-key").GetProperty("runner-id").GetString());
+                Assert.Equal(0, root.GetProperty("envelope-mismatches").GetArrayLength());
 
                 JsonElement p99 = root.GetProperty("by-kind").GetProperty("load").GetProperty("p99-max-us");
                 Assert.Equal("upper", p99.GetProperty("direction").GetString());
@@ -49,6 +55,7 @@ namespace Hps.Benchmarks.Tests
                 Assert.Equal(1122.72, p99.GetProperty("limit").GetDouble(), 2);
                 Assert.Equal(1200.0, p99.GetProperty("candidate").GetDouble());
                 Assert.True(p99.GetProperty("signaled").GetBoolean());
+                Assert.Equal("envelope-upper-bound-exceeded", root.GetProperty("signals")[0].GetProperty("code").GetString());
                 Assert.Equal("p99-max-us", root.GetProperty("signals")[0].GetProperty("metric").GetString());
             }
         }
@@ -91,6 +98,9 @@ namespace Hps.Benchmarks.Tests
                 !signaled,
                 key,
                 key,
+                BaselineEnvelopeSourceKind.Summary,
+                9,
+                1,
                 new[]
                 {
                     new BaselineEnvelopeKindComparison(

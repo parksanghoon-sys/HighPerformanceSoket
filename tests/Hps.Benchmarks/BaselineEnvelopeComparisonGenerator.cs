@@ -58,6 +58,9 @@ namespace Hps.Benchmarks
                 mismatches.Count == 0 && signals.Count == 0,
                 referenceKey,
                 candidateKey,
+                candidate.Kind,
+                reference.Summaries.Count,
+                candidate.Summaries.Count,
                 kinds,
                 mismatches,
                 signals);

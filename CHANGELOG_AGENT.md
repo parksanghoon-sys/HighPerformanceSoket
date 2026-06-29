@@ -5,6 +5,38 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - runner/profile envelope schema self-review)
+
+### 작업 단위
+- runner/profile scoped envelope comparison command Task 1~4 구현을 D125 설계와 대조하고,
+  발견한 JSON schema drift 를 바로 보정했다.
+
+### 변경 내용
+- `docs/agent-state/reviews/2026-06-29-envelope-command-self-review.md`:
+  self-review 결과와 Major schema finding, SDK 선택 재현성 후속 항목을 기록했다.
+- `BaselineEnvelopeComparison`:
+  candidate source kind 와 reference/candidate summary count 를 보존한다.
+- `BaselineEnvelopeComparisonWriter`:
+  D125 schema 에 맞춰 `reference-history-path`, `candidate-path`, `candidate-kind`,
+  `reference-summary-count`, `candidate-summary-count`, `envelope-mismatches`, signal `code`를 쓴다.
+- `BaselineEnvelopeComparisonWriterTests`, `BaselineEnvelopeProgramTests`:
+  D125 top-level field 와 signal code 를 직접 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  self-review 완료, schema 보정, 다음 후보인 SDK 선택 재현성 hardening 을 반영했다.
+
+### 검증
+- Red: writer schema test 가 기존 `reference-history-path` 누락으로 `KeyNotFoundException` 실패했다.
+- Green: `BaselineEnvelopeComparisonWriterTests` 4개 통과.
+- Green: `BaselineEnvelopeProgramTests` 2개 통과.
+- Green: envelope 관련 tests 16개 통과.
+- CLI smoke: local runner artifact 기준 envelope JSON/Markdown 생성, exit code 0,
+  `candidate-kind: summary`, `reference-summary-count: 9`, `candidate-summary-count: 1`,
+  `envelope-mismatches` count 0 확인.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- .NET 9.0.314 MSBuild 기준 solution build 통과.
+  NuGet vulnerability feed 조회 불가로 `NU1900` 경고 1건이 출력됐지만 컴파일 오류는 없다.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 통과, 전체 378개 통과/실패 0.
+
 ## 2026-06-29 (Codex - runner/profile envelope writers and CLI)
 
 ### 작업 단위
