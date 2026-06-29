@@ -1599,19 +1599,22 @@ native wrapper shape Task 3 capability probe wiring 도 완료했다.
 `IoUringCapabilityProbe.GetStatus()`는 platform guard 뒤에 `IoUringQueue.TryCreateForProbe(2)`를 사용하고,
 Linux 에서는 작은 ring setup/close probe 결과를 `Available` 또는 `Unavailable`로 수렴한다.
 최신 focused 검증은 `IoUringCapabilityProbeTests` 5개와 `Hps.Transport.IoUring.Tests` 15개 통과다.
+native wrapper shape Task 4 fixed buffer registration owner boundary 도 완료했다.
+`IoUringRegisteredBufferSet`은 managed buffer pinning 과 kernel fixed buffer registration 수명을 함께 소유하고,
+non-Linux 에서는 native register syscall 로 들어가지 않고 명시적 `NotSupportedException`으로 수렴한다.
+최신 focused 검증은 `IoUringRegisteredBufferSetTests` 2개와 `Hps.Transport.IoUring.Tests` 17개 통과다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Linux io_uring native wrapper shape Task 4 fixed buffer registration owner boundary 를 TDD로 구현한다.
+다음 cycle 은 Linux io_uring native wrapper shape Task 5 state documents and full verification 을 수행한다.
 
-- 범위: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 4,
-  `IoUringRegisteredBufferSet` fixed buffer register/deregister owner boundary.
-- 검증: reflection assertion Red, non-Linux unsupported boundary Green, io_uring test project,
-  필요 시 solution build/test/diff check.
+- 범위: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 5,
+  native wrapper shape 완료 상태와 다음 TCP-first io_uring pump 설계 진입점 기록.
+- 검증: state docs consistency, solution build/test, `git diff --check`.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
-  `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring 은 존재하지만,
-  fixed buffer registration owner 는 아직 없다.
-- 다음 산출물: `io_uring_register` 기반 fixed buffer registration owner shell.
+  `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
+  `IoUringRegisteredBufferSet` fixed buffer registration owner boundary 가 존재한다.
+- 다음 산출물: D135 결정과 TCP-first io_uring pump 설계 후보.
 
 ## 이번 작업에서 건드리지 않는 범위
 

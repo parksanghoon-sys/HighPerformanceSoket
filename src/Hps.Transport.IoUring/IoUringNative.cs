@@ -18,6 +18,9 @@ namespace Hps.Transport
         internal const int SubmissionQueueEntrySize = 64;
 
         private const long IoUringSetupSyscallNumber = 425;
+        private const long IoUringRegisterSyscallNumber = 427;
+        private const uint RegisterBuffersOpcode = 0;
+        private const uint UnregisterBuffersOpcode = 1;
         private const int ProtectionRead = 0x1;
         private const int ProtectionWrite = 0x2;
         private const int MapShared = 0x01;
@@ -105,6 +108,52 @@ namespace Hps.Transport
             return Close(fileDescriptor) == 0;
         }
 
+        internal static void RegisterBuffers(int fileDescriptor, IoUringIovec[] buffers)
+        {
+            if (fileDescriptor < 0)
+                throw new ArgumentOutOfRangeException(nameof(fileDescriptor), "io_uring file descriptor 가 유효하지 않습니다.");
+            if (buffers == null)
+                throw new ArgumentNullException(nameof(buffers));
+            if (buffers.Length == 0)
+                throw new ArgumentException("등록할 fixed buffer 가 1개 이상 필요합니다.", nameof(buffers));
+
+            ThrowIfUnsupportedPlatform();
+
+            GCHandle handle = GCHandle.Alloc(buffers, GCHandleType.Pinned);
+            try
+            {
+                long result = SyscallIoUringRegister(
+                    IoUringRegisterSyscallNumber,
+                    fileDescriptor,
+                    RegisterBuffersOpcode,
+                    handle.AddrOfPinnedObject(),
+                    (uint)buffers.Length);
+                if (result < 0)
+                    throw CreateNativeException("io_uring_register_buffers");
+            }
+            finally
+            {
+                handle.Free();
+            }
+        }
+
+        internal static void UnregisterBuffers(int fileDescriptor)
+        {
+            if (fileDescriptor < 0)
+                return;
+
+            ThrowIfUnsupportedPlatform();
+
+            long result = SyscallIoUringRegister(
+                IoUringRegisterSyscallNumber,
+                fileDescriptor,
+                UnregisterBuffersOpcode,
+                IntPtr.Zero,
+                0);
+            if (result < 0)
+                throw CreateNativeException("io_uring_unregister_buffers");
+        }
+
         internal static bool HasSingleMmapFeature(IoUringParams parameters)
         {
             return (parameters.Features & FeatureSingleMmap) != 0;
@@ -128,6 +177,9 @@ namespace Hps.Transport
         [DllImport("libc", EntryPoint = "syscall", SetLastError = true)]
         private static extern long SyscallIoUringSetup(long number, uint entries, ref IoUringParams parameters);
 
+        [DllImport("libc", EntryPoint = "syscall", SetLastError = true)]
+        private static extern long SyscallIoUringRegister(long number, int fileDescriptor, uint opcode, IntPtr argument, uint count);
+
         [DllImport("libc", EntryPoint = "mmap", SetLastError = true)]
         private static extern IntPtr Mmap(IntPtr address, UIntPtr length, int protection, int flags, int fileDescriptor, IntPtr offset);
 
@@ -136,6 +188,13 @@ namespace Hps.Transport
 
         [DllImport("libc", EntryPoint = "close", SetLastError = true)]
         private static extern int Close(int fileDescriptor);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct IoUringIovec
+    {
+        internal IntPtr BaseAddress;
+        internal UIntPtr Length;
     }
 
     [StructLayout(LayoutKind.Sequential)]

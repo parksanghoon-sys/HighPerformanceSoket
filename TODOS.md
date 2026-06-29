@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 Linux io_uring native wrapper shape Task 4 fixed buffer registration owner boundary 를 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 4.
-  - 목표: fixed buffer register/deregister 수명을 감싸는 `IoUringRegisteredBufferSet` owner boundary 를 추가한다.
-  - 범위: reflection assertion Red, minimal Green, focused test, 상태 문서 갱신.
-  - 제외: TCP/UDP pump, capability probe 추가 확장, default backend promotion.
+- [ ] Phase 6 Linux io_uring native wrapper shape Task 5 state documents and full verification 을 수행한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 5.
+  - 목표: native wrapper shape 완료 상태를 D135로 기록하고, 다음 TCP-first io_uring pump 설계 진입점을 명확히 한다.
+  - 범위: 상태/결정 문서 갱신, solution build/test, `git diff --check`.
+  - 제외: TCP/UDP pump 구현, Linux benchmark, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +47,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 Linux io_uring native wrapper shape Task 4 fixed buffer registration owner boundary 를 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringNative.cs`,
+    `src/Hps.Transport.IoUring/IoUringQueue.cs`,
+    `src/Hps.Transport.IoUring/IoUringRegisteredBufferSet.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringRegisteredBufferSetTests.cs`, root 상태 문서.
+  - 결과: `io_uring_register` buffers/unregister wrapper, queue fd 내부 접근자,
+    managed buffer pinning 과 registration 수명을 함께 소유하는 registration owner boundary 를 추가했다.
+  - Red: `IoUringRegisteredBufferSet` type 부재를 reflection 기반 `Assert.NotNull()` failure 2개로 확인했다.
+  - Green: focused `IoUringRegisteredBufferSetTests` 2개와 `Hps.Transport.IoUring.Tests` 전체 17개 통과.
+  - 검증: 전체 build/test/diff check 는 커밋 전 표준 검증으로 수행한다.
+  - 다음: Task 5 state documents and full verification 을 수행한다.
 
 - [x] Phase 6 Linux io_uring native wrapper shape Task 3 capability probe wiring 을 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringCapabilityProbe.cs`,

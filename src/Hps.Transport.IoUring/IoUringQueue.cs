@@ -41,6 +41,17 @@ namespace Hps.Transport
             get { return _parameters.CqEntries; }
         }
 
+        internal int FileDescriptor
+        {
+            get
+            {
+                if (_disposed || _handle == null)
+                    throw new ObjectDisposedException(nameof(IoUringQueue));
+
+                return _handle.FileDescriptor;
+            }
+        }
+
         internal static IoUringQueue CreateForProbe(uint entries)
         {
             if (entries == 0)
