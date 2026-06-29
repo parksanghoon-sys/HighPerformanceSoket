@@ -1582,17 +1582,22 @@ Task 3 state docs/full verification 도 완료했다(D133).
 Phase 6 첫 io_uring 구현은 skeleton/probe/unsupported boundary 까지로 제한하고,
 native syscall wrapper 와 TCP/UDP pump 는 후속 설계/구현 task 로 분리한다.
 최신 검증은 solution build 경고 0/오류 0, solution tests 387개 통과, `git diff --check` 통과다.
+Linux io_uring native wrapper shape 설계와 구현 계획도 완료했다(D134).
+설계 문서는 `docs/superpowers/specs/2026-06-29-iouring-native-wrapper-shape-design.md`이고,
+구현 계획은 `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md`다.
+결정은 `IoUringNative` syscall adapter, `IoUringQueue` fd/mmap owner,
+`IoUringRegisteredBufferSet` fixed buffer registration owner 로 나누는 것이다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Linux io_uring native syscall wrapper shape 를 설계한다.
+다음 cycle 은 Linux io_uring native wrapper shape Task 1 native ABI shell/platform guard 를 TDD로 구현한다.
 
-- 범위: native wrapper 설계 문서, `IoUringCapabilityProbe` 후속 probe 방향,
-  `io_uring_setup`/`io_uring_enter`, SQ/CQ mmap, fixed buffer registration owner boundary.
-- 검증: 설계 self-review, placeholder/type consistency scan, 필요 시 build/test/diff check.
+- 범위: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 1,
+  `IoUringNative` internal type, platform/architecture guard, test assembly internal access.
+- 검증: reflection 기반 Red, focused `IoUringNativeShapeTests` Green, 필요 시 solution build/test/diff check.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   실제 `io_uring_setup`, SQ/CQ mmap, fixed buffer registration, TCP/UDP pump 는 아직 구현하지 않았다.
-- 다음 산출물: Linux native syscall wrapper 의 최소 public/internal boundary 와 TDD 구현 계획.
+- 다음 산출물: `IoUringNative` platform guard 와 후속 queue owner task 의 입력 경계.
 
 ## 이번 작업에서 건드리지 않는 범위
 

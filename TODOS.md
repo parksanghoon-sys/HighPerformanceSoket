@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 Linux io_uring native syscall wrapper shape 를 설계한다.
-  - 입력: D133, `src/Hps.Transport.IoUring/`, `TransportBase`/RIO native wrapper 기존 경계.
-  - 목표: `io_uring_setup`/`io_uring_enter`, SQ/CQ mmap, fixed buffer registration 을 어떤 internal wrapper 와 owner 로 나눌지 정한다.
-  - 범위: 설계 문서, 결정 로그, 후속 TDD 구현 계획.
-  - 제외: 실제 io_uring P/Invoke 구현, TCP/UDP pump 구현, Linux integration test, default backend promotion.
+- [ ] Phase 6 Linux io_uring native wrapper shape Task 1 native ABI shell/platform guard 를 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md` Task 1.
+  - 목표: `IoUringNative` internal type 과 platform/architecture guard 를 추가하고 non-Linux guard를 테스트한다.
+  - 범위: reflection assertion Red, minimal Green, focused test, 상태 문서 갱신.
+  - 제외: 실제 `io_uring_setup`, mmap, fixed buffer registration, TCP/UDP pump, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +47,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 Linux io_uring native syscall wrapper shape 설계와 구현 계획을 완료했다.
+  - 범위: D133, RIO native wrapper 기존 경계, `src/Hps.Transport.IoUring/`, `tests/Hps.Transport.IoUring.Tests/`.
+  - 결과: `docs/superpowers/specs/2026-06-29-iouring-native-wrapper-shape-design.md`와
+    `docs/superpowers/plans/2026-06-29-iouring-native-wrapper-shape.md`를 작성했다.
+  - 결정: D134로 native adapter(`IoUringNative`), fd/mmap owner(`IoUringQueue`),
+    fixed buffer registration owner(`IoUringRegisteredBufferSet`) 분리를 채택했다.
+  - 검증: spec/plan placeholder scan, type consistency scan, `git diff --check`로 확인한다.
+  - 다음: 구현 계획 Task 1 native ABI shell/platform guard 를 TDD로 구현한다.
 
 - [x] Phase 6 Linux io_uring boundary Task 3 state docs/full verification 을 완료했다.
   - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
