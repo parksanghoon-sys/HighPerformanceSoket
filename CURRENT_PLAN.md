@@ -1662,20 +1662,25 @@ Linux io_uring contract gate 설계와 구현 계획도 완료했다(D138).
 원격 Linux workflow artifact 로 TCP pump native syscall 검증 공백을 줄이는 것이다.
 설계는 `docs/superpowers/specs/2026-06-29-iouring-linux-contract-gate-design.md`,
 구현 계획은 `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md`에 있다.
+Linux io_uring contract gate Task 1 capability evidence test 도 완료했다.
+`IoUringCapabilityEvidenceTests`는 `IoUringCapabilityProbe.GetStatus()` 결과와 OS/process architecture 를
+xUnit output 으로 남겨 원격 TRX artifact 에서 available/unavailable 상태를 확인할 수 있게 한다.
+최신 focused 검증은 `IoUringCapabilityEvidenceTests` 1개와 `Hps.Transport.IoUring.Tests` 37개 통과다.
+최신 표준 검증은 solution build 경고 0/오류 0, solution tests 417개 통과, `git diff --check` 통과다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Linux io_uring contract gate implementation plan Task 1 capability evidence test 를 수행한다.
+다음 cycle 은 Linux io_uring contract gate implementation plan Task 2 Linux contract workflow 를 수행한다.
 
-- 범위: `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md` Task 1,
-  `tests/Hps.Transport.IoUring.Tests/IoUringCapabilityEvidenceTests.cs`, root 상태 문서.
-- 검증: focused evidence test, `Hps.Transport.IoUring.Tests`, solution build/test, `git diff --check`.
+- 범위: `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md` Task 2,
+  `.github/workflows/iouring-linux-contract.yml`, root 상태 문서.
+- 검증: workflow marker scan, solution build/test, `git diff --check`.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
   `IoUringRegisteredBufferSet` fixed buffer registration owner boundary, SQE/CQE/enter ABI shape,
   operation registry/context, completion loop dispatch boundary, TCP listener/resource skeleton, receive/send pump shape 가 존재한다.
 - 현재 제한: 실제 Linux available host syscall loopback 은 아직 미검증이다.
-- 다음 산출물: TRX artifact 에 capability status 를 남기는 test-only evidence surface 를 추가한다.
+- 다음 산출물: workflow_dispatch 전용 Linux contract workflow 를 추가해 TRX, dotnet-info, summary artifact 를 남긴다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

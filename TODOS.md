@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Linux io_uring contract gate Task 1 capability evidence test 를 수행한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md` Task 1.
-  - 목표: 원격 Linux workflow TRX artifact 에 `IoUringCapabilityProbe.GetStatus()` 결과를 남길 test-only evidence surface 를 추가한다.
-  - 범위: `tests/Hps.Transport.IoUring.Tests/IoUringCapabilityEvidenceTests.cs`, root 상태 문서.
-  - 제외: workflow YAML, UDP pump, production transport 변경.
+- [ ] Linux io_uring contract gate Task 2 Linux contract workflow 를 수행한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md` Task 2.
+  - 목표: `workflow_dispatch` 전용 Linux workflow 로 io_uring tests TRX, dotnet-info, summary artifact 를 남긴다.
+  - 범위: `.github/workflows/iouring-linux-contract.yml`, root 상태 문서.
+  - 제외: production transport 변경, push trigger, UDP pump.
 
 ## Deferred Backlog
 
@@ -61,6 +61,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Linux io_uring contract gate Task 1 capability evidence test 를 추가했다.
+  - 범위: `tests/Hps.Transport.IoUring.Tests/IoUringCapabilityEvidenceTests.cs`, root 상태 문서.
+  - 결과: `IoUringCapabilityProbe.GetStatus()` 결과, OS description, OS/process architecture 를 xUnit output 으로 남기는
+    test-only evidence surface 를 추가했다.
+  - 비고: production transport 코드는 변경하지 않았다. 실제 Linux available host loopback 검증은 아직 Deferred Backlog 로 남아 있다.
+  - 검증: focused `IoUringCapabilityEvidenceTests` 1개 통과,
+    `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --no-build --no-restore -v minimal` 37개 통과,
+    solution build 경고 0/오류 0, solution tests 417개 통과, `git diff --check` 통과.
+  - 다음: Task 2 Linux contract workflow 를 추가한다.
 
 - [x] Phase 6 io_uring 후속 후보를 재평가하고 Linux contract gate 설계/구현 계획을 작성했다.
   - 범위: D133~D137, `PLAN.md` Phase 6, `docs/superpowers/specs/2026-06-29-iouring-tcp-first-pump-design.md`,
