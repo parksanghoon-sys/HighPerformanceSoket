@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 TCP-first io_uring queue/pump Task 1 native SQE/CQE/enter shape 를 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 1.
-  - 목표: TCP send/receive SQE 제출과 CQE 결과 해석에 필요한 native ABI shape 를 추가한다.
+- [ ] Phase 6 TCP-first io_uring queue/pump Task 2 operation registry and completion context 를 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 2.
+  - 목표: CQE `user_data` token 을 managed operation context 로 라우팅하는 registry 를 추가한다.
   - 범위: reflection assertion Red, minimal Green, focused test, 상태 문서 갱신.
-  - 제외: operation registry, completion loop, TCP resource/listener, receive/send pump.
+  - 제외: completion loop, TCP resource/listener, receive/send pump.
 
 ## Deferred Backlog
 
@@ -47,6 +47,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 TCP-first io_uring queue/pump Task 1 native SQE/CQE/enter shape 를 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringNative.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringSubmissionShapeTests.cs`, root 상태 문서.
+  - 결과: TCP `SEND`/`RECV` opcode, `io_uring_enter` wrapper, SQE/CQE ABI struct 를 추가했다.
+  - Red: SQE/CQE type 부재를 reflection 기반 `Assert.NotNull()` failure 1개로 확인했다.
+  - Green: focused `IoUringSubmissionShapeTests` 1개와 `Hps.Transport.IoUring.Tests` 전체 18개 통과.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 398개 통과,
+    `git diff --check` 통과.
+  - 다음: Task 2 operation registry and completion context 를 TDD로 구현한다.
 
 - [x] Phase 6 TCP-first io_uring queue/pump 설계와 구현 계획을 작성했다.
   - 범위: `docs/superpowers/specs/2026-06-29-iouring-tcp-first-pump-design.md`,

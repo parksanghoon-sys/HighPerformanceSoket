@@ -16,8 +16,12 @@ namespace Hps.Transport
         internal const ulong SqesOffset = 0x10000000UL;
         internal const int CompletionQueueEntrySize = 16;
         internal const int SubmissionQueueEntrySize = 64;
+        internal const byte OperationSend = 26;
+        internal const byte OperationReceive = 27;
+        internal const uint EnterGetEvents = 0x1;
 
         private const long IoUringSetupSyscallNumber = 425;
+        private const long IoUringEnterSyscallNumber = 426;
         private const long IoUringRegisterSyscallNumber = 427;
         private const uint RegisterBuffersOpcode = 0;
         private const uint UnregisterBuffersOpcode = 1;
@@ -154,6 +158,27 @@ namespace Hps.Transport
                 throw CreateNativeException("io_uring_unregister_buffers");
         }
 
+        internal static int Enter(int fileDescriptor, uint toSubmit, uint minimumComplete, uint flags)
+        {
+            if (fileDescriptor < 0)
+                throw new ArgumentOutOfRangeException(nameof(fileDescriptor), "io_uring file descriptor 가 유효하지 않습니다.");
+
+            ThrowIfUnsupportedPlatform();
+
+            long result = SyscallIoUringEnter(
+                IoUringEnterSyscallNumber,
+                fileDescriptor,
+                toSubmit,
+                minimumComplete,
+                flags,
+                IntPtr.Zero,
+                UIntPtr.Zero);
+            if (result < 0)
+                throw CreateNativeException("io_uring_enter");
+
+            return checked((int)result);
+        }
+
         internal static bool HasSingleMmapFeature(IoUringParams parameters)
         {
             return (parameters.Features & FeatureSingleMmap) != 0;
@@ -180,6 +205,16 @@ namespace Hps.Transport
         [DllImport("libc", EntryPoint = "syscall", SetLastError = true)]
         private static extern long SyscallIoUringRegister(long number, int fileDescriptor, uint opcode, IntPtr argument, uint count);
 
+        [DllImport("libc", EntryPoint = "syscall", SetLastError = true)]
+        private static extern long SyscallIoUringEnter(
+            long number,
+            int fileDescriptor,
+            uint toSubmit,
+            uint minimumComplete,
+            uint flags,
+            IntPtr signalSet,
+            UIntPtr signalSetSize);
+
         [DllImport("libc", EntryPoint = "mmap", SetLastError = true)]
         private static extern IntPtr Mmap(IntPtr address, UIntPtr length, int protection, int flags, int fileDescriptor, IntPtr offset);
 
@@ -188,6 +223,33 @@ namespace Hps.Transport
 
         [DllImport("libc", EntryPoint = "close", SetLastError = true)]
         private static extern int Close(int fileDescriptor);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct IoUringSubmissionQueueEntry
+    {
+        internal byte Opcode;
+        internal byte Flags;
+        internal ushort IoPriority;
+        internal int FileDescriptor;
+        internal ulong Offset;
+        internal ulong Address;
+        internal uint Length;
+        internal uint OperationFlags;
+        internal ulong UserData;
+        internal ushort BufferIndex;
+        internal ushort Personality;
+        internal int SpliceFileDescriptorIn;
+        internal ulong Address3;
+        internal ulong Reserved2;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct IoUringCompletionQueueEntry
+    {
+        internal ulong UserData;
+        internal int Result;
+        internal uint Flags;
     }
 
     [StructLayout(LayoutKind.Sequential)]
