@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - io_uring linux contract gate design)
+
+### 작업 단위
+- Phase 6 io_uring 후속 후보를 재평가하고 Linux contract gate 설계와 구현 계획을 작성했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-29-iouring-linux-contract-gate-design.md`:
+  UDP pump/zero-copy 최적화 전에 Linux contract evidence gate 를 먼저 두는 정책을 정리했다.
+- `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md`:
+  capability evidence test, Linux workflow, D138 state docs 의 3개 구현 task 로 나눴다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D138을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 capability evidence test 로 갱신했다.
+
+### 검증
+- spec/plan self-review 로 placeholder, scope, decision consistency 를 확인했다.
+- `git diff --check`로 문서 공백 오류를 확인한다.
+
 ## 2026-06-29 (Codex - io_uring tcp pump boundary docs)
 
 ### 작업 단위

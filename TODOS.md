@@ -9,12 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 io_uring 후속 후보를 재평가하고 다음 설계/구현 단위를 정한다.
-  - 입력: `PLAN.md` Phase 6, D133~D137, `docs/superpowers/specs/2026-06-29-iouring-tcp-first-pump-design.md`,
-    `src/Hps.Transport.IoUring/`, `tests/Hps.Transport.IoUring.Tests/`.
-  - 목표: Linux actual verification 이 현재 환경에서 불가능한 상태를 전제로, 다음 unblocked 후보를 설계 단위로 좁힌다.
-  - 후보: io_uring UDP pump 설계, fixed payload registration cache 설계, Linux benchmark/contract matrix 준비 중 하나.
-  - 제외: 실제 Linux host syscall loopback 실행, default backend promotion.
+- [ ] Linux io_uring contract gate Task 1 capability evidence test 를 수행한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md` Task 1.
+  - 목표: 원격 Linux workflow TRX artifact 에 `IoUringCapabilityProbe.GetStatus()` 결과를 남길 test-only evidence surface 를 추가한다.
+  - 범위: `tests/Hps.Transport.IoUring.Tests/IoUringCapabilityEvidenceTests.cs`, root 상태 문서.
+  - 제외: workflow YAML, UDP pump, production transport 변경.
 
 ## Deferred Backlog
 
@@ -62,6 +61,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 io_uring 후속 후보를 재평가하고 Linux contract gate 설계/구현 계획을 작성했다.
+  - 범위: D133~D137, `PLAN.md` Phase 6, `docs/superpowers/specs/2026-06-29-iouring-tcp-first-pump-design.md`,
+    `src/Hps.Transport.IoUring/`, `tests/Hps.Transport.IoUring.Tests/`.
+  - 결과: D138로 UDP pump/zero-copy 최적화 전에 Linux contract evidence gate 를 먼저 두기로 했다.
+  - 산출물: `docs/superpowers/specs/2026-06-29-iouring-linux-contract-gate-design.md`,
+    `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md`.
+  - 비고: 실제 Linux available host 검증은 아직 실행하지 않았다. 다음 구현은 capability evidence test 부터 시작한다.
+  - 검증: spec/plan self-review, D138 state doc 연결, `git diff --check`.
 
 - [x] Phase 6 TCP-first io_uring queue/pump Task 7 state documents and full verification 을 수행했다.
   - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,

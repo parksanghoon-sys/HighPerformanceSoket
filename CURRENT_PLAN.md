@@ -1657,22 +1657,25 @@ TCP-first pump 구현 boundary 는 shared `IoUringQueue`/`IoUringCompletionLoop`
 공통 `TransportConnection` send queue 재사용으로 수락했다.
 실제 Linux available host receive/send loopback 은 현재 Windows 환경에서 직접 검증할 수 없으므로
 `TODOS.md` Deferred Backlog 의 환경 의존 P1 항목으로 유지한다.
+Linux io_uring contract gate 설계와 구현 계획도 완료했다(D138).
+다음 단계는 UDP/zero-copy 최적화가 아니라 Linux contract evidence gate 를 먼저 만들고,
+원격 Linux workflow artifact 로 TCP pump native syscall 검증 공백을 줄이는 것이다.
+설계는 `docs/superpowers/specs/2026-06-29-iouring-linux-contract-gate-design.md`,
+구현 계획은 `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md`에 있다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Phase 6 io_uring 후속 후보를 재평가하고 다음 설계/구현 단위를 정한다.
+다음 cycle 은 Linux io_uring contract gate implementation plan Task 1 capability evidence test 를 수행한다.
 
-- 범위: `PLAN.md` Phase 6, D133~D137, `TODOS.md` Deferred Backlog,
-  `src/Hps.Transport.IoUring/`, `tests/Hps.Transport.IoUring.Tests/`.
-- 검증: 후보가 문서 전용이면 spec/plan consistency scan 과 `git diff --check`,
-  코드 구현이면 Red-Green focused test, solution build/test, `git diff --check`.
+- 범위: `docs/superpowers/plans/2026-06-29-iouring-linux-contract-gate.md` Task 1,
+  `tests/Hps.Transport.IoUring.Tests/IoUringCapabilityEvidenceTests.cs`, root 상태 문서.
+- 검증: focused evidence test, `Hps.Transport.IoUring.Tests`, solution build/test, `git diff --check`.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
   `IoUringRegisteredBufferSet` fixed buffer registration owner boundary, SQE/CQE/enter ABI shape,
   operation registry/context, completion loop dispatch boundary, TCP listener/resource skeleton, receive/send pump shape 가 존재한다.
 - 현재 제한: 실제 Linux available host syscall loopback 은 아직 미검증이다.
-- 다음 후보: Linux actual verification 이 가능한 환경이 없으면 io_uring UDP pump, fixed payload registration cache,
-  Linux benchmark/contract matrix 중 가장 안전한 후속 범위를 설계로 좁힌다.
+- 다음 산출물: TRX artifact 에 capability status 를 남기는 test-only evidence surface 를 추가한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
