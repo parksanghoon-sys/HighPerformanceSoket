@@ -10,6 +10,7 @@ namespace Hps.Benchmarks
         BaselineSuite,
         SummarizeBaseline,
         SummarizeBaselineHistory,
+        CompareBaselineEnvelope,
         Help
     }
 }

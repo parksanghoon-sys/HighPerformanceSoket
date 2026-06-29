@@ -1498,15 +1498,25 @@ runner/profile scoped envelope comparison command 구현 계획도 작성했다.
 Task 1 parser contract, Task 2 source reader, Task 3 generator, Task 4 writer/Program wiring 으로 나뉜다.
 검증은 plan placeholder/type consistency scan, `git diff --check`, solution build 경고 0/오류 0,
 solution tests 355개 통과로 마쳤다.
+runner/profile scoped envelope comparison Task 1 parser contract 구현을 완료했다.
+`--compare-baseline-envelope <candidate-json> --reference-history <reference-history-json> --envelope <output-json> [--envelope-md <output-md>]`
+command 를 parser 가 인식하고, `BenchmarkCommandLine`에 candidate/reference/output path 를 보존한다.
+`--report`, `--backend`, `--protocol` 같은 실행 runner option 은 envelope comparison 과 함께 쓰면 usage error 로 막는다.
+Red evidence 는 compare envelope parser tests 7개가 기존 parser 에서 `parsed=false` 또는 `Command=None`으로 실패한 것이다.
+Green 확인은 compare envelope tests 7개와 전체 `BenchmarkCommandParserTests` 29개 통과로 마쳤다.
+표준 검증은 `git diff --check` 통과, solution build 경고 0/오류 0, solution tests 362개 통과로 마쳤다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 runner/profile scoped envelope comparison command Task 1 parser contract 를 TDD로 구현한다.
+다음 cycle 은 runner/profile scoped envelope comparison command Task 2 source reader 를 TDD로 구현한다.
 
-- 범위: `tests/Hps.Benchmarks/BenchmarkCommandParser.cs`, `BenchmarkCommandLine.cs`, `Program.cs`,
-  `tests/Hps.Benchmarks.Tests/BenchmarkCommandParserTests.cs`, root 상태 문서.
-- 검증: compare envelope parser Red assertion failure, focused parser tests, `git diff --check`,
-  solution build/test.
+- 범위: `tests/Hps.Benchmarks/BaselineComparisonJsonReader.cs`,
+  `BaselineEnvelopeSourceKind.cs`, `BaselineEnvelopeSummary.cs`, `BaselineEnvelopeSource.cs`,
+  `BaselineEnvelopeSourceReader.cs`, `BaselineHistoryReader.cs`,
+  `tests/Hps.Benchmarks.Tests/BaselineEnvelopeSourceReaderTests.cs`,
+  `tests/Hps.Benchmarks.Tests/BaselineHistoryReaderTests.cs`, root 상태 문서.
+- 검증: source reader contract Red assertion failure, focused reader/history tests,
+  `git diff --check`, solution build/test.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -1515,7 +1525,7 @@ solution tests 355개 통과로 마쳤다.
 - full IPv6 UDP RIO 지원 구현
 - latency hard gate 또는 warning-as-failure 구현
 - `BaselineSummaryGenerator` threshold 상수 즉시 변경
-- envelope comparison source reader/generator/writer/Program wiring(Task 2 이후)
+- envelope comparison generator/writer/Program wiring(Task 3 이후)
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
 - Linux io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay

@@ -439,6 +439,141 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal("SummarizeBaselineHistory", commandLine.Command.ToString());
         }
 
+        // envelope comparison은 summary/history 생성과 분리된 별도 artifact command다.
+        // parser가 candidate, reference history, output path를 보존해야 이후 단계가 기존 summary command를 오염시키지 않는다.
+        [Fact]
+        public void TryParse_WhenCompareEnvelopeHasCandidateReferenceAndOutput_ReturnsEnvelopeCommand()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[]
+                {
+                    "--compare-baseline-envelope",
+                    "candidate/summary.json",
+                    "--reference-history",
+                    "reference/history.json",
+                    "--envelope",
+                    "out/envelope.json"
+                },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal("CompareBaselineEnvelope", commandLine.Command.ToString());
+            Assert.Equal("candidate/summary.json", GetStringProperty(commandLine, "EnvelopeCandidatePath"));
+            Assert.Equal("reference/history.json", GetStringProperty(commandLine, "EnvelopeReferenceHistoryPath"));
+            Assert.Equal("out/envelope.json", GetStringProperty(commandLine, "EnvelopeOutputPath"));
+            Assert.Null(GetStringProperty(commandLine, "EnvelopeMarkdownOutputPath"));
+        }
+
+        // Markdown envelope는 JSON envelope를 대체하지 않는 보조 artifact다.
+        // 두 output path를 분리해 보존해야 Program이 같은 comparison model로 두 파일을 쓸 수 있다.
+        [Fact]
+        public void TryParse_WhenCompareEnvelopeHasMarkdown_ReturnsEnvelopeCommandWithMarkdownPath()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[]
+                {
+                    "--compare-baseline-envelope",
+                    "candidate/summary.json",
+                    "--reference-history",
+                    "reference/history.json",
+                    "--envelope",
+                    "out/envelope.json",
+                    "--envelope-md",
+                    "out/envelope.md"
+                },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal("CompareBaselineEnvelope", commandLine.Command.ToString());
+            Assert.Equal("candidate/summary.json", GetStringProperty(commandLine, "EnvelopeCandidatePath"));
+            Assert.Equal("reference/history.json", GetStringProperty(commandLine, "EnvelopeReferenceHistoryPath"));
+            Assert.Equal("out/envelope.json", GetStringProperty(commandLine, "EnvelopeOutputPath"));
+            Assert.Equal("out/envelope.md", GetStringProperty(commandLine, "EnvelopeMarkdownOutputPath"));
+        }
+
+        // reference history가 없으면 runner/profile scoped 비교 기준이 없다.
+        // 이 상태를 허용하면 candidate를 전역 상수와 비교하는 과거 문제로 되돌아간다.
+        [Fact]
+        public void TryParse_WhenCompareEnvelopeMissingReferenceHistory_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--compare-baseline-envelope", "candidate/summary.json", "--envelope", "out/envelope.json" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Equal("CompareBaselineEnvelope", commandLine.Command.ToString());
+        }
+
+        // envelope JSON output은 canonical machine-readable artifact이므로 반드시 필요하다.
+        // output path 없이 통과시키면 command가 성공했는데 아무 기준 artifact도 남지 않는다.
+        [Fact]
+        public void TryParse_WhenCompareEnvelopeMissingEnvelopeOutput_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[]
+                {
+                    "--compare-baseline-envelope",
+                    "candidate/summary.json",
+                    "--reference-history",
+                    "reference/history.json"
+                },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Equal("CompareBaselineEnvelope", commandLine.Command.ToString());
+        }
+
+        // --report/--backend/--protocol은 실행 runner option이고 envelope comparison과 섞이면 의미가 충돌한다.
+        // parser 단계에서 막아야 candidate artifact와 새 실행 workload를 혼동하지 않는다.
+        [Theory]
+        [InlineData("--report", "out/run.json")]
+        [InlineData("--backend", "rio")]
+        [InlineData("--protocol", "udp")]
+        public void TryParse_WhenCompareEnvelopeHasExecutionOption_ReturnsUsageError(string option, string value)
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[]
+                {
+                    "--compare-baseline-envelope",
+                    "candidate/summary.json",
+                    "--reference-history",
+                    "reference/history.json",
+                    "--envelope",
+                    "out/envelope.json",
+                    option,
+                    value
+                },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Equal("CompareBaselineEnvelope", commandLine.Command.ToString());
+        }
+
         private static string? GetStringProperty(BenchmarkCommandLine commandLine, string propertyName)
         {
             PropertyInfo? property = typeof(BenchmarkCommandLine).GetProperty(propertyName);

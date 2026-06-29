@@ -15,6 +15,43 @@ namespace Hps.Benchmarks
             string? historyMarkdownOutputPath,
             TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea,
             LoopbackProtocol loopbackProtocol = LoopbackProtocol.Tcp)
+            : this(
+                command,
+                reportPath,
+                baselineOutputDirectory,
+                baselineRunCount,
+                summaryInputDirectory,
+                summaryOutputPath,
+                summaryMarkdownOutputPath,
+                historyInputRoot,
+                historyOutputPath,
+                historyMarkdownOutputPath,
+                null,
+                null,
+                null,
+                null,
+                transportBackend,
+                loopbackProtocol)
+        {
+        }
+
+        public BenchmarkCommandLine(
+            BenchmarkCommand command,
+            string? reportPath,
+            string? baselineOutputDirectory,
+            int baselineRunCount,
+            string? summaryInputDirectory,
+            string? summaryOutputPath,
+            string? summaryMarkdownOutputPath,
+            string? historyInputRoot,
+            string? historyOutputPath,
+            string? historyMarkdownOutputPath,
+            string? envelopeCandidatePath,
+            string? envelopeReferenceHistoryPath,
+            string? envelopeOutputPath,
+            string? envelopeMarkdownOutputPath,
+            TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea,
+            LoopbackProtocol loopbackProtocol = LoopbackProtocol.Tcp)
         {
             Command = command;
             ReportPath = reportPath;
@@ -26,6 +63,10 @@ namespace Hps.Benchmarks
             HistoryInputRoot = historyInputRoot;
             HistoryOutputPath = historyOutputPath;
             HistoryMarkdownOutputPath = historyMarkdownOutputPath;
+            EnvelopeCandidatePath = envelopeCandidatePath;
+            EnvelopeReferenceHistoryPath = envelopeReferenceHistoryPath;
+            EnvelopeOutputPath = envelopeOutputPath;
+            EnvelopeMarkdownOutputPath = envelopeMarkdownOutputPath;
             TransportBackend = transportBackend;
             LoopbackProtocol = loopbackProtocol;
         }
@@ -49,6 +90,14 @@ namespace Hps.Benchmarks
         public string? HistoryOutputPath { get; }
 
         public string? HistoryMarkdownOutputPath { get; }
+
+        public string? EnvelopeCandidatePath { get; }
+
+        public string? EnvelopeReferenceHistoryPath { get; }
+
+        public string? EnvelopeOutputPath { get; }
+
+        public string? EnvelopeMarkdownOutputPath { get; }
 
         public TcpLoopbackTransportBackend TransportBackend { get; }
 

@@ -205,6 +205,7 @@ namespace Hps.Benchmarks
             writer.WriteLine("  Hps.Benchmarks --baseline-suite <output-dir> [--runs <count>] [--protocol <tcp|udp>] [--backend <saea|rio>]");
             writer.WriteLine("  Hps.Benchmarks --summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]");
             writer.WriteLine("  Hps.Benchmarks --summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]");
+            writer.WriteLine("  Hps.Benchmarks --compare-baseline-envelope <candidate-json> --reference-history <reference-history-json> --envelope <output-json> [--envelope-md <output-md>]");
             writer.WriteLine("  Hps.Benchmarks [BenchmarkDotNet arguments]");
         }
 

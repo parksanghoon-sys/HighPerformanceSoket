@@ -27,6 +27,11 @@ namespace Hps.Benchmarks
         public const string MessageHistoryOutputRequired = "--history 옵션에는 저장할 history JSON 파일 경로가 필요합니다.";
         public const string MessageHistoryMarkdownOutputRequired = "--history-md 옵션에는 저장할 history Markdown 파일 경로가 필요합니다.";
         public const string MessageHistoryReportNotAllowed = "--report 옵션은 --summarize-baseline-history 와 함께 사용할 수 없습니다.";
+        public const string MessageEnvelopeCandidateRequired = "--compare-baseline-envelope 옵션에는 candidate summary/history JSON 경로가 필요합니다.";
+        public const string MessageEnvelopeReferenceHistoryRequired = "--reference-history 옵션에는 reference history JSON 파일 경로가 필요합니다.";
+        public const string MessageEnvelopeOutputRequired = "--envelope 옵션에는 저장할 envelope JSON 파일 경로가 필요합니다.";
+        public const string MessageEnvelopeMarkdownOutputRequired = "--envelope-md 옵션에는 저장할 envelope Markdown 파일 경로가 필요합니다.";
+        public const string MessageEnvelopeExecutionOptionNotAllowed = "--report, --backend, --protocol 옵션은 --compare-baseline-envelope 와 함께 사용할 수 없습니다.";
 
         public static bool TryParse(string[] args, out BenchmarkCommandLine commandLine, out string? errorMessage)
         {
@@ -51,6 +56,9 @@ namespace Hps.Benchmarks
                 commandLine = new BenchmarkCommandLine(BenchmarkCommand.Target, null, null, 0, null, null, null, null, null, null);
                 return true;
             }
+
+            if (string.Equals(commandArg, "--compare-baseline-envelope", StringComparison.OrdinalIgnoreCase))
+                return ParseCompareBaselineEnvelope(args, out commandLine, out errorMessage);
 
             if (string.Equals(commandArg, "--summarize-baseline-history", StringComparison.OrdinalIgnoreCase))
                 return ParseSummarizeBaselineHistory(args, out commandLine, out errorMessage);
@@ -214,6 +222,91 @@ namespace Hps.Benchmarks
 
             commandLine = new BenchmarkCommandLine(BenchmarkCommand.SummarizeBaseline, null, null, 0, inputDirectory, args[3], summaryMarkdownOutputPath, null, null, null);
             return true;
+        }
+
+        private static bool ParseCompareBaselineEnvelope(
+            string[] args,
+            out BenchmarkCommandLine commandLine,
+            out string? errorMessage)
+        {
+            string? candidatePath = args.Length >= 2 ? args[1] : null;
+            commandLine = CreateEnvelopeCommand(candidatePath, null, null, null);
+            errorMessage = null;
+
+            if (string.IsNullOrWhiteSpace(candidatePath))
+            {
+                errorMessage = MessageEnvelopeCandidateRequired;
+                return true;
+            }
+
+            if (ContainsReportOption(args) || ContainsBackendOption(args) || ContainsProtocolOption(args))
+            {
+                errorMessage = MessageEnvelopeExecutionOptionNotAllowed;
+                return true;
+            }
+
+            if (args.Length < 4
+                || !string.Equals(args[2], "--reference-history", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(args[3]))
+            {
+                errorMessage = MessageEnvelopeReferenceHistoryRequired;
+                return true;
+            }
+
+            if ((args.Length != 6 && args.Length != 8)
+                || !string.Equals(args[4], "--envelope", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(args[5]))
+            {
+                errorMessage = MessageEnvelopeOutputRequired;
+                commandLine = CreateEnvelopeCommand(candidatePath, args[3], null, null);
+                return true;
+            }
+
+            string? envelopeMarkdownOutputPath = null;
+            if (args.Length == 8)
+            {
+                if (!string.Equals(args[6], "--envelope-md", StringComparison.OrdinalIgnoreCase))
+                {
+                    errorMessage = MessageEnvelopeMarkdownOutputRequired;
+                    commandLine = CreateEnvelopeCommand(candidatePath, args[3], args[5], null);
+                    return true;
+                }
+
+                if (string.IsNullOrWhiteSpace(args[7]))
+                {
+                    errorMessage = MessageEnvelopeMarkdownOutputRequired;
+                    commandLine = CreateEnvelopeCommand(candidatePath, args[3], args[5], null);
+                    return true;
+                }
+
+                envelopeMarkdownOutputPath = args[7];
+            }
+
+            commandLine = CreateEnvelopeCommand(candidatePath, args[3], args[5], envelopeMarkdownOutputPath);
+            return true;
+        }
+
+        private static BenchmarkCommandLine CreateEnvelopeCommand(
+            string? candidatePath,
+            string? referenceHistoryPath,
+            string? envelopeOutputPath,
+            string? envelopeMarkdownOutputPath)
+        {
+            return new BenchmarkCommandLine(
+                BenchmarkCommand.CompareBaselineEnvelope,
+                null,
+                null,
+                0,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                candidatePath,
+                referenceHistoryPath,
+                envelopeOutputPath,
+                envelopeMarkdownOutputPath);
         }
 
         private static bool ParseSummarizeBaselineHistory(
