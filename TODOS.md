@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 TCP-first io_uring queue/pump Task 3 shared completion loop boundary 를 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 3.
-  - 목표: CQE `user_data` token 을 registry context 로 dispatch 하는 completion loop boundary 를 추가한다.
+- [ ] Phase 6 TCP-first io_uring queue/pump Task 4 TCP resource and listener wiring 을 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 4.
+  - 목표: TCP listener/resource boundary skeleton 을 추가하고 non-Linux unsupported 경계를 보존한다.
   - 범위: reflection/behavior assertion Red, minimal Green, focused test, 상태 문서 갱신.
-  - 제외: TCP resource/listener, receive/send pump.
+  - 제외: TCP receive/send SQE pump.
 
 ## Deferred Backlog
 
@@ -47,6 +47,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 TCP-first io_uring queue/pump Task 3 shared completion loop boundary 를 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringCompletionLoop.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringCompletionLoopTests.cs`, root 상태 문서.
+  - 결과: CQE `user_data` token 을 registry context 로 dispatch 하는 `IoUringCompletionLoop` 경계를 추가했다.
+    현재 단계에서는 native CQ drain thread 없이 pure dispatch 와 lifecycle shell 만 구현했다.
+  - Red: completion loop type 부재를 reflection 기반 `Assert.NotNull()` failure 4개로 확인했다.
+  - Green: focused `IoUringCompletionLoopTests` 4개와 `Hps.Transport.IoUring.Tests` 전체 28개 통과.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 408개 통과,
+    `git diff --check` 통과.
+  - 다음: Task 4 TCP resource and listener wiring 을 TDD로 구현한다.
 
 - [x] Phase 6 TCP-first io_uring queue/pump Task 2 operation registry and completion context 를 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringOperationKind.cs`,
