@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - io_uring operation registry)
+
+### 작업 단위
+- Phase 6 TCP-first io_uring queue/pump Task 2 operation registry and completion context 를 TDD로 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.IoUring/IoUringOperationKind.cs`:
+  io_uring operation kind 를 receive/send/accept 로 구분한다.
+- `src/Hps.Transport.IoUring/IoUringCompletion.cs`:
+  CQE token/result/flags 를 managed value 로 보존한다.
+- `src/Hps.Transport.IoUring/IoUringOperationContext.cs`:
+  reusable operation context 의 token/kind/waiter 상태와 one-shot completion 계약을 추가했다.
+- `src/Hps.Transport.IoUring/IoUringOperationRegistry.cs`:
+  SQE `user_data` token 과 operation context mapping 을 단일 lock 으로 발급/조회/제거한다.
+- `tests/Hps.Transport.IoUring.Tests/IoUringOperationRegistryTests.cs`:
+  token routing, unregister, wait-before-complete, double-complete reject, reset 재사용을 reflection 기반으로 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 2 완료와 다음 Task 3 shared completion loop boundary 진입점을 반영했다.
+
+### 검증
+- Red: focused `IoUringOperationRegistryTests` 실행으로 registry/context type 부재 `Assert.NotNull()` failure 6개를 확인했다.
+- Green: focused `IoUringOperationRegistryTests` 6개 통과.
+- Project: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal` 24개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 통과, 전체 404개 통과.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+
 ## 2026-06-29 (Codex - io_uring tcp submission shape)
 
 ### 작업 단위

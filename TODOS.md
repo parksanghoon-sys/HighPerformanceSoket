@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 TCP-first io_uring queue/pump Task 2 operation registry and completion context 를 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 2.
-  - 목표: CQE `user_data` token 을 managed operation context 로 라우팅하는 registry 를 추가한다.
-  - 범위: reflection assertion Red, minimal Green, focused test, 상태 문서 갱신.
-  - 제외: completion loop, TCP resource/listener, receive/send pump.
+- [ ] Phase 6 TCP-first io_uring queue/pump Task 3 shared completion loop boundary 를 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md` Task 3.
+  - 목표: CQE `user_data` token 을 registry context 로 dispatch 하는 completion loop boundary 를 추가한다.
+  - 범위: reflection/behavior assertion Red, minimal Green, focused test, 상태 문서 갱신.
+  - 제외: TCP resource/listener, receive/send pump.
 
 ## Deferred Backlog
 
@@ -47,6 +47,21 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 TCP-first io_uring queue/pump Task 2 operation registry and completion context 를 TDD로 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringOperationKind.cs`,
+    `src/Hps.Transport.IoUring/IoUringCompletion.cs`,
+    `src/Hps.Transport.IoUring/IoUringOperationContext.cs`,
+    `src/Hps.Transport.IoUring/IoUringOperationRegistry.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringOperationRegistryTests.cs`, root 상태 문서.
+  - 결과: CQE `user_data` token 을 managed operation context 로 라우팅하는 registry 를 추가했다.
+    context 는 `WaitAsync` 이후 completion 을 정확히 한 번만 허용하고, `Reset`으로 재사용 상태를 준비한다.
+  - Red: operation registry/context type 부재를 reflection 기반 `Assert.NotNull()` failure 6개로 확인했다.
+  - Green: focused `IoUringOperationRegistryTests` 6개와 `Hps.Transport.IoUring.Tests` 전체 24개 통과.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 404개 통과,
+    `git diff --check` 통과.
+  - 다음: Task 3 shared completion loop boundary 를 TDD로 구현한다.
 
 - [x] Phase 6 TCP-first io_uring queue/pump Task 1 native SQE/CQE/enter shape 를 TDD로 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringNative.cs`,
