@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] D131 이후 다음 실행 후보를 재평가한다.
-  - 입력: D127/D130 원격 검증 완료, D131 CI repository baseline 2-session 상태, D090/D095/D125/D128.
-  - 목표: CI latency gate/warning-as-failure 로 성급히 승격하지 않으면서, 다음으로 가장 가치 있는 Phase 4/5 작업을 하나 고른다.
-  - 범위: 최신 상태 문서, deferred backlog, RIO/default promotion 관련 결정, benchmark baseline 상태 대조.
-  - 제외: 이 TODO 자체에서 production code 변경, latency hard gate 구현, CI artifact 자동 채택.
+- [ ] Phase 6 Linux io_uring boundary 첫 구현 계획을 작성한다.
+  - 입력: D132, `docs/superpowers/specs/2026-06-29-phase6-iouring-boundary-next-candidate-design.md`, `PLAN.md` Phase 6.
+  - 목표: `Hps.Transport.IoUring` skeleton/capability probe/unsupported boundary 를 TDD task 로 분해한다.
+  - 범위: 계획 문서, root 상태 문서 갱신, 검증 경로 정의.
+  - 제외: 실제 io_uring P/Invoke, TCP/UDP pump, Linux integration test, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +47,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D131 이후 다음 실행 후보를 재평가했다.
+  - 범위: D131 CI baseline 2-session 상태, D090/D095/D119/D122/D125/D128 결정,
+    `PLAN.md` Phase 6, deferred backlog.
+  - 결과: CI gate 승격, RIO default promotion/full IPv6, server-level diagnostics public API는 지금 열지 않는다.
+    다음 후보는 Phase 6 Linux io_uring backend boundary 설계와 첫 구현 계획으로 정했다(D132).
+  - 비고: 현재 Windows 환경에서는 Linux native integration 을 바로 검증할 수 없으므로,
+    첫 구현 후보는 project skeleton, capability probe, non-Linux unsupported boundary, default SAEA 유지 regression 으로 제한한다.
+  - 산출물: `docs/superpowers/specs/2026-06-29-phase6-iouring-boundary-next-candidate-design.md`.
 
 - [x] D127/D130 push-triggered CI artifact 결과를 검증하고 D095 기준으로 두 번째 CI baseline 을 채택했다.
   - 범위: GitHub Actions run `28350456434`, uploaded artifact,

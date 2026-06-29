@@ -1560,18 +1560,24 @@ run `28350456434` artifact 는 D095 checklist 를 통과해
 runner root history 는 2-session, hard-passed true, warning-count 0, comparison-compatible true 다.
 업로드 artifact envelope 는 이전 1-session CI reference 대비 p99 upper-bound signal 2개를 기록했지만,
 D125/D127 기준 report-only signal 이므로 CI failure, warning-count, 채택 차단 조건으로 처리하지 않는다.
+D131 이후 다음 후보 재평가도 완료했다(D132).
+CI gate 승격, RIO default promotion/full IPv6, server-level diagnostics public API는 지금 열지 않고,
+다음 후보를 Phase 6 Linux io_uring backend boundary 설계와 첫 구현 계획으로 정했다.
+현재 Windows 환경에서는 Linux native integration 을 바로 검증할 수 없으므로,
+첫 구현 후보는 `Hps.Transport.IoUring` skeleton, capability probe, non-Linux unsupported boundary,
+default SAEA 유지 regression 으로 제한한다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 D131 이후 Phase 4/5 실행 후보를 재평가한다.
+다음 cycle 은 Phase 6 Linux io_uring boundary 첫 구현 계획을 작성한다.
 
-- 범위: D131로 갱신된 CI runner 2-session baseline, D090/D095/D125/D128 결정, deferred backlog.
-- 검증: CI latency gate/warning-as-failure 승격 조건이 아직 충분한지 확인하고,
-  성급한 gate 승격 대신 다음으로 가장 가치 있는 작업 하나를 선택한다.
-- 현재 상태: CI runner 는 2-date-root/2-session reference 이고 hard-passed true, warning-count 0,
-  comparison-compatible true 다. 표본은 늘었지만 아직 gate 승격 기준으로 삼기에는 보수적으로 부족하다.
-- 다음 후보군: Phase 5 RIO/io_uring 방향 재평가, RIO full IPv6 deferred 유지 여부, server diagnostics deferred 유지 여부,
-  또는 benchmark/CI evidence 추가 수집 정책 보정.
+- 범위: `docs/superpowers/specs/2026-06-29-phase6-iouring-boundary-next-candidate-design.md`, `PLAN.md` Phase 6,
+  현재 `src/Hps.Transport.IoUring/` 부재 상태.
+- 검증: Windows 환경에서도 검증 가능한 skeleton/probe/unsupported boundary task 로 나누고,
+  Linux native P/Invoke 와 integration test 는 후속 task 로 명확히 분리한다.
+- 현재 상태: `Hps.Transport.Rio`는 존재하지만 `Hps.Transport.IoUring` project 는 없다.
+  default factory 는 계속 SAEA를 반환해야 한다.
+- 다음 산출물: `docs/superpowers/plans/2026-06-29-iouring-boundary.md`.
 
 ## 이번 작업에서 건드리지 않는 범위
 

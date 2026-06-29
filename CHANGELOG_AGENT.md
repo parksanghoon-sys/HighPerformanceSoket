@@ -5,6 +5,23 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - Phase 6 io_uring next candidate)
+
+### 작업 단위
+- D131 이후 다음 실행 후보를 재평가하고, 다음 방향을 Phase 6 Linux io_uring backend boundary 설계/계획으로 좁혔다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-29-phase6-iouring-boundary-next-candidate-design.md`:
+  CI gate 승격, RIO default promotion/full IPv6, server-level diagnostics API를 지금 열지 않는 근거와,
+  `Hps.Transport.IoUring` skeleton/capability probe/unsupported boundary 를 첫 구현 후보로 두는 결정을 기록했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D132를 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 진입점을 Phase 6 io_uring boundary 첫 구현 계획 작성으로 갱신했다.
+
+### 검증
+- D131 CI baseline 상태, D090/D095/D119/D122/D125/D128 결정, `PLAN.md` Phase 6, 현재 project layout 을 대조했다.
+
 ## 2026-06-29 (Codex - CI artifact remote validation and baseline adoption)
 
 ### 작업 단위
