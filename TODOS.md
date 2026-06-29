@@ -15,8 +15,12 @@
     `envelope.json`, `envelope.md`가 모두 포함되는지 확인한다.
   - 범위: remote CI run 확인, artifact 내용 검증, 상태 문서 갱신.
   - 제외: CI artifact 자동 baseline 채택, warning-as-failure, latency hard gate, pull_request/schedule trigger.
-  - 현재 blocker: 이 실행 환경에서 `git push origin master`는 정책상 거부됐다.
-    사용자 또는 push 가능한 환경에서 원격 push 가 이뤄진 뒤 생성된 CI run/artifact 를 기준으로 이어서 검증한다.
+  - 현재 상태: 사용자 push 뒤 생성된 run `28347437734`는 push trigger 와 head SHA 일치를 확인했지만,
+    artifact 생성 전 `Test` 단계에서 RIO send native probe timeout 으로 실패했다.
+    로컬에서는 D129에 따라 RIO send probe ordering 을 보정했고 focused/RIO 전체/solution 검증은 통과했다.
+  - 현재 blocker: 이 실행 환경에서 `git push origin master`는 정책상 다시 거부됐다.
+    사용자 또는 push 가능한 환경에서 현재 로컬 커밋을 원격 push 한 뒤 생성되는 새 `Benchmark Artifacts`
+    run 과 artifact 를 기준으로 이어서 검증한다.
 
 ## Deferred Backlog
 

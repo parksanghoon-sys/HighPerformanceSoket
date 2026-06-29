@@ -5,6 +5,35 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - RIO send probe CI hardening)
+
+### 작업 단위
+- push-triggered `Benchmark Artifacts` run 실패 원인을 확인하고, hosted Windows 에서 취약한 RIO native send probe 순서를 보정했다.
+
+### 변경 내용
+- GitHub Actions run `28347437734` 확인:
+  push trigger 와 head SHA 는 `e1822cf398918701057f135aa0c3b79aa4a465b3`로 일치했지만,
+  artifact 단계 전 `Test` 단계에서 `RioCapabilityProbeTests.Send_WhenPosted_CompletesAndPeerReceivesByte`가
+  RIO completion timeout 으로 실패했다.
+- `tests/Hps.Transport.Rio.Tests/RioCapabilityProbeTests.cs`:
+  `RIOSend` post 뒤 peer receive 를 먼저 수행하고, 그 다음 RIO send completion 을 검증하도록 순서를 보정했다.
+  RIO function table/probe 검증은 유지하고, peer 가 읽기 전 send completion 이 먼저 와야 한다는 불필요한 순서 제약만 제거했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D129로 RIO native send probe ordering 정책을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  원격 CI 실패 원인, 로컬 보정 상태, 남은 push 후 artifact 검증 지점을 기록했다.
+
+### 검증
+- Red evidence: 원격 `Benchmark Artifacts` run `28347437734`의 `Test` 단계 실패.
+- Focused build-included test:
+  `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj --filter "FullyQualifiedName~RioCapabilityProbeTests.Send_WhenPosted_CompletesAndPeerReceivesByte" -v minimal` 통과.
+- `dotnet test tests\Hps.Transport.Rio.Tests\Hps.Transport.Rio.Tests.csproj -v minimal`: 57개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal`: 전체 379개 통과/실패 0.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- 후속 원격 검증을 위해 `git push origin master`를 다시 시도했지만, 현재 실행 정책에서 `git push`가 거부됐다.
+  현재 로컬 커밋이 원격 push 된 뒤 새 `Benchmark Artifacts` run 으로 artifact 포함 여부를 다시 확인한다.
+
 ## 2026-06-29 (Codex - phase4 next candidate after D127)
 
 ### 작업 단위
