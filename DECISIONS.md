@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D128 — D127 이후 다음 실행 후보는 push-triggered CI artifact 에 envelope 산출물이 포함되는지 검증하는 것이다.
 - D127 — CI benchmark workflow 는 reference history 가 있을 때 report-only envelope comparison artifact 를 업로드한다.
 - D126 — net9.0 프로젝트 검증은 repository `global.json`으로 .NET SDK 9.0 계열을 선택한다.
 - D125 — runner/profile scoped 판단은 기존 warning-count 가 아니라 별도 baseline envelope comparison artifact 로 분리한다.

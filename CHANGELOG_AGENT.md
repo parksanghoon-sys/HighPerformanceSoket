@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - phase4 next candidate after D127)
+
+### 작업 단위
+- D127 이후 최신 review/backlog 를 현재 상태와 대조하고 다음 실행 후보를 다시 확정했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-29-phase4-next-candidate-after-d127.md`:
+  `.claude/review/2026-06-29-next-scope-decision-review.md`의 local runner 2-date-root 전제가 D123 이후 stale 임을 기록하고,
+  D128로 다음 후보를 push-triggered CI artifact 검증으로 정했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D128을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 D127 workflow 의 원격 CI artifact 검증으로 갱신했다.
+
+### 검증
+- 최신 review, D123~D127 결정, TODO deferred backlog 를 대조했다.
+- `git diff --check` 통과. CRLF 변환 경고만 있고 whitespace 오류는 없다.
+- `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal`: 전체 379개 통과/실패 0.
+
 ## 2026-06-29 (Codex - CI envelope comparison artifact)
 
 ### 작업 단위

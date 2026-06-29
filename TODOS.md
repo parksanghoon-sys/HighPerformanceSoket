@@ -9,11 +9,12 @@
 
 ## Current TODOs
 
-- [ ] D127 이후 Phase 4 다음 구현 후보를 다시 확정한다.
-  - 입력: `.claude/review/2026-06-29-next-scope-decision-review.md`, D123~D127, 현재 `Deferred Backlog`.
-  - 목표: 이미 완료된 baseline evidence, D125 envelope command, D127 CI artifact 연결을 분리하고 다음 실행 단위를 하나로 좁힌다.
-  - 범위: review/state 문서 대조, 다음 후보 설계 또는 구현 계획 선택.
-  - 제외: RIO full IPv6 즉시 구현, server diagnostics public API 즉시 추가, latency hard gate 즉시 승격.
+- [ ] D127 workflow 의 push-triggered CI artifact 결과를 검증한다.
+  - 입력: 다음 `Benchmark Artifacts` GitHub Actions run, uploaded artifact, D127/D128.
+  - 목표: upload artifact date root 에 raw report 6개, `summary.json`, `summary.md`, `history.json`, `history.md`,
+    `envelope.json`, `envelope.md`가 모두 포함되는지 확인한다.
+  - 범위: remote CI run 확인, artifact 내용 검증, 상태 문서 갱신.
+  - 제외: CI artifact 자동 baseline 채택, warning-as-failure, latency hard gate, pull_request/schedule trigger.
 
 ## Deferred Backlog
 
@@ -47,6 +48,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D127 이후 Phase 4 다음 구현 후보를 다시 확정했다.
+  - 범위: `.claude/review/2026-06-29-next-scope-decision-review.md`, D123~D127,
+    `docs/superpowers/specs/2026-06-29-phase4-next-candidate-after-d127.md`, root 상태/결정 문서.
+  - 결과: 기존 review 의 local runner 2-date-root 전제는 stale 로 판정했다.
+    D123~D127 이후 RIO full IPv6/default promotion 과 server diagnostics 는 계속 deferred 로 유지하고,
+    다음 후보를 D127 workflow 의 push-triggered CI artifact 검증으로 좁혔다(D128).
+  - 비고: envelope signal 은 계속 report-only 이며, CI artifact 자동 baseline 채택이나 hard gate 승격으로 이어지지 않는다.
+  - 검증: 최신 review/state/backlog 대조, `git diff --check` 통과,
+    solution build 경고 0/오류 0, solution tests 379개 통과.
 
 - [x] CI benchmark workflow 에 report-only envelope comparison artifact 를 연결했다.
   - 범위: `.github/workflows/benchmark-artifacts.yml`,

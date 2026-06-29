@@ -1548,14 +1548,18 @@ CI benchmark workflow 의 report-only envelope comparison artifact 연결도 완
 `benchmark-artifacts.yml`은 summary/history 생성 뒤 repository reference history 가 있을 때
 `envelope.json`과 `envelope.md`를 date root 에 생성해 upload artifact 에 포함한다.
 reference history 가 없으면 bootstrap 상태로 보고 skip 하며, envelope mismatch/signal 은 계속 CI failure 가 아니다.
+D127 이후 다음 후보 재평가도 완료했다(D128).
+`.claude/review/2026-06-29-next-scope-decision-review.md`의 local runner 2-date-root 전제는 D123 이후 stale 하며,
+RIO full IPv6와 server diagnostics 는 계속 deferred 로 유지한다.
+다음 실행 후보는 push-triggered CI artifact run 에서 D127 envelope 산출물이 실제 upload artifact 에 포함되는지 확인하는 것이다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 D127 이후 Phase 4 다음 구현 후보를 다시 확정한다.
+다음 cycle 은 D127 workflow 의 원격 CI artifact 결과를 검증한다.
 
-- 범위: `.claude/review/2026-06-29-next-scope-decision-review.md`, D123~D127, 현재 `Deferred Backlog`.
-- 검증: review 내용이 현재 D123~D127 상태와 stale 하지 않은지 확인하고,
-  실행 가능한 다음 작업이 코드/문서/벤치마크 중 어디인지 명시한다.
+- 범위: push-triggered `Benchmark Artifacts` run, 업로드 artifact, `summary.json`/`history.json`/`envelope.json`.
+- 검증: artifact 가 raw report 6개, summary/history JSON/Markdown, envelope JSON/Markdown을 포함하는지 확인한다.
+  envelope signal 은 report-only 로 해석하고, baseline 자동 채택은 별도 판단으로 남긴다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
