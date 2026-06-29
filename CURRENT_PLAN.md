@@ -1471,22 +1471,30 @@ SAEA fallback notice 를 반환하고, explicit `--transport rio`는 runtime fai
 검증은 focused Red/Green, `Hps.Transport.Rio.Tests` 57개,
 `Hps.Sample.BrokerServer.Tests` 17개, solution build 경고 0/오류 0,
 solution tests 355개 통과, `git diff --check` 통과로 마쳤다.
+2026-06-29 `local-win-x64-01` explicit runner baseline 도 세 session 으로 수집했다(D123).
+2026-06-29 date root 는 session-count 3, hard-passed true, warning-count 0, comparison-compatible true 다.
+runner root history 는 2026-06-24/2026-06-25/2026-06-29 세 date root, 총 9-session 을 묶고
+hard-passed true, warning-count 0, comparison-compatible true 를 유지한다.
+explicit runner envelope 는 load p99 max 935.6 us, open-loop p99 max 1077.4 us 로 기존 maxima 를 유지한다.
+D082의 explicit runner 3-date-root evidence 조건은 충족했지만, warning-as-failure 또는 CI latency gate 승격은
+threshold/운영 정책을 별도 단위에서 재평가한 뒤 결정한다.
 
 ## 이번 단위의 검증 경로
 
-현재 즉시 실행 가능한 Current TODO 는 없다.
-남은 항목은 default promotion scope 가 다시 열릴 때 판단할 RIO full IPv6 support 와,
-실제 host/metrics surface 가 생긴 뒤 설계할 server-level diagnostics model 이다.
+다음 cycle 은 `local-win-x64-01` 9-session explicit runner evidence 를 기준으로
+Phase 4 warning threshold / latency envelope / CI gate promotion policy 를 재평가한다.
 
-- 다음 cycle 진입 조건: 사용자가 default backend promotion, full IPv6 RIO, 또는 server diagnostics/metrics host scope 를 열어준다.
-- 현재 검증 기준: solution build/test 및 `git diff --check`까지 통과했으며, `.claude/review/` 사용자 검토 문서 외 clean 상태로 커밋한다.
+- 범위: `docs/benchmarks/baselines/index.md`, `docs/benchmarks/baselines/runners/local-win-x64-01/history.json`,
+  D082/D089/D090/D096/D123 decision, CI artifact-only workflow policy.
+- 검증: baseline index/history 대조, gate 승격 조건과 runner 분리 정책 충돌 여부 확인,
+  policy/spec 문서 placeholder scan, `git diff --check`, 필요 시 benchmark summary/history CLI smoke.
 
 ## 이번 작업에서 건드리지 않는 범위
 
 - `TransportFactory` 기본 선택 코드 변경
 - 별도 selector package 생성
 - full IPv6 UDP RIO 지원 구현
-- latency hard gate 또는 warning-as-failure 정책 구현
+- latency hard gate 또는 warning-as-failure 정책 구현 없이 설계/정책 재평가만 수행
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
 - Linux io_uring backend 구현
 - stable identity 인증/권한 검증, persistence, payload replay

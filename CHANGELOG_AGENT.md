@@ -5,6 +5,42 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - local explicit runner third date root)
+
+### 작업 단위
+- 검토 의견을 현재 D090-D096 상태와 대조한 뒤, stale 한 D090 skeleton 후보 대신
+  `local-win-x64-01` explicit runner 의 세 번째 baseline date root 를 수집했다.
+
+### 변경 내용
+- `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-29/session-01..03/`:
+  TCP loopback SAEA 4096B x 100Hz baseline-suite raw report, `summary.json`, `summary.md`를 추가했다.
+- `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-29/history.json`,
+  `history.md`: 2026-06-29 date-level history 를 추가했다.
+- `docs/benchmarks/baselines/runners/local-win-x64-01/history.json`,
+  `history.md`: runner root history 를 9-session 으로 갱신했다.
+- `docs/benchmarks/baselines/index.md`:
+  2026-06-29 date-level row, session rows, 9-session explicit runner envelope 를 반영했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D123을 추가했다. D082의 explicit runner 3-date-root evidence 조건은 충족했지만,
+  warning-as-failure/CI latency gate 승격은 별도 정책 재평가로 분리한다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  이번 baseline 수집 완료와 다음 실행점인 warning/gate promotion policy 재평가를 반영했다.
+
+### 검증
+- `--baseline-suite docs\benchmarks\baselines\runners\local-win-x64-01\2026-06-29\session-01 --runs 3`:
+  raw report 6개 생성, `baseline-suite-result: pass`.
+- `--baseline-suite docs\benchmarks\baselines\runners\local-win-x64-01\2026-06-29\session-02 --runs 3`:
+  raw report 6개 생성, `baseline-suite-result: pass`.
+- `--baseline-suite docs\benchmarks\baselines\runners\local-win-x64-01\2026-06-29\session-03 --runs 3`:
+  raw report 6개 생성, `baseline-suite-result: pass`.
+- 세 session `--summarize-baseline`: 각각 `source-report-count: 6`, `hard-passed: true`, `warning-count: 0`.
+- 2026-06-29 date-level `--summarize-baseline-history`: session-count 3, hard-passed true, warning-count 0, comparison-compatible true.
+- runner root `--summarize-baseline-history`: session-count 9, hard-passed true, warning-count 0, comparison-compatible true.
+- 새 baseline artifact 절대 경로 검색: 매칭 없음.
+- `git diff --check`: 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore`: 경고 0개, 오류 0개.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore`: 355개 통과.
+
 ## 2026-06-29 (Codex - RIO address-family-aware selection)
 
 ### 작업 단위

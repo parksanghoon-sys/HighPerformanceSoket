@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D123 — `local-win-x64-01` explicit runner 는 세 date root evidence 를 충족했지만 gate 승격은 별도 정책 재평가로 분리한다.
 - D122 — RIO backend 는 TCP/UDP 모두 현재 IPv4-only opt-in 이며 host auto selection 은 address-family-aware fallback 을 수행한다.
 - D121 — RIO UDP v1은 IPv4-only opt-in backend 로 유지하고 IPv6는 default promotion gate 로 남긴다.
 - D120 — RIO preferred/default selection 은 base factory 가 아니라 host composition 책임으로 두고 sample broker server 에 optional transport selector 를 추가한다.

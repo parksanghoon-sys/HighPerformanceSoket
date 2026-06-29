@@ -9,8 +9,13 @@
 
 ## Current TODOs
 
-- 현재 즉시 실행 가능한 항목 없음.
-  - 남은 항목은 default promotion scope 또는 실제 host/metrics surface 가 열릴 때 Current TODO 로 승격한다.
+- [ ] Phase 4 explicit runner 3-date-root evidence 기반 warning/gate promotion policy 를 재평가한다.
+  - 입력: `local-win-x64-01` runner root history 는 2026-06-24/2026-06-25/2026-06-29 세 date root,
+    총 9-session, hard-passed true, warning-count 0, comparison-compatible true 다.
+  - 목표: warning-as-failure, latency envelope 초과 처리, CI latency gate 를 지금 승격할지 또는 계속 report-only 로 둘지
+    D082/D089/D090/D096/D123 기준으로 설계 판단을 정리한다.
+  - 범위: baseline index/history artifact, CI/local runner 분리 정책, gate 승격 조건 문서화.
+  - 제외: 즉시 CI hard failure 구현, pull_request/schedule trigger 추가, 새 benchmark 수집.
 
 ## Deferred Backlog
 
@@ -44,6 +49,22 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] `local-win-x64-01/2026-06-29` explicit runner baseline 3-session 을 수집했다.
+  - 범위: `docs/benchmarks/baselines/runners/local-win-x64-01/2026-06-29/`,
+    `docs/benchmarks/baselines/runners/local-win-x64-01/history.json`,
+    `docs/benchmarks/baselines/runners/local-win-x64-01/history.md`,
+    `docs/benchmarks/baselines/index.md`, root 상태/결정 문서.
+  - 결과: 2026-06-29 date root 는 session-count 3, hard-passed true, warning-count 0,
+    comparison-compatible true 다. runner root history 는 총 9-session 을 묶고 같은 상태를 유지한다.
+  - 대표값: session별 load p99 max 는 844.6/856.7/884.6 us,
+    open-loop p99 max 는 948.8/878.3/978.9 us, TCP HWM max 는 모두 2다.
+    9-session explicit runner envelope 는 load p99 max 935.6 us, open-loop p99 max 1077.4 us 로 기존 maxima 를 유지한다.
+  - 결정: D123으로 D082 explicit runner 3-date-root evidence 조건 충족을 기록하되,
+    warning-as-failure/CI latency gate 승격은 별도 정책 재평가로 분리했다.
+  - 검증: `--baseline-suite` 3회, `--summarize-baseline` 3회, date-level/runner-level `--summarize-baseline-history`를 실행했다.
+    새 baseline artifact 절대 경로 검색 매칭 없음, `git diff --check` 통과, solution build 경고 0/오류 0,
+    solution tests 355개 통과.
 
 - [x] RIO address-family-aware host selection 정책과 TCP IPv6 guard 를 구현했다.
   - 범위: `src/Hps.Transport.Rio/RioTransport.cs`,
