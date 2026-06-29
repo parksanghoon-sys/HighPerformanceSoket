@@ -9,13 +9,12 @@
 
 ## Current TODOs
 
-- [ ] runner/profile scoped envelope comparison Task 4 writer/Program wiring 을 구현한다.
+- [ ] runner/profile scoped envelope comparison command 구현 self-review 와 Phase 4 다음 실행 후보를 재평가한다.
   - 입력: `docs/superpowers/plans/2026-06-29-runner-profile-envelope-comparison.md`.
-  - 목표: envelope JSON/Markdown artifact writer 를 추가하고,
-    `--compare-baseline-envelope` CLI branch 를 reader/generator/writer 경로로 연결한다.
-  - 범위: `BaselineEnvelopeComparisonWriter`, `BaselineEnvelopeComparisonMarkdownWriter`, `Program`,
-    writer/program tests, root 상태 문서.
-  - 제외: warning-as-failure, CI hard gate, latency hard gate 승격.
+  - 목표: Task 1~4 구현이 D125와 계획의 범위를 만족하는지 대조하고,
+    다음 Phase 4 후보를 review/backlog 기준으로 재평가한다.
+  - 범위: envelope command 구현/테스트/spec/plan/root 상태 문서.
+  - 제외: 새 기능 구현, warning-as-failure, CI hard gate, latency hard gate 승격.
 
 ## Deferred Backlog
 
@@ -49,6 +48,23 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] runner/profile scoped envelope comparison Task 4 writer/Program wiring 을 구현했다.
+  - 범위: `BaselineEnvelopeComparisonWriter`, `BaselineEnvelopeComparisonMarkdownWriter`, `Program`,
+    `BaselineEnvelopeComparisonWriterTests`, `BaselineEnvelopeProgramTests`, root 상태 문서.
+  - 결과: envelope JSON/Markdown artifact writer 를 추가하고,
+    `--compare-baseline-envelope` CLI branch 를 reader/generator/writer 경로로 연결했다.
+  - 비고: D125 기준으로 envelope signal/mismatch 는 process failure 가 아니므로 artifact 생성 성공 시 exit code 0을 유지한다.
+  - Red: writer type 부재 `Assert.NotNull()` failure 2건, writer stub `NotSupportedException` failure 2건,
+    Program switch 미연결 exit code 2 failure 2건을 확인했다.
+  - Green: writer tests 4개, Program tests 2개, envelope 관련 tests 16개 통과.
+    실제 local runner artifact CLI smoke 도 exit code 0, JSON/Markdown 생성, envelope-compatible true,
+    envelope-signal-count 0으로 통과했다.
+  - 검증: `git diff --check` 통과, .NET 9.0.314 MSBuild 기준 solution build 통과
+    (`NU1900` vulnerability feed 조회 경고 1건), solution tests 378개 통과.
+    .NET SDK 10.0.203 기본 선택 시 BenchmarkDotNet transitive package metadata `CS0006`가 재현되어
+    SDK 선택 문제로 분리했다.
+  - 다음: 구현 self-review 와 Phase 4 다음 후보 재평가를 수행한다.
 
 - [x] runner/profile scoped envelope comparison Task 3 generator 를 구현했다.
   - 범위: `BaselineEnvelopeComparison*` model, `BaselineEnvelopeComparisonGenerator`,

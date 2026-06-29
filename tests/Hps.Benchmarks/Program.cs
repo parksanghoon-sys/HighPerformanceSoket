@@ -64,12 +64,45 @@ namespace Hps.Benchmarks
                 case BenchmarkCommand.SummarizeBaselineHistory:
                     return CompleteBaselineHistory(commandLine.HistoryInputRoot!, commandLine.HistoryOutputPath!, commandLine.HistoryMarkdownOutputPath);
 
+                case BenchmarkCommand.CompareBaselineEnvelope:
+                    return CompleteBaselineEnvelope(
+                        commandLine.EnvelopeCandidatePath!,
+                        commandLine.EnvelopeReferenceHistoryPath!,
+                        commandLine.EnvelopeOutputPath!,
+                        commandLine.EnvelopeMarkdownOutputPath);
+
                 case BenchmarkCommand.Help:
                     PrintUsage(Console.Out);
                     return SuccessExitCode;
 
                 default:
                     return UsageErrorExitCode;
+            }
+        }
+
+        private static int CompleteBaselineEnvelope(string candidatePath, string referenceHistoryPath, string envelopePath, string? envelopeMarkdownPath)
+        {
+            try
+            {
+                BaselineEnvelopeSource reference = BaselineEnvelopeSourceReader.Read(referenceHistoryPath);
+                BaselineEnvelopeSource candidate = BaselineEnvelopeSourceReader.Read(candidatePath);
+                BaselineEnvelopeComparison comparison = BaselineEnvelopeComparisonGenerator.Generate(reference, candidate);
+                BaselineEnvelopeComparisonWriter.Write(envelopePath, comparison);
+                if (envelopeMarkdownPath != null)
+                    WriteBaselineEnvelopeMarkdown(envelopeMarkdownPath, comparison);
+
+                Console.Out.WriteLine("baseline-envelope: {0}", envelopePath);
+                if (envelopeMarkdownPath != null)
+                    Console.Out.WriteLine("baseline-envelope-md: {0}", envelopeMarkdownPath);
+
+                Console.Out.WriteLine("envelope-compatible: {0}", comparison.EnvelopeCompatible ? "true" : "false");
+                Console.Out.WriteLine("envelope-signal-count: {0}", comparison.SignalCount);
+                return SuccessExitCode;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("baseline-envelope-error: {0}", ex.Message);
+                return ReportWriteFailedExitCode;
             }
         }
 
@@ -166,6 +199,19 @@ namespace Hps.Benchmarks
             {
                 Console.Error.WriteLine("baseline-history-error: {0}", ex.Message);
                 return ReportWriteFailedExitCode;
+            }
+        }
+
+        private static void WriteBaselineEnvelopeMarkdown(string path, BaselineEnvelopeComparison comparison)
+        {
+            string fullPath = Path.GetFullPath(path);
+            string? directory = Path.GetDirectoryName(fullPath);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
+            using (StreamWriter writer = new StreamWriter(fullPath, false))
+            {
+                BaselineEnvelopeComparisonMarkdownWriter.Write(writer, comparison);
             }
         }
 
