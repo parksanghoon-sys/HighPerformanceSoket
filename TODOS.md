@@ -14,7 +14,9 @@
   - 목표: `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`에서 test exit code, capability status,
     Linux actual TCP receive/send loopback 실행 여부를 확인한다.
   - 현재 상태: workflow 파일과 local build/test 검증은 완료됐지만, 원격 workflow 실행 artifact 는 아직 없다.
-  - blocker: `workflow_dispatch` 수동 실행 또는 원격 실행 결과가 필요하다.
+    2026-06-29 확인 기준 `git fetch origin master` 이후에도 로컬 `master`가 `origin/master`보다 24 commits ahead 이며,
+    `gh run list --workflow iouring-linux-contract.yml`은 원격 기본 브랜치에서 workflow 를 찾지 못한다.
+  - blocker: workflow commit 이 원격 기본 브랜치에 반영되고, `workflow_dispatch` 수동 실행 또는 원격 실행 결과가 필요하다.
   - 제외: artifact 확인 전 UDP pump/zero-copy 구현 착수.
 
 ## Deferred Backlog

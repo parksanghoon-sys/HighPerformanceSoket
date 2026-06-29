@@ -5,6 +5,23 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-29 (Codex - io_uring linux contract remote gate probe)
+
+### 작업 단위
+- 원격 `iouring-linux-contract` artifact 검토 가능 여부를 확인했다.
+
+### 변경 내용
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  원격 확인 결과를 반영했다. `git fetch origin master` 이후에도 로컬 `master`는 `origin/master`보다 24 commits ahead 이며,
+  `gh run list --workflow iouring-linux-contract.yml`은 원격 기본 브랜치에서 workflow 를 찾지 못했다.
+- D138 gate 는 유지한다. 원격 workflow commit 과 `workflow_dispatch` artifact 가 확인되기 전에는
+  UDP pump/zero-copy 구현으로 넘어가지 않는다.
+
+### 검증
+- `git fetch origin master` 통과.
+- `git status --short --branch`에서 `master...origin/master [ahead 24]`를 확인했다.
+- `gh run list --workflow iouring-linux-contract.yml`은 HTTP 404로 workflow 미반영 상태를 확인했다.
+
 ## 2026-06-29 (Codex - io_uring linux contract gate state)
 
 ### 작업 단위
