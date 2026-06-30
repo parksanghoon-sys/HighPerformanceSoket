@@ -1735,6 +1735,14 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   D144 기준으로 D143 bounded receive window native artifact gate 는 충족됐다.
 - 다음 산출물: D144 이후 io_uring 후속 후보를 재평가하고, fixed payload registration cache, zero-copy send,
   IPv6 direct io_uring UDP, default backend promotion 중 지금 열어도 되는 최소 설계 단위를 확정한다.
+- 후속 후보 재평가 결과: D145 기준으로 다음 구현 단위는 io_uring benchmark backend selector 다.
+  fixed receive registration 은 D143의 repost/handler ownership 경계와 충돌 가능성이 있고,
+  fixed payload registration cache/zero-copy/default promotion 은 benchmark evidence 없이 열기에는 범위가 크다.
+  따라서 기존 benchmark CLI 의 `--backend <saea|rio>`를 `--backend <saea|rio|iouring>`으로 확장해
+  TCP/UDP loopback raw report 를 `IoUringTransport`로 수집할 수 있게 하는 것을 먼저 수행한다.
+- 설계는 `docs/superpowers/specs/2026-06-30-iouring-benchmark-backend-selector-design.md`,
+  구현 계획은 `docs/superpowers/plans/2026-06-30-iouring-benchmark-backend-selector.md`에 있다.
+- 다음 실행 지점: 구현 계획 Task 1 parser/identity contract.
 
 ## 이번 작업에서 건드리지 않는 범위
 

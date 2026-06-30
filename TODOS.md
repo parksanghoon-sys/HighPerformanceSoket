@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] D144 이후 io_uring 후속 후보를 재평가하고 다음 설계 단위를 확정한다.
-  - 입력: D140 UDP one-deep native artifact, D143 receive window 구현, D144 bounded receive window Linux artifact.
-  - 목표: fixed payload registration cache, zero-copy send, IPv6 direct io_uring UDP, default backend promotion 중 지금 열어도 되는 최소 후속 단위를 evidence 기준으로 고른다.
-  - 기대 산출물: 후속 후보 비교, 제외 범위, 다음 TDD 구현 계획 또는 명시적 defer 결정을 담은 spec/decision.
-  - 제외: 후보 재평가 전 production 코드 변경.
+- [ ] io_uring benchmark backend selector 구현 계획 Task 1 parser/identity contract 를 TDD로 구현한다.
+  - 입력: D145, `docs/superpowers/plans/2026-06-30-iouring-benchmark-backend-selector.md`.
+  - 목표: `--backend iouring` parser 값과 `tcp/udp-loopback-iouring-v1` identity 를 먼저 고정한다.
+  - 기대 evidence: focused parser/identity Red-Green, 기존 parser/identity tests green.
+  - 제외: Task 1에서는 scenario runner transport factory 와 project reference wiring 을 열지 않는다.
 
 ## Deferred Backlog
 
@@ -47,6 +47,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D144 이후 io_uring 후속 후보를 재평가하고 다음 설계 단위를 확정했다.
+  - 범위: fixed payload registration cache, receive fixed buffer registration, zero-copy send,
+    IPv6 direct io_uring UDP, default backend promotion, benchmark backend selector.
+  - 결과: D145로 benchmark CLI `--backend iouring` selector 를 다음 구현 단위로 선택했다.
+  - 산출물: `docs/superpowers/specs/2026-06-30-iouring-benchmark-backend-selector-design.md`,
+    `docs/superpowers/plans/2026-06-30-iouring-benchmark-backend-selector.md`.
+  - 근거: D144는 contract gate 이지 성능 artifact 가 아니므로, 최적화나 default promotion 전에
+    TCP/UDP loopback raw benchmark 를 io_uring backend 로 남길 수 있어야 한다.
+  - 다음: 구현 계획 Task 1 parser/identity contract 를 TDD로 시작한다.
 
 - [x] 사용자 push 이후 `iouring-linux-contract` artifact 로 io_uring UDP bounded receive window 를 검토했다.
   - 범위: GitHub Actions run `28424009519`, artifact `iouring-linux-contract-2026-06-30-github-28424009519-1`.

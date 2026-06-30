@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D145 — D144 이후 다음 단위는 io_uring benchmark backend selector 로 성능 artifact 경로를 먼저 연다.
 - D144 — io_uring bounded UDP receive window Linux contract artifact 는 native path 검증 gate 를 충족했다.
 - D143 — io_uring UDP receive pump 는 bounded receive slot window 로 확장한다.
 - D142 — io_uring Linux contract artifact 는 UDP receive/send pump native 검증 gate 를 충족했다.

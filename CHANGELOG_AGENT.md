@@ -5,6 +5,22 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-30 (Codex - io_uring benchmark backend selector design)
+
+### 작업 단위
+- D144 이후 io_uring 후속 후보를 재평가하고 benchmark backend selector 를 다음 구현 단위로 설계했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-30-iouring-benchmark-backend-selector-design.md`:
+  fixed registration, zero-copy, IPv6, default promotion 후보를 비교하고 `--backend iouring`을 다음 단위로 선택했다.
+- `docs/superpowers/plans/2026-06-30-iouring-benchmark-backend-selector.md`:
+  parser/identity, scenario runner wiring, state docs/verification 3개 task 로 구현 계획을 작성했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D145로 io_uring benchmark backend selector 결정을 기록했다.
+
+### 결과
+- 다음 작업은 구현 계획 Task 1 parser/identity contract 를 TDD로 시작하는 것이다.
+
 ## 2026-06-30 (Codex - io_uring udp receive window artifact)
 
 ### 작업 단위
