@@ -1724,7 +1724,17 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - 최신 focused 검증: `IoUringUdpEndpointShapeTests` 8개 통과,
   `IoUringTransportUdpTests` 6개 통과,
   `Hps.Transport.IoUring.Tests` 55개 통과.
-- 다음 산출물: 사용자 push 이후 새 `iouring-linux-contract` artifact 검토.
+- 원격 artifact 검증: 2026-06-30에 최신 `master` HEAD
+  `c426e23532a169401407412567b234eae8981d20` 기준으로 `iouring-linux-contract` workflow 를
+  `workflow_dispatch` 실행했고, run `28424009519`가 success 로 완료됐다.
+  artifact `iouring-linux-contract-2026-06-30-github-28424009519-1` 기준 Ubuntu 24.04 x64 runner 에서
+  `io_uring capability status: Available`, test exit code 0,
+  TRX counters total 55 / executed 55 / passed 55 / failed 0 을 확인했다.
+  UDP receive/echo/endpoint diagnostics tests 와
+  `UdpReceive_WhenHandlerIsBlocked_PreservesWindowedDatagrams`가 capability available 상태에서 통과했으므로
+  D144 기준으로 D143 bounded receive window native artifact gate 는 충족됐다.
+- 다음 산출물: D144 이후 io_uring 후속 후보를 재평가하고, fixed payload registration cache, zero-copy send,
+  IPv6 direct io_uring UDP, default backend promotion 중 지금 열어도 되는 최소 설계 단위를 확정한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] 사용자 push 이후 `iouring-linux-contract` artifact 로 io_uring UDP bounded receive window 를 검토한다.
-  - 입력: 새 commit 이 원격 `master`에 반영된 뒤 실행한 GitHub Actions `iouring-linux-contract` run artifact.
-  - 목표: Linux available runner 에서 `UdpReceive_WhenHandlerIsBlocked_PreservesWindowedDatagrams`가 early-return 없이 통과하는지 확인한다.
-  - 기대 evidence: TRX counters failed 0, capability `Available`, UDP receive/echo/endpoint diagnostics/bounded window tests Passed.
-  - 제외: artifact 확인 전 fixed payload registration cache, zero-copy send, default backend promotion 구현으로 넘어가지 않는다.
+- [ ] D144 이후 io_uring 후속 후보를 재평가하고 다음 설계 단위를 확정한다.
+  - 입력: D140 UDP one-deep native artifact, D143 receive window 구현, D144 bounded receive window Linux artifact.
+  - 목표: fixed payload registration cache, zero-copy send, IPv6 direct io_uring UDP, default backend promotion 중 지금 열어도 되는 최소 후속 단위를 evidence 기준으로 고른다.
+  - 기대 산출물: 후속 후보 비교, 제외 범위, 다음 TDD 구현 계획 또는 명시적 defer 결정을 담은 spec/decision.
+  - 제외: 후보 재평가 전 production 코드 변경.
 
 ## Deferred Backlog
 
@@ -47,6 +47,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 사용자 push 이후 `iouring-linux-contract` artifact 로 io_uring UDP bounded receive window 를 검토했다.
+  - 범위: GitHub Actions run `28424009519`, artifact `iouring-linux-contract-2026-06-30-github-28424009519-1`.
+  - 결과: workflow conclusion success, job `io_uring contract (linux)` success, test exit code 0.
+  - evidence: TRX counters total 55 / executed 55 / passed 55 / failed 0 / error 0 / timeout 0.
+  - evidence: `IoUringCapabilityEvidenceTests` stdout 은 `io_uring capability status: Available`,
+    OS `Ubuntu 24.04.4 LTS`, architecture `X64`, process architecture `X64`를 기록했다.
+  - evidence: UDP receive/echo/endpoint diagnostics tests 와
+    `UdpReceive_WhenHandlerIsBlocked_PreservesWindowedDatagrams`가 Passed 였다.
+  - 의미: D143 bounded receive slot window 의 Linux native artifact gate 를 충족했다.
+  - 다음: D144 이후 io_uring 후속 후보를 재평가하고 다음 설계 단위를 확정한다.
 
 - [x] D142 이후 후속 후보를 재평가하고 io_uring UDP receive window 를 구현했다.
   - 범위: `docs/superpowers/specs/2026-06-30-iouring-udp-receive-window-design.md`,

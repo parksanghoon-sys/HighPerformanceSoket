@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D144 — io_uring bounded UDP receive window Linux contract artifact 는 native path 검증 gate 를 충족했다.
 - D143 — io_uring UDP receive pump 는 bounded receive slot window 로 확장한다.
 - D142 — io_uring Linux contract artifact 는 UDP receive/send pump native 검증 gate 를 충족했다.
 - D141 — io_uring backend 도 선택적 endpoint diagnostics snapshot surface 를 SAEA/RIO와 맞춘다.
