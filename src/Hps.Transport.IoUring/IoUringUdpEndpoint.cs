@@ -242,6 +242,7 @@ namespace Hps.Transport
             DrainPendingSends();
             _sendSignal.Release();
             _socket.Dispose();
+            _transport.UnregisterUdpEndpoint(this);
         }
 
         public void Dispose()

@@ -450,7 +450,7 @@ git commit -m "feat: add iouring udp endpoint resource"
 - Produces: `IoUringTransport.BindUdpAsync(...)` for IPv4 Linux available host
 - Produces: receive loop dispatch to `ITransportDatagramHandler`
 
-- [ ] **Step 1: Write the failing Linux-gated receive test**
+- [x] **Step 1: Write the failing Linux-gated receive test**
 
 Create `tests/Hps.Transport.IoUring.Tests/IoUringTransportUdpTests.cs`.
 
@@ -547,7 +547,7 @@ namespace Hps.Transport.IoUring.Tests
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails on Linux or remains skipped on Windows**
+- [x] **Step 2: Run test to verify it fails on Linux or remains skipped on Windows**
 
 Run:
 
@@ -557,7 +557,7 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected on Windows: pass by early return. Expected on Linux available host before implementation: failure from unsupported `BindUdpAsync`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Modify `IoUringTransport.cs`:
 
@@ -619,7 +619,7 @@ private async Task UdpReceiveLoopAsync(IoUringUdpEndpoint endpoint)
 }
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -629,7 +629,7 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected: Windows early return pass, Linux available host receive test pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src\Hps.Transport.IoUring\IoUringTransport.cs tests\Hps.Transport.IoUring.Tests\IoUringTransportTests.cs tests\Hps.Transport.IoUring.Tests\IoUringTransportUdpTests.cs

@@ -24,6 +24,7 @@ namespace Hps.Transport
         private readonly object _gate;
         private readonly List<IoUringConnectionListener> _listeners;
         private readonly List<TransportConnection> _connections;
+        private readonly List<IoUringUdpEndpoint> _udpEndpoints;
         private IoUringQueue? _queue;
         private IoUringOperationRegistry? _operationRegistry;
         private IoUringCompletionLoop? _completionLoop;
@@ -41,6 +42,7 @@ namespace Hps.Transport
             _gate = new object();
             _listeners = new List<IoUringConnectionListener>();
             _connections = new List<TransportConnection>();
+            _udpEndpoints = new List<IoUringUdpEndpoint>();
         }
 
         /// <inheritdoc />
@@ -148,7 +150,40 @@ namespace Hps.Transport
 
             cancellationToken.ThrowIfCancellationRequested();
             EnsureRunning();
-            throw CreateUnsupportedException();
+            EnsureUdpAvailable();
+
+            IoUringOperationRegistry registry;
+            IoUringCompletionLoop completionLoop;
+
+            lock (_gate)
+            {
+                if (_operationRegistry == null || _completionLoop == null)
+                    throw CreateUnsupportedException();
+
+                registry = _operationRegistry;
+                completionLoop = _completionLoop;
+            }
+
+            Socket? socket = CreateUdpSocket(localEndPoint);
+            IoUringUdpEndpoint? udpEndpoint = null;
+
+            try
+            {
+                socket.Bind(localEndPoint);
+                udpEndpoint = new IoUringUdpEndpoint(this, socket, registry, completionLoop);
+                RegisterUdpEndpoint(udpEndpoint);
+                StartUdpReceiveLoop(udpEndpoint);
+                socket = null;
+                return new ValueTask<IUdpEndpoint>(udpEndpoint);
+            }
+            finally
+            {
+                if (socket != null)
+                {
+                    udpEndpoint?.Dispose();
+                    socket.Dispose();
+                }
+            }
         }
 
         /// <inheritdoc />
@@ -171,6 +206,14 @@ namespace Hps.Transport
             lock (_gate)
             {
                 _listeners.Remove(listener);
+            }
+        }
+
+        internal void UnregisterUdpEndpoint(IoUringUdpEndpoint udpEndpoint)
+        {
+            lock (_gate)
+            {
+                _udpEndpoints.Remove(udpEndpoint);
             }
         }
 
@@ -226,6 +269,14 @@ namespace Hps.Transport
             }
         }
 
+        private void RegisterUdpEndpoint(IoUringUdpEndpoint udpEndpoint)
+        {
+            lock (_gate)
+            {
+                _udpEndpoints.Add(udpEndpoint);
+            }
+        }
+
         private void UnregisterConnection(TransportConnection connection)
         {
             lock (_gate)
@@ -247,6 +298,14 @@ namespace Hps.Transport
             _ = Task.Run(delegate()
             {
                 return SendLoopAsync(connection, resource);
+            });
+        }
+
+        private void StartUdpReceiveLoop(IoUringUdpEndpoint udpEndpoint)
+        {
+            _ = Task.Run(delegate()
+            {
+                return UdpReceiveLoopAsync(udpEndpoint);
             });
         }
 
@@ -313,6 +372,85 @@ namespace Hps.Transport
             ITransportReceiveHandler? receiveHandler = ReadReceiveHandlerSnapshot();
             if (receiveHandler != null)
                 receiveHandler.OnConnectionClosed(connection);
+        }
+
+        private async Task UdpReceiveLoopAsync(IoUringUdpEndpoint udpEndpoint)
+        {
+            RefCountedBuffer? datagram = null;
+
+            try
+            {
+                while (true)
+                {
+                    if (udpEndpoint.IsClosed || udpEndpoint.IsDisposed)
+                        return;
+
+                    datagram = udpEndpoint.ReceivePool.RentCounted();
+                    ArraySegment<byte> receiveSegment = GetRefCountedBlockSegment(datagram, 0, udpEndpoint.ReceivePool.BlockSize);
+                    if (receiveSegment.Array == null)
+                        throw new InvalidOperationException("io_uring UDP receive는 pinned byte[] 기반 RefCountedBuffer만 지원합니다.");
+
+                    IoUringOperationContext context = udpEndpoint.ReceiveContext;
+                    context.Reset(context.Token, IoUringOperationKind.UdpReceive);
+                    udpEndpoint.ReceiveMessage.PrepareReceive(receiveSegment.Array, receiveSegment.Offset, receiveSegment.Count);
+                    ValueTask<IoUringCompletion> wait = context.WaitAsync();
+
+                    bool submitted = udpEndpoint.Queue.TrySubmitReceiveMessage(
+                        udpEndpoint.SocketFileDescriptor,
+                        udpEndpoint.ReceiveMessage.MessageHeaderPointer,
+                        context.Token);
+                    if (!submitted)
+                        throw new SocketException((int)SocketError.NoBufferSpaceAvailable);
+
+                    IoUringCompletion completion = await wait.ConfigureAwait(false);
+                    if (completion.Result < 0)
+                        throw new SocketException(-completion.Result);
+                    if (completion.Result > receiveSegment.Count)
+                        throw new SocketException((int)SocketError.MessageSize);
+
+                    datagram.SetLength(completion.Result);
+                    EndPoint remoteEndPoint = udpEndpoint.ReceiveMessage.DecodeRemoteEndPoint();
+
+                    RefCountedBuffer ownedDatagram = datagram;
+                    datagram = null;
+                    DispatchDatagramReceived(udpEndpoint, remoteEndPoint, ownedDatagram);
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                datagram?.Release();
+            }
+            catch (SocketException)
+            {
+                datagram?.Release();
+                NotifyUdpEndpointClosed(udpEndpoint);
+            }
+            catch
+            {
+                datagram?.Release();
+                NotifyUdpEndpointClosed(udpEndpoint);
+            }
+        }
+
+        private void DispatchDatagramReceived(IoUringUdpEndpoint udpEndpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+        {
+            ITransportDatagramHandler? datagramHandler = ReadDatagramHandlerSnapshot();
+            if (datagramHandler == null)
+            {
+                datagram.Release();
+                return;
+            }
+
+            datagramHandler.OnDatagramReceived(udpEndpoint, remoteEndPoint, datagram);
+        }
+
+        private void NotifyUdpEndpointClosed(IoUringUdpEndpoint udpEndpoint)
+        {
+            ITransportDatagramHandler? datagramHandler = ReadDatagramHandlerSnapshot();
+            if (datagramHandler != null)
+                datagramHandler.OnDatagramEndpointClosed(udpEndpoint);
+
+            udpEndpoint.Close();
         }
 
         private async Task SendLoopAsync(TransportConnection connection, IoUringTcpConnectionResource resource)
@@ -435,6 +573,7 @@ namespace Hps.Transport
         {
             IoUringConnectionListener[] listeners;
             TransportConnection[] connections;
+            IoUringUdpEndpoint[] udpEndpoints;
             IoUringCompletionLoop? completionLoop;
             IoUringQueue? queue;
 
@@ -445,8 +584,10 @@ namespace Hps.Transport
 
                 listeners = _listeners.ToArray();
                 connections = _connections.ToArray();
+                udpEndpoints = _udpEndpoints.ToArray();
                 _listeners.Clear();
                 _connections.Clear();
+                _udpEndpoints.Clear();
 
                 completionLoop = _completionLoop;
                 queue = _queue;
@@ -460,6 +601,9 @@ namespace Hps.Transport
 
             for (int index = 0; index < connections.Length; index++)
                 connections[index].Close();
+
+            for (int index = 0; index < udpEndpoints.Length; index++)
+                udpEndpoints[index].Dispose();
 
             completionLoop?.Dispose();
             queue?.Dispose();
@@ -486,6 +630,18 @@ namespace Hps.Transport
             }
         }
 
+        private void EnsureUdpAvailable()
+        {
+            if (IoUringCapabilityProbe.GetStatus() != IoUringCapabilityStatus.Available)
+                throw CreateUnsupportedException();
+
+            lock (_gate)
+            {
+                if (_queue == null || _operationRegistry == null || _completionLoop == null)
+                    throw new NotSupportedException("io_uring UDP queue가 아직 초기화되지 않았습니다.");
+            }
+        }
+
         private static Socket CreateTcpSocket(EndPoint endPoint)
         {
             IPEndPoint? ipEndPoint = endPoint as IPEndPoint;
@@ -493,6 +649,17 @@ namespace Hps.Transport
                 throw new NotSupportedException("io_uring TCP v1은 IPEndPoint만 지원합니다.");
 
             return new Socket(ipEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        }
+
+        private static Socket CreateUdpSocket(EndPoint endPoint)
+        {
+            IPEndPoint? ipEndPoint = endPoint as IPEndPoint;
+            if (ipEndPoint == null)
+                throw new NotSupportedException("io_uring UDP v1은 IPEndPoint만 지원합니다.");
+            if (ipEndPoint.AddressFamily != AddressFamily.InterNetwork)
+                throw new NotSupportedException("io_uring UDP v1은 IPv4 IPEndPoint만 지원합니다.");
+
+            return new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         }
 
         private static NotSupportedException CreateUnsupportedException()

@@ -5,6 +5,29 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-30 (Codex - io_uring udp receive pump)
+
+### 작업 단위
+- Phase 6 io_uring UDP pump 구현 계획 Task 3 UDP Bind And Receive Pump 를 TDD로 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.IoUring/IoUringTransport.cs`:
+  IPv4 UDP `BindUdpAsync(...)`, endpoint 등록/해제, transport stop dispose, one-deep `recvmsg` receive loop 를 추가했다.
+- `src/Hps.Transport.IoUring/IoUringUdpEndpoint.cs`:
+  public close 시 transport endpoint 목록에서 제거되도록 연결했다.
+- `tests/Hps.Transport.IoUring.Tests/IoUringTransportUdpTests.cs`:
+  receive pump shape Red 와 Linux-gated UDP receive loopback 검증을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`, `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md`:
+  Task 3 완료와 Task 4 진입점을 반영했다.
+
+### 검증
+- Red: `IoUringTransportUdpTests` shape test 가 `_udpEndpoints`/receive pump 경계 부재로 실패.
+- Green: focused `IoUringTransportUdpTests` 2개 통과.
+- `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --no-build --no-restore -v minimal` 통과, 43개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 통과, 423개 통과.
+- `git diff --check` 통과.
+
 ## 2026-06-30 (Codex - io_uring udp endpoint resource)
 
 ### 작업 단위

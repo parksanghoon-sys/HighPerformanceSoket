@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 io_uring UDP pump 구현 계획 Task 3 UDP Bind And Receive Pump 를 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md` Task 3.
-  - 목표: `IoUringTransport.BindUdpAsync(...)`를 IPv4 io_uring UDP endpoint 생성 경로에 연결하고,
-    one-deep `recvmsg` receive loop 가 `ITransportDatagramHandler`로 datagram ownership 을 전달하게 한다.
-  - 제외: UDP send pump, fixed registration, zero-copy send, receive window depth 확장, default backend promotion.
+- [ ] Phase 6 io_uring UDP pump 구현 계획 Task 4 UDP Send Pump And Ownership 을 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md` Task 4.
+  - 목표: `IoUringTransport.TrySendTo(...)`와 one-deep `sendmsg` send loop 를 연결하고,
+    send completion/drop/close 경로에서 `TransportSendBuffer` ref ownership 을 정확히 반환한다.
+  - 제외: fixed registration, zero-copy send, receive window depth 확장, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +47,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 io_uring UDP pump 구현 계획 Task 3 UDP Bind And Receive Pump 를 TDD로 구현했다.
+  - 범위: `IoUringTransport`, `IoUringTransportUdpTests`.
+  - Red: `IoUringTransportUdpTests` shape test 가 `_udpEndpoints`/receive pump 경계 부재로 실패하는 것을 확인했다.
+  - Green: IPv4 UDP bind, endpoint 등록/해제, transport stop dispose, one-deep `recvmsg` receive loop,
+    datagram handler dispatch, receive failure close notify 를 추가했다.
+  - 검증: focused `IoUringTransportUdpTests` 2개 통과, `Hps.Transport.IoUring.Tests` 43개 통과,
+    solution build 경고 0/오류 0, solution tests 423개 통과, `git diff --check` 통과.
+  - 비고: Windows/non-Linux 에서는 capability gate 로 실제 native UDP loopback 이 early-return 한다.
+  - 다음: Task 4 UDP Send Pump And Ownership 을 시작한다.
 
 - [x] Phase 6 io_uring UDP pump 구현 계획 Task 2 UDP Endpoint Resource And Message Buffer 를 TDD로 구현했다.
   - 범위: `IoUringUdpMessageBuffer`, `IoUringUdpEndpoint`, `IoUringUdpEndpointShapeTests`.

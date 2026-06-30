@@ -1695,20 +1695,22 @@ default backend promotion 은 후속 설계로 남긴다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Phase 6 io_uring UDP pump 구현 계획 Task 3 UDP Bind And Receive Pump 를 TDD로 구현한다.
+다음 cycle 은 Phase 6 io_uring UDP pump 구현 계획 Task 4 UDP Send Pump And Ownership 을 TDD로 구현한다.
 
 - 범위: `src/Hps.Transport.IoUring/IoUringTransport.cs`,
-  새 `tests/Hps.Transport.IoUring.Tests/IoUringTransportUdpTests.cs`.
-- 검증: 먼저 Linux-gated UDP receive loopback Red 를 확인하고, Windows/non-Linux 에서는 capability early-return 을 유지한다.
-  Green 구현은 IPv4 UDP bind, endpoint registration, one-deep `recvmsg` receive loop, handler dispatch,
-  receive failure close notification 까지만 포함한다.
+  `tests/Hps.Transport.IoUring.Tests/IoUringTransportUdpTests.cs`,
+  `tests/Hps.Transport.IoUring.Tests/IoUringUdpEndpointShapeTests.cs`.
+- 검증: 먼저 Linux-gated UDP echo/send loopback 과 pending queue ownership 회귀 테스트를 추가한다.
+  Windows/non-Linux 에서는 capability early-return 을 유지하고, 로컬에서는 endpoint queue/drop/close ownership 을 deterministic 하게 검증한다.
+  Green 구현은 `TrySendTo(...)`, one-deep `sendmsg` send loop, completion/drop/close ref 반환까지만 포함한다.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
   `IoUringRegisteredBufferSet` fixed buffer registration owner boundary, SQE/CQE/enter ABI shape,
   operation registry/context, completion loop dispatch boundary, TCP listener/resource skeleton, receive/send pump shape 가 존재한다.
-- 현재 상태: Task 1 Native UDP Message Shape 와 Task 2 UDP Endpoint Resource And Message Buffer 는 완료됐다.
-  Task 2 focused `IoUringUdpEndpointShapeTests` 2개 통과를 확인했다.
-- 다음 산출물: UDP Bind And Receive Pump 구현 커밋.
+- 현재 상태: Task 1 Native UDP Message Shape, Task 2 UDP Endpoint Resource And Message Buffer,
+  Task 3 UDP Bind And Receive Pump 는 완료됐다.
+  Task 3 focused `IoUringTransportUdpTests` 2개, `Hps.Transport.IoUring.Tests` 43개, solution build 경고 0/오류 0을 확인했다.
+- 다음 산출물: UDP Send Pump And Ownership 구현 커밋.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -1718,5 +1720,5 @@ default backend promotion 은 후속 설계로 남긴다.
 - latency hard gate 또는 warning-as-failure 구현
 - `BaselineSummaryGenerator` threshold 상수 즉시 변경
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
-- io_uring UDP send pump
+- fixed registration, zero-copy send, receive window depth 확장
 - stable identity 인증/권한 검증, persistence, payload replay
