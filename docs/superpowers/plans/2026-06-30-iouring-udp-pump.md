@@ -294,7 +294,7 @@ git commit -m "feat: add iouring udp message shape"
 - Produces: `IoUringUdpMessageBuffer.PrepareReceive(...)`, `PrepareSend(...)`, `MessageHeaderPointer`
 - Produces: `IoUringUdpEndpoint.TryAcceptSend(...)`, `TryBeginSend(...)`, `CreateSnapshot()`, `Close()`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/Hps.Transport.IoUring.Tests/IoUringUdpEndpointShapeTests.cs`.
 
@@ -373,7 +373,7 @@ namespace Hps.Transport.IoUring.Tests
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -383,7 +383,7 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected: failure because `IoUringUdpEndpoint` and `IoUringUdpMessageBuffer` do not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `IoUringUdpMessageBuffer.cs` with pinned header/iovec/sockaddr arrays. Use `GCHandle` fields and release them in `Dispose()`.
 
@@ -419,7 +419,7 @@ internal bool IsClosed { get; }
 internal bool IsDisposed { get; }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run:
 
@@ -429,7 +429,7 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected: endpoint shape tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src\Hps.Transport.IoUring\IoUringUdpMessageBuffer.cs src\Hps.Transport.IoUring\IoUringUdpEndpoint.cs tests\Hps.Transport.IoUring.Tests\IoUringUdpEndpointShapeTests.cs

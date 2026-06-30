@@ -1695,19 +1695,20 @@ default backend promotion 은 후속 설계로 남긴다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Phase 6 io_uring UDP pump 구현 계획 Task 2 UDP Endpoint Resource And Message Buffer 를 TDD로 구현한다.
+다음 cycle 은 Phase 6 io_uring UDP pump 구현 계획 Task 3 UDP Bind And Receive Pump 를 TDD로 구현한다.
 
-- 범위: 새 `IoUringUdpMessageBuffer.cs`, 새 `IoUringUdpEndpoint.cs`,
-  새 `tests/Hps.Transport.IoUring.Tests/IoUringUdpEndpointShapeTests.cs`.
-- 검증: 먼저 endpoint/resource shape 와 close drain ownership Red 를 확인하고, message header/iovec/sockaddr pin lifetime,
-  endpoint pending send queue, drop-oldest, close drain 을 최소 구현으로 green 만든다.
+- 범위: `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+  새 `tests/Hps.Transport.IoUring.Tests/IoUringTransportUdpTests.cs`.
+- 검증: 먼저 Linux-gated UDP receive loopback Red 를 확인하고, Windows/non-Linux 에서는 capability early-return 을 유지한다.
+  Green 구현은 IPv4 UDP bind, endpoint registration, one-deep `recvmsg` receive loop, handler dispatch,
+  receive failure close notification 까지만 포함한다.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
   `IoUringRegisteredBufferSet` fixed buffer registration owner boundary, SQE/CQE/enter ABI shape,
   operation registry/context, completion loop dispatch boundary, TCP listener/resource skeleton, receive/send pump shape 가 존재한다.
-- 현재 상태: Task 1 Native UDP Message Shape 는 완료됐다.
-  focused `IoUringUdpMessageShapeTests` 2개, `Hps.Transport.IoUring.Tests` 39개, solution build 경고 0/오류 0을 확인했다.
-- 다음 산출물: UDP Endpoint Resource And Message Buffer 구현 커밋.
+- 현재 상태: Task 1 Native UDP Message Shape 와 Task 2 UDP Endpoint Resource And Message Buffer 는 완료됐다.
+  Task 2 focused `IoUringUdpEndpointShapeTests` 2개 통과를 확인했다.
+- 다음 산출물: UDP Bind And Receive Pump 구현 커밋.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -1717,5 +1718,5 @@ default backend promotion 은 후속 설계로 남긴다.
 - latency hard gate 또는 warning-as-failure 구현
 - `BaselineSummaryGenerator` threshold 상수 즉시 변경
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
-- io_uring UDP pump 구현 자체
+- io_uring UDP send pump
 - stable identity 인증/권한 검증, persistence, payload replay

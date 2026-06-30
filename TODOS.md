@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 io_uring UDP pump 구현 계획 Task 2 UDP Endpoint Resource And Message Buffer 를 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md` Task 2.
-  - 목표: `IoUringUdpMessageBuffer`와 `IoUringUdpEndpoint`를 추가해 message header/iovec/sockaddr pin 수명,
-    endpoint pending send queue, close drain ownership 을 구현 전 shape/ownership test 로 고정한다.
-  - 제외: `BindUdpAsync` 연결, receive loop, send loop, fixed registration, zero-copy, default backend promotion.
+- [ ] Phase 6 io_uring UDP pump 구현 계획 Task 3 UDP Bind And Receive Pump 를 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md` Task 3.
+  - 목표: `IoUringTransport.BindUdpAsync(...)`를 IPv4 io_uring UDP endpoint 생성 경로에 연결하고,
+    one-deep `recvmsg` receive loop 가 `ITransportDatagramHandler`로 datagram ownership 을 전달하게 한다.
+  - 제외: UDP send pump, fixed registration, zero-copy send, receive window depth 확장, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +47,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 io_uring UDP pump 구현 계획 Task 2 UDP Endpoint Resource And Message Buffer 를 TDD로 구현했다.
+  - 범위: `IoUringUdpMessageBuffer`, `IoUringUdpEndpoint`, `IoUringUdpEndpointShapeTests`.
+  - Red: `IoUringUdpEndpointShapeTests` 2개가 endpoint/message buffer type 부재로 실패하는 것을 확인했다.
+  - Green: UDP endpoint resource, pinned message header/iovec/sockaddr scratch, receive pool,
+    pending send queue, close drain ownership 을 추가했다.
+  - 검증: focused `IoUringUdpEndpointShapeTests` 2개 통과, `Hps.Transport.IoUring.Tests` 41개 통과,
+    solution build 경고 0/오류 0, solution tests 421개 통과, `git diff --check` 통과.
+  - 다음: Task 3 UDP Bind And Receive Pump 를 시작한다.
 
 - [x] Phase 6 io_uring UDP pump 설계와 TDD 구현 계획을 작성했다.
   - 범위: D139 이후 io_uring UDP bind/receive/send pump 후속 후보.
