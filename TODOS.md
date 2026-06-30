@@ -9,17 +9,13 @@
 
 ## Current TODOs
 
-- [ ] 원격 `iouring-linux-contract` workflow 실행 결과로 io_uring UDP pump artifact 를 검토한다.
-  - 입력: 사용자 push 이후 GitHub Actions `iouring-linux-contract` run artifact.
-  - 목표: UDP receive/send loopback tests 가 Linux available path 에서 early-return 없이 통과하는지 확인한다.
-  - 현재 상태: 로컬 Windows 검증은 shape/ownership과 capability-gated early-return 까지 완료됐다.
-    추가로 `TrySendTo` 성공/거절 소유권, endpoint drop/high-watermark diagnostics,
-    `IoUringUdpMessageBuffer` send metadata/Dispose 경계를 51개 focused io_uring tests 로 보강했다.
-    이후 D141로 `IoUringTransport`도 `ITransportEndpointDiagnostics`를 구현해 SAEA/RIO와 같은 endpoint snapshot surface 를 제공한다.
-    2026-06-30 재확인 기준 최신 원격 run `28411459951`은 `headSha=a4d42ddfd62f750551520c33ea756151f524d332`에서 실행됐고,
-    현재 로컬 브랜치의 io_uring UDP pump/계약 보강/endpoint diagnostics 커밋을 포함하지 않는다.
-    실제 Linux `recvmsg`/`sendmsg` syscall path 는 원격 artifact 로 확인해야 한다.
-  - 제외: artifact 검토 전 fixed registration, zero-copy send, receive window depth 확장, default backend promotion.
+- [ ] io_uring UDP artifact gate 이후 후속 후보를 재평가한다.
+  - 입력: D140/D141/D142, 최신 `iouring-linux-contract` run `28421177310`,
+    `docs/superpowers/specs/2026-06-30-iouring-udp-pump-design.md`.
+  - 목표: IPv4 one-deep UDP pump 가 Linux artifact 로 통과한 뒤 다음에 열 수 있는 범위를 정한다.
+  - 후보: receive window depth 확장, fixed payload registration cache, zero-copy send, default backend promotion,
+    또는 추가 local contract hardening.
+  - 제외: 이 재평가 없이 바로 최적화/승격 구현으로 들어가지 않는다.
 
 ## Deferred Backlog
 
@@ -53,6 +49,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 원격 `iouring-linux-contract` workflow 실행 결과로 io_uring UDP pump artifact 를 검토했다.
+  - 범위: GitHub Actions run `28421177310`, artifact `iouring-linux-contract-2026-06-30-github-28421177310-1`.
+  - 결과: workflow conclusion success, job `io_uring contract (linux)` success, test exit code 0.
+  - evidence: TRX counters total 52 / executed 52 / passed 52 / failed 0 / error 0 / timeout 0.
+  - evidence: `IoUringCapabilityEvidenceTests` stdout 은 `io_uring capability status: Available`,
+    OS `Ubuntu 24.04.4 LTS`, architecture `X64`, process architecture `X64`를 기록했다.
+  - evidence: UDP 핵심 경로인 `UdpReceive_WhenIoUringAvailable_DeliversOwnedRefCountedBuffer`와
+    `UdpEcho_WhenIoUringAvailable_QueuesResponseAndClientReceivesPayload`가 Passed 였다.
+  - 의미: D140 UDP v1의 Linux native `recvmsg`/`sendmsg` artifact gate 를 충족했다.
+  - 다음: artifact gate 이후 후속 후보를 별도 설계 단위로 재평가한다.
 
 - [x] io_uring endpoint diagnostics snapshot surface 를 SAEA/RIO와 맞췄다.
   - 범위: `src/Hps.Transport.IoUring/IoUringTransport.cs`,

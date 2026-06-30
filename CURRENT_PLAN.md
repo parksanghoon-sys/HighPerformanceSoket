@@ -1698,15 +1698,23 @@ default backend promotion 은 후속 설계로 남긴다.
 추가 self-review 에서 `IoUringUdpEndpoint.CreateSnapshot()`이 transport-level
 `ITransportEndpointDiagnostics` surface 에 연결되지 않은 gap 을 발견했고,
 D141 기준으로 SAEA/RIO와 같은 endpoint snapshot surface 를 io_uring backend 에도 연결했다.
+2026-06-30에는 최신 `master` HEAD `ff4421d5dd5544f686f3eb87ee67b743d4c36746` 기준으로
+`iouring-linux-contract` workflow 를 `workflow_dispatch` 실행했고, run `28421177310`이 success 로 완료됐다.
+artifact `iouring-linux-contract-2026-06-30-github-28421177310-1` 기준 Ubuntu 24.04 x64 runner 에서
+`io_uring capability status: Available`, test exit code 0, TRX counters total 52 / passed 52 / failed 0 을 확인했다.
+UDP receive/echo tests 와 endpoint diagnostics test 가 capability available 상태에서 통과했으므로
+D142 기준으로 D140 UDP pump native artifact gate 는 충족됐다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 의 핵심 검증 축은 사용자 push 이후 원격 `iouring-linux-contract` workflow artifact 로 io_uring UDP pump 를 검토하는 것이다.
-현재 로컬 cycle 에서는 artifact 대기 중에도 가능한 UDP ownership/metadata contract 를 테스트로 보강했다.
+다음 cycle 의 핵심 작업은 D142 이후 후속 후보를 재평가하는 것이다.
+이제 artifact gate 는 통과했으므로, fixed registration, zero-copy send, receive window depth 확장,
+default backend promotion 중 무엇을 열지 바로 구현하지 말고 먼저 설계 단위로 판단한다.
 
-- 범위: GitHub Actions `iouring-linux-contract` run artifact 의 `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`.
-- 검증: `IoUringCapabilityEvidenceTests`가 `Available`을 기록하는 Linux runner 에서
-  UDP receive/send loopback tests 가 early-return 없이 통과했는지 확인한다.
+- 범위: D140/D141/D142, `docs/superpowers/specs/2026-06-30-iouring-udp-pump-design.md`,
+  `Hps.Transport.IoUring` UDP/TCP pump 현재 구현.
+- 검증 기준: 다음 후보가 실제 성능/소유권/수명 리스크를 줄이는지, 기존 one-deep IPv4 UDP pump boundary 를 깨지 않는지,
+  필요한 경우 새 Linux artifact gate 또는 local contract test 로 검증 가능한지 확인한다.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
   `IoUringRegisteredBufferSet` fixed buffer registration owner boundary, SQE/CQE/enter ABI shape,
@@ -1722,11 +1730,11 @@ D141 기준으로 SAEA/RIO와 같은 endpoint snapshot surface 를 io_uring back
   transport registry 의 TCP connection/UDP endpoint snapshot 을 반환한다.
   Red: endpoint diagnostics cast 실패를 확인했고, Green: focused diagnostics test 1개와
   `Hps.Transport.IoUring.Tests` 52개 통과를 확인했다.
-- 현재 blocker: 2026-06-30 재확인 기준 원격 `iouring-linux-contract` 최신 run `28411459951`은
-  `headSha=a4d42ddfd62f750551520c33ea756151f524d332`에서 실행됐다.
-  현재 로컬 브랜치에는 이 run 이후의 io_uring UDP pump/로컬 계약 보강/endpoint diagnostics 커밋이 있으므로,
-  해당 artifact 는 현재 UDP pump 전체 상태를 포함하지 않는다.
-- 다음 산출물: 원격 Linux UDP pump artifact 검토 결과 문서/결정 업데이트.
+- 현재 상태: run `28421177310`의 artifact 는 현재 HEAD `ff4421d5dd5544f686f3eb87ee67b743d4c36746`에서 실행됐고,
+  `UdpReceive_WhenIoUringAvailable_DeliversOwnedRefCountedBuffer`,
+  `UdpEcho_WhenIoUringAvailable_QueuesResponseAndClientReceivesPayload`,
+  `GetEndpointSnapshots_WhenUdpEndpointIsRegistered_ReturnsUdpSnapshotAndRemovesItAfterClose`가 모두 Passed 이다.
+- 다음 산출물: io_uring UDP artifact gate 이후 후속 후보 재평가 설계 문서.
 
 ## 이번 작업에서 건드리지 않는 범위
 
