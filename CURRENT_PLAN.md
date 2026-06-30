@@ -1686,22 +1686,27 @@ run `28411459951`이 success 로 완료됐다. artifact `iouring-linux-contract-
 Ubuntu 24.04 x64 runner 에서 `io_uring capability status: Available`, test exit code 0,
 TRX counters total 37 / passed 37 / failed 0 을 확인했다.
 TCP receive/send loopback tests 는 capability available 상태에서 early-return 없이 통과했으므로 D138 gate 를 충족한다(D139).
+Phase 6 io_uring UDP pump 설계와 구현 계획도 작성했다.
+설계는 `docs/superpowers/specs/2026-06-30-iouring-udp-pump-design.md`,
+구현 계획은 `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md`에 있다.
+D140 기준 UDP v1은 IPv4 one-deep `recvmsg`/`sendmsg` pump 로 제한하고,
+IPv6 direct io_uring UDP, receive window depth 2 이상, fixed payload registration cache, zero-copy send,
+default backend promotion 은 후속 설계로 남긴다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Phase 6 io_uring UDP pump 설계와 TDD 구현 계획을 작성한다.
+다음 cycle 은 Phase 6 io_uring UDP pump 구현 계획 Task 1 Native UDP Message Shape 를 TDD로 구현한다.
 
-- 범위: `src/Hps.Transport.IoUring/`의 UDP endpoint bind/receive/send pump boundary,
-  `tests/Hps.Transport.IoUring.Tests/`의 Linux-gated UDP loopback 및 ownership tests.
-- 검증: 설계 단계에서는 D137/D139 정합성, SAEA/RIO UDP 선례, fixed registration/zero-copy/default promotion 제외 범위,
-  TDD task 분해를 확인한다.
+- 범위: `src/Hps.Transport.IoUring/IoUringNative.cs`, `IoUringQueue.cs`, `IoUringOperationKind.cs`,
+  새 `IoUringSockaddr.cs`, 새 `tests/Hps.Transport.IoUring.Tests/IoUringUdpMessageShapeTests.cs`.
+- 검증: 먼저 shape/unit Red 를 확인하고, `IORING_OP_RECVMSG`/`IORING_OP_SENDMSG`, `IoUringMessageHeader`,
+  IPv4 sockaddr encode/decode, queue message submit helper 를 최소 구현으로 green 만든다.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
   `IoUringRegisteredBufferSet` fixed buffer registration owner boundary, SQE/CQE/enter ABI shape,
   operation registry/context, completion loop dispatch boundary, TCP listener/resource skeleton, receive/send pump shape 가 존재한다.
-- 현재 제한: UDP endpoint pump 는 아직 설계/구현되지 않았다.
-- 다음 산출물: io_uring UDP pump design spec 과 구현 plan. 첫 구현은 UDP datagram pump 로 제한하고,
-  fixed payload registration cache, zero-copy send 최적화, default backend promotion 은 후속으로 둔다.
+- 현재 제한: UDP endpoint pump 는 설계/계획만 완료됐고 구현은 아직 시작하지 않았다.
+- 다음 산출물: Native UDP Message Shape 구현 커밋.
 
 ## 이번 작업에서 건드리지 않는 범위
 

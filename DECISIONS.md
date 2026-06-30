@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D140 — io_uring UDP v1은 IPv4 one-deep recvmsg/sendmsg pump 로 제한한다.
 - D139 — io_uring Linux contract artifact 는 TCP receive/send pump native 검증 gate 를 충족했다.
 - D138 — io_uring 후속 구현은 UDP/zero-copy 최적화 전에 Linux contract evidence gate 를 먼저 둔다.
 - D137 — io_uring TCP-first pump 구현은 shared queue/completion loop 와 공통 TransportConnection send queue 로 수락한다.

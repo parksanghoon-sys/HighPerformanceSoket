@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 io_uring UDP pump 설계와 TDD 구현 계획을 작성한다.
-  - 입력: D139 Linux contract artifact, D137 TCP pump boundary, D135 native wrapper boundary.
-  - 목표: UDP endpoint bind/receive/send pump 를 어떤 최소 단위로 나눌지 정하고,
-    fixed registration/zero-copy/default promotion 과 분리된 첫 구현 범위를 확정한다.
-  - 제외: fixed payload registration cache, default backend promotion, CI hard gate, UDP reliability/ordering.
+- [ ] Phase 6 io_uring UDP pump 구현 계획 Task 1 Native UDP Message Shape 를 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md` Task 1.
+  - 목표: `IORING_OP_RECVMSG`/`IORING_OP_SENDMSG`, Linux `msghdr` shape, IPv4 sockaddr helper,
+    queue message submit helper 를 shape/unit test 로 고정한다.
+  - 제외: endpoint bind, receive loop, send loop, fixed registration, zero-copy, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +47,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 io_uring UDP pump 설계와 TDD 구현 계획을 작성했다.
+  - 범위: D139 이후 io_uring UDP bind/receive/send pump 후속 후보.
+  - 결과: `docs/superpowers/specs/2026-06-30-iouring-udp-pump-design.md`와
+    `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md`를 작성했다.
+  - 결정: D140으로 UDP v1은 IPv4 one-deep `recvmsg`/`sendmsg` pump 로 제한했다.
+  - 제외: IPv6 direct io_uring UDP, receive window depth 2 이상, fixed payload registration cache,
+    zero-copy send, default backend promotion.
+  - 다음: 구현 계획 Task 1 Native UDP Message Shape 를 TDD로 시작한다.
 
 - [x] 원격 `iouring-linux-contract` workflow 실행 결과 artifact 를 검토했다.
   - 범위: GitHub Actions run `28411459951`, artifact `iouring-linux-contract-2026-06-30-github-28411459951-1`.

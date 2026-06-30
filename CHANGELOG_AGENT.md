@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-30 (Codex - io_uring udp pump design)
+
+### 작업 단위
+- Phase 6 io_uring UDP pump 설계와 TDD 구현 계획을 작성했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-06-30-iouring-udp-pump-design.md`:
+  D139 이후 첫 UDP 구현을 IPv4 one-deep `recvmsg`/`sendmsg` pump 로 제한하는 설계를 작성했다.
+- `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md`:
+  Native UDP message shape, endpoint resource, receive pump, send pump, state docs 의 5개 task 로 구현 계획을 작성했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D140을 추가해 IPv4 one-deep UDP v1 boundary 를 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 구현 계획 Task 1 Native UDP Message Shape 로 갱신했다.
+
+### 검증
+- spec/plan self-review 로 D137/D139 정합성, SAEA/RIO UDP 선례, excluded scope 를 확인했다.
+- 다음 검증은 Task 1 Red test 부터 시작한다.
+
 ## 2026-06-30 (Codex - io_uring linux contract artifact review)
 
 ### 작업 단위
