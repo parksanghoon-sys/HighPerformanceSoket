@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-30 (Codex - io_uring udp message shape)
+
+### 작업 단위
+- Phase 6 io_uring UDP pump 구현 계획 Task 1 Native UDP Message Shape 를 TDD로 구현했다.
+
+### 변경 내용
+- `src/Hps.Transport.IoUring/IoUringNative.cs`:
+  `IORING_OP_RECVMSG`, `IORING_OP_SENDMSG`, Linux `IoUringMessageHeader` shape 를 추가했다.
+- `src/Hps.Transport.IoUring/IoUringQueue.cs`:
+  `TrySubmitReceiveMessage`, `TrySubmitSendMessage` helper 를 추가했다.
+- `src/Hps.Transport.IoUring/IoUringOperationKind.cs`:
+  UDP receive/send operation kind 를 추가했다.
+- `src/Hps.Transport.IoUring/IoUringSockaddr.cs`:
+  IPv4 sockaddr encode/decode helper 를 추가했다.
+- `tests/Hps.Transport.IoUring.Tests/IoUringUdpMessageShapeTests.cs`:
+  UDP message shape 와 IPv4 sockaddr roundtrip 을 검증한다.
+- `CURRENT_PLAN.md`, `TODOS.md`, `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md`:
+  Task 1 완료와 Task 2 진입점을 반영했다.
+
+### 검증
+- Red: `IoUringUdpMessageShapeTests` 2개가 missing type/member 로 실패.
+- Green: focused `IoUringUdpMessageShapeTests` 2개 통과.
+- `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --no-build --no-restore -v minimal` 통과, 39개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 통과, 경고 0/오류 0.
+
 ## 2026-06-30 (Codex - io_uring udp pump design)
 
 ### 작업 단위

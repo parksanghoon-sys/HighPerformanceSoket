@@ -10,6 +10,8 @@ namespace Hps.Transport
     {
         Receive = 1,
         Send = 2,
-        Accept = 3
+        Accept = 3,
+        UdpReceive = 4,
+        UdpSend = 5
     }
 }

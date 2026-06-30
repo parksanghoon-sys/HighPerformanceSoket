@@ -198,6 +198,16 @@ namespace Hps.Transport
             return true;
         }
 
+        internal bool TrySubmitReceiveMessage(int fileDescriptor, IntPtr messageHeader, ulong token)
+        {
+            return TrySubmitMessage(fileDescriptor, messageHeader, token, IoUringNative.OperationReceiveMessage);
+        }
+
+        internal bool TrySubmitSendMessage(int fileDescriptor, IntPtr messageHeader, ulong token)
+        {
+            return TrySubmitMessage(fileDescriptor, messageHeader, token, IoUringNative.OperationSendMessage);
+        }
+
         internal unsafe bool TryDequeueCompletion(out IoUringCompletion completion)
         {
             ThrowIfDisposed();
@@ -222,6 +232,36 @@ namespace Hps.Transport
 
             completion = new IoUringCompletion(entry->UserData, entry->Result, entry->Flags);
             Volatile.Write(ref *headPointer, head + 1);
+            return true;
+        }
+
+        private unsafe bool TrySubmitMessage(int fileDescriptor, IntPtr messageHeader, ulong token, byte opcode)
+        {
+            if (fileDescriptor < 0)
+                throw new ArgumentOutOfRangeException(nameof(fileDescriptor), "socket file descriptor가 유효하지 않습니다.");
+            if (messageHeader == IntPtr.Zero)
+                throw new ArgumentOutOfRangeException(nameof(messageHeader), "message header pointer는 0일 수 없습니다.");
+            if (token == 0)
+                throw new ArgumentOutOfRangeException(nameof(token), "io_uring user_data token은 0을 사용할 수 없습니다.");
+
+            ThrowIfDisposed();
+
+            lock (_submissionGate)
+            {
+                IoUringSubmissionQueueEntry* submission = TryAcquireSubmissionEntry();
+                if (submission == null)
+                    return false;
+
+                *submission = default(IoUringSubmissionQueueEntry);
+                submission->Opcode = opcode;
+                submission->FileDescriptor = fileDescriptor;
+                submission->Address = unchecked((ulong)messageHeader.ToInt64());
+                submission->Length = 1;
+                submission->UserData = token;
+                PublishSubmissionEntry(submission);
+            }
+
+            IoUringNative.Enter(FileDescriptor, 1, 0, 0);
             return true;
         }
 

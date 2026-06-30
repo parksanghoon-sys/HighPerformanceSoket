@@ -61,7 +61,7 @@
 - Produces: `IoUringSockaddr.EncodeIPv4(IPEndPoint endPoint, byte[] block)` and `IoUringSockaddr.DecodeIPv4(byte[] block, int length)`
 - Consumes: existing `IoUringQueue.TryAcquireSubmissionEntry`, `IoUringNative.Enter`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/Hps.Transport.IoUring.Tests/IoUringUdpMessageShapeTests.cs`.
 
@@ -129,7 +129,7 @@ namespace Hps.Transport.IoUring.Tests
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -139,7 +139,7 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected: failure from missing `IoUringMessageHeader`, opcode fields, queue methods, or sockaddr helper.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add to `IoUringNative.cs`:
 
@@ -263,7 +263,7 @@ namespace Hps.Transport
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run:
 
@@ -273,7 +273,7 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected: `IoUringUdpMessageShapeTests` pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src\Hps.Transport.IoUring\IoUringNative.cs src\Hps.Transport.IoUring\IoUringQueue.cs src\Hps.Transport.IoUring\IoUringOperationKind.cs src\Hps.Transport.IoUring\IoUringSockaddr.cs tests\Hps.Transport.IoUring.Tests\IoUringUdpMessageShapeTests.cs

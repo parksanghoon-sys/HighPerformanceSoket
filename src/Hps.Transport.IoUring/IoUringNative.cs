@@ -16,6 +16,8 @@ namespace Hps.Transport
         internal const ulong SqesOffset = 0x10000000UL;
         internal const int CompletionQueueEntrySize = 16;
         internal const int SubmissionQueueEntrySize = 64;
+        internal const byte OperationSendMessage = 9;
+        internal const byte OperationReceiveMessage = 10;
         internal const byte OperationSend = 26;
         internal const byte OperationReceive = 27;
         internal const uint EnterGetEvents = 0x1;
@@ -257,6 +259,20 @@ namespace Hps.Transport
     {
         internal IntPtr BaseAddress;
         internal UIntPtr Length;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct IoUringMessageHeader
+    {
+        internal IntPtr Name;
+        internal uint NameLength;
+        internal uint Reserved0;
+        internal IntPtr Iov;
+        internal UIntPtr IovLength;
+        internal IntPtr Control;
+        internal UIntPtr ControlLength;
+        internal int Flags;
+        internal int Reserved1;
     }
 
     [StructLayout(LayoutKind.Sequential)]

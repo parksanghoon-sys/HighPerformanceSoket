@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 io_uring UDP pump 구현 계획 Task 1 Native UDP Message Shape 를 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md` Task 1.
-  - 목표: `IORING_OP_RECVMSG`/`IORING_OP_SENDMSG`, Linux `msghdr` shape, IPv4 sockaddr helper,
-    queue message submit helper 를 shape/unit test 로 고정한다.
-  - 제외: endpoint bind, receive loop, send loop, fixed registration, zero-copy, default backend promotion.
+- [ ] Phase 6 io_uring UDP pump 구현 계획 Task 2 UDP Endpoint Resource And Message Buffer 를 TDD로 구현한다.
+  - 입력: `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md` Task 2.
+  - 목표: `IoUringUdpMessageBuffer`와 `IoUringUdpEndpoint`를 추가해 message header/iovec/sockaddr pin 수명,
+    endpoint pending send queue, close drain ownership 을 구현 전 shape/ownership test 로 고정한다.
+  - 제외: `BindUdpAsync` 연결, receive loop, send loop, fixed registration, zero-copy, default backend promotion.
 
 ## Deferred Backlog
 
@@ -56,6 +56,15 @@
   - 제외: IPv6 direct io_uring UDP, receive window depth 2 이상, fixed payload registration cache,
     zero-copy send, default backend promotion.
   - 다음: 구현 계획 Task 1 Native UDP Message Shape 를 TDD로 시작한다.
+
+- [x] Phase 6 io_uring UDP pump 구현 계획 Task 1 Native UDP Message Shape 를 TDD로 구현했다.
+  - 범위: `IoUringNative`, `IoUringQueue`, `IoUringOperationKind`, `IoUringSockaddr`, `IoUringUdpMessageShapeTests`.
+  - Red: `IoUringUdpMessageShapeTests` 2개가 missing type/member 로 실패하는 것을 확인했다.
+  - Green: `IORING_OP_RECVMSG`/`IORING_OP_SENDMSG`, Linux `IoUringMessageHeader`,
+    queue message submit helper, IPv4 sockaddr encode/decode helper 를 추가했다.
+  - 검증: focused `IoUringUdpMessageShapeTests` 2개 통과,
+    `Hps.Transport.IoUring.Tests` 39개 통과, solution build 경고 0/오류 0.
+  - 다음: Task 2 UDP Endpoint Resource And Message Buffer 를 시작한다.
 
 - [x] 원격 `iouring-linux-contract` workflow 실행 결과 artifact 를 검토했다.
   - 범위: GitHub Actions run `28411459951`, artifact `iouring-linux-contract-2026-06-30-github-28411459951-1`.
