@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-30 (Codex - io_uring linux contract artifact review)
+
+### 작업 단위
+- 원격 `iouring-linux-contract` workflow 를 실행하고 artifact 를 검토했다.
+
+### 변경 내용
+- GitHub Actions run `28411459951`:
+  `workflow_dispatch`로 `master`의 `a4d42dd`에서 실행했고 success 로 완료됐다.
+- artifact `iouring-linux-contract-2026-06-30-github-28411459951-1`:
+  `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`를 확인했다.
+  Ubuntu 24.04 x64 runner, Linux kernel `6.17.0-1018-azure`, .NET SDK `9.0.315` 환경이다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D139를 추가해 D138 Linux contract gate 충족을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  원격 artifact 검토 항목과 Linux available host TCP loopback 검증을 완료 처리하고,
+  다음 실행 지점을 io_uring UDP pump 설계와 TDD 구현 계획으로 갱신했다.
+
+### 검증
+- workflow conclusion success, test exit code 0.
+- TRX counters: total 37, executed 37, passed 37, failed 0.
+- `IoUringCapabilityEvidenceTests`: `io_uring capability status: Available`,
+  OS `Ubuntu 24.04.4 LTS`, architecture `X64`.
+- capability available 상태에서 `TcpLoopback_WhenIoUringAvailable_DeliversReceivedBytes`와
+  `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`가 통과했다.
+
 ## 2026-06-29 (Codex - io_uring linux contract remote gate probe)
 
 ### 작업 단위

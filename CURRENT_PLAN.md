@@ -1681,22 +1681,27 @@ D138은 active decision index 와 archive decision 에 기록되어 있고, Linu
 `gh run list --workflow iouring-linux-contract.yml`은 원격 기본 브랜치에서 workflow 를 찾지 못했다.
 따라서 현재 로컬에서 추가 구현으로 넘어가지 않고, workflow commit 이 원격 기본 브랜치에 반영된 뒤
 `iouring-linux-contract` run artifact 를 검토해야 한다.
+2026-06-30에는 push 반영 후 `iouring-linux-contract` workflow 를 `workflow_dispatch`로 실행했고,
+run `28411459951`이 success 로 완료됐다. artifact `iouring-linux-contract-2026-06-30-github-28411459951-1` 기준
+Ubuntu 24.04 x64 runner 에서 `io_uring capability status: Available`, test exit code 0,
+TRX counters total 37 / passed 37 / failed 0 을 확인했다.
+TCP receive/send loopback tests 는 capability available 상태에서 early-return 없이 통과했으므로 D138 gate 를 충족한다(D139).
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 원격 `iouring-linux-contract` workflow 실행 결과 artifact 를 검토한다.
+다음 cycle 은 Phase 6 io_uring UDP pump 설계와 TDD 구현 계획을 작성한다.
 
-- 범위: GitHub Actions `iouring-linux-contract` run, upload artifact 의 `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`.
-- 검증: artifact 존재, test exit code 0, `IoUringCapabilityEvidenceTests` output 의 capability status,
-  Linux available host 인 경우 TCP receive/send loopback 실행 여부.
+- 범위: `src/Hps.Transport.IoUring/`의 UDP endpoint bind/receive/send pump boundary,
+  `tests/Hps.Transport.IoUring.Tests/`의 Linux-gated UDP loopback 및 ownership tests.
+- 검증: 설계 단계에서는 D137/D139 정합성, SAEA/RIO UDP 선례, fixed registration/zero-copy/default promotion 제외 범위,
+  TDD task 분해를 확인한다.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
   `IoUringRegisteredBufferSet` fixed buffer registration owner boundary, SQE/CQE/enter ABI shape,
   operation registry/context, completion loop dispatch boundary, TCP listener/resource skeleton, receive/send pump shape 가 존재한다.
-- 현재 제한: 실제 Linux available host syscall loopback 은 아직 미검증이다.
-- 다음 산출물: 원격 artifact 검토 결과를 상태 문서에 기록하고, available host evidence 가 있으면
-  Linux actual verification backlog 를 완료 후보로 이동한다. artifact 가 없거나 unavailable 이면 UDP pump/zero-copy 는 열지 않고
-  검증 gate 유지 상태로 둔다.
+- 현재 제한: UDP endpoint pump 는 아직 설계/구현되지 않았다.
+- 다음 산출물: io_uring UDP pump design spec 과 구현 plan. 첫 구현은 UDP datagram pump 로 제한하고,
+  fixed payload registration cache, zero-copy send 최적화, default backend promotion 은 후속으로 둔다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -1706,5 +1711,5 @@ D138은 active decision index 와 archive decision 에 기록되어 있고, Linu
 - latency hard gate 또는 warning-as-failure 구현
 - `BaselineSummaryGenerator` threshold 상수 즉시 변경
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
-- io_uring UDP pump 구현
+- io_uring UDP pump 구현 자체
 - stable identity 인증/권한 검증, persistence, payload replay

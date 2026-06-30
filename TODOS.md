@@ -9,15 +9,11 @@
 
 ## Current TODOs
 
-- [ ] 원격 `iouring-linux-contract` workflow 실행 결과 artifact 를 검토한다.
-  - 입력: GitHub Actions `iouring-linux-contract` run artifact.
-  - 목표: `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`에서 test exit code, capability status,
-    Linux actual TCP receive/send loopback 실행 여부를 확인한다.
-  - 현재 상태: workflow 파일과 local build/test 검증은 완료됐지만, 원격 workflow 실행 artifact 는 아직 없다.
-    2026-06-29 확인 기준 `git fetch origin master` 이후에도 로컬 `master`가 `origin/master`보다 24 commits ahead 이며,
-    `gh run list --workflow iouring-linux-contract.yml`은 원격 기본 브랜치에서 workflow 를 찾지 못한다.
-  - blocker: workflow commit 이 원격 기본 브랜치에 반영되고, `workflow_dispatch` 수동 실행 또는 원격 실행 결과가 필요하다.
-  - 제외: artifact 확인 전 UDP pump/zero-copy 구현 착수.
+- [ ] Phase 6 io_uring UDP pump 설계와 TDD 구현 계획을 작성한다.
+  - 입력: D139 Linux contract artifact, D137 TCP pump boundary, D135 native wrapper boundary.
+  - 목표: UDP endpoint bind/receive/send pump 를 어떤 최소 단위로 나눌지 정하고,
+    fixed registration/zero-copy/default promotion 과 분리된 첫 구현 범위를 확정한다.
+  - 제외: fixed payload registration cache, default backend promotion, CI hard gate, UDP reliability/ordering.
 
 ## Deferred Backlog
 
@@ -48,23 +44,18 @@
   - 관련 파일/범위: `src/Hps.Server/`, `src/Hps.Transport/`, host/sample 코드, 관련 tests.
   - next step: metrics/exporter 또는 server-only consumer 요구가 나오면 별도 설계로 승격한다.
 
-- [ ] `P1_SOON` Linux io_uring available host 에서 TCP receive/send loopback 검증을 실행한다.
-  - 무엇이 남았는지: 현재 Windows 환경에서는 `IoUringCapabilityProbe.GetStatus()`가 unsupported 이므로,
-    Linux-gated io_uring loopback tests 는 early-return 으로 통과한다.
-  - 왜 defer 되었는지: 현재 실행 환경이 Windows라 실제 `io_uring_setup`/`io_uring_enter` 경로를 실행할 수 없다.
-  - objective: Linux x64/arm64 host 중 io_uring capability 가 available 인 환경에서
-    `Hps.Transport.IoUring.Tests`의 TCP receive/send loopback tests 를 실제 syscall 경로로 통과시킨다.
-  - relevant context: D133~D136, `docs/superpowers/plans/2026-06-29-iouring-tcp-first-pump.md`,
-    `src/Hps.Transport.IoUring/`, `tests/Hps.Transport.IoUring.Tests/`.
-  - 현재 상태: Windows에서는 receive pump shape test 와 gated loopback early-return 이 통과한다.
-  - known blockers 또는 open questions: Linux test host availability, kernel/seccomp io_uring 허용 여부,
-    `Socket.SafeHandle` fd 와 raw io_uring SQE field 동작 검증.
-  - 가장 자연스러운 next step: Linux available host 또는 CI job 이 준비되면
-    `dotnet test tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj -v minimal`을 실행한다.
-
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 원격 `iouring-linux-contract` workflow 실행 결과 artifact 를 검토했다.
+  - 범위: GitHub Actions run `28411459951`, artifact `iouring-linux-contract-2026-06-30-github-28411459951-1`.
+  - 결과: workflow conclusion success, test exit code 0, TRX counters total 37 / passed 37 / failed 0.
+  - evidence: `IoUringCapabilityEvidenceTests` output 은 `io_uring capability status: Available`,
+    OS `Ubuntu 24.04.4 LTS`, architecture `X64`를 기록했다.
+  - 의미: TCP receive/send loopback tests 가 available path 에서 통과했으므로,
+    D138 Linux contract gate 와 Deferred Backlog 의 Linux available host TCP loopback 검증을 완료 처리한다.
+  - 다음: Phase 6 io_uring UDP pump 설계와 TDD 구현 계획을 작성한다.
 
 - [x] Linux io_uring contract gate Task 3 state documents and decision 을 수행했다.
   - 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
