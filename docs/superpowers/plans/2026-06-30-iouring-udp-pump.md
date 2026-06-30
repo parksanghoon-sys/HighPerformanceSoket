@@ -650,7 +650,7 @@ git commit -m "feat: add iouring udp receive pump"
 - Produces: `IoUringTransport.TrySendTo(...)`
 - Produces: `IoUringQueue.TrySubmitSendMessage(...)` pump path
 
-- [ ] **Step 1: Write failing send/echo tests**
+- [x] **Step 1: Write failing send/echo tests**
 
 Append tests to `IoUringTransportUdpTests.cs`.
 
@@ -721,7 +721,7 @@ private sealed class EchoingDatagramHandler : ITransportDatagramHandler
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure on Linux or early return on Windows**
+- [x] **Step 2: Run tests to verify failure on Linux or early return on Windows**
 
 Run:
 
@@ -731,7 +731,7 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected on Linux available host before implementation: client receive timeout or unsupported send path.
 
-- [ ] **Step 3: Write minimal send implementation**
+- [x] **Step 3: Write minimal send implementation**
 
 Modify `IoUringTransport.cs`:
 
@@ -772,7 +772,7 @@ private async Task SendUdpDatagramAsync(IoUringUdpEndpoint endpoint, EndPoint re
 }
 ```
 
-- [ ] **Step 4: Add ownership regression tests**
+- [x] **Step 4: Add ownership regression tests**
 
 Add to `IoUringUdpEndpointShapeTests.cs`:
 
@@ -815,7 +815,7 @@ public void UdpEndpoint_WhenPendingQueueExceedsCapacity_DropsOldestAndReleasesEv
 }
 ```
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -826,7 +826,7 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected: focused UDP transport and endpoint tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src\Hps.Transport.IoUring\IoUringTransport.cs tests\Hps.Transport.IoUring.Tests\IoUringTransportUdpTests.cs tests\Hps.Transport.IoUring.Tests\IoUringUdpEndpointShapeTests.cs

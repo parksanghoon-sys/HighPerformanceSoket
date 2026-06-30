@@ -173,6 +173,7 @@ namespace Hps.Transport
                 udpEndpoint = new IoUringUdpEndpoint(this, socket, registry, completionLoop);
                 RegisterUdpEndpoint(udpEndpoint);
                 StartUdpReceiveLoop(udpEndpoint);
+                StartUdpSendLoop(udpEndpoint);
                 socket = null;
                 return new ValueTask<IUdpEndpoint>(udpEndpoint);
             }
@@ -184,6 +185,31 @@ namespace Hps.Transport
                     socket.Dispose();
                 }
             }
+        }
+
+        /// <inheritdoc />
+        public override bool TrySendTo(IUdpEndpoint endpoint, EndPoint remoteEndPoint, TransportSendBuffer sendBuffer)
+        {
+            if (endpoint == null)
+                throw new ArgumentNullException(nameof(endpoint));
+            if (remoteEndPoint == null)
+                throw new ArgumentNullException(nameof(remoteEndPoint));
+
+            IoUringUdpEndpoint? udpEndpoint = endpoint as IoUringUdpEndpoint;
+            if (udpEndpoint == null)
+                throw new ArgumentException("이 Transport 구현이 생성한 UDP endpoint만 사용할 수 있습니다.", nameof(endpoint));
+
+            IPEndPoint? ipEndPoint = remoteEndPoint as IPEndPoint;
+            if (ipEndPoint == null || ipEndPoint.AddressFamily != AddressFamily.InterNetwork)
+                return false;
+
+            RefCountedBuffer buffer = sendBuffer.Buffer;
+            _ = buffer.Memory;
+
+            if (udpEndpoint.IsClosed || udpEndpoint.IsDisposed)
+                return false;
+
+            return udpEndpoint.TryAcceptSend(ipEndPoint, sendBuffer);
         }
 
         /// <inheritdoc />
@@ -306,6 +332,14 @@ namespace Hps.Transport
             _ = Task.Run(delegate()
             {
                 return UdpReceiveLoopAsync(udpEndpoint);
+            });
+        }
+
+        private void StartUdpSendLoop(IoUringUdpEndpoint udpEndpoint)
+        {
+            _ = Task.Run(delegate()
+            {
+                return UdpSendLoopAsync(udpEndpoint);
             });
         }
 
@@ -451,6 +485,75 @@ namespace Hps.Transport
                 datagramHandler.OnDatagramEndpointClosed(udpEndpoint);
 
             udpEndpoint.Close();
+        }
+
+        private async Task UdpSendLoopAsync(IoUringUdpEndpoint udpEndpoint)
+        {
+            while (true)
+            {
+                await udpEndpoint.WaitForSendSignalAsync().ConfigureAwait(false);
+
+                while (udpEndpoint.TryBeginSend(out IoUringUdpEndpoint.UdpSendRequest sendRequest))
+                {
+                    try
+                    {
+                        await SendUdpDatagramAsync(udpEndpoint, sendRequest.RemoteEndPoint, sendRequest.SendBuffer).ConfigureAwait(false);
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        return;
+                    }
+                    catch (SocketException)
+                    {
+                        NotifyUdpEndpointClosed(udpEndpoint);
+                        return;
+                    }
+                }
+
+                if (udpEndpoint.IsClosed || udpEndpoint.IsDisposed)
+                    return;
+            }
+        }
+
+        private async Task SendUdpDatagramAsync(
+            IoUringUdpEndpoint udpEndpoint,
+            EndPoint remoteEndPoint,
+            TransportSendBuffer sendBuffer)
+        {
+            RefCountedBuffer buffer = sendBuffer.Buffer;
+
+            try
+            {
+                IPEndPoint? ipEndPoint = remoteEndPoint as IPEndPoint;
+                if (ipEndPoint == null || ipEndPoint.AddressFamily != AddressFamily.InterNetwork)
+                    throw new SocketException((int)SocketError.AddressFamilyNotSupported);
+
+                ArraySegment<byte> segment = GetRefCountedBlockSegment(buffer, sendBuffer.Offset, sendBuffer.Length);
+                if (segment.Array == null)
+                    throw new InvalidOperationException("io_uring UDP send는 pinned byte[] 기반 RefCountedBuffer만 지원합니다.");
+
+                IoUringOperationContext context = udpEndpoint.SendContext;
+                context.Reset(context.Token, IoUringOperationKind.UdpSend);
+                udpEndpoint.SendMessage.PrepareSend(segment.Array, segment.Offset, segment.Count, ipEndPoint);
+                ValueTask<IoUringCompletion> wait = context.WaitAsync();
+
+                bool submitted = udpEndpoint.Queue.TrySubmitSendMessage(
+                    udpEndpoint.SocketFileDescriptor,
+                    udpEndpoint.SendMessage.MessageHeaderPointer,
+                    context.Token);
+                if (!submitted)
+                    throw new SocketException((int)SocketError.NoBufferSpaceAvailable);
+
+                IoUringCompletion completion = await wait.ConfigureAwait(false);
+                if (completion.Result < 0)
+                    throw new SocketException(-completion.Result);
+                if (completion.Result != segment.Count)
+                    throw new SocketException((int)SocketError.MessageSize);
+            }
+            finally
+            {
+                buffer.Release();
+            }
         }
 
         private async Task SendLoopAsync(TransportConnection connection, IoUringTcpConnectionResource resource)

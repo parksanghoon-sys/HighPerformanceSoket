@@ -66,6 +66,61 @@ namespace Hps.Transport.IoUring.Tests
             }
         }
 
+        // drop-oldest 는 가장 오래된 pending datagram ref 를 즉시 반환해야 한다.
+        // 이후 endpoint close 가 남은 16개 ref 를 drain 해 pool count 가 0으로 돌아오는지까지 확인한다.
+        [Fact]
+        public void UdpEndpoint_WhenPendingQueueExceedsCapacity_DropsOldestAndReleasesEvictedRef()
+        {
+            Type endpointType = RequiredType("Hps.Transport.IoUringUdpEndpoint, Hps.Transport.IoUring");
+            using (IoUringTransport transport = new IoUringTransport())
+            {
+                IoUringOperationRegistry registry = new IoUringOperationRegistry();
+                IoUringCompletionLoop loop = IoUringCompletionLoop.CreateForTests(registry);
+                Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                IUdpEndpoint? endpoint = null;
+
+                try
+                {
+                    socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                    endpoint = (IUdpEndpoint)Activator.CreateInstance(
+                        endpointType,
+                        BindingFlags.Instance | BindingFlags.NonPublic,
+                        null,
+                        new object[] { transport, socket, registry, loop },
+                        null)!;
+
+                    PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                    IPEndPoint remote = new IPEndPoint(IPAddress.Loopback, 9);
+                    MethodInfo tryAccept = RequiredMethod(endpointType, "TryAcceptSend");
+
+                    for (int index = 0; index < 17; index++)
+                    {
+                        RefCountedBuffer buffer = pool.RentCounted();
+                        buffer.SetLength(1);
+                        buffer.AddRef();
+
+                        bool accepted = (bool)tryAccept.Invoke(
+                            endpoint,
+                            new object[] { remote, new TransportSendBuffer(buffer, 0, 1) })!;
+                        Assert.True(accepted);
+                        buffer.Release();
+                    }
+
+                    Assert.Equal(16, pool.RentedCount);
+
+                    endpoint.Close();
+
+                    Assert.Equal(0, pool.RentedCount);
+                }
+                finally
+                {
+                    endpoint?.Dispose();
+                    socket.Dispose();
+                    loop.Dispose();
+                }
+            }
+        }
+
         private static Type RequiredType(string name)
         {
             Type? type = Type.GetType(name);

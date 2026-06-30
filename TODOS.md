@@ -9,10 +9,10 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 io_uring UDP pump 구현 계획 Task 4 UDP Send Pump And Ownership 을 TDD로 구현한다.
-  - 입력: `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md` Task 4.
-  - 목표: `IoUringTransport.TrySendTo(...)`와 one-deep `sendmsg` send loop 를 연결하고,
-    send completion/drop/close 경로에서 `TransportSendBuffer` ref ownership 을 정확히 반환한다.
+- [ ] Phase 6 io_uring UDP pump 구현 계획 Task 5 State Docs And Verification 을 수행한다.
+  - 입력: `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md` Task 5.
+  - 목표: D140과 Task 1~4 완료 상태를 root/archive state docs 에 정렬하고,
+    전체 build/test/diff check 결과를 기준으로 다음 실행 지점을 원격 Linux UDP artifact 검토로 넘긴다.
   - 제외: fixed registration, zero-copy send, receive window depth 확장, default backend promotion.
 
 ## Deferred Backlog
@@ -47,6 +47,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 io_uring UDP pump 구현 계획 Task 4 UDP Send Pump And Ownership 을 TDD로 구현했다.
+  - 범위: `IoUringTransport`, `IoUringTransportUdpTests`, `IoUringUdpEndpointShapeTests`.
+  - Red: `IoUringTransportUdpTests` send shape test 가 `TrySendTo` override/send pump 경계 부재로 실패하는 것을 확인했다.
+  - Green: `TrySendTo(...)`, endpoint send loop, one-deep `sendmsg` submit/wait path,
+    completion/drop/close ref 반환을 추가했다.
+  - 검증: focused Task 4 tests 3개 통과, `Hps.Transport.IoUring.Tests` 46개 통과,
+    solution build 경고 0/오류 0, solution tests 426개 통과, `git diff --check` 통과.
+  - 비고: Windows/non-Linux 에서는 echo loopback native path 가 capability gate 로 early-return 한다.
+  - 다음: Task 5 State Docs And Verification 을 수행한다.
 
 - [x] Phase 6 io_uring UDP pump 구현 계획 Task 3 UDP Bind And Receive Pump 를 TDD로 구현했다.
   - 범위: `IoUringTransport`, `IoUringTransportUdpTests`.
