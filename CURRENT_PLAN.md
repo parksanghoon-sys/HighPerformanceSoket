@@ -1742,7 +1742,14 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP/UDP loopback raw report 를 `IoUringTransport`로 수집할 수 있게 하는 것을 먼저 수행한다.
 - 설계는 `docs/superpowers/specs/2026-06-30-iouring-benchmark-backend-selector-design.md`,
   구현 계획은 `docs/superpowers/plans/2026-06-30-iouring-benchmark-backend-selector.md`에 있다.
-- 다음 실행 지점: 구현 계획 Task 1 parser/identity contract.
+- 구현 결과: D146 기준으로 `--backend iouring` parser, TCP/UDP report identity,
+  scenario key, help text, Linux/capability gated `IoUringTransport` factory wiring 을 완료했다.
+  `TransportFactory.CreateDefault()`와 sample host default selection 은 변경하지 않았다.
+- 최신 검증: parser/identity Red-Green, scenario/help Red-Green,
+  `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+  `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 전체 통과.
+- 다음 실행 지점: 사용자 push 이후 Linux available runner 에서 `--backend iouring` TCP/UDP benchmark artifact 를 수집하고,
+  load/open-loop raw report 가 기존 summary/history/envelope 흐름에 들어갈 수 있는지 검토한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

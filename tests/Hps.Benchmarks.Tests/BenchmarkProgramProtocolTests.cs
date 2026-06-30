@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Reflection;
 using System.Text.Json;
 using Xunit;
 
@@ -34,6 +36,48 @@ namespace Hps.Benchmarks.Tests
                 Assert.Equal(0, root.GetProperty("payload-errors").GetInt32());
                 Assert.Equal(0, root.GetProperty("pool-rented").GetInt32());
             }
+        }
+
+        // help text 는 사용자가 runner 실행 전 확인하는 public CLI 계약이다.
+        // parser 가 iouring 을 받아도 usage 가 saea|rio 만 노출하면 Linux artifact 수집 절차가 잘못된 옵션으로 문서화된다.
+        [Fact]
+        public void Main_WhenHelpRequested_PrintsIoUringBackendUsage()
+        {
+            TextWriter originalOut = Console.Out;
+            using (StringWriter writer = new StringWriter())
+            {
+                try
+                {
+                    Console.SetOut(writer);
+
+                    int exitCode = Program.Main(new[] { "--help" });
+
+                    Assert.Equal(0, exitCode);
+                    string usage = writer.ToString();
+                    Assert.Contains("[--backend <saea|rio|iouring>]", usage);
+                    Assert.Contains("--baseline-suite", usage);
+                }
+                finally
+                {
+                    Console.SetOut(originalOut);
+                }
+            }
+        }
+
+        // TCP io_uring benchmark 는 기존 raw report schema 를 유지하되 scenario key 를 별도로 가져야 한다.
+        // 이 key 가 SAEA 와 같으면 summary/history 단계에서 backend 별 성능 결과가 섞인다.
+        [Fact]
+        public void TcpBuildScenarioName_WhenIoUringSelected_UsesIoUringBaselineName()
+        {
+            MethodInfo? method = typeof(TcpLoopbackScenarioRunner).GetMethod(
+                "BuildScenarioName",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.NotNull(method);
+
+            string scenario = Assert.IsType<string>(
+                method!.Invoke(null, new object[] { TcpLoopbackTransportBackend.IoUring, "-smoke" }));
+
+            Assert.Equal("tcp-loopback-iouring-baseline-smoke", scenario);
         }
     }
 }

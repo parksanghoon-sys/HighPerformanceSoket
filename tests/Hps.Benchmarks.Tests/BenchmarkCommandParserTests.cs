@@ -47,6 +47,26 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal("Rio", GetRequiredProperty(commandLine, "TransportBackend")!.ToString());
         }
 
+        // io_uring benchmark artifact 는 기존 runner/report schema 를 그대로 쓰고 backend selector 만 확장한다.
+        // parser 가 이 값을 보존해야 Linux 전용 runner wiring 이 별도 단계에서 정확한 transport 를 선택할 수 있다.
+        [Fact]
+        public void TryParse_WhenLoadHasIoUringBackendAndReport_ReturnsLoadCommandWithBackend()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--load", "--backend", "iouring", "--report", "out/iouring-load.json" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal(BenchmarkCommand.Load, commandLine.Command);
+            Assert.Equal("out/iouring-load.json", commandLine.ReportPath);
+            Assert.Equal("IoUring", GetRequiredProperty(commandLine, "TransportBackend")!.ToString());
+        }
+
         // UDP benchmark artifact 는 기존 runner 명령에 protocol selector 를 더하는 방식으로 수집한다.
         // parser 가 이 값을 보존하지 않으면 다음 dispatch 단계가 TCP runner 로 흘러가 RIO UDP evidence 를 만들 수 없다.
         [Fact]

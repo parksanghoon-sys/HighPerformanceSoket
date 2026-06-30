@@ -16,8 +16,11 @@ namespace Hps.Benchmarks
         public const string DefaultTransportBackend = "SaeaTransport";
         public const string RioBenchmarkProfile = "tcp-loopback-rio-v1";
         public const string RioTransportBackend = "RioTransport";
+        public const string IoUringBenchmarkProfile = "tcp-loopback-iouring-v1";
+        public const string IoUringTransportBackend = "IoUringTransport";
         public const string UdpSaeaBenchmarkProfile = "udp-loopback-saea-v1";
         public const string UdpRioBenchmarkProfile = "udp-loopback-rio-v1";
+        public const string UdpIoUringBenchmarkProfile = "udp-loopback-iouring-v1";
 
         private const string RunnerIdEnvironmentVariable = "HPS_BENCHMARK_RUNNER_ID";
         private const string RunnerKindEnvironmentVariable = "HPS_BENCHMARK_RUNNER_KIND";
@@ -97,6 +100,13 @@ namespace Hps.Benchmarks
                     ? UdpRioBenchmarkProfile
                     : RioBenchmarkProfile;
                 backendName = RioTransportBackend;
+            }
+            else if (transportBackend == TcpLoopbackTransportBackend.IoUring)
+            {
+                benchmarkProfile = loopbackProtocol == LoopbackProtocol.Udp
+                    ? UdpIoUringBenchmarkProfile
+                    : IoUringBenchmarkProfile;
+                backendName = IoUringTransportBackend;
             }
             else
             {

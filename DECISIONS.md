@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D146 — benchmark CLI 는 io_uring opt-in backend 를 지원하되 default promotion 은 계속 보류한다.
 - D145 — D144 이후 다음 단위는 io_uring benchmark backend selector 로 성능 artifact 경로를 먼저 연다.
 - D144 — io_uring bounded UDP receive window Linux contract artifact 는 native path 검증 gate 를 충족했다.
 - D143 — io_uring UDP receive pump 는 bounded receive slot window 로 확장한다.

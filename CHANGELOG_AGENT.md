@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
+
+### 작업 단위
+- D145 구현 계획에 따라 benchmark CLI 에 `--backend iouring` opt-in selector 를 추가했다.
+
+### 변경 내용
+- `BenchmarkCommandParser`, `TcpLoopbackTransportBackend`, `BenchmarkRunIdentity`:
+  `iouring` parser 값, `IoUring` enum, TCP/UDP io_uring profile/backend identity 를 추가했다.
+- `TcpLoopbackScenarioRunner`, `UdpLoopbackScenarioRunner`, `Program`, `Hps.Benchmarks.csproj`:
+  `IoUringTransport` project reference, Linux/capability gated transport factory, TCP/UDP scenario key, help text 를 연결했다.
+- `Hps.Benchmarks.Tests`:
+  parser/identity/help/scenario key contract 테스트를 추가하고 각 테스트에 검증 의도를 주석으로 기록했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D146으로 opt-in benchmark selector 구현 범위와 default promotion 보류를 기록했다.
+
+### 검증
+- Red: parser/identity focused test 에서 `iouring` invalid backend 및 enum 누락으로 3개 실패 확인.
+- Green: parser/identity focused test 36개 통과.
+- Red: scenario/help focused test 에서 TCP/UDP scenario key 와 help text 3개 실패 확인.
+- Green: scenario/help focused test 7개 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 전체 통과.
+
+### 결과
+- io_uring benchmark raw report 를 기존 schema 로 만들 수 있는 local CLI wiring 이 준비됐다.
+- 다음 evidence 는 사용자 push 이후 Linux available runner 에서 `--backend iouring` TCP/UDP benchmark artifact 를 수집해 검토하는 것이다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector design)
 
 ### 작업 단위

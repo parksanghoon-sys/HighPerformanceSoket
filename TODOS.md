@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] io_uring benchmark backend selector 구현 계획 Task 1 parser/identity contract 를 TDD로 구현한다.
-  - 입력: D145, `docs/superpowers/plans/2026-06-30-iouring-benchmark-backend-selector.md`.
-  - 목표: `--backend iouring` parser 값과 `tcp/udp-loopback-iouring-v1` identity 를 먼저 고정한다.
-  - 기대 evidence: focused parser/identity Red-Green, 기존 parser/identity tests green.
-  - 제외: Task 1에서는 scenario runner transport factory 와 project reference wiring 을 열지 않는다.
+- [ ] 사용자 push 이후 Linux available runner 에서 `--backend iouring` TCP/UDP benchmark artifact 를 수집하고 검토한다.
+  - 입력: D146, `Hps.Benchmarks --baseline-suite <output-dir> --protocol <tcp|udp> --backend iouring`.
+  - 목표: io_uring backend 의 4096 bytes x 100 Hz TCP/UDP raw benchmark report 를 기존 schema 로 남긴다.
+  - 기대 evidence: Linux runner 에서 capability available 상태로 TCP/UDP load/open-loop report 생성, summary/history 비교 가능 여부 확인.
+  - 제외: artifact 확인 전 fixed buffer registration, zero-copy send, default backend promotion 구현.
 
 ## Deferred Backlog
 
@@ -47,6 +47,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] io_uring benchmark backend selector 구현 계획을 완료했다.
+  - 범위: `tests/Hps.Benchmarks` CLI/backend selector, TCP/UDP scenario identity, tests.
+  - Red: parser/identity focused test 에서 `iouring` invalid backend 및 enum 누락으로 3개 실패 확인.
+  - Green: parser/identity focused test 36개 통과.
+  - Red: scenario/help focused test 에서 TCP/UDP scenario key 와 help text 3개 실패 확인.
+  - Green: scenario/help focused test 7개 통과.
+  - 구현: `--backend iouring`, `IoUringTransport` report identity, TCP/UDP io_uring scenario key,
+    Linux/capability gated transport factory 를 추가했다.
+  - 검증: `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 전체 통과.
+  - 다음: 사용자 push 이후 Linux available runner 에서 io_uring benchmark artifact 를 수집해 검토한다.
 
 - [x] D144 이후 io_uring 후속 후보를 재평가하고 다음 설계 단위를 확정했다.
   - 범위: fixed payload registration cache, receive fixed buffer registration, zero-copy send,

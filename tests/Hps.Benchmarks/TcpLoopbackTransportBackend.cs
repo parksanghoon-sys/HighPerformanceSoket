@@ -3,6 +3,7 @@ namespace Hps.Benchmarks
     internal enum TcpLoopbackTransportBackend
     {
         Saea,
-        Rio
+        Rio,
+        IoUring
     }
 }

@@ -67,6 +67,35 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal("RioTransport", identity.TransportBackend);
         }
 
+        // io_uring raw report 는 SAEA/RIO 와 같은 schema 를 쓰지만 비교 key 는 반드시 분리되어야 한다.
+        // TCP/UDP profile 과 transport-backend 를 고정해 summary/history 단계가 backend 간 결과를 섞지 않도록 한다.
+        [Theory]
+        [InlineData("Tcp", "tcp-loopback-iouring-v1")]
+        [InlineData("Udp", "udp-loopback-iouring-v1")]
+        public void CaptureForBackendAndProtocol_WhenIoUringIsSelected_UsesIoUringProfileAndTransportBackend(
+            string protocolName,
+            string expectedProfile)
+        {
+            Type? backendType = Type.GetType("Hps.Benchmarks.TcpLoopbackTransportBackend, Hps.Benchmarks");
+            Assert.NotNull(backendType);
+
+            bool backendParsed = Enum.TryParse(backendType!, "IoUring", false, out object? ioUringBackend);
+            Assert.True(backendParsed);
+
+            Type? protocolType = Type.GetType("Hps.Benchmarks.LoopbackProtocol, Hps.Benchmarks");
+            Assert.NotNull(protocolType);
+            object protocol = Enum.Parse(protocolType!, protocolName);
+
+            MethodInfo? method = typeof(BenchmarkRunIdentity).GetMethod("CaptureForBackendAndProtocol", BindingFlags.Static | BindingFlags.Public);
+            Assert.NotNull(method);
+
+            BenchmarkRunIdentity identity = Assert.IsType<BenchmarkRunIdentity>(
+                method!.Invoke(null, new object[] { ioUringBackend!, protocol }));
+
+            Assert.Equal(expectedProfile, identity.BenchmarkProfile);
+            Assert.Equal("IoUringTransport", identity.TransportBackend);
+        }
+
         // 서로 다른 장비를 비교군에서 분리하려면 사용자가 runner id 를 명시해야 한다.
         // 자동 machine name 수집 대신 환경 변수만 허용해 로컬/사설 환경 정보 노출을 막는다.
         [Fact]

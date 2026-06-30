@@ -76,6 +76,22 @@ namespace Hps.Benchmarks.Tests
             Assert.True(result);
         }
 
+        // UDP io_uring benchmark 도 TCP 와 같은 comparison surface 에 들어가므로 scenario key 를 backend 별로 분리한다.
+        // SAEA baseline 이름을 재사용하면 UDP summary/history 가 서로 다른 backend 결과를 같은 case 로 합쳐 버릴 수 있다.
+        [Fact]
+        public void BuildScenarioName_WhenIoUringSelected_UsesIoUringUdpBaselineName()
+        {
+            MethodInfo? method = typeof(UdpLoopbackScenarioRunner).GetMethod(
+                "BuildScenarioName",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.NotNull(method);
+
+            string scenario = Assert.IsType<string>(
+                method!.Invoke(null, new object[] { TcpLoopbackTransportBackend.IoUring, "-open-loop" }));
+
+            Assert.Equal("udp-loopback-iouring-baseline-open-loop", scenario);
+        }
+
         private static async Task<TcpLoopbackRunResult> InvokeScenarioForTestAsync(
             string resultName,
             string scenarioSuffix,

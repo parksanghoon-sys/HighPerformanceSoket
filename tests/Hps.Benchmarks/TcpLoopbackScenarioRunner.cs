@@ -176,9 +176,13 @@ namespace Hps.Benchmarks
 
         private static string BuildScenarioName(TcpLoopbackTransportBackend transportBackend, string suffix)
         {
-            string baseName = transportBackend == TcpLoopbackTransportBackend.Rio
-                ? "tcp-loopback-rio-baseline"
-                : BenchmarkTargets.TcpLoopbackBaselineName;
+            string baseName;
+            if (transportBackend == TcpLoopbackTransportBackend.Rio)
+                baseName = "tcp-loopback-rio-baseline";
+            else if (transportBackend == TcpLoopbackTransportBackend.IoUring)
+                baseName = "tcp-loopback-iouring-baseline";
+            else
+                baseName = BenchmarkTargets.TcpLoopbackBaselineName;
 
             return baseName + suffix;
         }
@@ -194,6 +198,17 @@ namespace Hps.Benchmarks
                 }
 
                 return new RioTransport();
+            }
+
+            if (transportBackend == TcpLoopbackTransportBackend.IoUring)
+            {
+                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
+                    IoUringCapabilityProbe.GetStatus() != IoUringCapabilityStatus.Available)
+                {
+                    throw new NotSupportedException("io_uring benchmark backend 를 현재 환경에서 사용할 수 없습니다.");
+                }
+
+                return new IoUringTransport();
             }
 
             return new SaeaTransport();

@@ -10,8 +10,8 @@ namespace Hps.Benchmarks
         public const string MessageUnknownRunnerArgs = "알 수 없는 benchmark runner 인자입니다.";
         public const string MessageReportPathRequired = "--report 옵션에는 저장할 파일 경로가 필요합니다.";
         public const string MessageReportExecutionOnly = "--report 옵션은 benchmark 실행 명령에서만 사용할 수 있습니다.";
-        public const string MessageBackendPathRequired = "--backend 옵션에는 saea 또는 rio 값이 필요합니다.";
-        public const string MessageBackendInvalid = "--backend 옵션은 saea 또는 rio 값만 사용할 수 있습니다.";
+        public const string MessageBackendPathRequired = "--backend 옵션에는 saea, rio 또는 iouring 값이 필요합니다.";
+        public const string MessageBackendInvalid = "--backend 옵션은 saea, rio 또는 iouring 값만 사용할 수 있습니다.";
         public const string MessageBackendExecutionOnly = "--backend 옵션은 benchmark 실행 명령에서만 사용할 수 있습니다.";
         public const string MessageProtocolPathRequired = "--protocol 옵션에는 tcp 또는 udp 값이 필요합니다.";
         public const string MessageProtocolInvalid = "--protocol 옵션은 tcp 또는 udp 값만 사용할 수 있습니다.";
@@ -528,6 +528,12 @@ namespace Hps.Benchmarks
             if (string.Equals(value, "rio", StringComparison.OrdinalIgnoreCase))
             {
                 transportBackend = TcpLoopbackTransportBackend.Rio;
+                return true;
+            }
+
+            if (string.Equals(value, "iouring", StringComparison.OrdinalIgnoreCase))
+            {
+                transportBackend = TcpLoopbackTransportBackend.IoUring;
                 return true;
             }
 
