@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-30 (Codex - io_uring udp pump state docs)
+
+### 작업 단위
+- Phase 6 io_uring UDP pump 구현 계획 Task 5 State Docs And Verification 을 수행했다.
+
+### 변경 내용
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  Task 1~5 완료 상태와 다음 실행 지점인 원격 `iouring-linux-contract` UDP artifact 검토를 반영했다.
+- `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md`:
+  Task 5 체크리스트를 완료 처리했다.
+- `CHANGELOG_AGENT.md`, `docs/agent-state/changelog/2026-06.md`:
+  최종 state docs 정렬 작업을 기록했다.
+
+### 검증
+- `rg -n "D140|IPv4 one-deep|recvmsg|sendmsg" DECISIONS.md docs\agent-state\decisions\2026-06.md` 통과.
+- `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 통과, 경고 0/오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 통과, 426개 통과.
+- `git diff --check` 통과.
+
 ## 2026-06-30 (Codex - io_uring udp send pump)
 
 ### 작업 단위

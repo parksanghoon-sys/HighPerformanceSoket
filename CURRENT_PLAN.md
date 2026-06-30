@@ -1695,20 +1695,20 @@ default backend promotion 은 후속 설계로 남긴다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 Phase 6 io_uring UDP pump 구현 계획 Task 5 State Docs And Verification 을 수행한다.
+다음 cycle 은 사용자 push 이후 원격 `iouring-linux-contract` workflow artifact 로 io_uring UDP pump 를 검토한다.
 
-- 범위: `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`,
-  `docs/agent-state/changelog/2026-06.md`, `docs/agent-state/decisions/2026-06.md`.
-- 검증: D140이 active/archive decision 에 남아 있는지 확인하고,
-  Phase 6 io_uring UDP pump Task 1~4 완료 상태를 state docs 에 반영한 뒤 solution build/test와 `git diff --check`를 실행한다.
+- 범위: GitHub Actions `iouring-linux-contract` run artifact 의 `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`.
+- 검증: `IoUringCapabilityEvidenceTests`가 `Available`을 기록하는 Linux runner 에서
+  UDP receive/send loopback tests 가 early-return 없이 통과했는지 확인한다.
 - 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
   `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
   `IoUringRegisteredBufferSet` fixed buffer registration owner boundary, SQE/CQE/enter ABI shape,
   operation registry/context, completion loop dispatch boundary, TCP listener/resource skeleton, receive/send pump shape 가 존재한다.
 - 현재 상태: Task 1 Native UDP Message Shape, Task 2 UDP Endpoint Resource And Message Buffer,
-  Task 3 UDP Bind And Receive Pump, Task 4 UDP Send Pump And Ownership 은 완료됐다.
-  Task 4 focused tests 3개, `Hps.Transport.IoUring.Tests` 46개, solution build 경고 0/오류 0을 확인했다.
-- 다음 산출물: io_uring UDP pump boundary state docs/full verification 커밋.
+  Task 3 UDP Bind And Receive Pump, Task 4 UDP Send Pump And Ownership, Task 5 State Docs And Verification 은 완료됐다.
+  Task 4 focused tests 3개, `Hps.Transport.IoUring.Tests` 46개, solution build 경고 0/오류 0,
+  solution tests 426개, `git diff --check` 통과를 확인했다.
+- 다음 산출물: 원격 Linux UDP pump artifact 검토 결과 문서/결정 업데이트.
 
 ## 이번 작업에서 건드리지 않는 범위
 

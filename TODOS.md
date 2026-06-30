@@ -9,11 +9,12 @@
 
 ## Current TODOs
 
-- [ ] Phase 6 io_uring UDP pump 구현 계획 Task 5 State Docs And Verification 을 수행한다.
-  - 입력: `docs/superpowers/plans/2026-06-30-iouring-udp-pump.md` Task 5.
-  - 목표: D140과 Task 1~4 완료 상태를 root/archive state docs 에 정렬하고,
-    전체 build/test/diff check 결과를 기준으로 다음 실행 지점을 원격 Linux UDP artifact 검토로 넘긴다.
-  - 제외: fixed registration, zero-copy send, receive window depth 확장, default backend promotion.
+- [ ] 원격 `iouring-linux-contract` workflow 실행 결과로 io_uring UDP pump artifact 를 검토한다.
+  - 입력: 사용자 push 이후 GitHub Actions `iouring-linux-contract` run artifact.
+  - 목표: UDP receive/send loopback tests 가 Linux available path 에서 early-return 없이 통과하는지 확인한다.
+  - 현재 상태: 로컬 Windows 검증은 shape/ownership과 capability-gated early-return 까지 완료됐다.
+    실제 Linux `recvmsg`/`sendmsg` syscall path 는 원격 artifact 로 확인해야 한다.
+  - 제외: artifact 검토 전 fixed registration, zero-copy send, receive window depth 확장, default backend promotion.
 
 ## Deferred Backlog
 
@@ -47,6 +48,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Phase 6 io_uring UDP pump 구현 계획 Task 5 State Docs And Verification 을 수행했다.
+  - 범위: root/archive state docs, D140 decision presence, 최종 검증.
+  - 결과: Task 1~4 구현 완료 상태를 현재 실행 지점에 반영하고,
+    다음 실행 항목을 원격 `iouring-linux-contract` UDP artifact 검토로 넘겼다.
+  - 검증: D140 root/archive scan 통과, solution build 경고 0/오류 0,
+    solution tests 426개 통과, `git diff --check` 통과.
+  - 다음: 사용자 push 이후 원격 Linux workflow artifact 로 UDP native syscall path 를 검토한다.
 
 - [x] Phase 6 io_uring UDP pump 구현 계획 Task 4 UDP Send Pump And Ownership 을 TDD로 구현했다.
   - 범위: `IoUringTransport`, `IoUringTransportUdpTests`, `IoUringUdpEndpointShapeTests`.

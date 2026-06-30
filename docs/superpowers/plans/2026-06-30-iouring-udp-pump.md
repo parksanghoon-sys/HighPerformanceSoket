@@ -849,7 +849,7 @@ git commit -m "feat: add iouring udp send pump"
 - Consumes: D140 decision for io_uring UDP v1 boundary
 - Produces: implementation completion state docs and next remote Linux UDP artifact review entry
 
-- [ ] **Step 1: Verify D140 is present**
+- [x] **Step 1: Verify D140 is present**
 
 Run:
 
@@ -859,7 +859,7 @@ rg -n "D140|IPv4 one-deep|recvmsg|sendmsg" DECISIONS.md docs\agent-state\decisio
 
 Expected: active decision index and archive decision both mention D140.
 
-- [ ] **Step 2: Update current docs**
+- [x] **Step 2: Update current docs**
 
 In `TODOS.md`, move the UDP pump implementation entry to Completed with this content:
 
@@ -900,7 +900,7 @@ Append to `CHANGELOG_AGENT.md` and `docs/agent-state/changelog/2026-06.md`:
 - `git diff --check` 통과.
 ```
 
-- [ ] **Step 3: Run full verification**
+- [x] **Step 3: Run full verification**
 
 Run:
 
@@ -916,7 +916,7 @@ Expected:
 - full test suite green
 - whitespace check passes
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md DECISIONS.md docs\agent-state\changelog\2026-06.md docs\agent-state\decisions\2026-06.md
