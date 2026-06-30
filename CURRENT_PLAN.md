@@ -1707,34 +1707,24 @@ D142 기준으로 D140 UDP pump native artifact gate 는 충족됐다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 의 핵심 작업은 D142 이후 후속 후보를 재평가하는 것이다.
-이제 artifact gate 는 통과했으므로, fixed registration, zero-copy send, receive window depth 확장,
-default backend promotion 중 무엇을 열지 바로 구현하지 말고 먼저 설계 단위로 판단한다.
+2026-06-30에는 D142 이후 후속 후보를 재평가했고, D143 기준으로 fixed registration/zero-copy/default promotion 보다
+io_uring UDP receive-side bounded slot window 를 먼저 열었다.
+설계는 `docs/superpowers/specs/2026-06-30-iouring-udp-receive-window-design.md`,
+구현 계획은 `docs/superpowers/plans/2026-06-30-iouring-udp-receive-window.md`에 있다.
 
-- 범위: D140/D141/D142, `docs/superpowers/specs/2026-06-30-iouring-udp-pump-design.md`,
-  `Hps.Transport.IoUring` UDP/TCP pump 현재 구현.
-- 검증 기준: 다음 후보가 실제 성능/소유권/수명 리스크를 줄이는지, 기존 one-deep IPv4 UDP pump boundary 를 깨지 않는지,
-  필요한 경우 새 Linux artifact gate 또는 local contract test 로 검증 가능한지 확인한다.
-- 현재 상태: io_uring source/test project, capability probe, opt-in transport root type 이 존재한다.
-  `IoUringNative` platform guard, `IoUringQueue` setup/mmap owner, real setup capability probe wiring,
-  `IoUringRegisteredBufferSet` fixed buffer registration owner boundary, SQE/CQE/enter ABI shape,
-  operation registry/context, completion loop dispatch boundary, TCP listener/resource skeleton, receive/send pump shape 가 존재한다.
-- 현재 상태: Task 1 Native UDP Message Shape, Task 2 UDP Endpoint Resource And Message Buffer,
-  Task 3 UDP Bind And Receive Pump, Task 4 UDP Send Pump And Ownership, Task 5 State Docs And Verification 은 완료됐다.
-  Task 4 focused tests 3개, `Hps.Transport.IoUring.Tests` 46개, solution build 경고 0/오류 0,
-  solution tests 426개, `git diff --check` 통과를 확인했다.
-- 현재 상태: 추가 로컬 계약 보강으로 `IoUringUdpEndpointShapeTests`와 `IoUringUdpMessageShapeTests`를 확장했고,
-  `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --no-restore -v minimal`
-  기준 51개 통과를 확인했다. 프로덕션 코드는 변경하지 않았다.
-- 현재 상태: `IoUringTransport`가 `ITransportEndpointDiagnostics`를 구현하고,
-  transport registry 의 TCP connection/UDP endpoint snapshot 을 반환한다.
-  Red: endpoint diagnostics cast 실패를 확인했고, Green: focused diagnostics test 1개와
-  `Hps.Transport.IoUring.Tests` 52개 통과를 확인했다.
-- 현재 상태: run `28421177310`의 artifact 는 현재 HEAD `ff4421d5dd5544f686f3eb87ee67b743d4c36746`에서 실행됐고,
-  `UdpReceive_WhenIoUringAvailable_DeliversOwnedRefCountedBuffer`,
-  `UdpEcho_WhenIoUringAvailable_QueuesResponseAndClientReceivesPayload`,
-  `GetEndpointSnapshots_WhenUdpEndpointIsRegistered_ReturnsUdpSnapshotAndRemovesItAfterClose`가 모두 Passed 이다.
-- 다음 산출물: io_uring UDP artifact gate 이후 후속 후보 재평가 설계 문서.
+- 현재 상태: `IoUringUdpEndpoint.ReceiveWindowSize = 4`이며, receive slot 마다
+  `IoUringOperationContext`, `IoUringUdpMessageBuffer`, in-flight `RefCountedBuffer`를 소유한다.
+- 현재 상태: `IoUringTransport.UdpReceiveLoopAsync`는 startup 시 모든 receive slot 을 post 하고,
+  completion 후 handler dispatch 전에 같은 slot 을 repost 한다.
+- 현재 상태: `UdpEndpoint_WhenConstructed_CreatesBoundedReceiveWindowSlots` Red/Green,
+  `UdpReceiveSlot_WhenInspected_ExposesPumpStateBoundary` Red/Green 을 확인했다.
+- 현재 상태: `IoUringTransportUdpTests`에 Linux-gated
+  `UdpReceive_WhenHandlerIsBlocked_PreservesWindowedDatagrams`를 추가했다.
+  Windows/local unavailable 환경에서는 early-return 하며, 실제 native path 는 다음 `iouring-linux-contract` artifact 에서 확인한다.
+- 최신 focused 검증: `IoUringUdpEndpointShapeTests` 8개 통과,
+  `IoUringTransportUdpTests` 6개 통과,
+  `Hps.Transport.IoUring.Tests` 55개 통과.
+- 다음 산출물: 사용자 push 이후 새 `iouring-linux-contract` artifact 검토.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -1744,5 +1734,5 @@ default backend promotion 중 무엇을 열지 바로 구현하지 말고 먼저
 - latency hard gate 또는 warning-as-failure 구현
 - `BaselineSummaryGenerator` threshold 상수 즉시 변경
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
-- fixed registration, zero-copy send, receive window depth 확장
+- fixed registration, zero-copy send
 - stable identity 인증/권한 검증, persistence, payload replay

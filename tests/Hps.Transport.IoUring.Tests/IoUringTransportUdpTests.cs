@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Hps.Buffers;
 using Xunit;
@@ -149,6 +150,57 @@ namespace Hps.Transport.IoUring.Tests
             }
         }
 
+        // io_uring UDP bounded receive window 테스트: 첫 handler 가 막혀 있어도 receive slot 들이 미리 post 되어 있어야 한다.
+        // first datagram 을 처리 중인 동안 window 크기만큼 추가 datagram 을 kernel receive 로 흡수하고, unblock 뒤 모두 handler 로 전달되는지 검증한다.
+        [Fact]
+        public async Task UdpReceive_WhenHandlerIsBlocked_PreservesWindowedDatagrams()
+        {
+            if (IoUringCapabilityProbe.GetStatus() != IoUringCapabilityStatus.Available)
+                return;
+
+            using (IoUringTransport transport = new IoUringTransport())
+            {
+                BlockingFirstDatagramHandler handler = new BlockingFirstDatagramHandler();
+                transport.SetDatagramHandler(handler);
+                await transport.StartAsync();
+
+                IUdpEndpoint? endpoint = null;
+                Socket sender = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+                try
+                {
+                    endpoint = await transport.BindUdpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                    IoUringUdpEndpoint ioUringEndpoint = Assert.IsType<IoUringUdpEndpoint>(endpoint);
+
+                    await sender.SendToAsync(new ArraySegment<byte>(new byte[] { 91 }), SocketFlags.None, endpoint.LocalEndPoint);
+                    await WaitForSignalAsync(handler.FirstReceivedTask);
+                    Assert.Equal(1, handler.ReceivedCount);
+
+                    for (int index = 0; index < IoUringUdpEndpoint.ReceiveWindowSize; index++)
+                    {
+                        byte[] payload = new byte[] { (byte)(92 + index) };
+                        int sent = await sender.SendToAsync(new ArraySegment<byte>(payload), SocketFlags.None, endpoint.LocalEndPoint);
+                        Assert.Equal(payload.Length, sent);
+                    }
+
+                    await WaitForRentedCountAsync(ioUringEndpoint.ReceivePool, IoUringUdpEndpoint.ReceiveWindowSize + 1);
+                    Assert.Equal(1, handler.ReceivedCount);
+
+                    handler.AllowFirstDatagramToComplete();
+                    await WaitForReceivedCountAsync(handler, IoUringUdpEndpoint.ReceiveWindowSize + 1);
+
+                    Assert.Equal(IoUringUdpEndpoint.ReceiveWindowSize + 1, handler.ReceivedCount);
+                }
+                finally
+                {
+                    handler.AllowFirstDatagramToComplete();
+                    sender.Dispose();
+                    endpoint?.Close();
+                    await transport.StopAsync();
+                }
+            }
+        }
+
         private static async Task<byte[]> ReceiveUdpDatagramAsync(Socket socket, int maxLength)
         {
             byte[] buffer = new byte[maxLength];
@@ -165,6 +217,45 @@ namespace Hps.Transport.IoUring.Tests
             byte[] payload = new byte[result.ReceivedBytes];
             Buffer.BlockCopy(buffer, 0, payload, 0, payload.Length);
             return payload;
+        }
+
+        private static async Task WaitForSignalAsync(Task signalTask)
+        {
+            Task completed = await Task.WhenAny(signalTask, Task.Delay(TimeSpan.FromSeconds(5))).ConfigureAwait(false);
+            if (completed != signalTask)
+                throw new TimeoutException("io_uring UDP 테스트 신호가 제한 시간 안에 관측되지 않았습니다.");
+
+            await signalTask.ConfigureAwait(false);
+        }
+
+        private static async Task WaitForRentedCountAsync(PinnedBlockMemoryPool pool, int expected)
+        {
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+
+            while (DateTime.UtcNow < deadline)
+            {
+                if (pool.RentedCount == expected)
+                    return;
+
+                await Task.Delay(10).ConfigureAwait(false);
+            }
+
+            Assert.Equal(expected, pool.RentedCount);
+        }
+
+        private static async Task WaitForReceivedCountAsync(BlockingFirstDatagramHandler handler, int expected)
+        {
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+
+            while (DateTime.UtcNow < deadline)
+            {
+                if (handler.ReceivedCount >= expected)
+                    return;
+
+                await Task.Delay(10).ConfigureAwait(false);
+            }
+
+            Assert.Equal(expected, handler.ReceivedCount);
         }
 
         private static IoUringUdpEndpoint CreateDetachedEndpoint(
@@ -256,6 +347,62 @@ namespace Hps.Transport.IoUring.Tests
                 {
                     datagram.Release();
                 }
+            }
+
+            public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)
+            {
+            }
+        }
+
+        private sealed class BlockingFirstDatagramHandler : ITransportDatagramHandler
+        {
+            private readonly ManualResetEventSlim _allowFirstDatagramToComplete;
+            private readonly TaskCompletionSource<bool> _firstReceived;
+            private int _receivedCount;
+
+            internal BlockingFirstDatagramHandler()
+            {
+                _allowFirstDatagramToComplete = new ManualResetEventSlim(false);
+                _firstReceived = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            internal Task FirstReceivedTask
+            {
+                get { return _firstReceived.Task; }
+            }
+
+            internal int ReceivedCount
+            {
+                get { return Volatile.Read(ref _receivedCount); }
+            }
+
+            internal void AllowFirstDatagramToComplete()
+            {
+                _allowFirstDatagramToComplete.Set();
+            }
+
+            public void OnDatagramReceived(IUdpEndpoint endpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)
+            {
+                int receivedCount = Interlocked.Increment(ref _receivedCount);
+
+                if (receivedCount == 1)
+                {
+                    _firstReceived.TrySetResult(true);
+
+                    try
+                    {
+                        if (!_allowFirstDatagramToComplete.Wait(TimeSpan.FromSeconds(5)))
+                            throw new TimeoutException("첫 io_uring UDP datagram handler 대기가 제한 시간 안에 해제되지 않았습니다.");
+                    }
+                    finally
+                    {
+                        datagram.Release();
+                    }
+
+                    return;
+                }
+
+                datagram.Release();
             }
 
             public void OnDatagramEndpointClosed(IUdpEndpoint endpoint)

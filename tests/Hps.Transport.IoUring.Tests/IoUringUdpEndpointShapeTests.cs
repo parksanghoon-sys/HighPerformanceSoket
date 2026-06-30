@@ -19,8 +19,80 @@ namespace Hps.Transport.IoUring.Tests
             Assert.NotNull(Type.GetType("Hps.Transport.IoUringUdpMessageBuffer, Hps.Transport.IoUring"));
         }
 
+        // io_uring UDP receive window 테스트: one-deep receive context/message buffer 를 공유하면 동시에 여러 recvmsg 를 post 할 수 없다.
+        // endpoint 가 slot 별 context 를 만들어 token 충돌 없이 bounded receive window 를 유지하는지 shape 단계에서 먼저 고정한다.
+        [Fact]
+        public void UdpEndpoint_WhenConstructed_CreatesBoundedReceiveWindowSlots()
+        {
+            Type endpointType = typeof(IoUringUdpEndpoint);
+            System.Reflection.FieldInfo? receiveWindowSizeField = endpointType.GetField(
+                "ReceiveWindowSize",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            System.Reflection.PropertyInfo? receiveSlotsProperty = endpointType.GetProperty(
+                "ReceiveSlots",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+            Assert.NotNull(receiveWindowSizeField);
+            Assert.NotNull(receiveSlotsProperty);
+
+            int receiveWindowSize = (int)receiveWindowSizeField!.GetValue(null)!;
+            Assert.Equal(4, receiveWindowSize);
+
+            using (IoUringTransport transport = new IoUringTransport())
+            {
+                IoUringCompletionLoop? loop = null;
+                IoUringUdpEndpoint? endpoint = null;
+
+                try
+                {
+                    endpoint = CreateDetachedEndpoint(transport, out loop);
+                    object? slots = receiveSlotsProperty!.GetValue(endpoint);
+                    Array receiveSlots = Assert.IsAssignableFrom<Array>(slots);
+
+                    Assert.Equal(receiveWindowSize, receiveSlots.Length);
+                    ulong[] tokens = new ulong[receiveSlots.Length];
+
+                    for (int index = 0; index < receiveSlots.Length; index++)
+                    {
+                        object? slot = receiveSlots.GetValue(index);
+                        Assert.NotNull(slot);
+                        System.Reflection.PropertyInfo? contextProperty = slot!.GetType().GetProperty(
+                            "Context",
+                            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                        Assert.NotNull(contextProperty);
+                        IoUringOperationContext context = Assert.IsType<IoUringOperationContext>(contextProperty!.GetValue(slot));
+                        tokens[index] = context.Token;
+                    }
+
+                    Array.Sort(tokens);
+                    for (int index = 1; index < tokens.Length; index++)
+                        Assert.NotEqual(tokens[index - 1], tokens[index]);
+                }
+                finally
+                {
+                    endpoint?.Dispose();
+                    loop?.Dispose();
+                }
+            }
+        }
+
         // close drain 은 UDP send queue 가 소유한 ref 를 정확히 반환해야 한다.
         // pump 구현 전에 endpoint resource 만으로 drop/close ownership 계약을 고정한다.
+        // io_uring UDP receive pump 테스트: bounded window 는 slot 을 만들기만 해서는 부족하고,
+        // 각 slot 이 submit 대기 task 와 completion handoff 를 소유해야 receive loop 가 token 으로 완료 slot 을 식별할 수 있다.
+        [Fact]
+        public void UdpReceiveSlot_WhenInspected_ExposesPumpStateBoundary()
+        {
+            Type slotType = typeof(IoUringUdpEndpoint).GetNestedType(
+                "IoUringUdpReceiveSlot",
+                System.Reflection.BindingFlags.NonPublic)!;
+
+            Assert.NotNull(slotType.GetProperty("CompletionTask", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic));
+            Assert.NotNull(slotType.GetMethod("Post", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic));
+            Assert.NotNull(slotType.GetMethod("Complete", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic));
+            Assert.NotNull(slotType.GetMethod("ReleaseInFlightDatagram", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic));
+        }
+
         [Fact]
         public void UdpEndpoint_WhenClosed_DrainsQueuedSendRefs()
         {

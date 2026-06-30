@@ -440,60 +440,100 @@ namespace Hps.Transport
 
         private async Task UdpReceiveLoopAsync(IoUringUdpEndpoint udpEndpoint)
         {
-            RefCountedBuffer? datagram = null;
+            IoUringUdpEndpoint.IoUringUdpReceiveSlot[] receiveSlots = udpEndpoint.ReceiveSlots;
+            Task<IoUringCompletion>[] receiveTasks = new Task<IoUringCompletion>[receiveSlots.Length];
+            IoUringUdpEndpoint.ReceivedUdpDatagram? received = null;
 
             try
             {
+                for (int index = 0; index < receiveSlots.Length; index++)
+                {
+                    if (!receiveSlots[index].Post(udpEndpoint))
+                        throw new SocketException((int)SocketError.NoBufferSpaceAvailable);
+
+                    receiveTasks[index] = receiveSlots[index].CompletionTask;
+                }
+
                 while (true)
                 {
                     if (udpEndpoint.IsClosed || udpEndpoint.IsDisposed)
                         return;
 
-                    datagram = udpEndpoint.ReceivePool.RentCounted();
-                    ArraySegment<byte> receiveSegment = GetRefCountedBlockSegment(datagram, 0, udpEndpoint.ReceivePool.BlockSize);
-                    if (receiveSegment.Array == null)
-                        throw new InvalidOperationException("io_uring UDP receive는 pinned byte[] 기반 RefCountedBuffer만 지원합니다.");
+                    Task<IoUringCompletion> completedTask = await Task.WhenAny(receiveTasks).ConfigureAwait(false);
+                    int slotIndex = FindUdpReceiveSlotIndex(receiveTasks, completedTask);
+                    IoUringUdpEndpoint.IoUringUdpReceiveSlot slot = receiveSlots[slotIndex];
+                    IoUringCompletion completion = await completedTask.ConfigureAwait(false);
 
-                    IoUringOperationContext context = udpEndpoint.ReceiveContext;
-                    context.Reset(context.Token, IoUringOperationKind.UdpReceive);
-                    udpEndpoint.ReceiveMessage.PrepareReceive(receiveSegment.Array, receiveSegment.Offset, receiveSegment.Count);
-                    ValueTask<IoUringCompletion> wait = context.WaitAsync();
+                    received = slot.Complete(completion);
 
-                    bool submitted = udpEndpoint.Queue.TrySubmitReceiveMessage(
-                        udpEndpoint.SocketFileDescriptor,
-                        udpEndpoint.ReceiveMessage.MessageHeaderPointer,
-                        context.Token);
-                    if (!submitted)
-                        throw new SocketException((int)SocketError.NoBufferSpaceAvailable);
+                    if (!udpEndpoint.IsClosed && !udpEndpoint.IsDisposed)
+                    {
+                        if (!slot.Post(udpEndpoint))
+                            throw new SocketException((int)SocketError.NoBufferSpaceAvailable);
 
-                    IoUringCompletion completion = await wait.ConfigureAwait(false);
-                    if (completion.Result < 0)
-                        throw new SocketException(-completion.Result);
-                    if (completion.Result > receiveSegment.Count)
-                        throw new SocketException((int)SocketError.MessageSize);
+                        receiveTasks[slotIndex] = slot.CompletionTask;
+                    }
 
-                    datagram.SetLength(completion.Result);
-                    EndPoint remoteEndPoint = udpEndpoint.ReceiveMessage.DecodeRemoteEndPoint();
-
-                    RefCountedBuffer ownedDatagram = datagram;
-                    datagram = null;
-                    DispatchDatagramReceived(udpEndpoint, remoteEndPoint, ownedDatagram);
+                    RefCountedBuffer dispatchDatagram = received.Datagram;
+                    EndPoint dispatchRemoteEndPoint = received.RemoteEndPoint;
+                    received = null;
+                    DispatchDatagramReceived(udpEndpoint, dispatchRemoteEndPoint, dispatchDatagram);
                 }
             }
             catch (ObjectDisposedException)
             {
-                datagram?.Release();
+                if (received != null)
+                {
+                    received.Datagram.Release();
+                    received = null;
+                }
             }
             catch (SocketException)
             {
-                datagram?.Release();
+                if (received != null)
+                {
+                    received.Datagram.Release();
+                    received = null;
+                }
+
                 NotifyUdpEndpointClosed(udpEndpoint);
             }
             catch
             {
-                datagram?.Release();
+                if (received != null)
+                {
+                    received.Datagram.Release();
+                    received = null;
+                }
+
                 NotifyUdpEndpointClosed(udpEndpoint);
             }
+            finally
+            {
+                if (received != null)
+                    received.Datagram.Release();
+
+                ReleaseUdpReceiveSlots(receiveSlots);
+            }
+        }
+
+        private static int FindUdpReceiveSlotIndex(
+            Task<IoUringCompletion>[] receiveTasks,
+            Task<IoUringCompletion> completedTask)
+        {
+            for (int index = 0; index < receiveTasks.Length; index++)
+            {
+                if (object.ReferenceEquals(receiveTasks[index], completedTask))
+                    return index;
+            }
+
+            throw new InvalidOperationException("완료된 io_uring UDP receive task 에 대응하는 receive slot 을 찾지 못했습니다.");
+        }
+
+        private static void ReleaseUdpReceiveSlots(IoUringUdpEndpoint.IoUringUdpReceiveSlot[] receiveSlots)
+        {
+            for (int index = 0; index < receiveSlots.Length; index++)
+                receiveSlots[index].ReleaseInFlightDatagram();
         }
 
         private void DispatchDatagramReceived(IoUringUdpEndpoint udpEndpoint, EndPoint remoteEndPoint, RefCountedBuffer datagram)

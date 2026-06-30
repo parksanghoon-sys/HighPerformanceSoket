@@ -9,13 +9,11 @@
 
 ## Current TODOs
 
-- [ ] io_uring UDP artifact gate 이후 후속 후보를 재평가한다.
-  - 입력: D140/D141/D142, 최신 `iouring-linux-contract` run `28421177310`,
-    `docs/superpowers/specs/2026-06-30-iouring-udp-pump-design.md`.
-  - 목표: IPv4 one-deep UDP pump 가 Linux artifact 로 통과한 뒤 다음에 열 수 있는 범위를 정한다.
-  - 후보: receive window depth 확장, fixed payload registration cache, zero-copy send, default backend promotion,
-    또는 추가 local contract hardening.
-  - 제외: 이 재평가 없이 바로 최적화/승격 구현으로 들어가지 않는다.
+- [ ] 사용자 push 이후 `iouring-linux-contract` artifact 로 io_uring UDP bounded receive window 를 검토한다.
+  - 입력: 새 commit 이 원격 `master`에 반영된 뒤 실행한 GitHub Actions `iouring-linux-contract` run artifact.
+  - 목표: Linux available runner 에서 `UdpReceive_WhenHandlerIsBlocked_PreservesWindowedDatagrams`가 early-return 없이 통과하는지 확인한다.
+  - 기대 evidence: TRX counters failed 0, capability `Available`, UDP receive/echo/endpoint diagnostics/bounded window tests Passed.
+  - 제외: artifact 확인 전 fixed payload registration cache, zero-copy send, default backend promotion 구현으로 넘어가지 않는다.
 
 ## Deferred Backlog
 
@@ -49,6 +47,20 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D142 이후 후속 후보를 재평가하고 io_uring UDP receive window 를 구현했다.
+  - 범위: `docs/superpowers/specs/2026-06-30-iouring-udp-receive-window-design.md`,
+    `docs/superpowers/plans/2026-06-30-iouring-udp-receive-window.md`,
+    `src/Hps.Transport.IoUring/IoUringUdpEndpoint.cs`,
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringUdpEndpointShapeTests.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringTransportUdpTests.cs`.
+  - 결과: D143으로 fixed registration/zero-copy/default promotion 보다 receive-side bounded slot window 를 먼저 열기로 결정했다.
+  - 구현: `ReceiveWindowSize = 4`, receive slot 별 context/message buffer/in-flight datagram ownership,
+    handler dispatch 전 slot repost 순서를 추가했다.
+  - 검증: focused shape Red/Green, `IoUringTransportUdpTests`, `IoUringUdpEndpointShapeTests`,
+    `Hps.Transport.IoUring.Tests` 55개 통과.
+  - 다음: 사용자 push 이후 원격 `iouring-linux-contract` artifact 로 Linux native bounded window path 를 검토한다.
 
 - [x] 원격 `iouring-linux-contract` workflow 실행 결과로 io_uring UDP pump artifact 를 검토했다.
   - 범위: GitHub Actions run `28421177310`, artifact `iouring-linux-contract-2026-06-30-github-28421177310-1`.

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Hps.Buffers;
@@ -17,6 +18,7 @@ namespace Hps.Transport
     internal sealed class IoUringUdpEndpoint : IUdpEndpoint
     {
         private const int ReceiveBlockSize = 8192;
+        internal const int ReceiveWindowSize = 4;
         private const int DefaultPendingSendCapacity = 16;
 
         private readonly IoUringTransport _transport;
@@ -28,6 +30,7 @@ namespace Hps.Transport
         private readonly SemaphoreSlim _sendSignal;
         private readonly EndpointId _endpointId;
         private readonly int _pendingSendCapacity;
+        private readonly IoUringUdpReceiveSlot[] _receiveSlots;
         private IoUringOperationContext? _receiveContext;
         private IoUringOperationContext? _sendContext;
         private long _droppedPendingSendCount;
@@ -52,12 +55,13 @@ namespace Hps.Transport
             _endpointId = transport.CreateEndpointId();
             _pendingSendCapacity = DefaultPendingSendCapacity;
             ReceivePool = new PinnedBlockMemoryPool(ReceiveBlockSize);
-            ReceiveMessage = new IoUringUdpMessageBuffer();
             SendMessage = new IoUringUdpMessageBuffer();
+            _receiveSlots = CreateReceiveSlots(_registry, ReceiveWindowSize);
+            ReceiveMessage = _receiveSlots[0].Message;
 
             try
             {
-                _receiveContext = _registry.Register(IoUringOperationKind.UdpReceive);
+                _receiveContext = _receiveSlots[0].Context;
                 _sendContext = _registry.Register(IoUringOperationKind.UdpSend);
             }
             catch
@@ -101,6 +105,11 @@ namespace Hps.Transport
         internal IoUringUdpMessageBuffer ReceiveMessage { get; }
 
         internal IoUringUdpMessageBuffer SendMessage { get; }
+
+        internal IoUringUdpReceiveSlot[] ReceiveSlots
+        {
+            get { return _receiveSlots; }
+        }
 
         internal bool IsClosed
         {
@@ -252,20 +261,47 @@ namespace Hps.Transport
             if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 return;
 
-            IoUringOperationContext? receiveContext = _receiveContext;
             _receiveContext = null;
-            if (receiveContext != null)
-                _registry.Unregister(receiveContext.Token);
+            DisposeReceiveSlots();
 
             IoUringOperationContext? sendContext = _sendContext;
             _sendContext = null;
             if (sendContext != null)
                 _registry.Unregister(sendContext.Token);
 
-            ReceiveMessage.Dispose();
             SendMessage.Dispose();
             _sendSignal.Dispose();
             GC.KeepAlive(CompletionLoop);
+        }
+
+        private static IoUringUdpReceiveSlot[] CreateReceiveSlots(IoUringOperationRegistry registry, int receiveWindowSize)
+        {
+            IoUringUdpReceiveSlot[] slots = new IoUringUdpReceiveSlot[receiveWindowSize];
+            int created = 0;
+
+            try
+            {
+                for (int index = 0; index < slots.Length; index++)
+                {
+                    slots[index] = new IoUringUdpReceiveSlot(registry);
+                    created++;
+                }
+            }
+            catch
+            {
+                for (int index = 0; index < created; index++)
+                    slots[index].Dispose();
+
+                throw;
+            }
+
+            return slots;
+        }
+
+        private void DisposeReceiveSlots()
+        {
+            for (int index = 0; index < _receiveSlots.Length; index++)
+                _receiveSlots[index].Dispose();
         }
 
         private void DrainPendingSends()
@@ -291,6 +327,153 @@ namespace Hps.Transport
             internal EndPoint RemoteEndPoint { get; }
 
             internal TransportSendBuffer SendBuffer { get; }
+        }
+
+        internal sealed class IoUringUdpReceiveSlot : IDisposable
+        {
+            private readonly IoUringOperationRegistry _registry;
+            private RefCountedBuffer? _datagram;
+            private Task<IoUringCompletion>? _completionTask;
+            private int _receiveCapacity;
+            private int _disposed;
+
+            internal IoUringUdpReceiveSlot(IoUringOperationRegistry registry)
+            {
+                _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+                Context = registry.Register(IoUringOperationKind.UdpReceive);
+                Message = new IoUringUdpMessageBuffer();
+            }
+
+            internal IoUringOperationContext Context { get; }
+
+            internal IoUringUdpMessageBuffer Message { get; }
+
+            internal Task<IoUringCompletion> CompletionTask
+            {
+                get
+                {
+                    Task<IoUringCompletion>? completionTask = _completionTask;
+                    if (completionTask == null)
+                        throw new InvalidOperationException("io_uring UDP receive slot 이 아직 post 되지 않았습니다.");
+
+                    return completionTask;
+                }
+            }
+
+            internal bool Post(IoUringUdpEndpoint endpoint)
+            {
+                if (endpoint == null)
+                    throw new ArgumentNullException(nameof(endpoint));
+                if (Volatile.Read(ref _disposed) != 0)
+                    throw new ObjectDisposedException(nameof(IoUringUdpReceiveSlot));
+                if (_datagram != null)
+                    throw new InvalidOperationException("완료되지 않은 UDP receive slot 을 다시 post 할 수 없습니다.");
+                if (endpoint.IsClosed || endpoint.IsDisposed)
+                    return false;
+
+                RefCountedBuffer datagram = endpoint.ReceivePool.RentCounted();
+                try
+                {
+                    ArraySegment<byte> receiveSegment = GetRefCountedBlockSegment(datagram, 0, endpoint.ReceivePool.BlockSize);
+                    if (receiveSegment.Array == null)
+                        throw new InvalidOperationException("io_uring UDP receive 는 pinned byte[] 기반 RefCountedBuffer 만 지원합니다.");
+
+                    Context.Reset(Context.Token, IoUringOperationKind.UdpReceive);
+                    Message.PrepareReceive(receiveSegment.Array, receiveSegment.Offset, receiveSegment.Count);
+                    _completionTask = Context.WaitAsync().AsTask();
+                    _receiveCapacity = receiveSegment.Count;
+                    _datagram = datagram;
+
+                    bool submitted = endpoint.Queue.TrySubmitReceiveMessage(
+                        endpoint.SocketFileDescriptor,
+                        Message.MessageHeaderPointer,
+                        Context.Token);
+                    if (submitted)
+                        return true;
+
+                    ReleaseInFlightDatagram();
+                    return false;
+                }
+                catch
+                {
+                    if (!ReferenceEquals(_datagram, datagram))
+                        datagram.Release();
+                    ReleaseInFlightDatagram();
+                    throw;
+                }
+            }
+
+            internal ReceivedUdpDatagram Complete(IoUringCompletion completion)
+            {
+                RefCountedBuffer? datagram = _datagram;
+                if (datagram == null)
+                    throw new InvalidOperationException("post 되지 않은 UDP receive slot completion 입니다.");
+                if (completion.Token != Context.Token)
+                    throw new InvalidOperationException("UDP receive completion token 이 slot token 과 일치하지 않습니다.");
+
+                _datagram = null;
+                _completionTask = null;
+
+                if (completion.Result < 0)
+                {
+                    datagram.Release();
+                    throw new SocketException(-completion.Result);
+                }
+
+                if (completion.Result > _receiveCapacity)
+                {
+                    datagram.Release();
+                    throw new SocketException((int)SocketError.MessageSize);
+                }
+
+                datagram.SetLength(completion.Result);
+                EndPoint remoteEndPoint = Message.DecodeRemoteEndPoint();
+                return new ReceivedUdpDatagram(datagram, remoteEndPoint);
+            }
+
+            internal void ReleaseInFlightDatagram()
+            {
+                RefCountedBuffer? datagram = _datagram;
+                _datagram = null;
+                _completionTask = null;
+
+                if (datagram != null)
+                    datagram.Release();
+            }
+
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                    return;
+
+                ReleaseInFlightDatagram();
+                _registry.Unregister(Context.Token);
+                Message.Dispose();
+            }
+
+            private static ArraySegment<byte> GetRefCountedBlockSegment(RefCountedBuffer buffer, int offset, int length)
+            {
+                Memory<byte> memory = buffer.Memory.Slice(offset, length);
+                ArraySegment<byte> segment;
+
+                if (!MemoryMarshal.TryGetArray(memory, out segment))
+                    throw new InvalidOperationException("io_uring UDP receive 는 pinned byte[] 기반 RefCountedBuffer 만 지원합니다.");
+
+                return segment;
+            }
+        }
+
+        internal sealed class ReceivedUdpDatagram
+        {
+            internal ReceivedUdpDatagram(RefCountedBuffer datagram, EndPoint remoteEndPoint)
+            {
+                Datagram = datagram ?? throw new ArgumentNullException(nameof(datagram));
+                RemoteEndPoint = remoteEndPoint ?? throw new ArgumentNullException(nameof(remoteEndPoint));
+            }
+
+            internal RefCountedBuffer Datagram { get; }
+
+            internal EndPoint RemoteEndPoint { get; }
         }
     }
 }
