@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-06-30 (Codex - io_uring endpoint diagnostics)
+
+### 작업 단위
+- `io_uring` backend 의 endpoint diagnostics snapshot surface 를 SAEA/RIO와 맞췄다.
+
+### 변경 내용
+- `src/Hps.Transport.IoUring/IoUringTransport.cs`:
+  `ITransportEndpointDiagnostics`를 구현하고 TCP connection/UDP endpoint registry snapshot 을 반환하도록 했다.
+- `tests/Hps.Transport.IoUring.Tests/IoUringTransportUdpTests.cs`:
+  등록된 UDP endpoint 가 `EndpointSnapshot`으로 보이고, endpoint close 뒤 snapshot 목록에서 제거되는지 검증했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-06.md`:
+  D141로 io_uring endpoint diagnostics parity 결정을 기록했다.
+- `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `docs/agent-state/changelog/2026-06.md`:
+  remote artifact blocker 와 이번 로컬 diagnostics parity 완료 상태를 갱신했다.
+
+### 검증
+- Red: focused diagnostics test 가 `Assert.IsAssignableFrom()` failure 로 실패.
+- Green: focused diagnostics test 1개 통과.
+- `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --no-restore -v minimal` 통과, 52개 통과.
+
 ## 2026-06-30 (Codex - io_uring udp remote artifact recheck)
 
 ### 작업 단위

@@ -15,8 +15,9 @@
   - 현재 상태: 로컬 Windows 검증은 shape/ownership과 capability-gated early-return 까지 완료됐다.
     추가로 `TrySendTo` 성공/거절 소유권, endpoint drop/high-watermark diagnostics,
     `IoUringUdpMessageBuffer` send metadata/Dispose 경계를 51개 focused io_uring tests 로 보강했다.
+    이후 D141로 `IoUringTransport`도 `ITransportEndpointDiagnostics`를 구현해 SAEA/RIO와 같은 endpoint snapshot surface 를 제공한다.
     2026-06-30 재확인 기준 최신 원격 run `28411459951`은 `headSha=a4d42ddfd62f750551520c33ea756151f524d332`에서 실행됐고,
-    현재 로컬 HEAD `a685364e660cebecfd1971ce2a0793455ce766f3`까지의 8개 ahead 로컬 커밋을 포함하지 않는다.
+    현재 로컬 브랜치의 io_uring UDP pump/계약 보강/endpoint diagnostics 커밋을 포함하지 않는다.
     실제 Linux `recvmsg`/`sendmsg` syscall path 는 원격 artifact 로 확인해야 한다.
   - 제외: artifact 검토 전 fixed registration, zero-copy send, receive window depth 확장, default backend promotion.
 
@@ -52,6 +53,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] io_uring endpoint diagnostics snapshot surface 를 SAEA/RIO와 맞췄다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringTransportUdpTests.cs`, 상태/결정 문서.
+  - Red: `GetEndpointSnapshots_WhenUdpEndpointIsRegistered_ReturnsUdpSnapshotAndRemovesItAfterClose`가
+    `ITransportEndpointDiagnostics` cast 실패로 깨지는 것을 확인했다.
+  - Green: `IoUringTransport`가 `ITransportEndpointDiagnostics`를 구현하고,
+    TCP connection/UDP endpoint registry snapshot 을 `EndpointSnapshot[]`로 반환한다.
+  - 검증: focused diagnostics test 1개 통과, `Hps.Transport.IoUring.Tests` 52개 통과.
+  - 비고: `ITransport` 기본 계약은 넓히지 않았고, default promotion/fixed registration/zero-copy/receive window 확장은 열지 않았다.
 
 - [x] io_uring UDP pump 로컬 계약 보강 테스트를 추가했다.
   - 범위: `tests/Hps.Transport.IoUring.Tests/IoUringUdpEndpointShapeTests.cs`,

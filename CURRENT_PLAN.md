@@ -1695,6 +1695,9 @@ default backend promotion 은 후속 설계로 남긴다.
 원격 artifact 대기 전 로컬에서 `io_uring` UDP 계약 보강 테스트를 추가했다.
 `TrySendTo` 성공/거절 ref ownership, endpoint drop/high-watermark diagnostics,
 `IoUringUdpMessageBuffer` send metadata/Dispose 경계를 고정했다.
+추가 self-review 에서 `IoUringUdpEndpoint.CreateSnapshot()`이 transport-level
+`ITransportEndpointDiagnostics` surface 에 연결되지 않은 gap 을 발견했고,
+D141 기준으로 SAEA/RIO와 같은 endpoint snapshot surface 를 io_uring backend 에도 연결했다.
 
 ## 이번 단위의 검증 경로
 
@@ -1715,10 +1718,14 @@ default backend promotion 은 후속 설계로 남긴다.
 - 현재 상태: 추가 로컬 계약 보강으로 `IoUringUdpEndpointShapeTests`와 `IoUringUdpMessageShapeTests`를 확장했고,
   `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --no-restore -v minimal`
   기준 51개 통과를 확인했다. 프로덕션 코드는 변경하지 않았다.
+- 현재 상태: `IoUringTransport`가 `ITransportEndpointDiagnostics`를 구현하고,
+  transport registry 의 TCP connection/UDP endpoint snapshot 을 반환한다.
+  Red: endpoint diagnostics cast 실패를 확인했고, Green: focused diagnostics test 1개와
+  `Hps.Transport.IoUring.Tests` 52개 통과를 확인했다.
 - 현재 blocker: 2026-06-30 재확인 기준 원격 `iouring-linux-contract` 최신 run `28411459951`은
   `headSha=a4d42ddfd62f750551520c33ea756151f524d332`에서 실행됐다.
-  현재 로컬 HEAD는 `a685364e660cebecfd1971ce2a0793455ce766f3`이고 `origin/master`보다 8 commits ahead 이므로,
-  해당 artifact 는 현재 UDP pump/로컬 계약 보강 커밋을 포함하지 않는다.
+  현재 로컬 브랜치에는 이 run 이후의 io_uring UDP pump/로컬 계약 보강/endpoint diagnostics 커밋이 있으므로,
+  해당 artifact 는 현재 UDP pump 전체 상태를 포함하지 않는다.
 - 다음 산출물: 원격 Linux UDP pump artifact 검토 결과 문서/결정 업데이트.
 
 ## 이번 작업에서 건드리지 않는 범위

@@ -11,7 +11,7 @@ namespace Hps.Transport.IoUring.Tests
     public sealed class IoUringTransportUdpTests
     {
         // UDP endpoint resource 만 있어서는 public BindUdpAsync 경로가 열리지 않는다.
-        // transport 가 endpoint 등록, receive loop 시작, close notify 를 직접 소유해야 stop/close 수명이 TCP와 대칭이 된다.
+        // transport 가 endpoint 등록, receive loop 시작, close notify 를 직접 소유해야 stop/close 수명도 TCP와 대칭이 된다.
         [Fact]
         public void UdpTransportShape_WhenInspected_ExposesBindReceivePumpMembers()
         {
@@ -26,7 +26,7 @@ namespace Hps.Transport.IoUring.Tests
         }
 
         // UDP send path 는 public TrySendTo override 와 endpoint 단일 send pump 로만 열려야 한다.
-        // shape test 로 먼저 고정해, caller 가 성공 반환 뒤 맡긴 ref 를 background send completion 이 반환하는 경계를 강제한다.
+        // shape test 로 먼저 고정해 caller 성공 반환 뒤 맡긴 ref 를 background send completion 이 반환하는 경계를 강제한다.
         [Fact]
         public void UdpSendTransportShape_WhenInspected_ExposesSendPumpMembers()
         {
@@ -38,6 +38,42 @@ namespace Hps.Transport.IoUring.Tests
             Assert.NotNull(transportType.GetMethod("StartUdpSendLoop", BindingFlags.Instance | BindingFlags.NonPublic));
             Assert.NotNull(transportType.GetMethod("UdpSendLoopAsync", BindingFlags.Instance | BindingFlags.NonPublic));
             Assert.NotNull(transportType.GetMethod("SendUdpDatagramAsync", BindingFlags.Instance | BindingFlags.NonPublic));
+        }
+
+        // UDP endpoint diagnostics 테스트: io_uring backend 도 SAEA/RIO 처럼 선택적 endpoint snapshot surface 를 제공해야 한다.
+        // 이 경로가 빠지면 transport-level drop/high-watermark 는 보이지만 어떤 logical endpoint 가 열려 있는지 운영자가 확인할 수 없다.
+        [Fact]
+        public void GetEndpointSnapshots_WhenUdpEndpointIsRegistered_ReturnsUdpSnapshotAndRemovesItAfterClose()
+        {
+            using (IoUringTransport transport = new IoUringTransport())
+            {
+                IoUringCompletionLoop? loop = null;
+                IoUringUdpEndpoint? endpoint = null;
+
+                try
+                {
+                    endpoint = CreateDetachedEndpoint(transport, out loop);
+                    RegisterUdpEndpoint(transport, endpoint);
+
+                    ITransportEndpointDiagnostics diagnostics = Assert.IsAssignableFrom<ITransportEndpointDiagnostics>(transport);
+                    EndpointSnapshot snapshot = Assert.Single(diagnostics.GetEndpointSnapshots());
+
+                    Assert.Equal(EndpointTransportKind.Udp, snapshot.TransportKind);
+                    Assert.Equal(EndpointState.Open, snapshot.State);
+                    Assert.Equal(0, snapshot.PendingSendCount);
+                    Assert.Equal(0, snapshot.PendingSendQueueHighWatermark);
+                    Assert.Equal(0, snapshot.DroppedPendingSendCount);
+
+                    endpoint.Close();
+
+                    Assert.Empty(diagnostics.GetEndpointSnapshots());
+                }
+                finally
+                {
+                    endpoint?.Dispose();
+                    loop?.Dispose();
+                }
+            }
         }
 
         // Linux available host 에서 UDP recvmsg pump 가 datagram 을 RefCountedBuffer ownership 으로 handler 에 넘기는지 검증한다.
@@ -129,6 +165,37 @@ namespace Hps.Transport.IoUring.Tests
             byte[] payload = new byte[result.ReceivedBytes];
             Buffer.BlockCopy(buffer, 0, payload, 0, payload.Length);
             return payload;
+        }
+
+        private static IoUringUdpEndpoint CreateDetachedEndpoint(
+            IoUringTransport transport,
+            out IoUringCompletionLoop loop)
+        {
+            IoUringOperationRegistry registry = new IoUringOperationRegistry();
+            loop = IoUringCompletionLoop.CreateForTests(registry);
+            Socket? socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+            try
+            {
+                socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                IoUringUdpEndpoint endpoint = new IoUringUdpEndpoint(transport, socket, registry, loop);
+                socket = null;
+                return endpoint;
+            }
+            finally
+            {
+                socket?.Dispose();
+            }
+        }
+
+        private static void RegisterUdpEndpoint(IoUringTransport transport, IoUringUdpEndpoint endpoint)
+        {
+            MethodInfo? register = typeof(IoUringTransport).GetMethod(
+                "RegisterUdpEndpoint",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(register);
+            register!.Invoke(transport, new object[] { endpoint });
         }
 
         private sealed class CapturingDatagramHandler : ITransportDatagramHandler

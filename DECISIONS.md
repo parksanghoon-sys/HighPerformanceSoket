@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D141 — io_uring backend 도 선택적 endpoint diagnostics snapshot surface 를 SAEA/RIO와 맞춘다.
 - D140 — io_uring UDP v1은 IPv4 one-deep recvmsg/sendmsg pump 로 제한한다.
 - D139 — io_uring Linux contract artifact 는 TCP receive/send pump native 검증 gate 를 충족했다.
 - D138 — io_uring 후속 구현은 UDP/zero-copy 최적화 전에 Linux contract evidence gate 를 먼저 둔다.

@@ -16,7 +16,7 @@ namespace Hps.Transport
     /// accepted/connected socket의 data plane을 후속 task에서 io_uring SQE/CQE pump로 연결한다.
     /// 기본 backend 승격은 하지 않으며, unsupported OS에서는 명시적 NotSupportedException으로 수렴한다.
     /// </summary>
-    public sealed class IoUringTransport : TransportBase
+    public sealed class IoUringTransport : TransportBase, ITransportEndpointDiagnostics
     {
         private const int ListenBacklog = 512;
         private const uint QueueEntries = 64;
@@ -210,6 +210,36 @@ namespace Hps.Transport
                 return false;
 
             return udpEndpoint.TryAcceptSend(ipEndPoint, sendBuffer);
+        }
+
+        /// <inheritdoc />
+        public EndpointSnapshot[] GetEndpointSnapshots()
+        {
+            TransportConnection[] connections;
+            IoUringUdpEndpoint[] udpEndpoints;
+
+            lock (_gate)
+            {
+                connections = _connections.ToArray();
+                udpEndpoints = _udpEndpoints.ToArray();
+            }
+
+            EndpointSnapshot[] snapshots = new EndpointSnapshot[connections.Length + udpEndpoints.Length];
+            int snapshotIndex = 0;
+
+            for (int index = 0; index < connections.Length; index++)
+            {
+                snapshots[snapshotIndex] = connections[index].CreateSnapshot(EndpointTransportKind.Tcp);
+                snapshotIndex++;
+            }
+
+            for (int index = 0; index < udpEndpoints.Length; index++)
+            {
+                snapshots[snapshotIndex] = udpEndpoints[index].CreateSnapshot();
+                snapshotIndex++;
+            }
+
+            return snapshots;
         }
 
         /// <inheritdoc />
