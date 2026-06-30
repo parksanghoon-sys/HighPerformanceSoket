@@ -1,7 +1,6 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using Hps.Buffers;
 using Xunit;
 
@@ -9,7 +8,9 @@ namespace Hps.Transport.IoUring.Tests
 {
     public sealed class IoUringUdpEndpointShapeTests
     {
-        // UDP endpoint 는 socket 뿐 아니라 msghdr/iovec/sockaddr pin 수명을 completion 까지 보장해야 한다.
+        private const int PendingSendCapacity = 16;
+
+        // UDP endpoint 는 socket 뿐 아니라 msghdr/iovec/sockaddr pin 수명도 completion 까지 보장해야 한다.
         // type shape 를 먼저 고정해 receive/send pump 가 raw pointer lifetime 을 지역 변수에 맡기지 않게 한다.
         [Fact]
         public void UdpResourceTypes_WhenInspected_Exist()
@@ -23,33 +24,23 @@ namespace Hps.Transport.IoUring.Tests
         [Fact]
         public void UdpEndpoint_WhenClosed_DrainsQueuedSendRefs()
         {
-            Type endpointType = RequiredType("Hps.Transport.IoUringUdpEndpoint, Hps.Transport.IoUring");
             using (IoUringTransport transport = new IoUringTransport())
             {
-                IoUringOperationRegistry registry = new IoUringOperationRegistry();
-                IoUringCompletionLoop loop = IoUringCompletionLoop.CreateForTests(registry);
-                Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                IUdpEndpoint? endpoint = null;
+                IoUringCompletionLoop? loop = null;
+                IoUringUdpEndpoint? endpoint = null;
 
                 try
                 {
-                    socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
-                    endpoint = (IUdpEndpoint)Activator.CreateInstance(
-                        endpointType,
-                        BindingFlags.Instance | BindingFlags.NonPublic,
-                        null,
-                        new object[] { transport, socket, registry, loop },
-                        null)!;
+                    endpoint = CreateDetachedEndpoint(transport, out loop);
 
                     PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
                     RefCountedBuffer buffer = pool.RentCounted();
                     buffer.SetLength(1);
                     buffer.AddRef();
 
-                    MethodInfo tryAccept = RequiredMethod(endpointType, "TryAcceptSend");
-                    bool accepted = (bool)tryAccept.Invoke(
-                        endpoint,
-                        new object[] { new IPEndPoint(IPAddress.Loopback, 9), new TransportSendBuffer(buffer, 0, 1) })!;
+                    bool accepted = endpoint.TryAcceptSend(
+                        new IPEndPoint(IPAddress.Loopback, 9),
+                        new TransportSendBuffer(buffer, 0, 1));
                     Assert.True(accepted);
                     buffer.Release();
 
@@ -60,53 +51,49 @@ namespace Hps.Transport.IoUring.Tests
                 finally
                 {
                     endpoint?.Dispose();
-                    socket.Dispose();
-                    loop.Dispose();
+                    loop?.Dispose();
                 }
             }
         }
 
-        // drop-oldest 는 가장 오래된 pending datagram ref 를 즉시 반환해야 한다.
-        // 이후 endpoint close 가 남은 16개 ref 를 drain 해 pool count 가 0으로 돌아오는지까지 확인한다.
+        // UDP public send path 소유권 테스트: TrySendTo 가 true 를 반환하면 호출자는 자기 publish ref 만 내려놓고,
+        // queued transport ref 는 endpoint close/drain 이 반환해야 한다. 이 경계를 깨면 fan-out drop/close 경합에서 누수나 이중 반환이 생긴다.
         [Fact]
-        public void UdpEndpoint_WhenPendingQueueExceedsCapacity_DropsOldestAndReleasesEvictedRef()
+        public void UdpSendTo_WhenAccepted_TransportOwnsQueuedRefUntilEndpointCloses()
         {
-            Type endpointType = RequiredType("Hps.Transport.IoUringUdpEndpoint, Hps.Transport.IoUring");
             using (IoUringTransport transport = new IoUringTransport())
             {
-                IoUringOperationRegistry registry = new IoUringOperationRegistry();
-                IoUringCompletionLoop loop = IoUringCompletionLoop.CreateForTests(registry);
-                Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                IUdpEndpoint? endpoint = null;
+                IoUringCompletionLoop? loop = null;
+                IoUringUdpEndpoint? endpoint = null;
+                RefCountedBuffer? buffer = null;
+                bool publisherRefReleased = false;
 
                 try
                 {
-                    socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
-                    endpoint = (IUdpEndpoint)Activator.CreateInstance(
-                        endpointType,
-                        BindingFlags.Instance | BindingFlags.NonPublic,
-                        null,
-                        new object[] { transport, socket, registry, loop },
-                        null)!;
-
+                    endpoint = CreateDetachedEndpoint(transport, out loop);
                     PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
-                    IPEndPoint remote = new IPEndPoint(IPAddress.Loopback, 9);
-                    MethodInfo tryAccept = RequiredMethod(endpointType, "TryAcceptSend");
+                    buffer = pool.RentCounted();
+                    buffer.SetLength(1);
+                    buffer.AddRef();
 
-                    for (int index = 0; index < 17; index++)
-                    {
-                        RefCountedBuffer buffer = pool.RentCounted();
-                        buffer.SetLength(1);
-                        buffer.AddRef();
+                    bool accepted = transport.TrySendTo(
+                        endpoint,
+                        new IPEndPoint(IPAddress.Loopback, 9),
+                        new TransportSendBuffer(buffer, 0, 1));
 
-                        bool accepted = (bool)tryAccept.Invoke(
-                            endpoint,
-                            new object[] { remote, new TransportSendBuffer(buffer, 0, 1) })!;
-                        Assert.True(accepted);
+                    if (!accepted)
                         buffer.Release();
-                    }
 
-                    Assert.Equal(16, pool.RentedCount);
+                    Assert.True(accepted);
+
+                    buffer.Release();
+                    publisherRefReleased = true;
+
+                    EndpointSnapshot snapshot = endpoint.CreateSnapshot();
+                    Assert.Equal(1, snapshot.PendingSendCount);
+                    Assert.Equal(1, snapshot.PendingSendQueueHighWatermark);
+                    Assert.Equal(0, snapshot.DroppedPendingSendCount);
+                    Assert.Equal(1, pool.RentedCount);
 
                     endpoint.Close();
 
@@ -114,25 +101,166 @@ namespace Hps.Transport.IoUring.Tests
                 }
                 finally
                 {
+                    if (!publisherRefReleased)
+                        buffer?.Release();
+
                     endpoint?.Dispose();
-                    socket.Dispose();
-                    loop.Dispose();
+                    loop?.Dispose();
                 }
             }
         }
 
-        private static Type RequiredType(string name)
+        // UDP send reject 소유권 테스트: 닫힌 endpoint 로 보낸 datagram 은 transport 가 ref 를 가져가지 않는다.
+        // 호출자가 실패 반환 뒤 추가 ref 를 Release 해도 안전해야 closed endpoint 로 인한 누수와 이중 반환을 동시에 막을 수 있다.
+        [Fact]
+        public void UdpSendTo_WhenEndpointClosed_ReturnsFalseAndLeavesCallerOwnedRef()
         {
-            Type? type = Type.GetType(name);
-            Assert.NotNull(type);
-            return type!;
+            using (IoUringTransport transport = new IoUringTransport())
+            {
+                IoUringCompletionLoop? loop = null;
+                IoUringUdpEndpoint? endpoint = null;
+
+                try
+                {
+                    endpoint = CreateDetachedEndpoint(transport, out loop);
+                    endpoint.Close();
+
+                    PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                    RefCountedBuffer buffer = pool.RentCounted();
+                    buffer.SetLength(1);
+                    buffer.AddRef();
+
+                    bool accepted = transport.TrySendTo(
+                        endpoint,
+                        new IPEndPoint(IPAddress.Loopback, 9),
+                        new TransportSendBuffer(buffer, 0, 1));
+
+                    Assert.False(accepted);
+                    buffer.Release();
+                    buffer.Release();
+                    Assert.Equal(0, pool.RentedCount);
+                }
+                finally
+                {
+                    endpoint?.Dispose();
+                    loop?.Dispose();
+                }
+            }
         }
 
-        private static MethodInfo RequiredMethod(Type type, string name)
+        // UDP IPv4-only 정책 테스트: D140 의 v1 범위는 IPv4 one-deep recvmsg/sendmsg 이므로 IPv6 remote 는 false 로 거절한다.
+        // 거절 경로는 queue 에 들어가지 않으므로 caller 가 추가 ref 를 직접 Release 해야 하고 transport 는 ref 를 건드리지 않아야 한다.
+        [Fact]
+        public void UdpSendTo_WhenRemoteIsIpv6_ReturnsFalseAndLeavesCallerOwnedRef()
         {
-            MethodInfo? method = type.GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.NotNull(method);
-            return method!;
+            using (IoUringTransport transport = new IoUringTransport())
+            {
+                IoUringCompletionLoop? loop = null;
+                IoUringUdpEndpoint? endpoint = null;
+
+                try
+                {
+                    endpoint = CreateDetachedEndpoint(transport, out loop);
+
+                    PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                    RefCountedBuffer buffer = pool.RentCounted();
+                    buffer.SetLength(1);
+                    buffer.AddRef();
+
+                    bool accepted = transport.TrySendTo(
+                        endpoint,
+                        new IPEndPoint(IPAddress.IPv6Loopback, 9),
+                        new TransportSendBuffer(buffer, 0, 1));
+
+                    Assert.False(accepted);
+                    buffer.Release();
+                    buffer.Release();
+                    Assert.Equal(0, pool.RentedCount);
+                    Assert.Equal(0, endpoint.CreateSnapshot().PendingSendCount);
+                }
+                finally
+                {
+                    endpoint?.Dispose();
+                    loop?.Dispose();
+                }
+            }
+        }
+
+        // drop-oldest 는 가장 오래된 pending datagram ref 를 즉시 반환해야 한다.
+        // endpoint 와 transport diagnostics 모두 drop count/high-watermark 를 보존해야 운영에서 느린 consumer 를 식별할 수 있다.
+        [Fact]
+        public void UdpEndpoint_WhenPendingQueueExceedsCapacity_DropsOldestAndKeepsDiagnostics()
+        {
+            using (IoUringTransport transport = new IoUringTransport())
+            {
+                ITransportDiagnostics diagnostics = transport;
+                IoUringCompletionLoop? loop = null;
+                IoUringUdpEndpoint? endpoint = null;
+
+                try
+                {
+                    endpoint = CreateDetachedEndpoint(transport, out loop);
+
+                    PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                    IPEndPoint remote = new IPEndPoint(IPAddress.Loopback, 9);
+
+                    for (int index = 0; index < PendingSendCapacity + 2; index++)
+                    {
+                        RefCountedBuffer buffer = pool.RentCounted();
+                        buffer.SetLength(1);
+                        buffer.AddRef();
+
+                        bool accepted = endpoint.TryAcceptSend(remote, new TransportSendBuffer(buffer, 0, 1));
+                        Assert.True(accepted);
+                        buffer.Release();
+                    }
+
+                    EndpointSnapshot endpointSnapshot = endpoint.CreateSnapshot();
+                    Assert.Equal(PendingSendCapacity, endpointSnapshot.PendingSendCount);
+                    Assert.Equal(PendingSendCapacity, endpointSnapshot.PendingSendQueueHighWatermark);
+                    Assert.Equal(2, endpointSnapshot.DroppedPendingSendCount);
+
+                    TransportDiagnosticsSnapshot transportSnapshot = diagnostics.GetDiagnosticsSnapshot();
+                    Assert.Equal(PendingSendCapacity, transportSnapshot.UdpPendingSendQueueHighWatermark);
+                    Assert.Equal(2, transportSnapshot.UdpDroppedPendingSendCount);
+                    Assert.Equal(2, transportSnapshot.DroppedPendingSendCount);
+                    Assert.Equal(PendingSendCapacity, pool.RentedCount);
+
+                    endpoint.Close();
+
+                    EndpointSnapshot closedSnapshot = endpoint.CreateSnapshot();
+                    Assert.Equal(0, closedSnapshot.PendingSendCount);
+                    Assert.Equal(PendingSendCapacity, closedSnapshot.PendingSendQueueHighWatermark);
+                    Assert.Equal(2, closedSnapshot.DroppedPendingSendCount);
+                    Assert.Equal(0, pool.RentedCount);
+                }
+                finally
+                {
+                    endpoint?.Dispose();
+                    loop?.Dispose();
+                }
+            }
+        }
+
+        private static IoUringUdpEndpoint CreateDetachedEndpoint(
+            IoUringTransport transport,
+            out IoUringCompletionLoop loop)
+        {
+            IoUringOperationRegistry registry = new IoUringOperationRegistry();
+            loop = IoUringCompletionLoop.CreateForTests(registry);
+            Socket? socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+            try
+            {
+                socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                IoUringUdpEndpoint endpoint = new IoUringUdpEndpoint(transport, socket, registry, loop);
+                socket = null;
+                return endpoint;
+            }
+            finally
+            {
+                socket?.Dispose();
+            }
         }
     }
 }

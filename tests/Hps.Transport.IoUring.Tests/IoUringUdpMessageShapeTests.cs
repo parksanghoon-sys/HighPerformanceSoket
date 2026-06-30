@@ -44,6 +44,44 @@ namespace Hps.Transport.IoUring.Tests
             Assert.Equal(expected, Assert.IsType<IPEndPoint>(actual));
         }
 
+        // UDP send message metadata 테스트: sendmsg 는 payload pointer 와 remote sockaddr pointer 를 completion 까지 참조한다.
+        // PrepareSend 가 header pointer 를 노출하고 sockaddr 를 roundtrip 할 수 있어야 커널 제출 직후 managed metadata lifetime 이 흔들리지 않는다.
+        [Fact]
+        public unsafe void MessageBuffer_WhenPreparedForSend_ExposesHeaderAndPreservesRemoteEndpoint()
+        {
+            using (IoUringUdpMessageBuffer messageBuffer = new IoUringUdpMessageBuffer())
+            {
+                byte[] payload = new byte[] { 10, 20, 30, 40 };
+                IPEndPoint expected = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 34567);
+
+                messageBuffer.PrepareSend(payload, 1, 2, expected);
+
+                Assert.NotEqual(IntPtr.Zero, messageBuffer.MessageHeaderPointer);
+                Assert.Equal(expected, messageBuffer.DecodeRemoteEndPoint());
+            }
+        }
+
+        // Dispose 경계 테스트: native SQE 에 넘겨질 pointer holder 는 해제 후 재사용되면 안 된다.
+        // ObjectDisposedException 으로 빠르게 실패해야 이미 반환된 sockaddr block 이 다음 receive/send 에 섞이는 일을 막을 수 있다.
+        [Fact]
+        public unsafe void MessageBuffer_WhenDisposed_RejectsFurtherUse()
+        {
+            IoUringUdpMessageBuffer messageBuffer = new IoUringUdpMessageBuffer();
+            messageBuffer.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(
+                delegate
+                {
+                    messageBuffer.PrepareReceive(new byte[8], 0, 8);
+                });
+            Assert.Throws<ObjectDisposedException>(
+                delegate
+                {
+                    IntPtr ignored = messageBuffer.MessageHeaderPointer;
+                    GC.KeepAlive(ignored);
+                });
+        }
+
         private static Type RequiredType(string name)
         {
             Type? type = Type.GetType(name);

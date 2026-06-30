@@ -1692,10 +1692,14 @@ Phase 6 io_uring UDP pump 설계와 구현 계획도 작성했다.
 D140 기준 UDP v1은 IPv4 one-deep `recvmsg`/`sendmsg` pump 로 제한하고,
 IPv6 direct io_uring UDP, receive window depth 2 이상, fixed payload registration cache, zero-copy send,
 default backend promotion 은 후속 설계로 남긴다.
+원격 artifact 대기 전 로컬에서 `io_uring` UDP 계약 보강 테스트를 추가했다.
+`TrySendTo` 성공/거절 ref ownership, endpoint drop/high-watermark diagnostics,
+`IoUringUdpMessageBuffer` send metadata/Dispose 경계를 고정했다.
 
 ## 이번 단위의 검증 경로
 
-다음 cycle 은 사용자 push 이후 원격 `iouring-linux-contract` workflow artifact 로 io_uring UDP pump 를 검토한다.
+다음 cycle 의 핵심 검증 축은 사용자 push 이후 원격 `iouring-linux-contract` workflow artifact 로 io_uring UDP pump 를 검토하는 것이다.
+현재 로컬 cycle 에서는 artifact 대기 중에도 가능한 UDP ownership/metadata contract 를 테스트로 보강했다.
 
 - 범위: GitHub Actions `iouring-linux-contract` run artifact 의 `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`.
 - 검증: `IoUringCapabilityEvidenceTests`가 `Available`을 기록하는 Linux runner 에서
@@ -1708,6 +1712,9 @@ default backend promotion 은 후속 설계로 남긴다.
   Task 3 UDP Bind And Receive Pump, Task 4 UDP Send Pump And Ownership, Task 5 State Docs And Verification 은 완료됐다.
   Task 4 focused tests 3개, `Hps.Transport.IoUring.Tests` 46개, solution build 경고 0/오류 0,
   solution tests 426개, `git diff --check` 통과를 확인했다.
+- 현재 상태: 추가 로컬 계약 보강으로 `IoUringUdpEndpointShapeTests`와 `IoUringUdpMessageShapeTests`를 확장했고,
+  `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --no-restore -v minimal`
+  기준 51개 통과를 확인했다. 프로덕션 코드는 변경하지 않았다.
 - 다음 산출물: 원격 Linux UDP pump artifact 검토 결과 문서/결정 업데이트.
 
 ## 이번 작업에서 건드리지 않는 범위

@@ -13,6 +13,8 @@
   - 입력: 사용자 push 이후 GitHub Actions `iouring-linux-contract` run artifact.
   - 목표: UDP receive/send loopback tests 가 Linux available path 에서 early-return 없이 통과하는지 확인한다.
   - 현재 상태: 로컬 Windows 검증은 shape/ownership과 capability-gated early-return 까지 완료됐다.
+    추가로 `TrySendTo` 성공/거절 소유권, endpoint drop/high-watermark diagnostics,
+    `IoUringUdpMessageBuffer` send metadata/Dispose 경계를 51개 focused io_uring tests 로 보강했다.
     실제 Linux `recvmsg`/`sendmsg` syscall path 는 원격 artifact 로 확인해야 한다.
   - 제외: artifact 검토 전 fixed registration, zero-copy send, receive window depth 확장, default backend promotion.
 
@@ -48,6 +50,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] io_uring UDP pump 로컬 계약 보강 테스트를 추가했다.
+  - 범위: `tests/Hps.Transport.IoUring.Tests/IoUringUdpEndpointShapeTests.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringUdpMessageShapeTests.cs`.
+  - 결과: `TrySendTo` 성공 시 queued transport ref 가 endpoint close 까지 유지되는지,
+    closed endpoint/IPv6 remote 거절 시 caller ref 가 그대로 남는지,
+    drop-oldest diagnostics 와 message buffer send metadata/Dispose 경계가 유지되는지 검증한다.
+  - 비고: 프로덕션 코드는 변경하지 않았다. D140 제외 범위인 fixed registration, zero-copy send,
+    receive window depth 확장, default backend promotion 은 열지 않았다.
+  - 검증: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --no-restore -v minimal`
+    51개 통과.
+  - 다음: 사용자 push 이후 원격 `iouring-linux-contract` artifact 로 실제 Linux UDP syscall path 를 검토한다.
 
 - [x] Phase 6 io_uring UDP pump 구현 계획 Task 5 State Docs And Verification 을 수행했다.
   - 범위: root/archive state docs, D140 decision presence, 최종 검증.
