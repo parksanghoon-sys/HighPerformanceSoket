@@ -1715,6 +1715,10 @@ default backend promotion 은 후속 설계로 남긴다.
 - 현재 상태: 추가 로컬 계약 보강으로 `IoUringUdpEndpointShapeTests`와 `IoUringUdpMessageShapeTests`를 확장했고,
   `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --no-restore -v minimal`
   기준 51개 통과를 확인했다. 프로덕션 코드는 변경하지 않았다.
+- 현재 blocker: 2026-06-30 재확인 기준 원격 `iouring-linux-contract` 최신 run `28411459951`은
+  `headSha=a4d42ddfd62f750551520c33ea756151f524d332`에서 실행됐다.
+  현재 로컬 HEAD는 `a685364e660cebecfd1971ce2a0793455ce766f3`이고 `origin/master`보다 8 commits ahead 이므로,
+  해당 artifact 는 현재 UDP pump/로컬 계약 보강 커밋을 포함하지 않는다.
 - 다음 산출물: 원격 Linux UDP pump artifact 검토 결과 문서/결정 업데이트.
 
 ## 이번 작업에서 건드리지 않는 범위
