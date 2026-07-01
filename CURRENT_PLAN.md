@@ -1780,6 +1780,22 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - 다음 실행 지점: 사용자 push 이후 GitHub Actions 에서 `iouring-benchmark-artifacts.yml`을 다시 수동 실행하고,
   TCP/UDP summary source-report-count 6, hard-passed true, drop/payload-error/pool-rented 0,
   protocol 별 history 생성 여부를 검토한다.
+- D149 원격 검토 결과: run `28489104828`이 success 로 완료됐다.
+  artifact `iouring-benchmark-artifacts-2026-07-01-github-28489104828-1`은
+  root `summary.md`에 `Runs per protocol: 3`을 기록했고, TCP/UDP 각각 raw report 6개,
+  `summary.json`/`summary.md`, `history.json`/`history.md`를 포함한다.
+  TCP/UDP baseline, summary, history exit code 는 모두 0이다.
+- D150 기준으로 D149 반복 benchmark artifact gate 를 충족했다.
+  TCP summary 는 source-report-count 6, hard-passed true, warning-count 6,
+  load p99 max 4570.8 us, open-loop p99 max 4604.5 us, dropped/payload-error/pool-rented 0,
+  TCP HWM max 1이다.
+  UDP summary 는 source-report-count 6, hard-passed true, warning-count 2,
+  load p99 max 1506.4 us, open-loop p99 max 1349.3 us, dropped/payload-error/pool-rented 0,
+  UDP HWM max 0이다.
+  warning 은 p99 soft signal 이므로 workflow failure 로 승격하지 않는다.
+- 다음 실행 지점: D150 artifact 의 TCP/UDP p99 warning 을 분석하고,
+  지금 필요한 다음 단위가 fixed registration/zero-copy 구현인지, io_uring 전용 latency envelope/threshold 정책인지,
+  또는 반복 artifact 축적인지 설계로 확정한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

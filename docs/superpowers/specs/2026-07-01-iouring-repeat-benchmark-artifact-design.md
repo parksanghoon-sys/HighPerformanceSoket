@@ -87,4 +87,17 @@ D149: D148 이후 다음 단위는 `iouring-benchmark-artifacts.yml`의 TCP/UDP 
 3. workflow 를 `--runs 3`으로 보정했다.
 4. focused workflow tests 를 통과시켰다.
 5. 검증과 상태 문서 갱신 후 커밋한다.
-6. 사용자 push 이후 원격 artifact 로 source-report-count 6, TCP/UDP hard-passed true, drop/leak 0을 확인한다.
+6. 사용자 push 이후 원격 artifact 로 source-report-count 6, TCP/UDP hard-passed true, drop/leak 0을 확인했다.
+
+## 원격 검토 결과
+
+- run: `28489104828`
+- artifact: `iouring-benchmark-artifacts-2026-07-01-github-28489104828-1`
+- root summary: `Runs per protocol: 3`, TCP/UDP baseline/summary/history exit code 0
+- TCP summary: source-report-count 6, hard-passed true, warning-count 6,
+  load p99 max 4570.8 us, open-loop p99 max 4604.5 us, dropped/payload-error/pool-rented 0,
+  TCP HWM max 1
+- UDP summary: source-report-count 6, hard-passed true, warning-count 2,
+  load p99 max 1506.4 us, open-loop p99 max 1349.3 us, dropped/payload-error/pool-rented 0,
+  UDP HWM max 0
+- 해석: D149 artifact gate 는 충족했다. p99 warning 은 후속 D150 분석/설계에서 다룬다.

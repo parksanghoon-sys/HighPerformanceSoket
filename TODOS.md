@@ -9,14 +9,16 @@
 
 ## Current TODOs
 
-- [ ] 사용자 push 이후 `iouring-benchmark-artifacts.yml` `--runs 3` artifact 를 검토한다.
-  - 입력: D149, `.github/workflows/iouring-benchmark-artifacts.yml`,
-    `docs/superpowers/specs/2026-07-01-iouring-repeat-benchmark-artifact-design.md`.
-  - 목표: Linux runner 에서 TCP/UDP `--backend iouring --runs 3` artifact 가 정상 생성되는지 확인한다.
-  - 기대 evidence: artifact root `summary.md`에 `Runs per protocol: 3`이 있고,
-    TCP/UDP `summary.json`의 source-report-count 가 각각 6이며, protocol 별 `history.json`/`history.md`가 존재한다.
-  - hard gate 기준: TCP/UDP summary hard-passed true, dropped-total 0, payload-error-total 0, pool-rented-max 0.
-  - 제외: remote artifact 확인 전 fixed registration, zero-copy send, IPv6 direct io_uring UDP, default backend promotion 구현.
+- [ ] D150 io_uring 반복 benchmark p99 warning 을 분석하고 다음 설계 단위를 확정한다.
+  - 입력: GitHub Actions run `28489104828`,
+    artifact `iouring-benchmark-artifacts-2026-07-01-github-28489104828-1`.
+  - 현재 evidence: TCP/UDP source-report-count 6, hard-passed true, drop/payload-error/pool-rented 0.
+    TCP warning-count 6, UDP warning-count 2이며 모두 p99 latency soft warning 이다.
+  - 목표: 다음 단위가 fixed payload registration cache, zero-copy send, io_uring 전용 latency envelope/threshold 정책,
+    또는 반복 artifact 축적인지 설계로 결정한다.
+  - 판단 기준: p99 warning 이 actual delivery/drop/leak 문제인지, 기존 threshold 가 SAEA/RIO/local baseline 기준이라
+    Linux io_uring runner 에 맞지 않는 정책 문제인지 분리한다.
+  - 제외: warning 분석 전 latency hard gate/warning-as-failure, default backend promotion, zero-copy 구현.
 
 ## Deferred Backlog
 
@@ -62,6 +64,22 @@
   - Green: workflow TCP/UDP baseline suite command 를 `--runs 3`으로 보정하고,
     root summary 에 `Runs per protocol: 3`을 추가한 뒤 focused workflow tests 5개 통과를 확인했다.
   - 다음: 사용자 push 이후 원격 workflow artifact 로 source-report-count 6과 hard gate 통과 여부를 검토한다.
+
+- [x] 사용자 push 이후 `iouring-benchmark-artifacts.yml` `--runs 3` artifact 를 검토했다.
+  - 범위: GitHub Actions run `28489104828`,
+    artifact `iouring-benchmark-artifacts-2026-07-01-github-28489104828-1`.
+  - 결과: workflow conclusion success, job `io_uring benchmark artifacts (linux)` success.
+  - evidence: root `summary.md`는 `Runs per protocol: 3`과 TCP/UDP baseline/summary/history exit code 0을 기록했다.
+  - evidence: TCP/UDP 각각 raw report 6개, protocol 별 `summary.json`/`summary.md`,
+    `history.json`/`history.md`가 존재한다.
+  - evidence: TCP summary 는 source-report-count 6, hard-passed true, warning-count 6,
+    load p99 max 4570.8 us, open-loop p99 max 4604.5 us, dropped/payload-error/pool-rented 0,
+    TCP HWM max 1이다.
+  - evidence: UDP summary 는 source-report-count 6, hard-passed true, warning-count 2,
+    load p99 max 1506.4 us, open-loop p99 max 1349.3 us, dropped/payload-error/pool-rented 0,
+    UDP HWM max 0이다.
+  - 의미: D149 반복 benchmark artifact gate 를 충족했다(D150).
+  - 다음: p99 warning 을 최적화 구현 근거로 볼지, runner/profile scoped threshold 정책 문제로 볼지 설계로 판단한다.
 
 - [x] 사용자 push 이후 `iouring-benchmark-artifacts.yml` 원격 artifact 를 검토했다.
   - 범위: GitHub Actions run `28486254926`,

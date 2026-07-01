@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D150 — io_uring `--runs 3` benchmark artifact 는 D149 evidence gate 를 충족했고 p99 warning 은 후속 분석으로 분리한다.
 - D149 — io_uring benchmark artifact workflow 는 D148 이후 TCP/UDP baseline suite 를 `--runs 3`으로 승격한다.
 - D148 — io_uring benchmark artifact workflow 는 protocol-first history root 구조로 D147 evidence gate 를 충족했다.
 - D147 — Linux io_uring benchmark artifact 는 별도 workflow_dispatch workflow 로 수집한다.
