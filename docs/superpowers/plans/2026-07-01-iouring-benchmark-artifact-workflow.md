@@ -13,7 +13,8 @@
 - TFM은 `net9.0`, LangVersion은 C# 8.0이다.
 - workflow 는 `workflow_dispatch` 전용으로 시작한다.
 - benchmark backend 는 항상 `--backend iouring`이다.
-- TCP/UDP protocol root 를 분리한다.
+- TCP/UDP protocol root 를 분리하고, 각 protocol root 바로 아래에 날짜 directory 를 둔다.
+  `BaselineHistoryReader`는 입력 root 바로 아래의 날짜 directory 만 session 묶음으로 읽는다.
 - hard latency gate, warning-as-failure, default backend promotion, fixed registration, zero-copy send 는 제외한다.
 - 테스트에는 무엇을 검증하는지 한국어 주석을 둔다.
 
@@ -40,6 +41,8 @@ Assert.Contains("HPS_BENCHMARK_RUNNER_ID: ci-linux-iouring-x64-01", workflow);
 Assert.Contains("--baseline-suite \"$BENCH_TCP_SESSION_DIR\" --runs 1 --protocol tcp --backend iouring", workflow);
 Assert.Contains("--baseline-suite \"$BENCH_UDP_SESSION_DIR\" --runs 1 --protocol udp --backend iouring", workflow);
 Assert.Contains("actions/upload-artifact@v7.0.1", workflow);
+Assert.Contains("tcp_root=\"${runner_root}/tcp\"", workflow);
+Assert.Contains("tcp_date_root=\"${tcp_root}/${date_root_name}\"", workflow);
 ```
 
 - [x] **Step 2: Run focused Red test**

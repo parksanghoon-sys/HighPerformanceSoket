@@ -108,6 +108,26 @@ namespace Hps.Benchmarks.Tests
             Assert.Contains("if: always()", workflow);
         }
 
+        // BaselineHistoryReader는 입력 root 바로 아래의 날짜 directory만 session 묶음으로 읽는다.
+        // protocol root가 날짜 root 안쪽에 있으면 history command가 session-01/summary.json을 발견하지 못하므로,
+        // workflow의 artifact 구조는 protocol root 아래 날짜 child를 두는 형태로 고정한다.
+        [Fact]
+        public void IoUringWorkflow_WhenPreparingHistoryInputs_UsesProtocolRootWithDateChildren()
+        {
+            string workflow = ReadIoUringBenchmarkArtifactWorkflow();
+
+            Assert.Contains("tcp_root=\"${runner_root}/tcp\"", workflow);
+            Assert.Contains("udp_root=\"${runner_root}/udp\"", workflow);
+            Assert.Contains("tcp_date_root=\"${tcp_root}/${date_root_name}\"", workflow);
+            Assert.Contains("udp_date_root=\"${udp_root}/${date_root_name}\"", workflow);
+            Assert.Contains("tcp_session_dir=\"${tcp_date_root}/session-01\"", workflow);
+            Assert.Contains("udp_session_dir=\"${udp_date_root}/session-01\"", workflow);
+            Assert.Contains("BENCH_TCP_ROOT=$tcp_root", workflow);
+            Assert.Contains("BENCH_UDP_ROOT=$udp_root", workflow);
+            Assert.DoesNotContain("tcp_root=\"${bench_root}/tcp\"", workflow);
+            Assert.DoesNotContain("udp_root=\"${bench_root}/udp\"", workflow);
+        }
+
         private static string ReadBenchmarkArtifactWorkflow()
         {
             string root = FindRepositoryRoot();

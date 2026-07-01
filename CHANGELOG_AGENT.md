@@ -33,6 +33,15 @@
 - `--backend iouring` TCP/UDP benchmark 를 Linux runner 에서 artifact 로 남길 수 있는 원격 evidence 경로가 준비됐다.
 - 다음 작업은 사용자 push 이후 `iouring-benchmark-artifacts.yml`을 수동 실행하고 artifact 내용을 검토하는 것이다.
 
+### 추가 확인
+- 사용자 push 이후 run `28485295725`를 실행했다.
+- baseline suite 와 summary command 는 TCP/UDP 모두 exit 0이었고 raw report/summary artifact 는 업로드됐다.
+- history command 는 TCP/UDP 모두 exit 2로 실패했다.
+  로그의 원인은 `baseline history summary.json 을 찾지 못했습니다`였다.
+- workflow artifact 구조가 `date/protocol/session`이라 `BaselineHistoryReader`의 parent-root 아래 date child discovery 규칙과 맞지 않았다.
+- workflow 를 `runner/<protocol>/<yyyy-mm-dd>/session-01` 구조로 보정하고,
+  static workflow test 로 history input root 구조를 고정했다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

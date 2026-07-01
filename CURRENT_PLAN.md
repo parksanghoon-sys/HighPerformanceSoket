@@ -1756,6 +1756,12 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   기존 Windows benchmark workflow, default backend selection, latency hard gate 는 변경하지 않았다.
 - D147 Red/Green: workflow static test 가 missing workflow 로 실패하는 것을 먼저 확인했고,
   workflow 추가 후 `BenchmarkArtifactWorkflowTests` focused test 4개 통과를 확인했다.
+- 원격 검토 결과: run `28485295725`에서 TCP/UDP baseline 과 summary 는 exit 0이었지만,
+  TCP/UDP history 가 `baseline history summary.json 을 찾지 못했습니다`로 exit 2를 반환했다.
+  원인은 workflow artifact 구조가 `date/protocol/session`이라 `BaselineHistoryReader`의
+  parent-root 아래 date child discovery 규칙과 맞지 않은 것이다.
+- 보정 결과: workflow 를 `runner/<protocol>/<yyyy-mm-dd>/session-01` 구조로 바꿨고,
+  protocol root 를 history input 으로 유지하도록 static test 를 추가했다.
 - 다음 실행 지점: 사용자 push 이후 GitHub Actions 에서 `iouring-benchmark-artifacts.yml`을 수동 실행하고,
   upload artifact 의 TCP/UDP raw report, summary, history, root summary 를 검토한다.
 

@@ -47,24 +47,25 @@ iouring-benchmark-artifacts-<yyyy-mm-dd>-github-<run-id>-<attempt>
 업로드 root:
 
 ```text
-artifacts/benchmarks/runners/ci-linux-iouring-x64-01/<yyyy-mm-dd>/
+artifacts/benchmarks/runners/ci-linux-iouring-x64-01/
 ```
 
 내부 구조:
 
 ```text
-tcp/session-01/{load-01.json,open-loop-01.json,summary.json,summary.md}
+tcp/<yyyy-mm-dd>/session-01/{load-01.json,open-loop-01.json,summary.json,summary.md}
 tcp/history.json
 tcp/history.md
-udp/session-01/{load-01.json,open-loop-01.json,summary.json,summary.md}
+udp/<yyyy-mm-dd>/session-01/{load-01.json,open-loop-01.json,summary.json,summary.md}
 udp/history.json
 udp/history.md
 summary.md
 dotnet-info.txt
 ```
 
-TCP/UDP를 같은 date root 바로 아래 session 으로 섞지 않는다.
-`BaselineHistoryReader`는 하나의 protocol/profile/backend 묶음만 읽어야 하므로 protocol 별 root 를 분리한다.
+TCP/UDP를 같은 history root 로 섞지 않는다.
+`BaselineHistoryReader`는 입력 root 바로 아래의 날짜 directory 만 session 묶음으로 읽으므로,
+protocol 별 root 아래에 날짜 directory 를 둔다.
 
 ## 실행 순서
 
