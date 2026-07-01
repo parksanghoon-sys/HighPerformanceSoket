@@ -1,0 +1,126 @@
+{
+  "summary-version": 1,
+  "source-directory": "docs\\benchmarks\\baselines\\runners\\ci-linux-iouring-x64-01\\tcp\\2026-07-01\\session-03",
+  "source-report-count": 6,
+  "hard-passed": true,
+  "hard-failure-count": 0,
+  "warning-count": 6,
+  "comparison-compatible": true,
+  "comparison-key": {
+    "benchmark-profile": "tcp-loopback-iouring-v1",
+    "runner-id": "ci-linux-iouring-x64-01",
+    "runner-kind": "ci",
+    "transport-backend": "IoUringTransport",
+    "os-description": "Ubuntu 24.04.4 LTS",
+    "os-architecture": "X64",
+    "process-architecture": "X64",
+    "framework-description": ".NET 9.0.17",
+    "cases": [
+      {
+        "result-name": "load",
+        "scenario": "tcp-loopback-iouring-baseline",
+        "payload-bytes": 4096,
+        "target-rate-hz": 100,
+        "target-duration-seconds": 30
+      },
+      {
+        "result-name": "open-loop",
+        "scenario": "tcp-loopback-iouring-baseline-open-loop",
+        "payload-bytes": 4096,
+        "target-rate-hz": 100,
+        "target-duration-seconds": 30
+      }
+    ]
+  },
+  "unknown-runner-count": 0,
+  "comparison-mismatch-count": 0,
+  "comparison-mismatches": [],
+  "warnings": [
+    {
+      "code": "load-p99-latency-high",
+      "kind": "load",
+      "metric": "p99-latency-us",
+      "value": 4215.8,
+      "threshold": 1386.2,
+      "source-path": "load-01.json"
+    },
+    {
+      "code": "load-p99-latency-high",
+      "kind": "load",
+      "metric": "p99-latency-us",
+      "value": 4650.4,
+      "threshold": 1386.2,
+      "source-path": "load-02.json"
+    },
+    {
+      "code": "load-p99-latency-high",
+      "kind": "load",
+      "metric": "p99-latency-us",
+      "value": 4559.3,
+      "threshold": 1386.2,
+      "source-path": "load-03.json"
+    },
+    {
+      "code": "open-loop-p99-latency-high",
+      "kind": "open-loop",
+      "metric": "p99-latency-us",
+      "value": 4462.6,
+      "threshold": 1508.3,
+      "source-path": "open-loop-01.json"
+    },
+    {
+      "code": "open-loop-p99-latency-high",
+      "kind": "open-loop",
+      "metric": "p99-latency-us",
+      "value": 4585.3,
+      "threshold": 1508.3,
+      "source-path": "open-loop-02.json"
+    },
+    {
+      "code": "open-loop-p99-latency-high",
+      "kind": "open-loop",
+      "metric": "p99-latency-us",
+      "value": 4502.9,
+      "threshold": 1508.3,
+      "source-path": "open-loop-03.json"
+    }
+  ],
+  "by-kind": {
+    "load": {
+      "run-count": 3,
+      "p50-min-us": 3004.6,
+      "p50-max-us": 3265.7,
+      "p50-median-us": 3100.7,
+      "p99-min-us": 4215.8,
+      "p99-max-us": 4650.4,
+      "p99-median-us": 4559.3,
+      "p99-growth-ratio-min": 1,
+      "p99-growth-ratio-max": 1.11,
+      "actual-rate-min-hz": 99.7,
+      "actual-rate-max-hz": 100,
+      "tcp-hwm-min": 1,
+      "tcp-hwm-max": 1,
+      "dropped-total": 0,
+      "payload-error-total": 0,
+      "pool-rented-max": 0
+    },
+    "open-loop": {
+      "run-count": 3,
+      "p50-min-us": 3448.4,
+      "p50-max-us": 3470.7,
+      "p50-median-us": 3458.4,
+      "p99-min-us": 4462.6,
+      "p99-max-us": 4585.3,
+      "p99-median-us": 4502.9,
+      "p99-growth-ratio-min": 1,
+      "p99-growth-ratio-max": 1.02,
+      "actual-rate-min-hz": 100,
+      "actual-rate-max-hz": 100,
+      "tcp-hwm-min": 1,
+      "tcp-hwm-max": 1,
+      "dropped-total": 0,
+      "payload-error-total": 0,
+      "pool-rented-max": 0
+    }
+  }
+}

@@ -9,12 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D163 기준으로 D160/D162 raw report 를 protocol별 provisional reference sessions 로 수동 채택한다.
-  - 입력: `docs/superpowers/specs/2026-07-01-iouring-post-d162-reference-expansion-design.md`.
-  - 할 일: D160/D162 TCP raw report 를 `session-02..03`, UDP raw report 를 `session-05..06`으로 복사한다.
-  - 확인할 것: TCP history session-count 3, UDP history session-count 6, hard-passed true,
-    comparison-compatible true, envelope smoke signal 0.
-  - 제외: 자동 baseline 채택, latency hard gate, fixed registration, zero-copy 구현.
+- [ ] D164 reference 확장 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 를 검토한다.
+  - 입력: D164로 확장된 `ci-linux-iouring-x64-01` TCP/UDP protocol reference history.
+  - 할 일: 사용자 push 이후 workflow 를 수동 실행하고, TCP/UDP baseline/summary/history/envelope exit code 와
+    envelope signal-count 를 확인한다.
+  - 확인할 것: TCP/UDP raw report count 6, hard-passed true, drop/payload-error/pool-rented 0,
+    comparison-compatible true, envelope signal-count 0.
+  - 제외: 원격 artifact 결과 전 fixed registration, zero-copy, latency hard gate, default promotion 구현.
 
 ## Deferred Backlog
 
@@ -97,6 +98,18 @@
   - 결정: 다음 단위는 fixed registration/zero-copy/latency gate 가 아니라
     D160/D162 raw report 를 protocol별 provisional reference 로 수동 채택하는 것이다.
   - 근거: D160/D162는 failure artifact 가 아니라 envelope signal 0 passing artifact 이므로 reference 표본 확장이 더 적합하다.
+
+- [x] D163 기준으로 D160/D162 raw report 를 protocol별 provisional reference sessions 로 수동 채택했다.
+  - 범위: `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/tcp/2026-07-01/session-02..03`,
+    `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/udp/2026-07-01/session-05..06`,
+    protocol별 history, `docs/benchmarks/baselines/index.md`, D164 상태/결정 문서.
+  - 결과: TCP protocol root history 는 session-count 3, hard-passed true, warning-count 18,
+    comparison-compatible true 상태다.
+  - 결과: UDP protocol root history 는 session-count 6, hard-passed true, warning-count 12,
+    comparison-compatible true 상태다.
+  - 검증: 최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`,
+    `envelope-signal-count=0`으로 통과했다.
+  - 다음: 사용자 push 이후 원격 artifact gate 로 확장된 reference 가 workflow 에서도 정상 사용되는지 확인한다.
 
 - [x] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토했다.
   - 범위: GitHub Actions runs `28494135787`, `28494404015`, D157 상태/결정 문서.

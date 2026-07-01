@@ -1883,8 +1883,12 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP/UDP summary/history Markdown 에 `send queue HWM max` label 이 반영됐다.
 - D163 기준으로 D160/D162 raw report 는 protocol별 provisional reference 확장 표본으로 수동 채택한다.
   설계는 `docs/superpowers/specs/2026-07-01-iouring-post-d162-reference-expansion-design.md`에 있다.
-- 다음 실행 지점: D160/D162 raw report 를 TCP `session-02..03`, UDP `session-05..06`으로 수동 채택하고
-  summary/history/index 와 envelope smoke 를 확인한다.
+- D164 기준으로 D160/D162 raw report 를 protocol별 provisional reference session 으로 수동 채택했다.
+  TCP는 `session-01..03`, UDP는 `session-01..06` 상태이고, protocol root history 는 둘 다 hard-passed true,
+  comparison-compatible true 다. 최신 session 기준 envelope smoke 는 TCP/UDP 모두
+  `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
+- 다음 실행 지점: 사용자 push 이후 원격 `iouring-benchmark-artifacts.yml`을 다시 실행해
+  확장된 protocol reference history 기준으로 TCP/UDP envelope artifact 가 signal 0을 유지하는지 검토한다.
   fixed registration, zero-copy send, UDP pump 구조 변경, latency hard gate 는 아직 열지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위

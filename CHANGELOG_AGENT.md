@@ -240,6 +240,18 @@
   D160/D162 raw report 를 protocol별 provisional reference session 으로 수동 채택하는 것이다.
 - TCP는 `session-02..03`, UDP는 `session-05..06`으로 확장한다.
 
+### D164 protocol reference 확장 실행
+- D160/D162 TCP raw report 를 `ci-linux-iouring-x64-01/tcp/2026-07-01/session-02..03`으로 수동 채택했다.
+- D160/D162 UDP raw report 를 `ci-linux-iouring-x64-01/udp/2026-07-01/session-05..06`으로 수동 채택했다.
+- 각 session summary, TCP/UDP date-level history, TCP/UDP protocol root history 를 repository 경로 기준으로 재생성했다.
+- TCP protocol root history 는 session-count 3, hard-passed true, warning-count 18,
+  comparison-compatible true 상태다.
+- UDP protocol root history 는 session-count 6, hard-passed true, warning-count 12,
+  comparison-compatible true 상태다.
+- 최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`,
+  `envelope-signal-count=0`으로 통과했다.
+- 다음 단위는 사용자 push 이후 확장된 reference history 기준 원격 `iouring-benchmark-artifacts.yml` artifact gate 검토다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

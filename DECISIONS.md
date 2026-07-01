@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D164 — D163 reference expansion 은 TCP 3-session/UDP 6-session protocol history 로 채택 완료했다.
 - D163 — D160/D162 raw report 는 protocol별 provisional reference 확장 표본으로 수동 채택한다.
 - D162 — D161 Markdown label 원격 artifact gate 는 label 반영과 TCP/UDP envelope signal 0을 확인했다.
 - D161 — benchmark Markdown HWM label 은 TCP 전용 표현 대신 protocol-neutral `send queue HWM max`로 표시한다.

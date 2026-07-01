@@ -1,9 +1,9 @@
-﻿# Baseline History
+# Baseline History
 
 - source root: `docs\benchmarks\baselines\runners\ci-linux-iouring-x64-01\udp`
-- session count: 4
+- session count: 6
 - hard gate: PASS
-- warning count: 8
+- warning count: 12
 
 ## Comparison
 
@@ -31,9 +31,13 @@
 | 2026-07-01 | session-02 | `2026-07-01/session-02/summary.json` | `2026-07-01/session-02/summary.md` | 6 | true | 2 | 2033.4 | 1312.4 | 0 |
 | 2026-07-01 | session-03 | `2026-07-01/session-03/summary.json` | `2026-07-01/session-03/summary.md` | 6 | true | 3 | 1871.2 | 1270.3 | 0 |
 | 2026-07-01 | session-04 | `2026-07-01/session-04/summary.json` | `2026-07-01/session-04/summary.md` | 6 | true | 0 | 1246.9 | 1271.3 | 0 |
+| 2026-07-01 | session-05 | `2026-07-01/session-05/summary.json` | `2026-07-01/session-05/summary.md` | 6 | true | 2 | 1896.2 | 1282.4 | 0 |
+| 2026-07-01 | session-06 | `2026-07-01/session-06/summary.json` | `2026-07-01/session-06/summary.md` | 6 | true | 2 | 1656.7 | 1288.9 | 0 |
 
 ## warning 이 있는 session
 
 - `2026-07-01` `session-01`: 3
 - `2026-07-01` `session-02`: 2
 - `2026-07-01` `session-03`: 3
+- `2026-07-01` `session-05`: 2
+- `2026-07-01` `session-06`: 2
