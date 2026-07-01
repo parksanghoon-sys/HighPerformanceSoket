@@ -178,6 +178,17 @@
 - D157 기준으로 다음 단위는 UDP open-loop p50 median 반복 signal triage 설계다.
   fixed registration, zero-copy, latency hard gate 는 아직 열지 않는다.
 
+### D158 UDP open-loop p50 반복 signal triage 설계
+- `docs/superpowers/specs/2026-07-01-iouring-udp-open-loop-p50-triage-design.md`를 추가했다.
+- D157의 반복 signal 은 transport correctness/reliability failure 보다 1-session provisional reference 의
+  p50 envelope 가 지나치게 얇은 문제로 판단했다.
+- reference session open-loop p50 은 154.2, 158.6, 1229.0 us로 bimodal 이지만,
+  이후 candidate raw run 9개는 모두 1135~1252 us 범위다.
+- p99, hard gate, drop, payload error, pool rented 값은 안정적이므로 fixed registration/zero-copy 구현을
+  바로 열지 않는다.
+- 다음 실행 지점은 D155~D157 UDP candidate raw report 를 `session-02..04`로 수동 채택하고,
+  UDP summary/history/index 와 updated reference envelope smoke 를 확인하는 것이다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

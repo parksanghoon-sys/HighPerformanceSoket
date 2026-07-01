@@ -1859,9 +1859,13 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   run `28494404015`는 TCP envelope signal 0, UDP envelope signal 1(open-loop `p50-median-us`)을 기록했다.
 - D157 결론: D155 포함 3개 candidate 모두 UDP open-loop `p50-median-us` signal 을 반복했다.
   모든 run 은 UDP hard-passed true, drop/payload-error/pool-rented 0이므로 correctness/reliability failure 는 아니다.
-- 다음 실행 지점: UDP open-loop p50-median 반복 signal triage 를 설계한다.
-  바로 fixed registration, zero-copy, latency hard gate 로 가지 않고,
-  pump 구조 문제인지 benchmark scheduling artifact 인지 provisional reference 가 지나치게 낮은지 구분하는 관측 단위를 먼저 정한다.
+- D158 기준으로 UDP open-loop p50-median 반복 signal 은 transport correctness/reliability failure 가 아니라
+  1-session provisional reference 의 p50 envelope 가 지나치게 얇은 문제로 본다.
+  설계는 `docs/superpowers/specs/2026-07-01-iouring-udp-open-loop-p50-triage-design.md`에 있다.
+- 다음 실행 지점: D155~D157 UDP candidate raw report 를
+  `ci-linux-iouring-x64-01/udp/2026-07-01/session-02..04`로 수동 채택하고,
+  UDP summary/history/index 를 재생성한 뒤 updated reference envelope smoke 를 실행한다.
+  TCP protocol root 확장, fixed registration, zero-copy, latency hard gate 는 아직 열지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

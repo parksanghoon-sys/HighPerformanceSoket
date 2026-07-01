@@ -9,11 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D157 결과를 바탕으로 UDP open-loop p50-median 반복 signal triage 를 설계한다.
-  - 입력: D155/D156 candidate 3개 모두에서 반복된 UDP open-loop `p50-median-us` envelope signal.
-  - 확인할 것: UDP open-loop p50 median 상승이 pump 구조 문제인지, benchmark scheduling artifact 인지,
-    provisional reference 가 지나치게 낮은지 구분할 수 있는 최소 관측/비교 단위를 설계한다.
-  - 제외: 자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy 구현.
+- [ ] D158 기준으로 D155~D157 UDP candidate raw reports 를 provisional reference sessions 로 수동 채택한다.
+  - 입력: `docs/superpowers/specs/2026-07-01-iouring-udp-open-loop-p50-triage-design.md`.
+  - 할 일: runs `28493590950`, `28494135787`, `28494404015`의 UDP raw report 를
+    `ci-linux-iouring-x64-01/udp/2026-07-01/session-02..04`로 복사한다.
+  - 확인할 것: UDP history session-count 4, hard-passed true, comparison-compatible true,
+    updated reference envelope smoke 를 확인한다.
+  - 제외: TCP protocol root 확장, 자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy 구현.
 
 ## Deferred Backlog
 
@@ -47,6 +49,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D157 결과를 바탕으로 UDP open-loop p50-median 반복 signal triage 를 설계했다.
+  - 범위: `docs/superpowers/specs/2026-07-01-iouring-udp-open-loop-p50-triage-design.md`,
+    D158 상태/결정 문서.
+  - 결정: 반복 signal 은 transport 최적화 필요성보다 1-session provisional reference 가 너무 얇은 문제로 보고,
+    D155~D157 UDP candidate raw reports 를 session-02..04로 수동 채택해 reference 를 안정화한다.
+  - 제외: TCP protocol root 확장, fixed registration, zero-copy, latency hard gate.
 
 - [x] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토했다.
   - 범위: GitHub Actions runs `28494135787`, `28494404015`, D157 상태/결정 문서.
