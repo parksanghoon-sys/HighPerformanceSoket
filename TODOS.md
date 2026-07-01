@@ -9,11 +9,10 @@
 
 ## Current TODOs
 
-- [ ] run `28492234252` artifact 를 `io_uring` protocol별 provisional repository reference baseline 으로 수동 채택한다.
-  - 입력: `docs/superpowers/specs/2026-07-01-iouring-protocol-reference-baseline-adoption-policy-design.md`.
-  - 할 일: TCP/UDP raw report 6개씩을 `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/<protocol>/2026-07-01/session-01/`
-    아래로 복사하고, repository 경로 기준 summary/history/index 를 재생성한다.
-  - 확인할 것: protocol별 reference `history.json`을 읽는 envelope command smoke 가 동작하는지 확인한다.
+- [ ] 사용자 push 이후 `iouring-benchmark-artifacts.yml` reference-present envelope artifact 경로를 원격 검토한다.
+  - 입력: D154로 추가한 `ci-linux-iouring-x64-01/tcp/history.json`과 `.../udp/history.json`.
+  - 확인할 것: 원격 workflow 가 reference history 를 발견해 skip 대신 protocol별 `envelope.json`/`envelope.md`를 생성하는지,
+    root `summary.md`의 TCP/UDP envelope exit 가 0인지, envelope signal 은 report-only 로 유지되는지 확인한다.
   - 제외: 자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy 구현.
 
 ## Deferred Backlog
@@ -48,6 +47,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] run `28492234252` artifact 를 `io_uring` protocol별 provisional repository reference baseline 으로 수동 채택했다.
+  - 범위: `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/tcp/**`,
+    `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/udp/**`,
+    `docs/benchmarks/baselines/index.md`, D154 상태/결정 문서.
+  - 결과: TCP/UDP raw report 6개씩을 protocol별 `2026-07-01/session-01`에 복사하고,
+    summary/history 를 repository 경로 기준으로 재생성했다.
+  - 검증: TCP/UDP summary source-report-count 6, hard-passed true,
+    protocol root history session-count 1, hard-passed true.
+  - 검증: protocol별 envelope command smoke 는 TCP/UDP 모두 `envelope-compatible=true`,
+    `envelope-signal-count=0`으로 통과했다.
+  - 비고: warning-count 는 TCP 6, UDP 3이며 D153 기준 provisional reference signal 로 기록하고
+    latency hard gate 또는 warning-as-failure 로 승격하지 않는다.
 
 - [x] D152 이후 `io_uring` protocol별 repository reference baseline 수동 채택 정책을 설계했다.
   - 범위: `docs/superpowers/specs/2026-07-01-iouring-protocol-reference-baseline-adoption-policy-design.md`,

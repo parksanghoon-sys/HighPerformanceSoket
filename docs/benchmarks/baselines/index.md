@@ -41,6 +41,8 @@
 
 | runner id | runner kind | profile | transport backend | latest date root | 비고 |
 | --- | --- | --- | --- | --- | --- |
+| ci-linux-iouring-x64-01/tcp | ci | tcp-loopback-iouring-v1 | IoUringTransport | [2026-07-01](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/history.json) | Linux io_uring TCP provisional reference, runner/protocol root [history.json](runners/ci-linux-iouring-x64-01/tcp/history.json) |
+| ci-linux-iouring-x64-01/udp | ci | udp-loopback-iouring-v1 | IoUringTransport | [2026-07-01](runners/ci-linux-iouring-x64-01/udp/2026-07-01/history.json) | Linux io_uring UDP provisional reference, runner/protocol root [history.json](runners/ci-linux-iouring-x64-01/udp/history.json) |
 | ci-windows-x64-01 | ci | tcp-loopback-saea-v1 | SaeaTransport | [2026-06-29](runners/ci-windows-x64-01/2026-06-29/history.json) | CI push-triggered artifacts adopted manually, runner root [history.json](runners/ci-windows-x64-01/history.json) |
 | local-win-x64-01 | local | tcp-loopback-saea-v1 | SaeaTransport | [2026-06-29](runners/local-win-x64-01/2026-06-29/history.json) | explicit runner 3-date-root reference 완료, runner root [history.json](runners/local-win-x64-01/history.json) |
 
@@ -48,6 +50,8 @@
 
 | runner id | 날짜 | history | human report | sessions | hard passed | warnings | comparison compatible |
 | --- | --- | --- | --- | ---: | --- | ---: | --- |
+| ci-linux-iouring-x64-01/tcp | 2026-07-01 | [history.json](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/history.json) | [history.md](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/history.md) | 1 | true | 6 | true |
+| ci-linux-iouring-x64-01/udp | 2026-07-01 | [history.json](runners/ci-linux-iouring-x64-01/udp/2026-07-01/history.json) | [history.md](runners/ci-linux-iouring-x64-01/udp/2026-07-01/history.md) | 1 | true | 3 | true |
 | ci-windows-x64-01 | 2026-06-29 | [history.json](runners/ci-windows-x64-01/2026-06-29/history.json) | [history.md](runners/ci-windows-x64-01/2026-06-29/history.md) | 1 | true | 0 | true |
 | ci-windows-x64-01 | 2026-06-25 | [history.json](runners/ci-windows-x64-01/2026-06-25/history.json) | [history.md](runners/ci-windows-x64-01/2026-06-25/history.md) | 1 | true | 0 | true |
 | local-win-x64-01 | 2026-06-29 | [history.json](runners/local-win-x64-01/2026-06-29/history.json) | [history.md](runners/local-win-x64-01/2026-06-29/history.md) | 3 | true | 0 | true |
@@ -65,6 +69,8 @@
 
 | 날짜 | session | runner/scope | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | TCP HWM max |
 | --- | --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
+| 2026-07-01 | session-01 | ci-linux-iouring-x64-01 Linux TCP loopback io_uring, provisional reference adopted from run 28492234252 | [summary.json](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/session-01/summary.json) | [summary.md](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/session-01/summary.md) | 6 | true | 6 | 4298.8 | 5588.6 | 1 |
+| 2026-07-01 | session-01 | ci-linux-iouring-x64-01 Linux UDP loopback io_uring, provisional reference adopted from run 28492234252 | [summary.json](runners/ci-linux-iouring-x64-01/udp/2026-07-01/session-01/summary.json) | [summary.md](runners/ci-linux-iouring-x64-01/udp/2026-07-01/session-01/summary.md) | 6 | true | 3 | 1623.8 | 1322.0 | 0 |
 | 2026-06-29 | session-01 | ci-windows-x64-01 CI Windows TCP loopback SAEA, adopted from push run 28350456434 | [summary.json](runners/ci-windows-x64-01/2026-06-29/session-01/summary.json) | [summary.md](runners/ci-windows-x64-01/2026-06-29/session-01/summary.md) | 6 | true | 0 | 401 | 520.7 | 2 |
 | 2026-06-25 | session-01 | ci-windows-x64-01 CI Windows TCP loopback SAEA, adopted from push run 28145025444 | [summary.json](runners/ci-windows-x64-01/2026-06-25/session-01/summary.json) | [summary.md](runners/ci-windows-x64-01/2026-06-25/session-01/summary.md) | 6 | true | 0 | 275.3 | 322.9 | 2 |
 | 2026-06-29 | session-01 | local-win-x64-01 explicit runner, local Windows TCP loopback SAEA | [summary.json](runners/local-win-x64-01/2026-06-29/session-01/summary.json) | [summary.md](runners/local-win-x64-01/2026-06-29/session-01/summary.md) | 6 | true | 0 | 844.6 | 948.8 | 2 |
@@ -126,6 +132,25 @@ CI hosted runner evidence 이므로 local runner envelope 와 직접 비교하�
 이 CI envelope 는 D131 기준으로 2-date-root/2-session reference signal 이다. 값은 artifact chain, D127 envelope
 upload, D095 수동 채택 절차가 동작함을 보여주지만, CI runner 표본은 아직 latency hard gate 또는
 warning-as-failure 조건으로 승격하지 않는다.
+
+## ci-linux-iouring-x64-01 io_uring Protocol Reference
+
+이 표는 D153 기준으로 수동 채택한 Linux `io_uring` protocol별 provisional reference 다.
+TCP와 UDP는 protocol root 를 분리하며, 같은 runner id 라도 같은 history 에 섞지 않는다.
+warning-count 는 D070 전역 soft threshold signal 이므로 기록하되, 초기 reference 채택 차단 조건이나
+latency hard gate 로 사용하지 않는다.
+
+| protocol | compatible sessions | raw runs | p50 max us | p99 max us | p99 median max us | p99 growth ratio max | actual rate min hz | HWM max | dropped total | payload error total | pool rented max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| TCP load | 1 | 3 | 3112.9 | 4298.8 | 4144.5 | 1.03 | 99.8 | 1 | 0 | 0 | 0 |
+| TCP open-loop | 1 | 3 | 3450.2 | 5588.6 | 4564.0 | 1.31 | 100 | 1 | 0 | 0 | 0 |
+| UDP load | 1 | 3 | 850.5 | 1623.8 | 1495.8 | 1.02 | 99.9 | 0 | 0 | 0 | 0 |
+| UDP open-loop | 1 | 3 | 1229.0 | 1322.0 | 1276.1 | 1.02 | 100 | 0 | 0 | 0 | 0 |
+
+채택 후 protocol별 reference history 를 대상으로 envelope command smoke 를 실행했고,
+TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`을 확인했다.
+이는 같은 artifact 를 자신이 만든 첫 reference 와 비교한 smoke 이므로 성능 안정성을 증명하는 값이 아니라,
+D151 reference path 가 더 이상 skip 되지 않고 실제 command 로 연결된다는 경로 검증이다.
 
 ## local-win-x64-01 Explicit Runner Reference Latency Envelope
 

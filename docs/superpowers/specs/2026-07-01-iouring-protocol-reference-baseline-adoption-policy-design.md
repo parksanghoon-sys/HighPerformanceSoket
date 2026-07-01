@@ -237,3 +237,19 @@ D153: D152 artifact 는 protocol별 `io_uring` repository reference baseline 의
 - `BaselineHistoryReader` parent-root discovery 규칙과 protocol root 구조가 맞는지 확인한다.
 - placeholder scan 으로 미정 항목이 남지 않았는지 확인한다.
 - 문서 변경은 `git diff --check`로 검증한다.
+
+## 채택 결과
+
+2026-07-01에 run `28492234252` artifact 를 D153 정책에 따라 수동 채택했다.
+
+- TCP raw report 6개:
+  `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/tcp/2026-07-01/session-01/`
+- UDP raw report 6개:
+  `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/udp/2026-07-01/session-01/`
+- TCP/UDP session summary, date history, protocol root history 를 repository 경로 기준으로 재생성했다.
+- `docs/benchmarks/baselines/index.md`에 protocol별 runner group, date row, session row, provisional reference 해석을 추가했다.
+- protocol별 envelope command smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
+
+채택 후에도 이 baseline 은 provisional reference 다.
+warning-count 는 TCP 6, UDP 3으로 남아 있으며, 이는 D070 전역 soft threshold signal 로만 기록한다.
+latency hard gate, warning-as-failure, default backend promotion 근거로 사용하지 않는다.

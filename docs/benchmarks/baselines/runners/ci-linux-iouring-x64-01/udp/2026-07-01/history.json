@@ -1,0 +1,55 @@
+{
+  "history-version": 1,
+  "source-root": "docs\\benchmarks\\baselines\\runners\\ci-linux-iouring-x64-01\\udp\\2026-07-01",
+  "session-count": 1,
+  "hard-passed": true,
+  "failed-session-count": 0,
+  "warning-count": 3,
+  "comparison-compatible": true,
+  "comparison-key": {
+    "benchmark-profile": "udp-loopback-iouring-v1",
+    "runner-id": "ci-linux-iouring-x64-01",
+    "runner-kind": "ci",
+    "transport-backend": "IoUringTransport",
+    "os-description": "Ubuntu 24.04.4 LTS",
+    "os-architecture": "X64",
+    "process-architecture": "X64",
+    "framework-description": ".NET 9.0.17",
+    "cases": [
+      {
+        "result-name": "load",
+        "scenario": "udp-loopback-iouring-baseline",
+        "payload-bytes": 4096,
+        "target-rate-hz": 100,
+        "target-duration-seconds": 30
+      },
+      {
+        "result-name": "open-loop",
+        "scenario": "udp-loopback-iouring-baseline-open-loop",
+        "payload-bytes": 4096,
+        "target-rate-hz": 100,
+        "target-duration-seconds": 30
+      }
+    ]
+  },
+  "unknown-runner-count": 0,
+  "comparison-mismatch-count": 0,
+  "comparison-mismatches": [],
+  "sessions": [
+    {
+      "date": "2026-07-01",
+      "session": "session-01",
+      "summary-path": "session-01/summary.json",
+      "human-report-path": "session-01/summary.md",
+      "source-report-count": 6,
+      "hard-passed": true,
+      "warning-count": 3,
+      "load-p99-max-us": 1623.8,
+      "open-loop-p99-max-us": 1322,
+      "tcp-hwm-max": 0,
+      "comparison-compatible": true,
+      "unknown-runner-count": 0,
+      "comparison-mismatch-count": 0
+    }
+  ]
+}

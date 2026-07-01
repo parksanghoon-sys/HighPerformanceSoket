@@ -1826,6 +1826,14 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - 다음 실행 지점: run `28492234252` artifact 의 TCP/UDP raw report 6개씩을
   `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/<protocol>/2026-07-01/session-01/`로 수동 채택하고,
   repository 경로 기준 summary/history/index 를 재생성한 뒤 protocol별 envelope command smoke 를 실행한다.
+- D154 기준으로 run `28492234252` artifact 를 protocol별 provisional repository reference baseline 으로 채택했다.
+  TCP/UDP raw report 6개씩을 `ci-linux-iouring-x64-01/tcp/2026-07-01/session-01`과
+  `ci-linux-iouring-x64-01/udp/2026-07-01/session-01`에 보관했고,
+  session summary, date history, protocol root history 를 repository 경로 기준으로 재생성했다.
+  protocol별 envelope command smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
+- 다음 실행 지점: 사용자 push 이후 원격 `iouring-benchmark-artifacts.yml`을 다시 실행해
+  reference history 존재 상태에서 TCP/UDP `envelope.json`/`envelope.md`가 실제 artifact 에 생성되는지 검토한다.
+  envelope signal 은 report-only 로 유지하며, latency hard gate/default promotion/fixed registration/zero-copy 구현은 계속 열지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

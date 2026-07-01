@@ -130,6 +130,20 @@
 - 다음 실행 지점은 run `28492234252` artifact 를 protocol별 repository baseline 구조로 수동 채택하고,
   regenerated history 를 reference 로 envelope command smoke 를 실행하는 것이다.
 
+### D154 io_uring protocol별 provisional reference baseline 채택
+- run `28492234252` artifact 를 `ci-linux-iouring-x64-01` TCP/UDP protocol별 provisional repository reference baseline 으로 채택했다.
+- TCP raw report 6개를
+  `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/tcp/2026-07-01/session-01/`에 보관했다.
+- UDP raw report 6개를
+  `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/udp/2026-07-01/session-01/`에 보관했다.
+- TCP/UDP session summary, date history, protocol root history 를 repository 경로 기준으로 재생성했다.
+- `docs/benchmarks/baselines/index.md`에 protocol별 runner group, date row, session row, provisional reference 해석을 추가했다.
+- protocol별 envelope command smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
+- warning-count 는 TCP 6, UDP 3이며 D153 기준 provisional reference signal 로 기록하고,
+  latency hard gate 또는 warning-as-failure 로 승격하지 않는다.
+- 다음 실행 지점은 사용자 push 이후 원격 `iouring-benchmark-artifacts.yml`에서 reference-present 상태의
+  `envelope.json`/`envelope.md` 생성 경로를 검토하는 것이다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위
