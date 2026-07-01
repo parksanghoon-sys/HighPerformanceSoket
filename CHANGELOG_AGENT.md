@@ -200,6 +200,13 @@
   `envelope-compatible=true`, `envelope-signal-count=0`을 확인했다.
 - `docs/benchmarks/baselines/index.md`에 UDP session rows 와 updated protocol reference 값을 반영했다.
 
+### D159 post-D158 후속 범위 재평가
+- `docs/superpowers/specs/2026-07-01-iouring-post-d158-next-scope-design.md`를 추가했다.
+- D158 이후 바로 fixed registration, zero-copy send, UDP pump 구조 변경, latency hard gate 를 열지 않기로 했다.
+- 근거: UDP p50 반복 signal 은 updated reference smoke 에서 signal 0으로 닫혔고,
+  drop/payload-error/pool-rented/hard gate failure 가 남아 있지 않다.
+- 다음 단위는 push 이후 updated reference 를 반영한 원격 `iouring-benchmark-artifacts.yml` artifact gate 검토다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

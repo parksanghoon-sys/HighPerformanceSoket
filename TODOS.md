@@ -9,13 +9,12 @@
 
 ## Current TODOs
 
-- [ ] D158 안정화 이후 io_uring 후속 후보를 재평가한다.
-  - 입력: D158 UDP protocol root history session-count 4, hard-passed true, comparison-compatible true,
-    updated reference envelope smoke signal 0.
-  - 할 일: fixed registration, zero-copy send, UDP pump 구조 변경, latency hard gate, 추가 artifact 수집 중
-    어느 항목이 현재 evidence-ready 인지 판단한다.
-  - 확인할 것: 다음 단위가 즉시 구현 가능한지, 아니면 추가 관측/설계가 먼저 필요한지 문서화한다.
-  - 제외: 검토 없이 default backend promotion 을 열거나 latency hard gate 를 바로 승격하지 않는다.
+- [ ] push 이후 updated reference 가 반영된 `iouring-benchmark-artifacts.yml` 원격 artifact 를 검토한다.
+  - 입력: D159 설계, D158 UDP protocol root history session-count 4, updated reference envelope smoke signal 0.
+  - 할 일: 원격 run 이 생기면 TCP/UDP baseline, summary, history, envelope exit code 와 UDP envelope signal count 를 확인한다.
+  - 확인할 것: UDP open-loop p50 반복 signal 이 updated reference 에서 해소되는지,
+    drop/payload-error/pool-rented 가 계속 0인지 확인한다.
+  - 제외: 원격 evidence 전 fixed registration, zero-copy send, latency hard gate, default promotion 을 열지 않는다.
 
 ## Deferred Backlog
 
@@ -65,6 +64,13 @@
   - 검증: updated reference envelope smoke 는 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
   - 의미: 반복된 open-loop p50 signal 은 얇은 provisional reference 문제로 해석하고,
     fixed registration, zero-copy, latency hard gate 는 계속 보류한다.
+
+- [x] D158 안정화 이후 io_uring 후속 후보를 재평가했다.
+  - 범위: `docs/superpowers/specs/2026-07-01-iouring-post-d158-next-scope-design.md`, D159 상태/결정 문서.
+  - 결정: 다음 단위는 fixed registration/zero-copy/default promotion 이 아니라
+    updated reference 를 반영한 원격 artifact gate 다.
+  - 근거: UDP p50 signal 은 D158 smoke 에서 닫혔고, drop/payload-error/pool-rented/hard gate failure 가 없다.
+  - 다음: push 이후 원격 workflow run 이 생기면 artifact 를 검토한다.
 
 - [x] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토했다.
   - 범위: GitHub Actions runs `28494135787`, `28494404015`, D157 상태/결정 문서.

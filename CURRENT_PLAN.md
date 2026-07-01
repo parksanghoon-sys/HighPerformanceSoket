@@ -1868,9 +1868,12 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   UDP protocol root history 는 session-count 4, hard-passed true, warning-count 8,
   comparison-compatible true 상태다.
   updated reference envelope smoke 는 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
-- 다음 실행 지점: D158 안정화 이후 io_uring 후속 후보를 재평가한다.
-  fixed registration, zero-copy send, UDP pump 구조 변경, latency hard gate 중 무엇이 실제 evidence-ready 인지 먼저 판단하고,
-  아직 근거가 부족하면 문서화된 다음 관측 단위로 좁힌다.
+- D159 기준으로 D158 이후 다음 단위는 fixed registration, zero-copy send, UDP pump 구조 변경,
+  latency hard gate 가 아니라 updated reference 를 반영한 원격 `iouring-benchmark-artifacts.yml` artifact gate 다.
+  설계는 `docs/superpowers/specs/2026-07-01-iouring-post-d158-next-scope-design.md`에 있다.
+- 다음 실행 지점: D159 설계 커밋 후, push 이후 원격 `iouring-benchmark-artifacts.yml` run 이 생기면
+  TCP/UDP baseline, summary, history, envelope exit code 와 UDP envelope signal 변화를 검토한다.
+  push 전까지는 fixed registration/zero-copy/default promotion 을 열지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
