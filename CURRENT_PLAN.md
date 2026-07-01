@@ -1745,11 +1745,19 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - 구현 결과: D146 기준으로 `--backend iouring` parser, TCP/UDP report identity,
   scenario key, help text, Linux/capability gated `IoUringTransport` factory wiring 을 완료했다.
   `TransportFactory.CreateDefault()`와 sample host default selection 은 변경하지 않았다.
-- 최신 검증: parser/identity Red-Green, scenario/help Red-Green,
+- D146 검증: parser/identity Red-Green, scenario/help Red-Green,
   `dotnet build HighPerformanceSocket.slnx --no-restore -v minimal` 경고 0/오류 0,
   `dotnet test HighPerformanceSocket.slnx --no-build --no-restore -v minimal` 전체 통과.
-- 다음 실행 지점: 사용자 push 이후 Linux available runner 에서 `--backend iouring` TCP/UDP benchmark artifact 를 수집하고,
-  load/open-loop raw report 가 기존 summary/history/envelope 흐름에 들어갈 수 있는지 검토한다.
+- D147 설계와 구현 계획: `docs/superpowers/specs/2026-07-01-iouring-benchmark-artifact-workflow-design.md`,
+  `docs/superpowers/plans/2026-07-01-iouring-benchmark-artifact-workflow.md`에 있다.
+- 구현 결과: `.github/workflows/iouring-benchmark-artifacts.yml`을 추가했다.
+  이 workflow 는 `workflow_dispatch` 전용 Linux runner 에서 TCP/UDP 각각 `--backend iouring --runs 1`
+  baseline suite, summary, history 를 생성하고 artifact 로 업로드한다.
+  기존 Windows benchmark workflow, default backend selection, latency hard gate 는 변경하지 않았다.
+- D147 Red/Green: workflow static test 가 missing workflow 로 실패하는 것을 먼저 확인했고,
+  workflow 추가 후 `BenchmarkArtifactWorkflowTests` focused test 4개 통과를 확인했다.
+- 다음 실행 지점: 사용자 push 이후 GitHub Actions 에서 `iouring-benchmark-artifacts.yml`을 수동 실행하고,
+  upload artifact 의 TCP/UDP raw report, summary, history, root summary 를 검토한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

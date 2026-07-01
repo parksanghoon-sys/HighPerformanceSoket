@@ -1,0 +1,192 @@
+name: io_uring Benchmark Artifacts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  iouring-benchmark-artifacts:
+    name: io_uring benchmark artifacts (linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      HPS_BENCHMARK_RUNNER_ID: ci-linux-iouring-x64-01
+      HPS_BENCHMARK_RUNNER_KIND: ci
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5.3.0
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Prepare benchmark artifact paths
+        shell: bash
+        run: |
+          date_root_name="$(date -u +%F)"
+          runner_root="artifacts/benchmarks/runners/${HPS_BENCHMARK_RUNNER_ID}"
+          bench_root="${runner_root}/${date_root_name}"
+          tcp_root="${bench_root}/tcp"
+          udp_root="${bench_root}/udp"
+          tcp_session_dir="${tcp_root}/session-01"
+          udp_session_dir="${udp_root}/session-01"
+          artifact_name="iouring-benchmark-artifacts-${date_root_name}-github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          mkdir -p "$tcp_session_dir" "$udp_session_dir"
+
+          {
+            echo "BENCH_ROOT=$bench_root"
+            echo "BENCH_TCP_ROOT=$tcp_root"
+            echo "BENCH_UDP_ROOT=$udp_root"
+            echo "BENCH_TCP_SESSION_DIR=$tcp_session_dir"
+            echo "BENCH_UDP_SESSION_DIR=$udp_session_dir"
+            echo "BENCH_ARTIFACT_NAME=$artifact_name"
+          } >> "$GITHUB_ENV"
+
+      - name: Restore
+        run: dotnet restore HighPerformanceSocket.slnx
+
+      - name: Build
+        run: dotnet build HighPerformanceSocket.slnx --no-restore
+
+      - name: Capture dotnet info
+        shell: bash
+        run: dotnet --info > "$BENCH_ROOT/dotnet-info.txt"
+
+      - name: Run TCP io_uring baseline suite
+        shell: bash
+        run: |
+          set +e
+          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite "$BENCH_TCP_SESSION_DIR" --runs 1 --protocol tcp --backend iouring
+          exit_code=$?
+          echo "IOURING_TCP_BASELINE_EXIT=$exit_code" >> "$GITHUB_ENV"
+          if [ "$exit_code" != "0" ]; then
+            echo "TCP io_uring baseline suite exited with $exit_code; continuing to write analysis artifacts."
+          fi
+          exit 0
+
+      - name: Write TCP io_uring summary
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --summarize-baseline "$BENCH_TCP_SESSION_DIR" --summary "$BENCH_TCP_SESSION_DIR/summary.json" --summary-md "$BENCH_TCP_SESSION_DIR/summary.md"
+          exit_code=$?
+          echo "IOURING_TCP_SUMMARY_EXIT=$exit_code" >> "$GITHUB_ENV"
+          if [ "$exit_code" != "0" ]; then
+            echo "TCP io_uring summary exited with $exit_code; continuing to write remaining analysis artifacts."
+          fi
+          exit 0
+
+      - name: Write TCP io_uring history
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --summarize-baseline-history "$BENCH_TCP_ROOT" --history "$BENCH_TCP_ROOT/history.json" --history-md "$BENCH_TCP_ROOT/history.md"
+          exit_code=$?
+          echo "IOURING_TCP_HISTORY_EXIT=$exit_code" >> "$GITHUB_ENV"
+          if [ "$exit_code" != "0" ]; then
+            echo "TCP io_uring history exited with $exit_code; continuing to write remaining analysis artifacts."
+          fi
+          exit 0
+
+      - name: Run UDP io_uring baseline suite
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite "$BENCH_UDP_SESSION_DIR" --runs 1 --protocol udp --backend iouring
+          exit_code=$?
+          echo "IOURING_UDP_BASELINE_EXIT=$exit_code" >> "$GITHUB_ENV"
+          if [ "$exit_code" != "0" ]; then
+            echo "UDP io_uring baseline suite exited with $exit_code; continuing to write analysis artifacts."
+          fi
+          exit 0
+
+      - name: Write UDP io_uring summary
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --summarize-baseline "$BENCH_UDP_SESSION_DIR" --summary "$BENCH_UDP_SESSION_DIR/summary.json" --summary-md "$BENCH_UDP_SESSION_DIR/summary.md"
+          exit_code=$?
+          echo "IOURING_UDP_SUMMARY_EXIT=$exit_code" >> "$GITHUB_ENV"
+          if [ "$exit_code" != "0" ]; then
+            echo "UDP io_uring summary exited with $exit_code; continuing to write remaining analysis artifacts."
+          fi
+          exit 0
+
+      - name: Write UDP io_uring history
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --summarize-baseline-history "$BENCH_UDP_ROOT" --history "$BENCH_UDP_ROOT/history.json" --history-md "$BENCH_UDP_ROOT/history.md"
+          exit_code=$?
+          echo "IOURING_UDP_HISTORY_EXIT=$exit_code" >> "$GITHUB_ENV"
+          if [ "$exit_code" != "0" ]; then
+            echo "UDP io_uring history exited with $exit_code; continuing to write remaining analysis artifacts."
+          fi
+          exit 0
+
+      - name: Write io_uring benchmark summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "# io_uring benchmark artifacts"
+            echo
+            echo "- Runner OS: $(uname -a)"
+            echo "- .NET SDK: $(dotnet --version)"
+            echo "- Runner id: ${HPS_BENCHMARK_RUNNER_ID}"
+            echo "- Runner kind: ${HPS_BENCHMARK_RUNNER_KIND}"
+            echo "- Backend: iouring"
+            echo "- TCP root: tcp/"
+            echo "- UDP root: udp/"
+            echo "- TCP baseline exit: ${IOURING_TCP_BASELINE_EXIT:-not-run}"
+            echo "- TCP summary exit: ${IOURING_TCP_SUMMARY_EXIT:-not-run}"
+            echo "- TCP history exit: ${IOURING_TCP_HISTORY_EXIT:-not-run}"
+            echo "- UDP baseline exit: ${IOURING_UDP_BASELINE_EXIT:-not-run}"
+            echo "- UDP summary exit: ${IOURING_UDP_SUMMARY_EXIT:-not-run}"
+            echo "- UDP history exit: ${IOURING_UDP_HISTORY_EXIT:-not-run}"
+            echo
+            echo "This workflow is evidence-only. Latency and warning values are report data, not hard gates."
+          } > "$BENCH_ROOT/summary.md"
+
+      - name: Upload io_uring benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ${{ env.BENCH_ARTIFACT_NAME }}
+          path: ${{ env.BENCH_ROOT }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail if io_uring benchmark artifact generation failed
+        if: always()
+        shell: bash
+        run: |
+          exit_codes=(
+            "${IOURING_TCP_BASELINE_EXIT:-1}"
+            "${IOURING_TCP_SUMMARY_EXIT:-1}"
+            "${IOURING_TCP_HISTORY_EXIT:-1}"
+            "${IOURING_UDP_BASELINE_EXIT:-1}"
+            "${IOURING_UDP_SUMMARY_EXIT:-1}"
+            "${IOURING_UDP_HISTORY_EXIT:-1}"
+          )
+
+          for exit_code in "${exit_codes[@]}"; do
+            if [ "$exit_code" != "0" ]; then
+              echo "io_uring benchmark artifact generation completed with non-zero exit code; tcp-baseline=${IOURING_TCP_BASELINE_EXIT:-not-run} tcp-summary=${IOURING_TCP_SUMMARY_EXIT:-not-run} tcp-history=${IOURING_TCP_HISTORY_EXIT:-not-run} udp-baseline=${IOURING_UDP_BASELINE_EXIT:-not-run} udp-summary=${IOURING_UDP_SUMMARY_EXIT:-not-run} udp-history=${IOURING_UDP_HISTORY_EXIT:-not-run}"
+              exit 1
+            fi
+          done
+
+          echo "io_uring benchmark artifact generation completed successfully."

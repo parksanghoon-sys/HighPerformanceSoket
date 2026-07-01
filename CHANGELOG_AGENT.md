@@ -5,6 +5,34 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-01 (Codex - io_uring benchmark artifact workflow)
+
+### 작업 단위
+- D147 기준으로 Linux `io_uring` benchmark artifact 를 수집하는 수동 GitHub Actions workflow 를 추가했다.
+
+### 변경 내용
+- `.github/workflows/iouring-benchmark-artifacts.yml`:
+  `workflow_dispatch` 전용 `ubuntu-latest` workflow 를 추가했다.
+  TCP/UDP 각각 `--backend iouring --runs 1` baseline suite 를 실행하고,
+  protocol 별 summary/history 와 root summary/dotnet info 를 artifact 로 업로드한다.
+- `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`:
+  Linux 수동 trigger, runner identity, TCP/UDP io_uring command, artifact upload, final failure gate 순서를 고정하는
+  workflow static tests 를 추가했다.
+- `docs/superpowers/specs/2026-07-01-iouring-benchmark-artifact-workflow-design.md`,
+  `docs/superpowers/plans/2026-07-01-iouring-benchmark-artifact-workflow.md`:
+  D147 설계와 구현 계획을 작성하고 Task 1 Red/Green 상태를 반영했다.
+- `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`,
+  `docs/agent-state/changelog/2026-07.md`, `docs/agent-state/decisions/2026-07.md`:
+  현재 실행 지점을 원격 workflow artifact 검토로 갱신했다.
+
+### 검증
+- Red: `BenchmarkArtifactWorkflowTests` focused run 에서 새 테스트 2개가 missing workflow 로 실패하는 것을 확인했다.
+- Green: `.github/workflows/iouring-benchmark-artifacts.yml` 추가 후 focused workflow tests 4개 통과.
+
+### 결과
+- `--backend iouring` TCP/UDP benchmark 를 Linux runner 에서 artifact 로 남길 수 있는 원격 evidence 경로가 준비됐다.
+- 다음 작업은 사용자 push 이후 `iouring-benchmark-artifacts.yml`을 수동 실행하고 artifact 내용을 검토하는 것이다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

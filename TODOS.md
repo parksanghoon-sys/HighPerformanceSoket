@@ -9,10 +9,13 @@
 
 ## Current TODOs
 
-- [ ] 사용자 push 이후 Linux available runner 에서 `--backend iouring` TCP/UDP benchmark artifact 를 수집하고 검토한다.
-  - 입력: D146, `Hps.Benchmarks --baseline-suite <output-dir> --protocol <tcp|udp> --backend iouring`.
-  - 목표: io_uring backend 의 4096 bytes x 100 Hz TCP/UDP raw benchmark report 를 기존 schema 로 남긴다.
-  - 기대 evidence: Linux runner 에서 capability available 상태로 TCP/UDP load/open-loop report 생성, summary/history 비교 가능 여부 확인.
+- [ ] 사용자 push 이후 `iouring-benchmark-artifacts.yml`을 수동 실행하고 artifact 를 검토한다.
+  - 입력: D147, `.github/workflows/iouring-benchmark-artifacts.yml`.
+  - 목표: Linux available runner 에서 `--backend iouring` TCP/UDP baseline suite artifact 가 생성되는지 확인한다.
+  - 기대 evidence: artifact `iouring-benchmark-artifacts-<yyyy-mm-dd>-github-<run-id>-<attempt>` 안에
+    TCP/UDP raw report, `summary.json`, `summary.md`, `history.json`, `history.md`, root `summary.md`, `dotnet-info.txt`가 존재한다.
+  - 검토 기준: capability available 상태에서 load/open-loop report 가 기존 schema 로 생성되고,
+    summary/history reader 가 protocol 별 root 를 정상 집계하는지 확인한다.
   - 제외: artifact 확인 전 fixed buffer registration, zero-copy send, default backend promotion 구현.
 
 ## Deferred Backlog
@@ -47,6 +50,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] Linux io_uring benchmark artifact workflow 를 추가했다.
+  - 범위: `.github/workflows/iouring-benchmark-artifacts.yml`,
+    `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`, D147 설계/계획/상태 문서.
+  - Red: workflow static test 가 `iouring-benchmark-artifacts.yml` missing failure 로 실패하는 것을 확인했다.
+  - Green: workflow 추가 후 `BenchmarkArtifactWorkflowTests` focused test 4개 통과를 확인했다.
+  - 구현: `workflow_dispatch` 전용 `ubuntu-latest` workflow 가 TCP/UDP 각각
+    `--baseline-suite ... --runs 1 --protocol <tcp|udp> --backend iouring`을 실행하고,
+    summary/history/root summary/dotnet info 를 artifact 로 업로드한다.
+  - 비고: 기존 Windows benchmark workflow, default backend selection, latency hard gate,
+    fixed registration, zero-copy send 는 열지 않았다.
+  - 다음: 사용자 push 이후 원격 workflow 를 수동 실행하고 artifact 를 검토한다.
 
 - [x] io_uring benchmark backend selector 구현 계획을 완료했다.
   - 범위: `tests/Hps.Benchmarks` CLI/backend selector, TCP/UDP scenario identity, tests.
