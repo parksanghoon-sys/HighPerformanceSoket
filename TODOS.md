@@ -9,12 +9,11 @@
 
 ## Current TODOs
 
-- [ ] push 이후 updated reference 가 반영된 `iouring-benchmark-artifacts.yml` 원격 artifact 를 검토한다.
-  - 입력: D159 설계, D158 UDP protocol root history session-count 4, updated reference envelope smoke signal 0.
-  - 할 일: 원격 run 이 생기면 TCP/UDP baseline, summary, history, envelope exit code 와 UDP envelope signal count 를 확인한다.
-  - 확인할 것: UDP open-loop p50 반복 signal 이 updated reference 에서 해소되는지,
-    drop/payload-error/pool-rented 가 계속 0인지 확인한다.
-  - 제외: 원격 evidence 전 fixed registration, zero-copy send, latency hard gate, default promotion 을 열지 않는다.
+- [ ] D160 이후 io_uring 후속 후보를 재평가한다.
+  - 입력: run `28495804466` TCP/UDP envelope signal-count 0, raw report count 6씩, workflow success.
+  - 할 일: 추가 remote date/session evidence 를 더 쌓을지, fixed registration/zero-copy/latency gate 후보를 계속 보류할지 판단한다.
+  - 확인할 것: 다음 단위가 구현인지 artifact 수집/정책 설계인지 명확히 정한다.
+  - 제외: 현재 evidence 만으로 default promotion, latency hard gate, zero-copy 구현을 바로 열지 않는다.
 
 ## Deferred Backlog
 
@@ -71,6 +70,13 @@
     updated reference 를 반영한 원격 artifact gate 다.
   - 근거: UDP p50 signal 은 D158 smoke 에서 닫혔고, drop/payload-error/pool-rented/hard gate failure 가 없다.
   - 다음: push 이후 원격 workflow run 이 생기면 artifact 를 검토한다.
+
+- [x] D159 기준 updated reference 가 반영된 원격 `iouring-benchmark-artifacts.yml` artifact 를 검토했다.
+  - 범위: GitHub Actions run `28495804466`,
+    artifact `iouring-benchmark-artifacts-2026-07-01-github-28495804466-1`, D160 상태/결정 문서.
+  - 결과: workflow success, TCP/UDP baseline/summary/history/envelope exit code 0.
+  - evidence: TCP/UDP raw report count 는 각각 6이고, TCP/UDP envelope 는 모두 compatible true, signal-count 0이다.
+  - 의미: D158 updated reference 로 UDP open-loop p50 반복 signal 이 원격 artifact 에서도 해소됐다.
 
 - [x] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토했다.
   - 범위: GitHub Actions runs `28494135787`, `28494404015`, D157 상태/결정 문서.

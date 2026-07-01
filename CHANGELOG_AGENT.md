@@ -207,6 +207,15 @@
   drop/payload-error/pool-rented/hard gate failure 가 남아 있지 않다.
 - 다음 단위는 push 이후 updated reference 를 반영한 원격 `iouring-benchmark-artifacts.yml` artifact gate 검토다.
 
+### D160 updated reference 원격 artifact gate 검토
+- 사용자 push 이후 `iouring-benchmark-artifacts.yml`을 `master` 기준으로 수동 실행했다.
+- run `28495804466`은 workflow success 로 완료됐고,
+  artifact `iouring-benchmark-artifacts-2026-07-01-github-28495804466-1`을 생성했다.
+- root `summary.md` 기준 TCP/UDP baseline, summary, history, envelope exit code 는 모두 0이다.
+- TCP/UDP raw report count 는 각각 6이다.
+- TCP envelope 는 compatible true, signal-count 0이고, UDP envelope 도 compatible true, signal-count 0이다.
+- D155~D157에서 반복됐던 UDP open-loop p50 signal 은 D158 updated reference 기준에서 재발하지 않았다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

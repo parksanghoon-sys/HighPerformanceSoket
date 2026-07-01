@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D160 — D159 updated reference 원격 artifact gate 는 TCP/UDP envelope signal 0으로 통과했다.
 - D159 — D158 이후 다음 단위는 fixed registration/zero-copy/default promotion 이 아니라 updated reference 원격 artifact gate 다.
 - D158 — UDP open-loop p50 반복 signal 은 얇은 provisional reference 문제로 보고 D155~D157 UDP candidates 를 수동 채택해 reference 를 안정화한다.
 - D157 — D156 추가 artifact 2개 수집 결과 UDP open-loop p50-median signal 이 3/3 반복되어 UDP latency triage 설계로 전환한다.

@@ -1871,9 +1871,12 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - D159 기준으로 D158 이후 다음 단위는 fixed registration, zero-copy send, UDP pump 구조 변경,
   latency hard gate 가 아니라 updated reference 를 반영한 원격 `iouring-benchmark-artifacts.yml` artifact gate 다.
   설계는 `docs/superpowers/specs/2026-07-01-iouring-post-d158-next-scope-design.md`에 있다.
-- 다음 실행 지점: D159 설계 커밋 후, push 이후 원격 `iouring-benchmark-artifacts.yml` run 이 생기면
-  TCP/UDP baseline, summary, history, envelope exit code 와 UDP envelope signal 변화를 검토한다.
-  push 전까지는 fixed registration/zero-copy/default promotion 을 열지 않는다.
+- D160 원격 검토 결과: run `28495804466`은 workflow success 로 완료됐다.
+  TCP/UDP baseline, summary, history, envelope exit code 는 모두 0이고, TCP/UDP raw report count 는 각각 6이다.
+  TCP envelope 는 compatible true, signal-count 0이고, UDP envelope 도 compatible true, signal-count 0이다.
+  D155~D157에서 반복됐던 UDP open-loop p50 signal 은 D158 updated reference 기준에서 재발하지 않았다.
+- 다음 실행 지점: D160 이후 io_uring 후속 후보를 재평가한다.
+  현재 evidence 만으로 fixed registration, zero-copy send, UDP pump 구조 변경, latency hard gate 를 열지는 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
