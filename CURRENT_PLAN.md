@@ -1762,8 +1762,18 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   parent-root 아래 date child discovery 규칙과 맞지 않은 것이다.
 - 보정 결과: workflow 를 `runner/<protocol>/<yyyy-mm-dd>/session-01` 구조로 바꿨고,
   protocol root 를 history input 으로 유지하도록 static test 를 추가했다.
-- 다음 실행 지점: 사용자 push 이후 GitHub Actions 에서 `iouring-benchmark-artifacts.yml`을 수동 실행하고,
-  upload artifact 의 TCP/UDP raw report, summary, history, root summary 를 검토한다.
+- 보정 후 원격 검토 결과: run `28486254926`이 success 로 완료됐다.
+  artifact `iouring-benchmark-artifacts-2026-07-01-github-28486254926-1`은
+  root `summary.md`, `dotnet-info.txt`, TCP/UDP raw report 2개씩, protocol 별 `summary.json`/`summary.md`,
+  `history.json`/`history.md`를 모두 포함한다.
+  TCP/UDP baseline, summary, history exit code 는 모두 0이다.
+- D148 기준으로 D147 artifact gate 를 충족했다.
+  TCP summary 는 hard-passed true, warning-count 2, dropped/payload-error/pool-rented 0이며,
+  UDP summary 는 hard-passed true, warning-count 0, dropped/payload-error/pool-rented 0이다.
+  TCP p99 warning 은 evidence-only report data 이므로 latency hard gate 나 warning-as-failure 로 승격하지 않는다.
+- 다음 실행 지점: D148 이후 io_uring 후속 후보를 재평가하고,
+  fixed payload registration cache, zero-copy send, IPv6 direct io_uring UDP, default backend promotion 중
+  지금 열어도 되는 최소 설계 단위를 확정한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

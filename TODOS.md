@@ -9,15 +9,13 @@
 
 ## Current TODOs
 
-- [ ] 사용자 push 이후 `iouring-benchmark-artifacts.yml`을 수동 실행하고 artifact 를 검토한다.
-  - 입력: D147, `.github/workflows/iouring-benchmark-artifacts.yml`.
-  - 목표: Linux available runner 에서 `--backend iouring` TCP/UDP baseline suite artifact 가 생성되는지 확인한다.
-  - 기대 evidence: artifact `iouring-benchmark-artifacts-<yyyy-mm-dd>-github-<run-id>-<attempt>` 안에
-    TCP/UDP raw report, `summary.json`, `summary.md`, `history.json`, `history.md`, root `summary.md`, `dotnet-info.txt`가 존재한다.
-    protocol 별 session 은 `tcp/<yyyy-mm-dd>/session-01`와 `udp/<yyyy-mm-dd>/session-01` 아래에 있어야 한다.
-  - 검토 기준: capability available 상태에서 load/open-loop report 가 기존 schema 로 생성되고,
-    summary/history reader 가 protocol 별 root 를 정상 집계하는지 확인한다.
-  - 제외: artifact 확인 전 fixed buffer registration, zero-copy send, default backend promotion 구현.
+- [ ] D148 이후 io_uring 후속 후보를 재평가하고 다음 최소 설계 단위를 확정한다.
+  - 입력: D146~D148, run `28486254926` artifact,
+    `docs/superpowers/specs/2026-07-01-iouring-benchmark-artifact-workflow-design.md`.
+  - 목표: Linux `--backend iouring` TCP/UDP benchmark artifact 확보 이후 어떤 최적화/확장 후보를 열지 결정한다.
+  - 후보: fixed payload registration cache, zero-copy send, IPv6 direct io_uring UDP, default backend promotion.
+  - 판단 기준: 현재 artifact 가 성능 최적화 근거인지, 아니면 먼저 반복 baseline/history/envelope 를 더 쌓아야 하는지 구분한다.
+  - 제외: 후보 재평가 전 최적화 구현, default backend promotion, latency hard gate/warning-as-failure 구현.
 
 ## Deferred Backlog
 
@@ -51,6 +49,20 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 사용자 push 이후 `iouring-benchmark-artifacts.yml` 원격 artifact 를 검토했다.
+  - 범위: GitHub Actions run `28486254926`,
+    artifact `iouring-benchmark-artifacts-2026-07-01-github-28486254926-1`.
+  - 결과: workflow conclusion success, job `io_uring benchmark artifacts (linux)` success.
+  - evidence: root `summary.md` 기준 TCP/UDP baseline, summary, history exit code 가 모두 0이다.
+  - evidence: artifact 는 `tcp/2026-07-01/session-01`, `udp/2026-07-01/session-01`,
+    protocol 별 `history.json`/`history.md`, root `summary.md`, `dotnet-info.txt`를 포함한다.
+  - evidence: TCP summary 는 source-report-count 2, hard-passed true, warning-count 2,
+    dropped-total 0, payload-error-total 0, pool-rented-max 0이다.
+  - evidence: UDP summary 는 source-report-count 2, hard-passed true, warning-count 0,
+    dropped-total 0, payload-error-total 0, pool-rented-max 0이다.
+  - 의미: D147의 원격 Linux `io_uring` TCP/UDP benchmark artifact gate 를 충족했다(D148).
+  - 다음: fixed registration, zero-copy send, IPv6 direct io_uring UDP, default promotion 후보를 다시 평가한다.
 
 - [x] Linux io_uring benchmark artifact workflow 를 추가했다.
   - 범위: `.github/workflows/iouring-benchmark-artifacts.yml`,

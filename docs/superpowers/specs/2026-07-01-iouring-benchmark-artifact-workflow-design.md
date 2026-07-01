@@ -128,8 +128,21 @@ workflow failure 로 보지 않는다.
 
 ## 다음 단계
 
-1. workflow static Red test 를 추가한다.
-2. `iouring-benchmark-artifacts.yml`를 추가한다.
-3. focused workflow tests 와 solution build/test 를 실행한다.
-4. D147 state docs 를 갱신한다.
-5. commit 후 사용자가 push 하면 workflow 를 수동 실행하고 artifact 를 검토한다.
+완료됨.
+
+1. workflow static Red test 를 추가했다.
+2. `iouring-benchmark-artifacts.yml`를 추가했다.
+3. focused workflow tests 와 solution build/test 를 실행했다.
+4. D147 state docs 를 갱신했다.
+5. 사용자 push 후 workflow 를 수동 실행했고, 첫 run `28485295725`의 history root 실패를 확인했다.
+6. workflow 구조를 protocol-first root 로 보정했다.
+7. 보정 후 run `28486254926` artifact 를 검토해 D147 evidence gate 충족을 D148로 수락했다.
+
+## 원격 검토 결과
+
+- artifact: `iouring-benchmark-artifacts-2026-07-01-github-28486254926-1`
+- 구조: `tcp/2026-07-01/session-01`, `udp/2026-07-01/session-01`, protocol 별 `history.json`/`history.md`
+- root summary: TCP/UDP baseline, summary, history exit code 모두 0
+- TCP summary: hard-passed true, warning-count 2, dropped/payload-error/pool-rented 0
+- UDP summary: hard-passed true, warning-count 0, dropped/payload-error/pool-rented 0
+- 해석: TCP p99 warning 은 evidence-only report data 이며 latency hard gate 로 승격하지 않는다.

@@ -113,3 +113,46 @@ Record D147:
 git add .github\workflows\iouring-benchmark-artifacts.yml tests\Hps.Benchmarks.Tests\BenchmarkArtifactWorkflowTests.cs CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md DECISIONS.md docs\agent-state\changelog\2026-07.md docs\agent-state\decisions\2026-07.md docs\superpowers\specs\2026-07-01-iouring-benchmark-artifact-workflow-design.md docs\superpowers\plans\2026-07-01-iouring-benchmark-artifact-workflow.md
 git commit -m "ci: add iouring benchmark artifact workflow"
 ```
+
+### Task 3: Remote Artifact Review
+
+**Files:**
+- Modify: `CURRENT_PLAN.md`
+- Modify: `TODOS.md`
+- Modify: `CHANGELOG_AGENT.md`
+- Modify: `DECISIONS.md`
+- Modify: `docs/agent-state/changelog/2026-07.md`
+- Modify: `docs/agent-state/decisions/2026-07.md`
+- Modify: `docs/superpowers/specs/2026-07-01-iouring-benchmark-artifact-workflow-design.md`
+
+**Interfaces:**
+- Consumes: GitHub Actions artifact `iouring-benchmark-artifacts-2026-07-01-github-28486254926-1`.
+- Produces: D148 evidence acceptance and next candidate re-evaluation point.
+
+- [x] **Step 1: Run workflow after push**
+
+```powershell
+gh workflow run iouring-benchmark-artifacts.yml --ref master
+gh run watch 28486254926 --exit-status --interval 20
+```
+
+Expected: workflow succeeds and TCP/UDP baseline, summary, history steps return exit code 0.
+
+- [x] **Step 2: Download and inspect artifact**
+
+Expected artifact shape:
+
+```text
+tcp/2026-07-01/session-01/{load-01.json,open-loop-01.json,summary.json,summary.md}
+tcp/history.json
+tcp/history.md
+udp/2026-07-01/session-01/{load-01.json,open-loop-01.json,summary.json,summary.md}
+udp/history.json
+udp/history.md
+summary.md
+dotnet-info.txt
+```
+
+- [x] **Step 3: Record D148 state**
+
+Record that TCP/UDP hard gates passed, TCP p99 warnings remain report-only, and the next step is io_uring follow-up candidate re-evaluation rather than immediate optimization/default promotion.

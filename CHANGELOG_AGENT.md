@@ -31,7 +31,7 @@
 
 ### 결과
 - `--backend iouring` TCP/UDP benchmark 를 Linux runner 에서 artifact 로 남길 수 있는 원격 evidence 경로가 준비됐다.
-- 다음 작업은 사용자 push 이후 `iouring-benchmark-artifacts.yml`을 수동 실행하고 artifact 내용을 검토하는 것이다.
+- 보정 후 원격 artifact 검토까지 완료해 D147 evidence gate 를 충족했다(D148).
 
 ### 추가 확인
 - 사용자 push 이후 run `28485295725`를 실행했다.
@@ -41,6 +41,18 @@
 - workflow artifact 구조가 `date/protocol/session`이라 `BaselineHistoryReader`의 parent-root 아래 date child discovery 규칙과 맞지 않았다.
 - workflow 를 `runner/<protocol>/<yyyy-mm-dd>/session-01` 구조로 보정하고,
   static workflow test 로 history input root 구조를 고정했다.
+
+### 보정 후 원격 artifact 검토
+- 사용자 push 이후 run `28486254926`을 실행했고 workflow conclusion success 를 확인했다.
+- artifact `iouring-benchmark-artifacts-2026-07-01-github-28486254926-1`에는 root `summary.md`,
+  `dotnet-info.txt`, TCP/UDP raw report, summary, history 가 모두 포함됐다.
+- root `summary.md` 기준 TCP/UDP baseline, summary, history exit code 는 모두 0이다.
+- TCP summary 는 source-report-count 2, hard-passed true, warning-count 2,
+  dropped-total 0, payload-error-total 0, pool-rented-max 0이다.
+- UDP summary 는 source-report-count 2, hard-passed true, warning-count 0,
+  dropped-total 0, payload-error-total 0, pool-rented-max 0이다.
+- TCP p99 warning 2개는 evidence-only report data 로 남기며, latency hard gate 나 warning-as-failure 로 승격하지 않았다.
+- 다음 실행 지점은 D148 이후 io_uring 후속 후보를 재평가하고 다음 최소 설계 단위를 확정하는 것이다.
 
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 

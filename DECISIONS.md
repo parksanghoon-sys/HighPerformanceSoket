@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D148 — io_uring benchmark artifact workflow 는 protocol-first history root 구조로 D147 evidence gate 를 충족했다.
 - D147 — Linux io_uring benchmark artifact 는 별도 workflow_dispatch workflow 로 수집한다.
 - D146 — benchmark CLI 는 io_uring opt-in backend 를 지원하되 default promotion 은 계속 보류한다.
 - D145 — D144 이후 다음 단위는 io_uring benchmark backend selector 로 성능 artifact 경로를 먼저 연다.
