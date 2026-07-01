@@ -1,4 +1,4 @@
-# Baseline Summary
+﻿# Baseline Summary
 
 - 입력 directory: `docs\benchmarks\baselines\runners\ci-linux-iouring-x64-01\udp\2026-07-01\session-04`
 - source report count: 6
@@ -28,7 +28,7 @@
 
 ## 종류별 요약
 
-| kind | runs | p50 median us | p99 median us | p99 max us | TCP HWM max | dropped total | pool rented max |
+| kind | runs | p50 median us | p99 median us | p99 max us | send queue HWM max | dropped total | pool rented max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | load | 3 | 652.7 | 1236.2 | 1246.9 | 0 | 0 | 0 |
 | open-loop | 3 | 1229.8 | 1271.2 | 1271.3 | 0 | 0 | 0 |

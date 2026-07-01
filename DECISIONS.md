@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D161 — benchmark Markdown HWM label 은 TCP 전용 표현 대신 protocol-neutral `send queue HWM max`로 표시한다.
 - D160 — D159 updated reference 원격 artifact gate 는 TCP/UDP envelope signal 0으로 통과했다.
 - D159 — D158 이후 다음 단위는 fixed registration/zero-copy/default promotion 이 아니라 updated reference 원격 artifact gate 다.
 - D158 — UDP open-loop p50 반복 signal 은 얇은 provisional reference 문제로 보고 D155~D157 UDP candidates 를 수동 채택해 reference 를 안정화한다.

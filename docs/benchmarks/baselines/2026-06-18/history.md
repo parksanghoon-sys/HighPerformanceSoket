@@ -1,4 +1,4 @@
-# Baseline History
+﻿# Baseline History
 
 - source root: `docs\benchmarks\baselines\2026-06-18`
 - session count: 3
@@ -33,7 +33,7 @@
 | unknown-runner | runner-identity | known | unknown | session-03 | `session-03/summary.json` |
 | unknown-runner | runner-identity | known | unknown | session-03 | `session-03/summary.json` |
 
-| 날짜 | session | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | TCP HWM max |
+| 날짜 | session | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | send queue HWM max |
 | --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
 | 2026-06-18 | session-01(root) | `summary.json` | `summary.md` | 6 | true | 0 | 924.1 | 1005.5 | 2 |
 | 2026-06-18 | session-02 | `session-02/summary.json` | `session-02/summary.md` | 6 | true | 0 | 512.1 | 643.3 | 3 |

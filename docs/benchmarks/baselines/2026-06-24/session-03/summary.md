@@ -1,4 +1,4 @@
-# Baseline Summary
+﻿# Baseline Summary
 
 - 입력 directory: `docs\benchmarks\baselines\2026-06-24\session-03`
 - source report count: 6
@@ -28,7 +28,7 @@
 
 ## 종류별 요약
 
-| kind | runs | p50 median us | p99 median us | p99 max us | TCP HWM max | dropped total | pool rented max |
+| kind | runs | p50 median us | p99 median us | p99 max us | send queue HWM max | dropped total | pool rented max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | load | 3 | 248 | 916.3 | 930 | 1 | 0 | 0 |
 | open-loop | 3 | 259.6 | 967.4 | 979.4 | 2 | 0 | 0 |

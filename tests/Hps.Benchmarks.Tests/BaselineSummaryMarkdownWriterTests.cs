@@ -7,7 +7,8 @@ namespace Hps.Benchmarks.Tests
     public sealed class BaselineSummaryMarkdownWriterTests
     {
         // Markdown writer 는 JSON summary 를 대체하지 않고 사람이 리뷰할 핵심 수치만 압축해 보여준다.
-        // 종류별 run count, p99 중심값, TCP HWM, hard gate 상태가 없으면 raw JSON을 다시 열어야 하므로 리뷰 artifact 가치가 떨어진다.
+        // 종류별 run count, p99 중심값, send queue HWM, hard gate 상태가 없으면 raw JSON을 다시 열어야 하므로 리뷰 artifact 가치가 떨어진다.
+        // Markdown 은 TCP/UDP artifact 를 모두 보여주므로 JSON 호환 필드명(tcp-hwm-max)보다 protocol-neutral label 을 써야 한다.
         [Fact]
         public void Write_WhenSummaryHasNoWarnings_WritesReviewSummary()
         {
@@ -24,7 +25,7 @@ namespace Hps.Benchmarks.Tests
             Assert.Contains("- 입력 directory: `baseline`", markdown);
             Assert.Contains("- source report count: 2", markdown);
             Assert.Contains("- hard gate: PASS", markdown);
-            Assert.Contains("| kind | runs | p50 median us | p99 median us | p99 max us | TCP HWM max | dropped total | pool rented max |", markdown);
+            Assert.Contains("| kind | runs | p50 median us | p99 median us | p99 max us | send queue HWM max | dropped total | pool rented max |", markdown);
             Assert.Contains("| load | 1 | 230 | 500 | 500 | 1 | 0 | 0 |", markdown);
             Assert.Contains("| open-loop | 1 | 250 | 600 | 600 | 2 | 0 | 0 |", markdown);
             Assert.Contains("- 없음", markdown);

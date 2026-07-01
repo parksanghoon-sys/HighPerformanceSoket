@@ -1,4 +1,4 @@
-# Baseline History
+﻿# Baseline History
 
 - source root: `docs\benchmarks\baselines\runners\ci-linux-iouring-x64-01\tcp\2026-07-01`
 - session count: 1
@@ -25,7 +25,7 @@
 
 - mismatch: 없음
 
-| 날짜 | session | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | TCP HWM max |
+| 날짜 | session | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | send queue HWM max |
 | --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
 | 2026-07-01 | session-01 | `session-01/summary.json` | `session-01/summary.md` | 6 | true | 6 | 4298.8 | 5588.6 | 1 |
 

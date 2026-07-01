@@ -101,7 +101,7 @@ namespace Hps.Benchmarks
         {
             writer.WriteLine("## 종류별 요약");
             writer.WriteLine();
-            writer.WriteLine("| kind | runs | p50 median us | p99 median us | p99 max us | TCP HWM max | dropped total | pool rented max |");
+            writer.WriteLine("| kind | runs | p50 median us | p99 median us | p99 max us | send queue HWM max | dropped total | pool rented max |");
             writer.WriteLine("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
             WriteKindRow(writer, summary.Load);
             WriteKindRow(writer, summary.OpenLoop);

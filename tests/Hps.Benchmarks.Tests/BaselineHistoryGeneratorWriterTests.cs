@@ -196,6 +196,7 @@ namespace Hps.Benchmarks.Tests
 
         // Markdown writer 는 사람이 현재 index 와 같은 정보를 빠르게 보는 보조 artifact 다.
         // 자동화의 canonical 입력은 JSON 이므로 Markdown 은 session table 과 warning row 존재만 고정한다.
+        // history 는 TCP/UDP protocol root 에 모두 쓰이므로 HWM header 는 protocol-neutral 해야 한다.
         [Fact]
         public void MarkdownWriter_WhenHistoryHasWarnings_WritesSessionTableAndWarningList()
         {
@@ -208,6 +209,7 @@ namespace Hps.Benchmarks.Tests
 
             string markdown = writer.ToString();
             Assert.Contains("# Baseline History", markdown);
+            Assert.Contains("| 날짜 | session | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | send queue HWM max |", markdown);
             Assert.Contains("| 2026-06-19 | session-01 |", markdown);
             Assert.Contains("| 2026-06-19 | session-01 | `2026-06-19/session-01/summary.json` | `2026-06-19/session-01/summary.md` | 6 | true | 2 | - | 1500 | 16 |", markdown);
             Assert.Contains("warning 이 있는 session", markdown);

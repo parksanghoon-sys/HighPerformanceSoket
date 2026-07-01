@@ -23,7 +23,7 @@ namespace Hps.Benchmarks
             writer.WriteLine();
             WriteComparison(writer, history.Comparison);
             writer.WriteLine();
-            writer.WriteLine("| 날짜 | session | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | TCP HWM max |");
+            writer.WriteLine("| 날짜 | session | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | send queue HWM max |");
             writer.WriteLine("| --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |");
 
             for (int i = 0; i < history.Sessions.Count; i++)

@@ -1,4 +1,4 @@
-# Baseline History
+﻿# Baseline History
 
 - source root: `docs\benchmarks\baselines\2026-06-24`
 - session count: 3
@@ -25,7 +25,7 @@
 
 - mismatch: 없음
 
-| 날짜 | session | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | TCP HWM max |
+| 날짜 | session | summary | human report | raw reports | hard passed | warnings | load p99 max us | open-loop p99 max us | send queue HWM max |
 | --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
 | 2026-06-24 | session-01 | `session-01/summary.json` | `session-01/summary.md` | 6 | true | 0 | 876.3 | 948.5 | 2 |
 | 2026-06-24 | session-02 | `session-02/summary.json` | `session-02/summary.md` | 6 | true | 0 | 1020.4 | 1006.5 | 2 |

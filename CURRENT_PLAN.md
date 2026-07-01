@@ -1875,7 +1875,9 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP/UDP baseline, summary, history, envelope exit code 는 모두 0이고, TCP/UDP raw report count 는 각각 6이다.
   TCP envelope 는 compatible true, signal-count 0이고, UDP envelope 도 compatible true, signal-count 0이다.
   D155~D157에서 반복됐던 UDP open-loop p50 signal 은 D158 updated reference 기준에서 재발하지 않았다.
-- 다음 실행 지점: D160 이후 io_uring 후속 후보를 재평가한다.
+- D161 기준으로 benchmark Markdown HWM label 을 `TCP HWM max`에서 `send queue HWM max`로 정리했다.
+  JSON schema 와 warning code 는 호환성을 위해 그대로 유지한다.
+- 다음 실행 지점: D161 이후 io_uring 후속 후보를 재평가한다.
   현재 evidence 만으로 fixed registration, zero-copy send, UDP pump 구조 변경, latency hard gate 를 열지는 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
