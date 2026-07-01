@@ -189,6 +189,17 @@
 - 다음 실행 지점은 D155~D157 UDP candidate raw report 를 `session-02..04`로 수동 채택하고,
   UDP summary/history/index 와 updated reference envelope smoke 를 확인하는 것이다.
 
+### D158 UDP provisional reference stabilization 실행
+- D155~D157 UDP candidate raw report 를
+  `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/udp/2026-07-01/session-02..04/`에 수동 채택했다.
+- 각 session 의 `summary.json`/`summary.md`, UDP date-level `history.json`/`history.md`,
+  UDP protocol root `history.json`/`history.md`를 repository 경로 기준으로 재생성했다.
+- UDP protocol root history 는 session-count 4, hard-passed true, warning-count 8,
+  comparison-compatible true 상태다.
+- updated reference history 로 `session-04` summary 를 envelope smoke 비교했고,
+  `envelope-compatible=true`, `envelope-signal-count=0`을 확인했다.
+- `docs/benchmarks/baselines/index.md`에 UDP session rows 와 updated protocol reference 값을 반영했다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

@@ -1862,10 +1862,15 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - D158 기준으로 UDP open-loop p50-median 반복 signal 은 transport correctness/reliability failure 가 아니라
   1-session provisional reference 의 p50 envelope 가 지나치게 얇은 문제로 본다.
   설계는 `docs/superpowers/specs/2026-07-01-iouring-udp-open-loop-p50-triage-design.md`에 있다.
-- 다음 실행 지점: D155~D157 UDP candidate raw report 를
-  `ci-linux-iouring-x64-01/udp/2026-07-01/session-02..04`로 수동 채택하고,
-  UDP summary/history/index 를 재생성한 뒤 updated reference envelope smoke 를 실행한다.
-  TCP protocol root 확장, fixed registration, zero-copy, latency hard gate 는 아직 열지 않는다.
+- D158 실행 결과: D155~D157 UDP candidate raw report 를
+  `ci-linux-iouring-x64-01/udp/2026-07-01/session-02..04`로 수동 채택했고,
+  UDP date/protocol history 를 재생성했다.
+  UDP protocol root history 는 session-count 4, hard-passed true, warning-count 8,
+  comparison-compatible true 상태다.
+  updated reference envelope smoke 는 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
+- 다음 실행 지점: D158 안정화 이후 io_uring 후속 후보를 재평가한다.
+  fixed registration, zero-copy send, UDP pump 구조 변경, latency hard gate 중 무엇이 실제 evidence-ready 인지 먼저 판단하고,
+  아직 근거가 부족하면 문서화된 다음 관측 단위로 좁힌다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

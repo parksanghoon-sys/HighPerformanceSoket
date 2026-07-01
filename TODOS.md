@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D158 기준으로 D155~D157 UDP candidate raw reports 를 provisional reference sessions 로 수동 채택한다.
-  - 입력: `docs/superpowers/specs/2026-07-01-iouring-udp-open-loop-p50-triage-design.md`.
-  - 할 일: runs `28493590950`, `28494135787`, `28494404015`의 UDP raw report 를
-    `ci-linux-iouring-x64-01/udp/2026-07-01/session-02..04`로 복사한다.
-  - 확인할 것: UDP history session-count 4, hard-passed true, comparison-compatible true,
-    updated reference envelope smoke 를 확인한다.
-  - 제외: TCP protocol root 확장, 자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy 구현.
+- [ ] D158 안정화 이후 io_uring 후속 후보를 재평가한다.
+  - 입력: D158 UDP protocol root history session-count 4, hard-passed true, comparison-compatible true,
+    updated reference envelope smoke signal 0.
+  - 할 일: fixed registration, zero-copy send, UDP pump 구조 변경, latency hard gate, 추가 artifact 수집 중
+    어느 항목이 현재 evidence-ready 인지 판단한다.
+  - 확인할 것: 다음 단위가 즉시 구현 가능한지, 아니면 추가 관측/설계가 먼저 필요한지 문서화한다.
+  - 제외: 검토 없이 default backend promotion 을 열거나 latency hard gate 를 바로 승격하지 않는다.
 
 ## Deferred Backlog
 
@@ -56,6 +56,15 @@
   - 결정: 반복 signal 은 transport 최적화 필요성보다 1-session provisional reference 가 너무 얇은 문제로 보고,
     D155~D157 UDP candidate raw reports 를 session-02..04로 수동 채택해 reference 를 안정화한다.
   - 제외: TCP protocol root 확장, fixed registration, zero-copy, latency hard gate.
+
+- [x] D158 기준으로 D155~D157 UDP candidate raw reports 를 provisional reference sessions 로 수동 채택했다.
+  - 범위: `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/udp/2026-07-01/session-02..04`,
+    UDP `history.json`/`history.md`, `docs/benchmarks/baselines/index.md`, 상태 문서.
+  - 결과: UDP protocol root history 는 session-count 4, hard-passed true, warning-count 8,
+    comparison-compatible true 상태다.
+  - 검증: updated reference envelope smoke 는 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
+  - 의미: 반복된 open-loop p50 signal 은 얇은 provisional reference 문제로 해석하고,
+    fixed registration, zero-copy, latency hard gate 는 계속 보류한다.
 
 - [x] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토했다.
   - 범위: GitHub Actions runs `28494135787`, `28494404015`, D157 상태/결정 문서.
