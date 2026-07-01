@@ -1834,6 +1834,17 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - 다음 실행 지점: 사용자 push 이후 원격 `iouring-benchmark-artifacts.yml`을 다시 실행해
   reference history 존재 상태에서 TCP/UDP `envelope.json`/`envelope.md`가 실제 artifact 에 생성되는지 검토한다.
   envelope signal 은 report-only 로 유지하며, latency hard gate/default promotion/fixed registration/zero-copy 구현은 계속 열지 않는다.
+- D155 원격 검토 결과: run `28493590950`이 success 로 완료됐다.
+  artifact `iouring-benchmark-artifacts-2026-07-01-github-28493590950-1`은
+  TCP/UDP 각각 raw report 6개, protocol 별 `summary.json`/`summary.md`, `history.json`/`history.md`,
+  `envelope.json`/`envelope.md`를 포함한다.
+  root `summary.md` 기준 TCP/UDP baseline, summary, history, envelope exit code 는 모두 0이다.
+- D155 envelope 결과: TCP 는 `envelope-compatible=true`, `envelope-signal-count=0`이다.
+  UDP 는 `envelope-compatible=false`, `envelope-signal-count=2`이며,
+  load `p99-max-us` upper bound 초과와 open-loop `p50-median-us` upper bound 초과를 기록했다.
+  이 signal 은 D153 기준 report-only 이며, 1-session provisional reference 상태라 즉시 최적화 구현 근거로 확장하지 않는다.
+- 다음 실행 지점: D155 UDP envelope signal 이후 provisional reference 확장/triage 정책을 설계한다.
+  자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy send 는 계속 열지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

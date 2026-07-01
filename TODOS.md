@@ -9,10 +9,11 @@
 
 ## Current TODOs
 
-- [ ] 사용자 push 이후 `iouring-benchmark-artifacts.yml` reference-present envelope artifact 경로를 원격 검토한다.
-  - 입력: D154로 추가한 `ci-linux-iouring-x64-01/tcp/history.json`과 `.../udp/history.json`.
-  - 확인할 것: 원격 workflow 가 reference history 를 발견해 skip 대신 protocol별 `envelope.json`/`envelope.md`를 생성하는지,
-    root `summary.md`의 TCP/UDP envelope exit 가 0인지, envelope signal 은 report-only 로 유지되는지 확인한다.
+- [ ] D155 UDP envelope signal 이후 provisional reference 확장/triage 정책을 설계한다.
+  - 입력: reference-present run `28493590950`의 UDP envelope signal 2개.
+  - 확인할 것: 1-session provisional reference 에서 생긴 UDP signal 을 즉시 최적화 구현으로 볼지,
+    추가 session/date root 를 쌓아 reference envelope 를 안정화한 뒤 판단할지 정한다.
+  - 참고: TCP envelope 는 signal 0이고, UDP envelope 는 load p99 max 와 open-loop p50 median upper-bound signal 을 기록했다.
   - 제외: 자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy 구현.
 
 ## Deferred Backlog
@@ -47,6 +48,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 사용자 push 이후 `iouring-benchmark-artifacts.yml` reference-present envelope artifact 경로를 원격 검토했다.
+  - 범위: GitHub Actions run `28493590950`,
+    artifact `iouring-benchmark-artifacts-2026-07-01-github-28493590950-1`.
+  - 결과: workflow conclusion success, job `io_uring benchmark artifacts (linux)` success.
+  - evidence: root `summary.md`는 TCP/UDP baseline, summary, history, envelope exit code 를 모두 0으로 기록했다.
+  - evidence: TCP/UDP 각각 raw report 6개, protocol 별 `summary.json`/`summary.md`,
+    `history.json`/`history.md`, `envelope.json`/`envelope.md`가 존재한다.
+  - evidence: TCP envelope 는 `envelope-compatible=true`, `envelope-signal-count=0`이다.
+  - evidence: UDP envelope 는 `envelope-compatible=false`, `envelope-signal-count=2`다.
+    signal 은 load `p99-max-us` upper bound 초과와 open-loop `p50-median-us` upper bound 초과다.
+  - 의미: reference-present envelope artifact path 는 검증됐다(D155).
+    UDP signal 은 D153 provisional reference 상태의 report-only triage 대상으로 남긴다.
 
 - [x] run `28492234252` artifact 를 `io_uring` protocol별 provisional repository reference baseline 으로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/tcp/**`,
