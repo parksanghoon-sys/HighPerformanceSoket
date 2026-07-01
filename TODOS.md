@@ -9,12 +9,11 @@
 
 ## Current TODOs
 
-- [ ] D152 이후 `io_uring` protocol별 repository reference baseline 수동 채택 정책을 설계한다.
-  - 입력: 원격 run `28492234252`의 D151 envelope artifact 검토 결과.
-  - 확인할 것: `ci-linux-iouring-x64-01/tcp`와 `.../udp` reference history 를 repository baseline 으로 채택할지,
-    채택한다면 artifact raw report/session directory 를 어떤 checklist 로 복사하고 어떤 값을 수락 기준으로 삼을지 정한다.
-  - 참고: D152 기준 repository 에는 아직 `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/tcp/history.json`
-    또는 `.../udp/history.json`가 없어서 envelope comparison 은 skip 경로만 검증됐다.
+- [ ] run `28492234252` artifact 를 `io_uring` protocol별 provisional repository reference baseline 으로 수동 채택한다.
+  - 입력: `docs/superpowers/specs/2026-07-01-iouring-protocol-reference-baseline-adoption-policy-design.md`.
+  - 할 일: TCP/UDP raw report 6개씩을 `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/<protocol>/2026-07-01/session-01/`
+    아래로 복사하고, repository 경로 기준 summary/history/index 를 재생성한다.
+  - 확인할 것: protocol별 reference `history.json`을 읽는 envelope command smoke 가 동작하는지 확인한다.
   - 제외: 자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy 구현.
 
 ## Deferred Backlog
@@ -49,6 +48,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D152 이후 `io_uring` protocol별 repository reference baseline 수동 채택 정책을 설계했다.
+  - 범위: `docs/superpowers/specs/2026-07-01-iouring-protocol-reference-baseline-adoption-policy-design.md`,
+    D153 상태/결정 문서.
+  - 결정: D152 artifact 는 TCP/UDP 모두 hard gate 와 comparison compatibility 를 통과했으므로
+    첫 protocol별 provisional repository reference baseline 으로 수동 채택할 수 있다.
+  - 차이: D095는 warning-count 0을 요구하지만, 초기 `io_uring` reference 의 warning 은 전역 soft threshold signal 이므로
+    채택 차단 조건으로 보지 않고 provisional 표시로 남긴다.
+  - 다음: artifact raw report 를 protocol별 repository baseline 구조로 복사하고 summary/history/index 를 재생성한다.
 
 - [x] 사용자 push 이후 `iouring-benchmark-artifacts.yml` D151 envelope artifact 경로를 원격 검토했다.
   - 범위: GitHub Actions run `28492234252`,

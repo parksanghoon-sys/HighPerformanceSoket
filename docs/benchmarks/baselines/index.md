@@ -27,6 +27,9 @@
   reference history 도 `docs/benchmarks/baselines/runners/<runner-id>/tcp/history.json`,
   `.../<runner-id>/udp/history.json`처럼 protocol별로 둔다.
   아직 `ci-linux-iouring-x64-01` repository reference 는 없으며, reference 가 없으면 workflow envelope step 은 skip 한다.
+- D153 기준으로 첫 `ci-linux-iouring-x64-01` TCP/UDP reference 는 provisional reference 로 수동 채택할 수 있다.
+  초기 `io_uring` reference 의 warning-count > 0은 D070 전역 soft threshold signal 로 기록하되,
+  채택 차단 조건이나 hard gate 승격 근거로 사용하지 않는다.
 - CI benchmark 는 D090 기준으로 artifact-only 단계에서 시작한다.
   CI의 매 실행 artifact 는 `artifacts/benchmarks/runners/<ci-runner-id>/...` 같은 CI artifact 영역에 두고,
   이 index 에는 사람이 repository baseline 으로 채택한 결과만 추가한다.

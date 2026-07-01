@@ -1818,6 +1818,14 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - 다음 실행 지점: `ci-linux-iouring-x64-01/tcp`와 `.../udp` repository reference baseline 을
   수동 채택할지 판단하는 정책 설계를 진행한다.
   자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy 구현은 계속 열지 않는다.
+- D153 기준으로 run `28492234252` artifact 는 protocol별 `io_uring` repository reference baseline 의
+  첫 provisional 후보로 수동 채택할 수 있다.
+  D095와 달리 초기 `io_uring` reference 에서는 warning-count > 0을 채택 차단 조건으로 보지 않는다.
+  이 warning 은 D070 전역 soft threshold signal 이며, 채택 결과는 hard gate/default promotion 근거가 아니라
+  future run 의 protocol별 envelope comparison 을 시작하기 위한 report-only 기준점이다.
+- 다음 실행 지점: run `28492234252` artifact 의 TCP/UDP raw report 6개씩을
+  `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/<protocol>/2026-07-01/session-01/`로 수동 채택하고,
+  repository 경로 기준 summary/history/index 를 재생성한 뒤 protocol별 envelope command smoke 를 실행한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

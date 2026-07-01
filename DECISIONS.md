@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D153 — D152 artifact 는 io_uring protocol별 첫 provisional repository reference baseline 으로 수동 채택할 수 있다.
 - D152 — io_uring envelope artifact 원격 run 은 reference 없음 skip 경로를 충족했고 다음 단위는 protocol별 reference baseline 수동 채택 정책 설계다.
 - D151 — D150 p99 warning 은 io_uring protocol별 envelope comparison artifact 로 먼저 해석한다.
 - D150 — io_uring `--runs 3` benchmark artifact 는 D149 evidence gate 를 충족했고 p99 warning 은 후속 분석으로 분리한다.
