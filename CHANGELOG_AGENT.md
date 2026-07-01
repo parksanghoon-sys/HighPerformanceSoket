@@ -233,6 +233,13 @@
 - TCP/UDP envelope 는 모두 compatible true, signal-count 0이다.
 - TCP/UDP summary/history Markdown 에 `send queue HWM max` label 이 반영됐다.
 
+### D163 post-D162 protocol reference 확장 설계
+- `docs/superpowers/specs/2026-07-01-iouring-post-d162-reference-expansion-design.md`를 추가했다.
+- D160/D162 artifact 는 failure artifact 가 아니라 TCP/UDP envelope signal 0 passing artifact 로 판단했다.
+- 다음 단위는 fixed registration, zero-copy send, latency hard gate 가 아니라
+  D160/D162 raw report 를 protocol별 provisional reference session 으로 수동 채택하는 것이다.
+- TCP는 `session-02..03`, UDP는 `session-05..06`으로 확장한다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

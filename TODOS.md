@@ -9,11 +9,12 @@
 
 ## Current TODOs
 
-- [ ] D162 이후 io_uring 후속 후보를 재평가한다.
-  - 입력: runs `28495804466`, `28497147332` TCP/UDP envelope signal-count 0, raw report count 6씩, workflow success.
-  - 할 일: 추가 remote date/session evidence 를 더 쌓을지, fixed registration/zero-copy/latency gate 후보를 계속 보류할지 판단한다.
-  - 확인할 것: 다음 단위가 구현인지 artifact 수집/정책 설계인지 명확히 정한다.
-  - 제외: 현재 evidence 만으로 default promotion, latency hard gate, zero-copy 구현을 바로 열지 않는다.
+- [ ] D163 기준으로 D160/D162 raw report 를 protocol별 provisional reference sessions 로 수동 채택한다.
+  - 입력: `docs/superpowers/specs/2026-07-01-iouring-post-d162-reference-expansion-design.md`.
+  - 할 일: D160/D162 TCP raw report 를 `session-02..03`, UDP raw report 를 `session-05..06`으로 복사한다.
+  - 확인할 것: TCP history session-count 3, UDP history session-count 6, hard-passed true,
+    comparison-compatible true, envelope smoke signal 0.
+  - 제외: 자동 baseline 채택, latency hard gate, fixed registration, zero-copy 구현.
 
 ## Deferred Backlog
 
@@ -90,6 +91,12 @@
   - 결과: workflow success, TCP/UDP baseline/summary/history/envelope exit code 0.
   - evidence: TCP/UDP raw report count 는 각각 6이고, TCP/UDP envelope 는 모두 compatible true, signal-count 0이다.
   - evidence: TCP/UDP summary/history Markdown 에 `send queue HWM max` label 이 반영됐다.
+
+- [x] D162 이후 io_uring 후속 후보를 재평가했다.
+  - 범위: `docs/superpowers/specs/2026-07-01-iouring-post-d162-reference-expansion-design.md`, D163 상태/결정 문서.
+  - 결정: 다음 단위는 fixed registration/zero-copy/latency gate 가 아니라
+    D160/D162 raw report 를 protocol별 provisional reference 로 수동 채택하는 것이다.
+  - 근거: D160/D162는 failure artifact 가 아니라 envelope signal 0 passing artifact 이므로 reference 표본 확장이 더 적합하다.
 
 - [x] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토했다.
   - 범위: GitHub Actions runs `28494135787`, `28494404015`, D157 상태/결정 문서.
