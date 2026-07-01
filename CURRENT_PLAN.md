@@ -1802,9 +1802,22 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   Red 실패를 확인했고, workflow 보정 후 `BenchmarkArtifactWorkflowTests` focused test 6개 통과를 확인했다.
 - D151 검증: focused workflow test 6개 통과, solution build 경고 0/오류 0,
   solution tests 445개 통과, `git diff --check` whitespace 오류 없음(CRLF 경고만 있음).
-- 다음 실행 지점: 이번 단위를 커밋한다.
-  사용자 push 이후 원격 `iouring-benchmark-artifacts.yml`을 다시 실행해 TCP/UDP envelope exit 가 0으로 기록되는지,
-  reference 없음이면 skip 되는지, artifact upload/final gate 가 정상인지 검토한다.
+- D152 원격 검토 결과: run `28492234252`가 success 로 완료됐다.
+  artifact `iouring-benchmark-artifacts-2026-07-01-github-28492234252-1`은
+  root `summary.md`에 TCP/UDP baseline, summary, history, envelope exit code 를 모두 0으로 기록했다.
+  TCP/UDP 각각 raw report 6개, protocol 별 `summary.json`/`summary.md`, `history.json`/`history.md`를 포함한다.
+  repository reference history 가 아직 없어 protocol별 `envelope.json`/`envelope.md`는 생성되지 않았고,
+  skip 경로가 정상 exit 0으로 수렴했다.
+- D152 기준으로 D151 protocol별 envelope step 의 원격 artifact/skip gate 는 충족됐다.
+  TCP summary 는 source-report-count 6, hard-passed true, warning-count 6,
+  load p99 max 4298.8 us, open-loop p99 max 5588.6 us, dropped/payload-error/pool-rented 0,
+  TCP HWM max 1이다.
+  UDP summary 는 source-report-count 6, hard-passed true, warning-count 3,
+  load p99 max 1623.8 us, open-loop p99 max 1322.0 us, dropped/payload-error/pool-rented 0,
+  UDP HWM max 0이다.
+- 다음 실행 지점: `ci-linux-iouring-x64-01/tcp`와 `.../udp` repository reference baseline 을
+  수동 채택할지 판단하는 정책 설계를 진행한다.
+  자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy 구현은 계속 열지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

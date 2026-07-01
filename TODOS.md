@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] 사용자 push 이후 `iouring-benchmark-artifacts.yml` D151 envelope artifact 경로를 원격 검토한다.
-  - 입력: 이번 단위가 추가한 TCP/UDP protocol별 envelope comparison step.
-  - 확인할 것: root `summary.md`에 TCP/UDP envelope exit 가 기록되는지, reference history 가 없으면 skip 후 exit 0인지,
-    artifact upload 와 final gate 가 success 로 끝나는지 확인한다.
-  - 참고: 현재 repository 에는 `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/tcp/history.json` 또는
-    `.../udp/history.json` reference 가 없으므로 첫 원격 run 은 envelope skip 이 정상이다.
-  - 제외: io_uring reference baseline 자동 채택, warning-as-failure, latency hard gate, fixed registration, zero-copy 구현.
+- [ ] D152 이후 `io_uring` protocol별 repository reference baseline 수동 채택 정책을 설계한다.
+  - 입력: 원격 run `28492234252`의 D151 envelope artifact 검토 결과.
+  - 확인할 것: `ci-linux-iouring-x64-01/tcp`와 `.../udp` reference history 를 repository baseline 으로 채택할지,
+    채택한다면 artifact raw report/session directory 를 어떤 checklist 로 복사하고 어떤 값을 수락 기준으로 삼을지 정한다.
+  - 참고: D152 기준 repository 에는 아직 `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/tcp/history.json`
+    또는 `.../udp/history.json`가 없어서 envelope comparison 은 skip 경로만 검증됐다.
+  - 제외: 자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy 구현.
 
 ## Deferred Backlog
 
@@ -49,6 +49,24 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] 사용자 push 이후 `iouring-benchmark-artifacts.yml` D151 envelope artifact 경로를 원격 검토했다.
+  - 범위: GitHub Actions run `28492234252`,
+    artifact `iouring-benchmark-artifacts-2026-07-01-github-28492234252-1`.
+  - 결과: workflow conclusion success, job `io_uring benchmark artifacts (linux)` success.
+  - evidence: root `summary.md`는 TCP/UDP baseline, summary, history, envelope exit code 를 모두 0으로 기록했다.
+  - evidence: TCP/UDP 각각 raw report 6개, protocol 별 `summary.json`/`summary.md`,
+    `history.json`/`history.md`가 존재한다.
+  - evidence: repository reference history 가 아직 없어 `tcp/envelope.json`, `udp/envelope.json`은 생성되지 않았고,
+    skip 경로가 정상 exit 0으로 수렴했다.
+  - evidence: TCP summary 는 source-report-count 6, hard-passed true, warning-count 6,
+    load p99 max 4298.8 us, open-loop p99 max 5588.6 us, dropped/payload-error/pool-rented 0,
+    TCP HWM max 1이다.
+  - evidence: UDP summary 는 source-report-count 6, hard-passed true, warning-count 3,
+    load p99 max 1623.8 us, open-loop p99 max 1322.0 us, dropped/payload-error/pool-rented 0,
+    UDP HWM max 0이다.
+  - 의미: D151 protocol별 envelope step 의 원격 artifact/skip gate 를 충족했다(D152).
+  - 다음: envelope comparison 이 실제 signal 을 낼 수 있도록 protocol별 repository reference baseline 수동 채택 정책을 설계한다.
 
 - [x] D150 p99 warning 을 분석하고 io_uring protocol별 envelope comparison artifact 단위를 구현했다.
   - 범위: `.github/workflows/iouring-benchmark-artifacts.yml`,

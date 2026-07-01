@@ -119,3 +119,22 @@ workflow failure 로 보지 않는다.
 - Red: io_uring workflow 에 envelope step 이 없어서 focused workflow test 가 실패해야 한다.
 - Green: workflow step 추가 후 focused `BenchmarkArtifactWorkflowTests`가 통과해야 한다.
 - 전체 검증은 `dotnet build`, `dotnet test`, `git diff --check`로 마무리한다.
+
+## 원격 검증 결과
+
+2026-07-01 사용자 push 이후 run `28492234252`를 실행했고 workflow conclusion 은 success 다.
+
+- artifact: `iouring-benchmark-artifacts-2026-07-01-github-28492234252-1`
+- root `summary.md`: TCP/UDP baseline, summary, history, envelope exit code 모두 0
+- TCP: raw report 6개, source-report-count 6, hard-passed true, warning-count 6,
+  load p99 max 4298.8 us, open-loop p99 max 5588.6 us,
+  dropped/payload-error/pool-rented 0, TCP HWM max 1
+- UDP: raw report 6개, source-report-count 6, hard-passed true, warning-count 3,
+  load p99 max 1623.8 us, open-loop p99 max 1322.0 us,
+  dropped/payload-error/pool-rented 0, UDP HWM max 0
+- repository reference history 가 아직 없으므로 `tcp/envelope.json`, `udp/envelope.json`은 생성되지 않았다.
+  이는 reference 없음 skip 정책과 맞으며 skip 경로는 exit 0으로 기록됐다.
+
+D152 기준으로 이 설계의 원격 artifact/skip gate 는 충족됐다.
+다음 단위는 자동 baseline 채택이 아니라, protocol별 `ci-linux-iouring-x64-01` repository reference baseline 을
+수동으로 채택할지 판단하는 정책 설계다.
