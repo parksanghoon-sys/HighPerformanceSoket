@@ -9,11 +9,10 @@
 
 ## Current TODOs
 
-- [ ] D155 UDP envelope signal 이후 provisional reference 확장/triage 정책을 설계한다.
-  - 입력: reference-present run `28493590950`의 UDP envelope signal 2개.
-  - 확인할 것: 1-session provisional reference 에서 생긴 UDP signal 을 즉시 최적화 구현으로 볼지,
-    추가 session/date root 를 쌓아 reference envelope 를 안정화한 뒤 판단할지 정한다.
-  - 참고: TCP envelope 는 signal 0이고, UDP envelope 는 load p99 max 와 open-loop p50 median upper-bound signal 을 기록했다.
+- [ ] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토한다.
+  - 입력: `docs/superpowers/specs/2026-07-01-iouring-udp-envelope-signal-triage-policy-design.md`.
+  - 확인할 것: D155 포함 총 3개 candidate 에서 같은 UDP metric 이 2회 이상 반복 signal 을 내는지 확인한다.
+  - 판단 기준: 반복 signal 이 있으면 UDP latency triage 설계, signal 이 흩어지거나 사라지면 provisional reference 안정화 정책 설계.
   - 제외: 자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy 구현.
 
 ## Deferred Backlog
@@ -48,6 +47,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D155 UDP envelope signal 이후 provisional reference 확장/triage 정책을 설계했다.
+  - 범위: `docs/superpowers/specs/2026-07-01-iouring-udp-envelope-signal-triage-policy-design.md`,
+    D156 상태/결정 문서.
+  - 결정: D155 UDP signal 은 즉시 최적화 구현으로 연결하지 않고,
+    추가 reference-present artifact 2개를 더 수집해 반복성 여부를 판단한다.
+  - 근거: D154 reference 는 1-session provisional baseline 이므로 measurement variance 와 구조 문제를 구분하기 어렵다.
+  - 다음: 원격 workflow 를 2회 더 실행해 D155 포함 3개 candidate 의 UDP signal 을 표로 정리한다.
 
 - [x] 사용자 push 이후 `iouring-benchmark-artifacts.yml` reference-present envelope artifact 경로를 원격 검토했다.
   - 범위: GitHub Actions run `28493590950`,

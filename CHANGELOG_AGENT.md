@@ -158,6 +158,15 @@
 - 다음 실행 지점은 UDP signal 을 즉시 최적화 구현 근거로 볼지,
   추가 session/date root 를 먼저 쌓아 reference envelope 를 안정화할지 정책으로 정하는 것이다.
 
+### D156 UDP envelope signal triage 정책
+- `docs/superpowers/specs/2026-07-01-iouring-udp-envelope-signal-triage-policy-design.md`를 추가했다.
+- D155 UDP signal 은 즉시 fixed registration, zero-copy, default promotion 으로 연결하지 않기로 했다.
+- D154 reference 는 아직 1-session provisional baseline 이므로 measurement variance 와 구조 문제를 분리하기 어렵다.
+- 다음 단위는 `iouring-benchmark-artifacts.yml`을 2회 더 실행해 D155 포함 총 3개 reference-present candidate 를 만드는 것이다.
+- 같은 UDP metric 이 2회 이상 반복 signal 이면 UDP latency triage 설계를 열고,
+  signal 이 흩어지거나 사라지면 provisional reference envelope 안정화 정책을 설계한다.
+- candidate raw report 는 자동 repository baseline 으로 채택하지 않는다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

@@ -1845,6 +1845,13 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   이 signal 은 D153 기준 report-only 이며, 1-session provisional reference 상태라 즉시 최적화 구현 근거로 확장하지 않는다.
 - 다음 실행 지점: D155 UDP envelope signal 이후 provisional reference 확장/triage 정책을 설계한다.
   자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy send 는 계속 열지 않는다.
+- D156 기준으로 D155 UDP envelope signal 은 즉시 최적화 구현으로 연결하지 않는다.
+  D154 reference 는 아직 1-session provisional baseline 이므로, measurement variance 와 구조 문제를 분리하려면
+  reference-present candidate 를 더 모아야 한다.
+  설계는 `docs/superpowers/specs/2026-07-01-iouring-udp-envelope-signal-triage-policy-design.md`에 있다.
+- 다음 실행 지점: `iouring-benchmark-artifacts.yml`을 2회 더 실행해 D155 포함 총 3개 reference-present candidate 를 만들고,
+  같은 UDP metric 이 2회 이상 반복 signal 을 내는지 확인한다.
+  candidate raw report 는 자동 repository baseline 으로 채택하지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
