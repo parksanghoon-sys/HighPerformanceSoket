@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D157 — D156 추가 artifact 2개 수집 결과 UDP open-loop p50-median signal 이 3/3 반복되어 UDP latency triage 설계로 전환한다.
 - D156 — D155 UDP envelope signal 은 즉시 최적화로 연결하지 않고 추가 reference-present artifact 로 반복성을 확인한다.
 - D155 — D154 reference-present 원격 run 은 envelope artifact 생성을 검증했고 UDP signal 2개는 report-only triage 대상으로 남긴다.
 - D154 — run 28492234252 artifact 는 ci-linux-iouring-x64-01 TCP/UDP protocol별 provisional repository reference baseline 으로 채택됐다.

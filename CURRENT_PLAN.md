@@ -1852,6 +1852,16 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - 다음 실행 지점: `iouring-benchmark-artifacts.yml`을 2회 더 실행해 D155 포함 총 3개 reference-present candidate 를 만들고,
   같은 UDP metric 이 2회 이상 반복 signal 을 내는지 확인한다.
   candidate raw report 는 자동 repository baseline 으로 채택하지 않는다.
+- D157 원격 검토 결과: 추가 run `28494135787`, `28494404015`가 모두 success 로 완료됐다.
+  두 run 모두 TCP/UDP baseline, summary, history, envelope exit code 는 0이다.
+  run `28494135787`은 TCP envelope signal 0, UDP envelope signal 2(load `p99-growth-ratio-max`,
+  open-loop `p50-median-us`)를 기록했다.
+  run `28494404015`는 TCP envelope signal 0, UDP envelope signal 1(open-loop `p50-median-us`)을 기록했다.
+- D157 결론: D155 포함 3개 candidate 모두 UDP open-loop `p50-median-us` signal 을 반복했다.
+  모든 run 은 UDP hard-passed true, drop/payload-error/pool-rented 0이므로 correctness/reliability failure 는 아니다.
+- 다음 실행 지점: UDP open-loop p50-median 반복 signal triage 를 설계한다.
+  바로 fixed registration, zero-copy, latency hard gate 로 가지 않고,
+  pump 구조 문제인지 benchmark scheduling artifact 인지 provisional reference 가 지나치게 낮은지 구분하는 관측 단위를 먼저 정한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

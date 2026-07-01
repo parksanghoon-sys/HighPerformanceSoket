@@ -9,10 +9,10 @@
 
 ## Current TODOs
 
-- [ ] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토한다.
-  - 입력: `docs/superpowers/specs/2026-07-01-iouring-udp-envelope-signal-triage-policy-design.md`.
-  - 확인할 것: D155 포함 총 3개 candidate 에서 같은 UDP metric 이 2회 이상 반복 signal 을 내는지 확인한다.
-  - 판단 기준: 반복 signal 이 있으면 UDP latency triage 설계, signal 이 흩어지거나 사라지면 provisional reference 안정화 정책 설계.
+- [ ] D157 결과를 바탕으로 UDP open-loop p50-median 반복 signal triage 를 설계한다.
+  - 입력: D155/D156 candidate 3개 모두에서 반복된 UDP open-loop `p50-median-us` envelope signal.
+  - 확인할 것: UDP open-loop p50 median 상승이 pump 구조 문제인지, benchmark scheduling artifact 인지,
+    provisional reference 가 지나치게 낮은지 구분할 수 있는 최소 관측/비교 단위를 설계한다.
   - 제외: 자동 baseline 채택, latency hard gate, warning-as-failure, fixed registration, zero-copy 구현.
 
 ## Deferred Backlog
@@ -47,6 +47,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토했다.
+  - 범위: GitHub Actions runs `28494135787`, `28494404015`, D157 상태/결정 문서.
+  - 결과: 두 run 모두 workflow success, TCP/UDP baseline/summary/history/envelope exit 0이다.
+  - evidence: run `28494135787`은 TCP envelope signal 0, UDP envelope signal 2를 기록했다.
+    UDP signals 는 load `p99-growth-ratio-max`, open-loop `p50-median-us`다.
+  - evidence: run `28494404015`는 TCP envelope signal 0, UDP envelope signal 1을 기록했다.
+    UDP signal 은 open-loop `p50-median-us`다.
+  - 결론: D155 포함 3개 candidate 모두 UDP open-loop `p50-median-us` signal 을 반복했다.
+  - 다음: UDP latency triage 설계를 열고, 바로 fixed registration/zero-copy 구현으로 가지 않는다.
 
 - [x] D155 UDP envelope signal 이후 provisional reference 확장/triage 정책을 설계했다.
   - 범위: `docs/superpowers/specs/2026-07-01-iouring-udp-envelope-signal-triage-policy-design.md`,
