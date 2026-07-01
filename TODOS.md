@@ -9,8 +9,8 @@
 
 ## Current TODOs
 
-- [ ] D161 이후 io_uring 후속 후보를 재평가한다.
-  - 입력: run `28495804466` TCP/UDP envelope signal-count 0, raw report count 6씩, workflow success.
+- [ ] D162 이후 io_uring 후속 후보를 재평가한다.
+  - 입력: runs `28495804466`, `28497147332` TCP/UDP envelope signal-count 0, raw report count 6씩, workflow success.
   - 할 일: 추가 remote date/session evidence 를 더 쌓을지, fixed registration/zero-copy/latency gate 후보를 계속 보류할지 판단한다.
   - 확인할 것: 다음 단위가 구현인지 artifact 수집/정책 설계인지 명확히 정한다.
   - 제외: 현재 evidence 만으로 default promotion, latency hard gate, zero-copy 구현을 바로 열지 않는다.
@@ -83,6 +83,13 @@
     generated baseline Markdown artifact, `docs/benchmarks/baselines/index.md`, D161 상태/결정 문서.
   - 결정: Markdown 헤더는 `send queue HWM max`로 바꾸고, JSON schema 의 `tcp-hwm-*` field 는 호환성을 위해 유지한다.
   - 검증: focused Red 실패 2개 확인 후 Green, `Hps.Benchmarks.Tests` 114개 통과, `git diff --check` 통과.
+
+- [x] D161 Markdown label 변경이 반영된 원격 `iouring-benchmark-artifacts.yml` artifact 를 검토했다.
+  - 범위: GitHub Actions run `28497147332`,
+    artifact `iouring-benchmark-artifacts-2026-07-01-github-28497147332-1`, D162 상태/결정 문서.
+  - 결과: workflow success, TCP/UDP baseline/summary/history/envelope exit code 0.
+  - evidence: TCP/UDP raw report count 는 각각 6이고, TCP/UDP envelope 는 모두 compatible true, signal-count 0이다.
+  - evidence: TCP/UDP summary/history Markdown 에 `send queue HWM max` label 이 반영됐다.
 
 - [x] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토했다.
   - 범위: GitHub Actions runs `28494135787`, `28494404015`, D157 상태/결정 문서.

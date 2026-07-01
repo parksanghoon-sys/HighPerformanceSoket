@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D162 — D161 Markdown label 원격 artifact gate 는 label 반영과 TCP/UDP envelope signal 0을 확인했다.
 - D161 — benchmark Markdown HWM label 은 TCP 전용 표현 대신 protocol-neutral `send queue HWM max`로 표시한다.
 - D160 — D159 updated reference 원격 artifact gate 는 TCP/UDP envelope signal 0으로 통과했다.
 - D159 — D158 이후 다음 단위는 fixed registration/zero-copy/default promotion 이 아니라 updated reference 원격 artifact gate 다.

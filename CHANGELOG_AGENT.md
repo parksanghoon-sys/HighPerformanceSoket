@@ -224,6 +224,15 @@
 - Red: focused Markdown writer tests 2개가 기존 header 때문에 실패함을 확인했다.
 - Green: focused tests 15개 통과, `Hps.Benchmarks.Tests` 114개 통과, `git diff --check` 통과.
 
+### D162 D161 원격 artifact gate 검토
+- 사용자 push 이후 `iouring-benchmark-artifacts.yml`을 `master` 기준으로 수동 실행했다.
+- run `28497147332`은 workflow success 로 완료됐고,
+  artifact `iouring-benchmark-artifacts-2026-07-01-github-28497147332-1`을 생성했다.
+- root `summary.md` 기준 TCP/UDP baseline, summary, history, envelope exit code 는 모두 0이다.
+- TCP/UDP raw report count 는 각각 6이다.
+- TCP/UDP envelope 는 모두 compatible true, signal-count 0이다.
+- TCP/UDP summary/history Markdown 에 `send queue HWM max` label 이 반영됐다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위
