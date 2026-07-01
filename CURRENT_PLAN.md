@@ -1771,9 +1771,15 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP summary 는 hard-passed true, warning-count 2, dropped/payload-error/pool-rented 0이며,
   UDP summary 는 hard-passed true, warning-count 0, dropped/payload-error/pool-rented 0이다.
   TCP p99 warning 은 evidence-only report data 이므로 latency hard gate 나 warning-as-failure 로 승격하지 않는다.
-- 다음 실행 지점: D148 이후 io_uring 후속 후보를 재평가하고,
-  fixed payload registration cache, zero-copy send, IPv6 direct io_uring UDP, default backend promotion 중
-  지금 열어도 되는 최소 설계 단위를 확정한다.
+- D149 기준으로 D148 이후 다음 단위는 최적화 구현이 아니라 반복 benchmark evidence 품질을 올리는 것이다.
+  `iouring-benchmark-artifacts.yml`은 TCP/UDP baseline suite 를 각각 `--runs 3`으로 실행하고,
+  root summary 에 `Runs per protocol: 3`을 기록한다.
+  artifact 구조, runner identity, failure policy, default backend 보류는 유지한다.
+- D149 Red/Green: workflow static test 를 `--runs 3` 기대값으로 먼저 바꿔 기존 `--runs 1` workflow 에서
+  assertion failure 를 확인했고, workflow 보정 후 `BenchmarkArtifactWorkflowTests` focused test 5개 통과를 확인했다.
+- 다음 실행 지점: 사용자 push 이후 GitHub Actions 에서 `iouring-benchmark-artifacts.yml`을 다시 수동 실행하고,
+  TCP/UDP summary source-report-count 6, hard-passed true, drop/payload-error/pool-rented 0,
+  protocol 별 history 생성 여부를 검토한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

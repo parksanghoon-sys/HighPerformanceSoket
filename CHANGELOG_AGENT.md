@@ -54,6 +54,19 @@
 - TCP p99 warning 2개는 evidence-only report data 로 남기며, latency hard gate 나 warning-as-failure 로 승격하지 않았다.
 - 다음 실행 지점은 D148 이후 io_uring 후속 후보를 재평가하고 다음 최소 설계 단위를 확정하는 것이다.
 
+### D149 반복 benchmark artifact 보정
+- D148 이후 후보를 재평가했고, fixed registration/zero-copy/IPv6/default promotion 은 아직 열지 않기로 했다.
+  단일 run artifact 는 최적화 필요성 판단 근거로 부족하므로, 먼저 반복 benchmark summary 품질을 올린다.
+- `docs/superpowers/specs/2026-07-01-iouring-repeat-benchmark-artifact-design.md`와
+  `docs/superpowers/plans/2026-07-01-iouring-repeat-benchmark-artifact.md`를 추가했다.
+- `.github/workflows/iouring-benchmark-artifacts.yml`:
+  TCP/UDP baseline suite 를 각각 `--runs 3`으로 바꾸고 root `summary.md`에 `Runs per protocol: 3`을 기록하게 했다.
+- `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`:
+  io_uring workflow static test 가 TCP/UDP `--runs 3` command 를 고정하도록 갱신했다.
+- Red: focused workflow test 1개가 기존 `--runs 1` 때문에 assertion failure 로 실패하는 것을 확인했다.
+- Green: workflow 보정 후 `BenchmarkArtifactWorkflowTests` focused test 5개 통과를 확인했다.
+- 다음 실행 지점은 사용자 push 이후 `--runs 3` 원격 artifact 를 검토하는 것이다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

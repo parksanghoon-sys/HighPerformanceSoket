@@ -68,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite "$BENCH_TCP_SESSION_DIR" --runs 1 --protocol tcp --backend iouring
+          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite "$BENCH_TCP_SESSION_DIR" --runs 3 --protocol tcp --backend iouring
           exit_code=$?
           echo "IOURING_TCP_BASELINE_EXIT=$exit_code" >> "$GITHUB_ENV"
           if [ "$exit_code" != "0" ]; then
@@ -107,7 +107,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite "$BENCH_UDP_SESSION_DIR" --runs 1 --protocol udp --backend iouring
+          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite "$BENCH_UDP_SESSION_DIR" --runs 3 --protocol udp --backend iouring
           exit_code=$?
           echo "IOURING_UDP_BASELINE_EXIT=$exit_code" >> "$GITHUB_ENV"
           if [ "$exit_code" != "0" ]; then
@@ -153,6 +153,7 @@ jobs:
             echo "- Runner id: ${HPS_BENCHMARK_RUNNER_ID}"
             echo "- Runner kind: ${HPS_BENCHMARK_RUNNER_KIND}"
             echo "- Backend: iouring"
+            echo "- Runs per protocol: 3"
             echo "- Date: ${BENCH_DATE_ROOT_NAME:-unknown}"
             echo "- TCP date root: tcp/${BENCH_DATE_ROOT_NAME:-unknown}/"
             echo "- UDP date root: udp/${BENCH_DATE_ROOT_NAME:-unknown}/"

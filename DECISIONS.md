@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D149 — io_uring benchmark artifact workflow 는 D148 이후 TCP/UDP baseline suite 를 `--runs 3`으로 승격한다.
 - D148 — io_uring benchmark artifact workflow 는 protocol-first history root 구조로 D147 evidence gate 를 충족했다.
 - D147 — Linux io_uring benchmark artifact 는 별도 workflow_dispatch workflow 로 수집한다.
 - D146 — benchmark CLI 는 io_uring opt-in backend 를 지원하되 default promotion 은 계속 보류한다.

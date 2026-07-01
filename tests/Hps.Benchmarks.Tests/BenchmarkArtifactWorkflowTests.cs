@@ -97,8 +97,8 @@ namespace Hps.Benchmarks.Tests
             Assert.True(udpHistoryIndex > udpSummaryIndex);
             Assert.True(uploadIndex > udpHistoryIndex);
             Assert.True(finalGateIndex > uploadIndex);
-            Assert.Contains("--baseline-suite \"$BENCH_TCP_SESSION_DIR\" --runs 1 --protocol tcp --backend iouring", workflow);
-            Assert.Contains("--baseline-suite \"$BENCH_UDP_SESSION_DIR\" --runs 1 --protocol udp --backend iouring", workflow);
+            Assert.Contains("--baseline-suite \"$BENCH_TCP_SESSION_DIR\" --runs 3 --protocol tcp --backend iouring", workflow);
+            Assert.Contains("--baseline-suite \"$BENCH_UDP_SESSION_DIR\" --runs 3 --protocol udp --backend iouring", workflow);
             Assert.Contains("--summarize-baseline \"$BENCH_TCP_SESSION_DIR\" --summary \"$BENCH_TCP_SESSION_DIR/summary.json\"", workflow);
             Assert.Contains("--summarize-baseline \"$BENCH_UDP_SESSION_DIR\" --summary \"$BENCH_UDP_SESSION_DIR/summary.json\"", workflow);
             Assert.Contains("--summarize-baseline-history \"$BENCH_TCP_ROOT\" --history \"$BENCH_TCP_ROOT/history.json\"", workflow);

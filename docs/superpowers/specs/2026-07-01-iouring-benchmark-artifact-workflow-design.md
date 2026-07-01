@@ -146,3 +146,4 @@ workflow failure 로 보지 않는다.
 - TCP summary: hard-passed true, warning-count 2, dropped/payload-error/pool-rented 0
 - UDP summary: hard-passed true, warning-count 0, dropped/payload-error/pool-rented 0
 - 해석: TCP p99 warning 은 evidence-only report data 이며 latency hard gate 로 승격하지 않는다.
+- 후속: D149에서 첫 경로 검증용 `--runs 1`을 TCP/UDP 각각 `--runs 3` 반복 artifact 로 승격했다.

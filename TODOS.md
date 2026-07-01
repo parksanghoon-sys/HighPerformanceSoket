@@ -9,13 +9,14 @@
 
 ## Current TODOs
 
-- [ ] D148 이후 io_uring 후속 후보를 재평가하고 다음 최소 설계 단위를 확정한다.
-  - 입력: D146~D148, run `28486254926` artifact,
-    `docs/superpowers/specs/2026-07-01-iouring-benchmark-artifact-workflow-design.md`.
-  - 목표: Linux `--backend iouring` TCP/UDP benchmark artifact 확보 이후 어떤 최적화/확장 후보를 열지 결정한다.
-  - 후보: fixed payload registration cache, zero-copy send, IPv6 direct io_uring UDP, default backend promotion.
-  - 판단 기준: 현재 artifact 가 성능 최적화 근거인지, 아니면 먼저 반복 baseline/history/envelope 를 더 쌓아야 하는지 구분한다.
-  - 제외: 후보 재평가 전 최적화 구현, default backend promotion, latency hard gate/warning-as-failure 구현.
+- [ ] 사용자 push 이후 `iouring-benchmark-artifacts.yml` `--runs 3` artifact 를 검토한다.
+  - 입력: D149, `.github/workflows/iouring-benchmark-artifacts.yml`,
+    `docs/superpowers/specs/2026-07-01-iouring-repeat-benchmark-artifact-design.md`.
+  - 목표: Linux runner 에서 TCP/UDP `--backend iouring --runs 3` artifact 가 정상 생성되는지 확인한다.
+  - 기대 evidence: artifact root `summary.md`에 `Runs per protocol: 3`이 있고,
+    TCP/UDP `summary.json`의 source-report-count 가 각각 6이며, protocol 별 `history.json`/`history.md`가 존재한다.
+  - hard gate 기준: TCP/UDP summary hard-passed true, dropped-total 0, payload-error-total 0, pool-rented-max 0.
+  - 제외: remote artifact 확인 전 fixed registration, zero-copy send, IPv6 direct io_uring UDP, default backend promotion 구현.
 
 ## Deferred Backlog
 
@@ -49,6 +50,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D148 이후 io_uring 후속 후보를 재평가하고 반복 benchmark artifact 단위를 구현했다.
+  - 범위: `.github/workflows/iouring-benchmark-artifacts.yml`,
+    `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`,
+    D149 설계/계획/상태 문서.
+  - 결정: fixed registration, zero-copy send, IPv6 direct io_uring UDP, default backend promotion 은
+    단일 artifact 성공만으로 바로 열지 않고, 먼저 TCP/UDP `--runs 3` 반복 summary 를 수집한다.
+  - Red: workflow static test 를 `--runs 3` 기대값으로 바꾼 뒤 기존 workflow 의 `--runs 1` 때문에
+    focused test assertion failure 1개를 확인했다.
+  - Green: workflow TCP/UDP baseline suite command 를 `--runs 3`으로 보정하고,
+    root summary 에 `Runs per protocol: 3`을 추가한 뒤 focused workflow tests 5개 통과를 확인했다.
+  - 다음: 사용자 push 이후 원격 workflow artifact 로 source-report-count 6과 hard gate 통과 여부를 검토한다.
 
 - [x] 사용자 push 이후 `iouring-benchmark-artifacts.yml` 원격 artifact 를 검토했다.
   - 범위: GitHub Actions run `28486254926`,
