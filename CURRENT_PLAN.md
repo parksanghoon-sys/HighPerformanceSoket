@@ -1793,9 +1793,18 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   load p99 max 1506.4 us, open-loop p99 max 1349.3 us, dropped/payload-error/pool-rented 0,
   UDP HWM max 0이다.
   warning 은 p99 soft signal 이므로 workflow failure 로 승격하지 않는다.
-- 다음 실행 지점: D150 artifact 의 TCP/UDP p99 warning 을 분석하고,
-  지금 필요한 다음 단위가 fixed registration/zero-copy 구현인지, io_uring 전용 latency envelope/threshold 정책인지,
-  또는 반복 artifact 축적인지 설계로 확정한다.
+- D151 기준으로 D150 p99 warning 은 fixed registration/zero-copy/default promotion 의 직접 근거가 아니라
+  protocol별 runner/profile scoped envelope comparison artifact 를 연결해야 하는 신호로 판단했다.
+  `iouring-benchmark-artifacts.yml`은 TCP/UDP history 뒤에 기존 `--compare-baseline-envelope` command 를 실행하되,
+  `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/<protocol>/history.json` reference 가 없으면
+  해당 protocol envelope step 을 skip 하고 exit code 0으로 기록한다.
+- D151 Red/Green: `BenchmarkArtifactWorkflowTests.IoUringWorkflow_WhenReferenceHistoryExists_WritesProtocolEnvelopeComparisonArtifactsBeforeUpload`
+  Red 실패를 확인했고, workflow 보정 후 `BenchmarkArtifactWorkflowTests` focused test 6개 통과를 확인했다.
+- D151 검증: focused workflow test 6개 통과, solution build 경고 0/오류 0,
+  solution tests 445개 통과, `git diff --check` whitespace 오류 없음(CRLF 경고만 있음).
+- 다음 실행 지점: 이번 단위를 커밋한다.
+  사용자 push 이후 원격 `iouring-benchmark-artifacts.yml`을 다시 실행해 TCP/UDP envelope exit 가 0으로 기록되는지,
+  reference 없음이면 skip 되는지, artifact upload/final gate 가 정상인지 검토한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -1806,4 +1815,5 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - `BaselineSummaryGenerator` threshold 상수 즉시 변경
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
 - fixed registration, zero-copy send
+- io_uring reference baseline 파일 자동 추가
 - stable identity 인증/권한 검증, persistence, payload replay

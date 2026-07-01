@@ -102,6 +102,25 @@ jobs:
           fi
           exit 0
 
+      - name: Write TCP io_uring envelope comparison
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          tcp_reference_history="docs/benchmarks/baselines/runners/${HPS_BENCHMARK_RUNNER_ID}/tcp/history.json"
+          if [ -f "$tcp_reference_history" ]; then
+            dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --compare-baseline-envelope "$BENCH_TCP_SESSION_DIR/summary.json" --reference-history "$tcp_reference_history" --envelope "$BENCH_TCP_ROOT/envelope.json" --envelope-md "$BENCH_TCP_ROOT/envelope.md"
+            exit_code=$?
+            echo "IOURING_TCP_ENVELOPE_EXIT=$exit_code" >> "$GITHUB_ENV"
+            if [ "$exit_code" != "0" ]; then
+              echo "TCP io_uring envelope comparison exited with $exit_code; continuing to write remaining analysis artifacts."
+            fi
+          else
+            echo "IOURING_TCP_ENVELOPE_EXIT=0" >> "$GITHUB_ENV"
+            echo "TCP io_uring envelope reference not found; skipping envelope comparison."
+          fi
+          exit 0
+
       - name: Run UDP io_uring baseline suite
         if: always()
         shell: bash
@@ -141,6 +160,25 @@ jobs:
           fi
           exit 0
 
+      - name: Write UDP io_uring envelope comparison
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          udp_reference_history="docs/benchmarks/baselines/runners/${HPS_BENCHMARK_RUNNER_ID}/udp/history.json"
+          if [ -f "$udp_reference_history" ]; then
+            dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --compare-baseline-envelope "$BENCH_UDP_SESSION_DIR/summary.json" --reference-history "$udp_reference_history" --envelope "$BENCH_UDP_ROOT/envelope.json" --envelope-md "$BENCH_UDP_ROOT/envelope.md"
+            exit_code=$?
+            echo "IOURING_UDP_ENVELOPE_EXIT=$exit_code" >> "$GITHUB_ENV"
+            if [ "$exit_code" != "0" ]; then
+              echo "UDP io_uring envelope comparison exited with $exit_code; continuing to upload artifacts."
+            fi
+          else
+            echo "IOURING_UDP_ENVELOPE_EXIT=0" >> "$GITHUB_ENV"
+            echo "UDP io_uring envelope reference not found; skipping envelope comparison."
+          fi
+          exit 0
+
       - name: Write io_uring benchmark summary
         if: always()
         shell: bash
@@ -160,9 +198,11 @@ jobs:
             echo "- TCP baseline exit: ${IOURING_TCP_BASELINE_EXIT:-not-run}"
             echo "- TCP summary exit: ${IOURING_TCP_SUMMARY_EXIT:-not-run}"
             echo "- TCP history exit: ${IOURING_TCP_HISTORY_EXIT:-not-run}"
+            echo "- TCP envelope exit: ${IOURING_TCP_ENVELOPE_EXIT:-not-run}"
             echo "- UDP baseline exit: ${IOURING_UDP_BASELINE_EXIT:-not-run}"
             echo "- UDP summary exit: ${IOURING_UDP_SUMMARY_EXIT:-not-run}"
             echo "- UDP history exit: ${IOURING_UDP_HISTORY_EXIT:-not-run}"
+            echo "- UDP envelope exit: ${IOURING_UDP_ENVELOPE_EXIT:-not-run}"
             echo
             echo "This workflow is evidence-only. Latency and warning values are report data, not hard gates."
           } > "$BENCH_ROOT/summary.md"
@@ -184,14 +224,16 @@ jobs:
             "${IOURING_TCP_BASELINE_EXIT:-1}"
             "${IOURING_TCP_SUMMARY_EXIT:-1}"
             "${IOURING_TCP_HISTORY_EXIT:-1}"
+            "${IOURING_TCP_ENVELOPE_EXIT:-1}"
             "${IOURING_UDP_BASELINE_EXIT:-1}"
             "${IOURING_UDP_SUMMARY_EXIT:-1}"
             "${IOURING_UDP_HISTORY_EXIT:-1}"
+            "${IOURING_UDP_ENVELOPE_EXIT:-1}"
           )
 
           for exit_code in "${exit_codes[@]}"; do
             if [ "$exit_code" != "0" ]; then
-              echo "io_uring benchmark artifact generation completed with non-zero exit code; tcp-baseline=${IOURING_TCP_BASELINE_EXIT:-not-run} tcp-summary=${IOURING_TCP_SUMMARY_EXIT:-not-run} tcp-history=${IOURING_TCP_HISTORY_EXIT:-not-run} udp-baseline=${IOURING_UDP_BASELINE_EXIT:-not-run} udp-summary=${IOURING_UDP_SUMMARY_EXIT:-not-run} udp-history=${IOURING_UDP_HISTORY_EXIT:-not-run}"
+              echo "io_uring benchmark artifact generation completed with non-zero exit code; tcp-baseline=${IOURING_TCP_BASELINE_EXIT:-not-run} tcp-summary=${IOURING_TCP_SUMMARY_EXIT:-not-run} tcp-history=${IOURING_TCP_HISTORY_EXIT:-not-run} tcp-envelope=${IOURING_TCP_ENVELOPE_EXIT:-not-run} udp-baseline=${IOURING_UDP_BASELINE_EXIT:-not-run} udp-summary=${IOURING_UDP_SUMMARY_EXIT:-not-run} udp-history=${IOURING_UDP_HISTORY_EXIT:-not-run} udp-envelope=${IOURING_UDP_ENVELOPE_EXIT:-not-run}"
               exit 1
             fi
           done

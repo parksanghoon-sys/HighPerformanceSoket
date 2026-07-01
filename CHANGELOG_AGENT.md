@@ -82,6 +82,23 @@
 - warning 은 모두 p99 latency soft signal 이므로 workflow failure 로 승격하지 않았다.
 - 다음 실행 지점은 D150 p99 warning 을 분석하고 후속 설계 단위를 확정하는 것이다.
 
+### D151 io_uring envelope comparison artifact
+- D150 p99 warning 을 fixed registration/zero-copy/default promotion 의 직접 근거로 보지 않고,
+  D125의 runner/profile scoped envelope comparison artifact 로 먼저 해석하기로 했다.
+- `.github/workflows/iouring-benchmark-artifacts.yml`:
+  TCP/UDP history 생성 뒤 protocol별 `--compare-baseline-envelope` step 을 추가했다.
+  reference history 는 `docs/benchmarks/baselines/runners/${HPS_BENCHMARK_RUNNER_ID}/tcp/history.json`,
+  `.../udp/history.json`를 사용한다.
+- reference history 가 없으면 해당 envelope step 은 skip 하고 `IOURING_*_ENVELOPE_EXIT=0`으로 기록한다.
+- root summary 와 final gate 에 TCP/UDP envelope exit code 를 포함했다.
+- `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`:
+  protocol별 envelope step 순서, reference path, output path, exit env var 를 고정하는 static test 를 추가했다.
+- Red: focused workflow static test 1개가 envelope step 부재로 실패함을 확인했다.
+- Green: `BenchmarkArtifactWorkflowTests` focused test 6개 통과.
+- 전체 검증: solution build 경고 0/오류 0, solution tests 445개 통과,
+  `git diff --check` whitespace 오류 없음(CRLF 경고만 있음).
+- 다음 실행 지점은 커밋 후, 사용자 push 이후 원격 workflow artifact 로 envelope skip/generation 경로를 확인하는 것이다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

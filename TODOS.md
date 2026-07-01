@@ -9,16 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D150 io_uring 반복 benchmark p99 warning 을 분석하고 다음 설계 단위를 확정한다.
-  - 입력: GitHub Actions run `28489104828`,
-    artifact `iouring-benchmark-artifacts-2026-07-01-github-28489104828-1`.
-  - 현재 evidence: TCP/UDP source-report-count 6, hard-passed true, drop/payload-error/pool-rented 0.
-    TCP warning-count 6, UDP warning-count 2이며 모두 p99 latency soft warning 이다.
-  - 목표: 다음 단위가 fixed payload registration cache, zero-copy send, io_uring 전용 latency envelope/threshold 정책,
-    또는 반복 artifact 축적인지 설계로 결정한다.
-  - 판단 기준: p99 warning 이 actual delivery/drop/leak 문제인지, 기존 threshold 가 SAEA/RIO/local baseline 기준이라
-    Linux io_uring runner 에 맞지 않는 정책 문제인지 분리한다.
-  - 제외: warning 분석 전 latency hard gate/warning-as-failure, default backend promotion, zero-copy 구현.
+- [ ] 사용자 push 이후 `iouring-benchmark-artifacts.yml` D151 envelope artifact 경로를 원격 검토한다.
+  - 입력: 이번 단위가 추가한 TCP/UDP protocol별 envelope comparison step.
+  - 확인할 것: root `summary.md`에 TCP/UDP envelope exit 가 기록되는지, reference history 가 없으면 skip 후 exit 0인지,
+    artifact upload 와 final gate 가 success 로 끝나는지 확인한다.
+  - 참고: 현재 repository 에는 `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/tcp/history.json` 또는
+    `.../udp/history.json` reference 가 없으므로 첫 원격 run 은 envelope skip 이 정상이다.
+  - 제외: io_uring reference baseline 자동 채택, warning-as-failure, latency hard gate, fixed registration, zero-copy 구현.
 
 ## Deferred Backlog
 
@@ -52,6 +49,20 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D150 p99 warning 을 분석하고 io_uring protocol별 envelope comparison artifact 단위를 구현했다.
+  - 범위: `.github/workflows/iouring-benchmark-artifacts.yml`,
+    `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`,
+    `docs/superpowers/specs/2026-07-01-iouring-envelope-comparison-artifact-design.md`,
+    `docs/superpowers/plans/2026-07-01-iouring-envelope-comparison-artifact.md`, 상태 문서.
+  - 결정: D150 warning 은 delivery/drop/leak 문제가 아니라 D070 전역 soft threshold 에서 나온 p99 signal 이므로,
+    fixed registration/zero-copy/default promotion 전에 기존 D125 envelope comparison artifact 경로로 해석한다.
+  - Red: io_uring workflow 에 envelope step 이 없어 focused workflow static test 1개가 실패함을 확인했다.
+  - Green: TCP/UDP history 뒤에 protocol별 `--compare-baseline-envelope` step 을 추가하고,
+    reference history 가 없으면 skip + exit 0으로 기록하도록 했다.
+  - 검증: `BenchmarkArtifactWorkflowTests` focused test 6개 통과,
+    solution build 경고 0/오류 0, solution tests 445개 통과, `git diff --check` whitespace 오류 없음(CRLF 경고만 있음).
+  - 다음: 커밋 후 사용자 push 이후 원격 workflow artifact 로 envelope skip/generation 경로를 확인한다.
 
 - [x] D148 이후 io_uring 후속 후보를 재평가하고 반복 benchmark artifact 단위를 구현했다.
   - 범위: `.github/workflows/iouring-benchmark-artifacts.yml`,

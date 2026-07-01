@@ -108,6 +108,38 @@ namespace Hps.Benchmarks.Tests
             Assert.Contains("if: always()", workflow);
         }
 
+        // D150의 p99 warning은 기존 전역 soft threshold 기준이므로 runner/profile scoped envelope artifact로 별도 해석해야 한다.
+        // io_uring workflow도 Windows benchmark workflow처럼 reference history가 있을 때 protocol별 envelope를 생성해야 한다.
+        [Fact]
+        public void IoUringWorkflow_WhenReferenceHistoryExists_WritesProtocolEnvelopeComparisonArtifactsBeforeUpload()
+        {
+            string workflow = ReadIoUringBenchmarkArtifactWorkflow();
+
+            int tcpHistoryIndex = workflow.IndexOf("name: Write TCP io_uring history", StringComparison.Ordinal);
+            int tcpEnvelopeIndex = workflow.IndexOf("name: Write TCP io_uring envelope comparison", StringComparison.Ordinal);
+            int udpHistoryIndex = workflow.IndexOf("name: Write UDP io_uring history", StringComparison.Ordinal);
+            int udpEnvelopeIndex = workflow.IndexOf("name: Write UDP io_uring envelope comparison", StringComparison.Ordinal);
+            int uploadIndex = workflow.IndexOf("name: Upload io_uring benchmark artifacts", StringComparison.Ordinal);
+
+            Assert.True(tcpHistoryIndex >= 0);
+            Assert.True(tcpEnvelopeIndex > tcpHistoryIndex);
+            Assert.True(udpHistoryIndex > tcpEnvelopeIndex);
+            Assert.True(udpEnvelopeIndex > udpHistoryIndex);
+            Assert.True(uploadIndex > udpEnvelopeIndex);
+            Assert.Contains("tcp_reference_history=\"docs/benchmarks/baselines/runners/${HPS_BENCHMARK_RUNNER_ID}/tcp/history.json\"", workflow);
+            Assert.Contains("udp_reference_history=\"docs/benchmarks/baselines/runners/${HPS_BENCHMARK_RUNNER_ID}/udp/history.json\"", workflow);
+            Assert.Contains("--compare-baseline-envelope \"$BENCH_TCP_SESSION_DIR/summary.json\"", workflow);
+            Assert.Contains("--reference-history \"$tcp_reference_history\"", workflow);
+            Assert.Contains("--envelope \"$BENCH_TCP_ROOT/envelope.json\"", workflow);
+            Assert.Contains("--envelope-md \"$BENCH_TCP_ROOT/envelope.md\"", workflow);
+            Assert.Contains("--compare-baseline-envelope \"$BENCH_UDP_SESSION_DIR/summary.json\"", workflow);
+            Assert.Contains("--reference-history \"$udp_reference_history\"", workflow);
+            Assert.Contains("--envelope \"$BENCH_UDP_ROOT/envelope.json\"", workflow);
+            Assert.Contains("--envelope-md \"$BENCH_UDP_ROOT/envelope.md\"", workflow);
+            Assert.Contains("IOURING_TCP_ENVELOPE_EXIT=", workflow);
+            Assert.Contains("IOURING_UDP_ENVELOPE_EXIT=", workflow);
+        }
+
         // BaselineHistoryReader는 입력 root 바로 아래의 날짜 directory만 session 묶음으로 읽는다.
         // protocol root가 날짜 root 안쪽에 있으면 history command가 session-01/summary.json을 발견하지 못하므로,
         // workflow의 artifact 구조는 protocol root 아래 날짜 child를 두는 형태로 고정한다.

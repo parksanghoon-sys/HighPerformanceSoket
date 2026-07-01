@@ -23,6 +23,10 @@
 - D127 기준으로 CI benchmark workflow 는 repository reference history 가 있을 때 업로드 artifact date root 에
   `envelope.json`과 `envelope.md`를 함께 생성한다. 이 artifact 의 mismatch/signal 도 report-only 이며
   `warning-count`나 workflow failure 로 합산하지 않는다.
+- D151 기준으로 Linux `io_uring` benchmark workflow 는 TCP/UDP protocol root 를 분리하므로,
+  reference history 도 `docs/benchmarks/baselines/runners/<runner-id>/tcp/history.json`,
+  `.../<runner-id>/udp/history.json`처럼 protocol별로 둔다.
+  아직 `ci-linux-iouring-x64-01` repository reference 는 없으며, reference 가 없으면 workflow envelope step 은 skip 한다.
 - CI benchmark 는 D090 기준으로 artifact-only 단계에서 시작한다.
   CI의 매 실행 artifact 는 `artifacts/benchmarks/runners/<ci-runner-id>/...` 같은 CI artifact 영역에 두고,
   이 index 에는 사람이 repository baseline 으로 채택한 결과만 추가한다.
