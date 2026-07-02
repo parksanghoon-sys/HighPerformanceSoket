@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D173 reference 확장 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 를 검토한다.
-  - 입력: D173으로 확장된 `ci-linux-iouring-x64-01` TCP 6-session/UDP 9-session protocol reference history.
-  - 할 일: 사용자 push 이후 workflow 를 수동 실행하고, TCP/UDP baseline/summary/history/envelope exit code 와
-    envelope signal-count 를 확인한다.
-  - 확인할 것: TCP/UDP raw report count 6, hard-passed true, drop/payload-error/pool-rented 0,
-    comparison-compatible true, TCP reference-summary-count 6, UDP reference-summary-count 9, envelope signal-count 0.
-  - 제외: 원격 artifact 결과 전 fixed registration, zero-copy send, latency hard gate, default promotion 구현.
+- [ ] D174 `io_uring` shutdown stale completion fix 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 를 재검토한다.
+  - 입력: D174 fix commit 과 D173으로 확장된 `ci-linux-iouring-x64-01` TCP 6-session/UDP 9-session protocol reference history.
+  - 할 일: 사용자 push 이후 workflow 를 수동 실행하고, TCP baseline exit 134가 재발하지 않는지 확인한다.
+  - 확인할 것: TCP/UDP baseline/summary/history/envelope exit code 0, TCP/UDP raw report count 6,
+    hard-passed true, drop/payload-error/pool-rented 0, comparison-compatible true,
+    TCP reference-summary-count 6, UDP reference-summary-count 9, envelope signal-count 0.
+  - 제외: 원격 artifact 재검증 전 fixed registration, zero-copy send, latency hard gate, default promotion 구현.
 
 ## Deferred Backlog
 
@@ -49,6 +49,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D173 reference 확장 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 실패를 검토하고 D174 fix 를 구현했다.
+  - 범위: GitHub Actions run `28570636117`, artifact `iouring-benchmark-artifacts-2026-07-02-github-28570636117-1`,
+    `IoUringCompletionLoop`, `IoUringTransport.StopCore`, completion loop tests.
+  - 결과: UDP baseline/summary/history/envelope 는 모두 exit 0이었지만 TCP baseline suite 가
+    open-loop stop 중 `등록되지 않은 io_uring operation token입니다.`로 exit 134를 반환했다.
+  - 원인: transport stop 이 connection/endpoint resource 를 닫아 operation context 를 unregister 한 뒤,
+    completion loop 가 이미 도착했거나 취소된 CQE 를 drain 하며 stale token 을 fatal mapping bug 로 처리했다.
+  - 수정: `BeginShutdown()`을 resource close 전에 호출하고, shutdown 이후 unknown token completion 만 no-op으로 흡수한다.
+    정상 운영 중 unknown token 은 기존처럼 예외로 남긴다.
+  - 검증: Red assertion failure 확인, focused completion-loop tests 5개 통과,
+    `Hps.Transport.IoUring.Tests` 56개 통과, solution tests 전체 통과.
 
 - [x] D172 기준으로 D171 raw report 를 protocol별 두 번째 date root session-03 reference 로 수동 채택했다.
   - 범위: `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/tcp/2026-07-02/session-03`,

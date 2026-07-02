@@ -769,6 +769,11 @@ namespace Hps.Transport
                 _queue = null;
             }
 
+            // connection/endpoint Close 는 operation context 를 registry 에서 제거한다.
+            // Linux kernel 은 이미 완료된 CQE 를 그 뒤에 노출할 수 있으므로, resource unregister 전에
+            // completion loop 를 shutdown 모드로 전환해 늦은 CQE 를 stop 실패가 아닌 stale completion 으로 처리한다.
+            completionLoop?.BeginShutdown();
+
             for (int index = 0; index < listeners.Length; index++)
                 listeners[index].Close();
 

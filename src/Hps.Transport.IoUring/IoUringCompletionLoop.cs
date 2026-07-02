@@ -17,6 +17,7 @@ namespace Hps.Transport
         private readonly IoUringOperationRegistry _registry;
         private CancellationTokenSource? _stopSource;
         private Task? _loopTask;
+        private int _shutdownStarted;
         private bool _disposed;
 
         internal IoUringCompletionLoop(IoUringQueue queue, IoUringOperationRegistry registry)
@@ -104,11 +105,24 @@ namespace Hps.Transport
             return DrainAvailableCompletionsAsync(CancellationToken.None);
         }
 
+        internal void BeginShutdown()
+        {
+            Volatile.Write(ref _shutdownStarted, 1);
+        }
+
         internal void DispatchCompletion(IoUringCompletion completion)
         {
             ThrowIfDisposed();
 
-            IoUringOperationContext context = _registry.Resolve(completion.Token);
+            IoUringOperationContext? context;
+            if (!_registry.TryResolve(completion.Token, out context) || context == null)
+            {
+                if (Volatile.Read(ref _shutdownStarted) != 0)
+                    return;
+
+                throw new InvalidOperationException("등록되지 않은 io_uring operation token입니다.");
+            }
+
             context.Complete(completion);
         }
 

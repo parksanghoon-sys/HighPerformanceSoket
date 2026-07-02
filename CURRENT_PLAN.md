@@ -44,7 +44,12 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
 - D172 기준 D171 passing artifact 는 fixed registration, zero-copy send, latency gate, default promotion 의 근거가 아니라
   두 번째 date root 를 3-session reference 로 완성하는 session-03 표본으로 수동 채택한다.
 - D173 기준 D171 raw report 채택이 완료되어 TCP protocol root 는 6-session, UDP protocol root 는 9-session reference 가 됐다.
-  2026-07-02 두 번째 date root 는 TCP/UDP 모두 3-session으로 완성됐다. 다음 실행 지점은 push 이후 원격 artifact gate 다.
+  2026-07-02 두 번째 date root 는 TCP/UDP 모두 3-session으로 완성됐다.
+- D174 기준 D173 원격 artifact gate 는 run `28570636117`에서 TCP baseline exit 134로 실패했다.
+  원인은 `IoUringTransport.StopCore()`가 connection close 로 operation context 를 unregister 한 뒤,
+  completion loop 가 늦게 도착한 CQE token 을 정상 운영 중 mapping 오류와 구분하지 못한 것이다.
+  `IoUringCompletionLoop.BeginShutdown()`을 resource close 전에 호출해 shutdown 이후 stale completion 만 흡수하도록 수정했다.
+  정상 운영 중 unknown token 은 계속 `InvalidOperationException`으로 실패한다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
@@ -1911,8 +1916,8 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP protocol root history 는 session-count 4, hard-passed true, warning-count 24, comparison-compatible true 이고,
   UDP protocol root history 는 session-count 7, hard-passed true, warning-count 13, comparison-compatible true 다.
   최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
-- 다음 실행 지점: 사용자 push 이후 원격 `iouring-benchmark-artifacts.yml`을 다시 실행해
-  두 date root reference 기준으로 TCP/UDP envelope artifact 가 signal 0을 유지하는지 검토한다.
+- 다음 실행 지점: D174 fix push 이후 원격 `iouring-benchmark-artifacts.yml`을 다시 실행해
+  TCP baseline exit 134가 재발하지 않고 TCP/UDP baseline/summary/history/envelope exit code 가 모두 0인지 확인한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

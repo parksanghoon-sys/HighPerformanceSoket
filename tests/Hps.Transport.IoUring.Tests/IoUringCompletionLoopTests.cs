@@ -56,6 +56,21 @@ namespace Hps.Transport.IoUring.Tests
             Assert.IsType<InvalidOperationException>(exception.InnerException);
         }
 
+        // shutdown 이 시작된 뒤에는 socket close 로 인해 이미 unregister 된 operation 의 CQE가 늦게 도착할 수 있다.
+        // 이 stale completion 은 새 context 로 라우팅하면 안 되지만, transport stop 을 실패시키는 fatal 오류도 아니므로 조용히 버린다.
+        [Fact]
+        public void DispatchCompletion_WhenShutdownStartedAndTokenWasUnregistered_IgnoresStaleCompletion()
+        {
+            IoUringOperationRegistry registry = new IoUringOperationRegistry();
+            IoUringOperationContext context = registry.Register(IoUringOperationKind.Receive);
+            object loop = CreateLoopForTests(registry);
+
+            Assert.True(registry.Unregister(context.Token));
+            InvokeBeginShutdown(loop);
+
+            InvokeDispatch(loop, new IoUringCompletion(context.Token, -125, 0));
+        }
+
         // context가 아직 WaitAsync를 호출하지 않았다면 completion을 받을 준비가 된 operation이 아니다.
         // 이 상태를 허용하면 submit 전 context나 이미 회수된 context가 완료된 것처럼 보일 수 있다.
         [Fact]
@@ -94,6 +109,16 @@ namespace Hps.Transport.IoUring.Tests
             Assert.NotNull(method);
 
             method!.Invoke(loop, new object[] { completion });
+        }
+
+        private static void InvokeBeginShutdown(object loop)
+        {
+            MethodInfo? method = loop.GetType().GetMethod(
+                "BeginShutdown",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(method);
+
+            method!.Invoke(loop, Array.Empty<object>());
         }
     }
 }
