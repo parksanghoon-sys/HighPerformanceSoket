@@ -9,13 +9,14 @@
 
 ## Current TODOs
 
-- [ ] D164 reference 확장 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 를 검토한다.
-  - 입력: D164로 확장된 `ci-linux-iouring-x64-01` TCP/UDP protocol reference history.
-  - 할 일: 사용자 push 이후 workflow 를 수동 실행하고, TCP/UDP baseline/summary/history/envelope exit code 와
-    envelope signal-count 를 확인한다.
-  - 확인할 것: TCP/UDP raw report count 6, hard-passed true, drop/payload-error/pool-rented 0,
-    comparison-compatible true, envelope signal-count 0.
-  - 제외: 원격 artifact 결과 전 fixed registration, zero-copy, latency hard gate, default promotion 구현.
+- [ ] D165 이후 io_uring 후속 후보를 재평가한다.
+  - 입력: run `28566385562` TCP/UDP envelope signal-count 0, TCP reference-summary-count 3,
+    UDP reference-summary-count 6, hard-passed true, drop/payload-error/pool-rented 0.
+  - 할 일: fixed registration, zero-copy send, UDP pump 구조 변경, default promotion, latency hard gate 중
+    지금 열어도 되는 최소 후속 단위를 판단한다.
+  - 확인할 것: correctness/reliability failure 없이 signal 0인 상태에서 성능 최적화 구현을 바로 여는 근거가 충분한지,
+    또는 한 단계 더 좁은 evidence/contract 단위가 필요한지 결정한다.
+  - 제외: 재평가 전 바로 production transport 구조 변경 또는 latency hard gate 승격.
 
 ## Deferred Backlog
 
@@ -110,6 +111,15 @@
   - 검증: 최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`,
     `envelope-signal-count=0`으로 통과했다.
   - 다음: 사용자 push 이후 원격 artifact gate 로 확장된 reference 가 workflow 에서도 정상 사용되는지 확인한다.
+
+- [x] D164 reference 확장 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 를 검토했다.
+  - 범위: GitHub Actions run `28566385562`,
+    artifact `iouring-benchmark-artifacts-2026-07-02-github-28566385562-1`, D165 상태/결정 문서.
+  - 결과: workflow success, TCP/UDP baseline/summary/history/envelope exit code 0.
+  - evidence: TCP/UDP raw report count 는 각각 6이고, hard-passed true, drop/payload-error/pool-rented 0이다.
+  - evidence: TCP envelope 는 reference-summary-count 3, signal-count 0이다.
+  - evidence: UDP envelope 는 reference-summary-count 6, signal-count 0이다.
+  - 의미: D164 확장 reference history 가 원격 workflow artifact 에서 실제 envelope reference 로 사용됐다.
 
 - [x] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토했다.
   - 범위: GitHub Actions runs `28494135787`, `28494404015`, D157 상태/결정 문서.

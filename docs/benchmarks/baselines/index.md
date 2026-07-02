@@ -189,6 +189,12 @@ protocol root history 는 TCP session-count 3/warning-count 18, UDP session-coun
 둘 다 hard-passed true, comparison-compatible true 상태다. 최신 session 기준 envelope smoke 도 TCP/UDP 모두
 `envelope-compatible=true`, `envelope-signal-count=0`이다.
 
+사용자 push 이후 run `28566385562`로 D164 확장 reference 의 원격 artifact gate 를 확인했다.
+artifact `iouring-benchmark-artifacts-2026-07-02-github-28566385562-1` 기준 TCP/UDP baseline, summary, history,
+envelope exit code 는 모두 0이다. TCP envelope 는 reference-summary-count 3, signal-count 0이고,
+UDP envelope 는 reference-summary-count 6, signal-count 0이다. 따라서 확장된 protocol reference history 가
+원격 workflow envelope step 에 실제로 사용됨을 확인했다.
+
 ## local-win-x64-01 Explicit Runner Reference Latency Envelope
 
 이 표는 D084 저장 구조 아래에서 수집한 explicit runner reference 다.

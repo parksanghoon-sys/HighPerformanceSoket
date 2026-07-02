@@ -252,6 +252,16 @@
   `envelope-signal-count=0`으로 통과했다.
 - 다음 단위는 사용자 push 이후 확장된 reference history 기준 원격 `iouring-benchmark-artifacts.yml` artifact gate 검토다.
 
+### D165 D164 reference 확장 원격 artifact gate 검토
+- 사용자 push 이후 `iouring-benchmark-artifacts.yml`을 `master` 기준으로 수동 실행했다.
+- run `28566385562`는 workflow success 로 완료됐고,
+  artifact `iouring-benchmark-artifacts-2026-07-02-github-28566385562-1`을 생성했다.
+- root `summary.md` 기준 TCP/UDP baseline, summary, history, envelope exit code 는 모두 0이다.
+- TCP/UDP raw report count 는 각각 6이고, hard-passed true, drop/payload-error/pool-rented 0이다.
+- TCP envelope 는 reference-summary-count 3, compatible true, signal-count 0이다.
+- UDP envelope 는 reference-summary-count 6, compatible true, signal-count 0이다.
+- D164 확장 reference history 가 원격 workflow artifact 에서 실제 envelope reference 로 사용됨을 확인했다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

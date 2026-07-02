@@ -1887,9 +1887,14 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP는 `session-01..03`, UDP는 `session-01..06` 상태이고, protocol root history 는 둘 다 hard-passed true,
   comparison-compatible true 다. 최신 session 기준 envelope smoke 는 TCP/UDP 모두
   `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
-- 다음 실행 지점: 사용자 push 이후 원격 `iouring-benchmark-artifacts.yml`을 다시 실행해
-  확장된 protocol reference history 기준으로 TCP/UDP envelope artifact 가 signal 0을 유지하는지 검토한다.
-  fixed registration, zero-copy send, UDP pump 구조 변경, latency hard gate 는 아직 열지 않는다.
+- D165 원격 검토 결과: run `28566385562`는 workflow success 로 완료됐다.
+  artifact `iouring-benchmark-artifacts-2026-07-02-github-28566385562-1`은 TCP/UDP raw report 6개씩,
+  protocol별 summary/history/envelope artifact 를 포함한다.
+  TCP reference-summary-count 는 3, UDP reference-summary-count 는 6으로 D164 확장 reference 를 실제로 사용했다.
+  TCP/UDP envelope 는 모두 compatible true, signal-count 0이다.
+- 다음 실행 지점: D165 이후 fixed registration, zero-copy send, UDP pump 구조 변경, default promotion, latency hard gate 중
+  지금 열어도 되는 최소 후속 단위를 재평가한다.
+  현재까지의 artifact 는 correctness/reliability failure 가 아니라 reference-expanded signal 0 상태다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
