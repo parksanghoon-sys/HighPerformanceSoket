@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D169 기준으로 D168 raw report 를 protocol별 두 번째 date root session-02 reference 로 수동 채택한다.
-  - 입력: GitHub Actions run `28568500822`, artifact `iouring-benchmark-artifacts-2026-07-02-github-28568500822-1`.
-  - 할 일: TCP/UDP raw report 6개씩을 각각 `tcp/2026-07-02/session-02`, `udp/2026-07-02/session-02`로 복사하고
-    summary/history/index 를 repository 경로 기준으로 재생성한다.
-  - 확인할 것: TCP protocol root session-count 5, UDP protocol root session-count 8, hard-passed true,
-    comparison-compatible true, 최신 session envelope signal-count 0, local absolute path 미포함.
-  - 제외: 자동 채택, fixed registration, zero-copy send, latency hard gate, default promotion 구현.
+- [ ] D170 reference 확장 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 를 검토한다.
+  - 입력: D170으로 확장된 `ci-linux-iouring-x64-01` TCP 5-session/UDP 8-session protocol reference history.
+  - 할 일: 사용자 push 이후 workflow 를 수동 실행하고, TCP/UDP baseline/summary/history/envelope exit code 와
+    envelope signal-count 를 확인한다.
+  - 확인할 것: TCP/UDP raw report count 6, hard-passed true, drop/payload-error/pool-rented 0,
+    comparison-compatible true, TCP reference-summary-count 5, UDP reference-summary-count 8, envelope signal-count 0.
+  - 제외: 원격 artifact 결과 전 fixed registration, zero-copy send, latency hard gate, default promotion 구현.
 
 ## Deferred Backlog
 
@@ -49,6 +49,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D169 기준으로 D168 raw report 를 protocol별 두 번째 date root session-02 reference 로 수동 채택했다.
+  - 범위: `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/tcp/2026-07-02/session-02`,
+    `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/udp/2026-07-02/session-02`,
+    protocol별 history, `docs/benchmarks/baselines/index.md`, D170 상태/결정 문서.
+  - 결과: TCP protocol root history 는 session-count 5, hard-passed true, warning-count 30,
+    comparison-compatible true 상태다.
+  - 결과: UDP protocol root history 는 session-count 8, hard-passed true, warning-count 16,
+    comparison-compatible true 상태다.
+  - 검증: 최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`,
+    `envelope-signal-count=0`으로 통과했다.
+  - 검증: baseline path absolute path scan 매칭 없음, `Hps.Benchmarks.Tests` 114개 통과, `git diff --check` 통과.
 
 - [x] D168 원격 artifact gate 이후 io_uring 다음 작업 후보를 재평가했다.
   - 범위: `docs/superpowers/specs/2026-07-02-iouring-post-d168-reference-date-continuation-design.md`,

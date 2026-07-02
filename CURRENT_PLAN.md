@@ -37,6 +37,8 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   TCP envelope 는 reference-summary-count 4, UDP envelope 는 reference-summary-count 7이며 둘 다 signal-count 0이다.
 - D169 기준 D168 passing artifact 는 fixed registration, zero-copy send, latency gate, default promotion 의 근거가 아니라
   두 번째 date root reference 를 안정화하는 session-02 표본으로 수동 채택한다.
+- D170 기준 D168 raw report 채택이 완료되어 TCP protocol root 는 5-session, UDP protocol root 는 8-session reference 가 됐다.
+  최신 session 기준 envelope smoke 는 TCP/UDP 모두 signal-count 0이다. 다음 실행 지점은 push 이후 원격 artifact gate 다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
