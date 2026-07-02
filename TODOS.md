@@ -9,13 +9,12 @@
 
 ## Current TODOs
 
-- [ ] D174 `io_uring` shutdown stale completion fix 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 를 재검토한다.
-  - 입력: D174 fix commit 과 D173으로 확장된 `ci-linux-iouring-x64-01` TCP 6-session/UDP 9-session protocol reference history.
-  - 할 일: 사용자 push 이후 workflow 를 수동 실행하고, TCP baseline exit 134가 재발하지 않는지 확인한다.
-  - 확인할 것: TCP/UDP baseline/summary/history/envelope exit code 0, TCP/UDP raw report count 6,
-    hard-passed true, drop/payload-error/pool-rented 0, comparison-compatible true,
-    TCP reference-summary-count 6, UDP reference-summary-count 9, envelope signal-count 0.
-  - 제외: 원격 artifact 재검증 전 fixed registration, zero-copy send, latency hard gate, default promotion 구현.
+- [ ] D175 원격 artifact gate 성공 이후 `io_uring` 다음 작업 후보를 재평가한다.
+  - 입력: D175 run `28627435853` artifact, D174 shutdown stale completion fix, TCP 6-session/UDP 9-session protocol reference.
+  - 할 일: fixed registration, zero-copy send, default promotion, latency gate, reference 확장 중 지금 열어도 되는 최소 단위를 판단한다.
+  - 확인할 것: correctness/reliability failure 가 없는 passing artifact 인지, 최적화 구현을 열 근거가 충분한지,
+    reference 를 더 확장하는 것이 더 안전한지.
+  - 제외: 재평가 없이 바로 fixed registration, zero-copy send, latency hard gate, default promotion 구현.
 
 ## Deferred Backlog
 
@@ -49,6 +48,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D174 `io_uring` shutdown stale completion fix 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 를 재검토했다.
+  - 범위: GitHub Actions run `28627435853`,
+    artifact `iouring-benchmark-artifacts-2026-07-02-github-28627435853-1`, D175 상태/결정 문서.
+  - 결과: workflow success, TCP/UDP baseline/summary/history/envelope exit code 0.
+  - evidence: TCP/UDP raw report count 는 각각 6이고, hard-passed true, drop/payload-error/pool-rented 0이다.
+  - evidence: TCP envelope 는 reference-summary-count 6, compatible true, signal-count 0이다.
+  - evidence: UDP envelope 는 reference-summary-count 9, compatible true, signal-count 0이다.
+  - 의미: D174 shutdown stale completion fix 이후 TCP baseline exit 134가 원격 artifact gate 에서 재발하지 않았다.
 
 - [x] D173 reference 확장 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 실패를 검토하고 D174 fix 를 구현했다.
   - 범위: GitHub Actions run `28570636117`, artifact `iouring-benchmark-artifacts-2026-07-02-github-28570636117-1`,
