@@ -9,11 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D168 원격 artifact gate 이후 io_uring 다음 작업 후보를 재평가한다.
-  - 입력: TCP 4-session/UDP 7-session 두 date root reference 와 run `28568500822`의 signal 0 원격 evidence.
-  - 할 일: fixed registration, zero-copy send, latency gate, 추가 reference 확장, default promotion 후보를 현재 evidence 기준으로 비교한다.
-  - 확인할 것: correctness/reliability failure 가 없는 상태에서 최적화 구현으로 넘어갈 충분한 근거가 있는지, 또는 reference/evidence 확장이 더 타당한지.
-  - 제외: 재평가 전 fixed registration, zero-copy, latency hard gate, default promotion 구현.
+- [ ] D169 기준으로 D168 raw report 를 protocol별 두 번째 date root session-02 reference 로 수동 채택한다.
+  - 입력: GitHub Actions run `28568500822`, artifact `iouring-benchmark-artifacts-2026-07-02-github-28568500822-1`.
+  - 할 일: TCP/UDP raw report 6개씩을 각각 `tcp/2026-07-02/session-02`, `udp/2026-07-02/session-02`로 복사하고
+    summary/history/index 를 repository 경로 기준으로 재생성한다.
+  - 확인할 것: TCP protocol root session-count 5, UDP protocol root session-count 8, hard-passed true,
+    comparison-compatible true, 최신 session envelope signal-count 0, local absolute path 미포함.
+  - 제외: 자동 채택, fixed registration, zero-copy send, latency hard gate, default promotion 구현.
 
 ## Deferred Backlog
 
@@ -47,6 +49,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D168 원격 artifact gate 이후 io_uring 다음 작업 후보를 재평가했다.
+  - 범위: `docs/superpowers/specs/2026-07-02-iouring-post-d168-reference-date-continuation-design.md`,
+    D169 상태/결정 문서.
+  - 결정: D168은 correctness/reliability failure 가 아니라 두 date root reference 기준 signal 0 passing evidence 이므로,
+    fixed registration, zero-copy, latency gate, default promotion 대신 두 번째 date root session-02 수동 채택을 다음 단위로 둔다.
 
 - [x] D167 reference date 확장 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 를 검토했다.
   - 범위: GitHub Actions run `28568500822`,
