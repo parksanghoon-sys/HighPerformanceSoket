@@ -269,6 +269,18 @@
   D165 raw report 를 protocol별 두 번째 date root reference 로 수동 채택하는 것이다.
 - TCP/UDP 모두 `2026-07-02/session-01`로 확장한다.
 
+### D167 protocol reference date 확장 실행
+- D165 TCP raw report 를 `ci-linux-iouring-x64-01/tcp/2026-07-02/session-01`로 수동 채택했다.
+- D165 UDP raw report 를 `ci-linux-iouring-x64-01/udp/2026-07-02/session-01`로 수동 채택했다.
+- 각 session summary, TCP/UDP date-level history, TCP/UDP protocol root history 를 repository 경로 기준으로 재생성했다.
+- TCP protocol root history 는 session-count 4, hard-passed true, warning-count 24,
+  comparison-compatible true 상태다.
+- UDP protocol root history 는 session-count 7, hard-passed true, warning-count 13,
+  comparison-compatible true 상태다.
+- 최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`,
+  `envelope-signal-count=0`으로 통과했다.
+- 다음 단위는 사용자 push 이후 두 date root reference 기준 원격 `iouring-benchmark-artifacts.yml` artifact gate 검토다.
+
 ## 2026-06-30 (Codex - io_uring benchmark backend selector implementation)
 
 ### 작업 단위

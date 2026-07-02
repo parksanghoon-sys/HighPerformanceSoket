@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D166 기준으로 D165 raw report 를 protocol별 두 번째 date root reference 로 수동 채택한다.
-  - 입력: `docs/superpowers/specs/2026-07-02-iouring-post-d165-reference-date-expansion-design.md`.
-  - 할 일: run `28566385562` TCP raw report 를 `tcp/2026-07-02/session-01`,
-    UDP raw report 를 `udp/2026-07-02/session-01`로 복사한다.
-  - 확인할 것: TCP protocol history session-count 4, UDP protocol history session-count 7,
-    hard-passed true, comparison-compatible true, 최신 session envelope smoke signal 0.
-  - 제외: 자동 baseline 채택, latency hard gate, fixed registration, zero-copy 구현.
+- [ ] D167 reference date 확장 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 를 검토한다.
+  - 입력: D167로 확장된 `ci-linux-iouring-x64-01` TCP/UDP protocol reference history.
+  - 할 일: 사용자 push 이후 workflow 를 수동 실행하고, TCP/UDP baseline/summary/history/envelope exit code 와
+    envelope signal-count 를 확인한다.
+  - 확인할 것: TCP/UDP raw report count 6, hard-passed true, drop/payload-error/pool-rented 0,
+    comparison-compatible true, TCP reference-summary-count 4, UDP reference-summary-count 7, envelope signal-count 0.
+  - 제외: 원격 artifact 결과 전 fixed registration, zero-copy, latency hard gate, default promotion 구현.
 
 ## Deferred Backlog
 
@@ -127,6 +127,18 @@
     D165 passing artifact 를 protocol별 두 번째 date root reference 로 수동 채택하는 것이다.
   - 근거: D165는 correctness/reliability failure 가 아니라 expanded reference 기준 signal 0 evidence 이므로
     최적화 구현보다 multi-date reference 안정화가 현재 evidence 에 맞다.
+
+- [x] D166 기준으로 D165 raw report 를 protocol별 두 번째 date root reference 로 수동 채택했다.
+  - 범위: `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/tcp/2026-07-02/session-01`,
+    `docs/benchmarks/baselines/runners/ci-linux-iouring-x64-01/udp/2026-07-02/session-01`,
+    protocol별 history, `docs/benchmarks/baselines/index.md`, D167 상태/결정 문서.
+  - 결과: TCP protocol root history 는 session-count 4, hard-passed true, warning-count 24,
+    comparison-compatible true 상태다.
+  - 결과: UDP protocol root history 는 session-count 7, hard-passed true, warning-count 13,
+    comparison-compatible true 상태다.
+  - 검증: 최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`,
+    `envelope-signal-count=0`으로 통과했다.
+  - 다음: 사용자 push 이후 원격 artifact gate 로 두 date root reference 가 workflow 에서도 정상 사용되는지 확인한다.
 
 - [x] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토했다.
   - 범위: GitHub Actions runs `28494135787`, `28494404015`, D157 상태/결정 문서.

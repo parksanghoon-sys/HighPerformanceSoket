@@ -1895,8 +1895,12 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - D166 기준으로 다음 단위는 fixed registration, zero-copy send, default promotion, latency hard gate 가 아니라
   D165 raw report 를 protocol별 두 번째 date root reference 로 수동 채택하는 것이다.
   설계는 `docs/superpowers/specs/2026-07-02-iouring-post-d165-reference-date-expansion-design.md`에 있다.
-- 다음 실행 지점: D165 TCP/UDP raw report 를 `2026-07-02/session-01`로 수동 채택하고
-  summary/history/index 와 envelope smoke 를 확인한다.
+- D167 기준으로 D165 raw report 를 protocol별 두 번째 date root reference 로 수동 채택했다.
+  TCP protocol root history 는 session-count 4, hard-passed true, warning-count 24, comparison-compatible true 이고,
+  UDP protocol root history 는 session-count 7, hard-passed true, warning-count 13, comparison-compatible true 다.
+  최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
+- 다음 실행 지점: 사용자 push 이후 원격 `iouring-benchmark-artifacts.yml`을 다시 실행해
+  두 date root reference 기준으로 TCP/UDP envelope artifact 가 signal 0을 유지하는지 검토한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
