@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D177 — fixed buffer registration owner 는 RegisteredBufferCount evidence 와 Linux native register/unregister test 를 가진다.
 - D176 — D175 이후 다음 단위는 fixed/zero-copy pump 연결이 아니라 fixed buffer registration Linux contract evidence 다.
 - D175 — D174 shutdown stale completion fix 는 원격 artifact gate 에서 TCP baseline exit 134 재발 없이 수락됐다.
 - D174 — io_uring completion loop 는 shutdown 이후 unregister 된 token 의 늦은 CQE만 stale completion 으로 흡수한다.

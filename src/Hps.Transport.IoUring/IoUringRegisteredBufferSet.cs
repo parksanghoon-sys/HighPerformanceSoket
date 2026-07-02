@@ -13,6 +13,7 @@ namespace Hps.Transport
     {
         private readonly IoUringQueue _queue;
         private readonly int _fileDescriptor;
+        private readonly int _registeredBufferCount;
         private GCHandle[]? _bufferHandles;
         private bool _disposed;
 
@@ -20,7 +21,13 @@ namespace Hps.Transport
         {
             _queue = queue;
             _fileDescriptor = fileDescriptor;
+            _registeredBufferCount = bufferHandles.Length;
             _bufferHandles = bufferHandles;
+        }
+
+        internal int RegisteredBufferCount
+        {
+            get { return _registeredBufferCount; }
         }
 
         internal static IoUringRegisteredBufferSet Register(IoUringQueue queue, byte[][] buffers)

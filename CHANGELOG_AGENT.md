@@ -5,6 +5,29 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-03 (Codex - D177 fixed buffer registration evidence test)
+
+### 작업 단위
+- D176 설계 기준으로 `IoUringRegisteredBufferSet` Linux native register/unregister evidence test 를 구현했다.
+
+### 변경 내용
+- `IoUringRegisteredBufferSet`: `RegisteredBufferCount` internal 관측값을 추가했다.
+- `IoUringRegisteredBufferSetTests`: registration count shape test 와 Linux/capability gated native register/unregister test 를 추가했다.
+  Linux available 환경에서는 작은 io_uring queue 에 2개 byte[] buffer 를 register/dispose 한다.
+- `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`,
+  `docs/agent-state/changelog/2026-07.md`, `docs/agent-state/decisions/2026-07.md`:
+  D177 구현 결과와 다음 원격 contract gate 를 기록했다.
+
+### 검증
+- Red: `IoUringRegisteredBufferSet_WhenInspected_ExposesRegisteredBufferCount`가 property 부재로 `Assert.NotNull()` 실패.
+- Green: `IoUringRegisteredBufferSetTests` 4개 통과.
+- `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal`: 58개 통과.
+- `dotnet test HighPerformanceSocket.slnx -v minimal`: 전체 통과.
+
+### 결과
+- fixed buffer registration owner 가 등록 table 크기를 내부적으로 증명할 수 있게 됐다.
+- 다음 실행 지점은 push 이후 원격 `iouring-linux-contract.yml` artifact 로 Linux native register/unregister test 실행을 확인하는 것이다.
+
 ## 2026-07-03 (Codex - D176 post-D175 후속 후보 재평가)
 
 ### 작업 단위

@@ -9,13 +9,12 @@
 
 ## Current TODOs
 
-- [ ] D176 기준 `IoUringRegisteredBufferSet` Linux native register/unregister evidence test 를 구현한다.
-  - 입력: `docs/superpowers/specs/2026-07-03-iouring-post-d175-next-scope-design.md`,
-    기존 `IoUringRegisteredBufferSet`, `iouring-linux-contract.yml`.
-  - 할 일: `IoUringRegisteredBufferSetTests`에 Linux/capability gated native register/unregister test 를 추가한다.
-  - 확인할 것: Windows/local unsupported 환경은 안전하게 skip/guard 되고, Linux available 환경에서는 작은 ring 에 2개 이상 buffer 를
-    register/dispose 하는 native path 가 통과한다.
-  - 제외: TCP/UDP pump 에 fixed buffer SQE 연결, zero-copy send, default promotion, latency hard gate.
+- [ ] D177 fixed buffer registration evidence test 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
+  - 입력: D177 구현 커밋, `IoUringRegisteredBufferSetTests`, `iouring-linux-contract.yml`.
+  - 할 일: 사용자 push 이후 workflow 를 수동 실행하고, TRX/summary 에서 fixed buffer register/unregister evidence test 가
+    Linux capability available 상태에서 실행·통과했는지 확인한다.
+  - 확인할 것: test exit code 0, 기존 TCP/UDP io_uring tests green, `registered fixed buffer count: 2` evidence.
+  - 제외: 원격 contract 검증 전 TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
 
 ## Deferred Backlog
 
@@ -56,6 +55,13 @@
   - 결정: 다음 단위는 이미 존재하는 `IoUringRegisteredBufferSet` owner 의 실제 Linux register/unregister evidence 를
     `iouring-linux-contract.yml` artifact 로 고정하는 것이다.
   - 제외: D175 raw report 추가 채택, TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
+
+- [x] D176 기준 `IoUringRegisteredBufferSet` Linux native register/unregister evidence test 를 구현했다.
+  - 범위: `IoUringRegisteredBufferSet`, `IoUringRegisteredBufferSetTests`, D177 상태 문서.
+  - 결과: `RegisteredBufferCount` 내부 관측값을 추가해 등록된 fixed buffer table 크기를 검증할 수 있게 했다.
+  - 결과: Linux capability available 환경에서 작은 io_uring queue 에 2개 byte[] buffer 를 register/dispose 하는 native evidence test 를 추가했다.
+  - 검증: Red assertion failure 확인, focused registration tests 4개 통과,
+    `Hps.Transport.IoUring.Tests` 58개 통과, solution tests 전체 통과.
 
 - [x] D174 `io_uring` shutdown stale completion fix 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 를 재검토했다.
   - 범위: GitHub Actions run `28627435853`,
