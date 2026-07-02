@@ -51,8 +51,8 @@
 
 | runner id | 날짜 | history | human report | sessions | hard passed | warnings | comparison compatible |
 | --- | --- | --- | --- | ---: | --- | ---: | --- |
-| ci-linux-iouring-x64-01/tcp | 2026-07-02 | [history.json](runners/ci-linux-iouring-x64-01/tcp/2026-07-02/history.json) | [history.md](runners/ci-linux-iouring-x64-01/tcp/2026-07-02/history.md) | 2 | true | 12 | true |
-| ci-linux-iouring-x64-01/udp | 2026-07-02 | [history.json](runners/ci-linux-iouring-x64-01/udp/2026-07-02/history.json) | [history.md](runners/ci-linux-iouring-x64-01/udp/2026-07-02/history.md) | 2 | true | 4 | true |
+| ci-linux-iouring-x64-01/tcp | 2026-07-02 | [history.json](runners/ci-linux-iouring-x64-01/tcp/2026-07-02/history.json) | [history.md](runners/ci-linux-iouring-x64-01/tcp/2026-07-02/history.md) | 3 | true | 18 | true |
+| ci-linux-iouring-x64-01/udp | 2026-07-02 | [history.json](runners/ci-linux-iouring-x64-01/udp/2026-07-02/history.json) | [history.md](runners/ci-linux-iouring-x64-01/udp/2026-07-02/history.md) | 3 | true | 6 | true |
 | ci-linux-iouring-x64-01/tcp | 2026-07-01 | [history.json](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/history.json) | [history.md](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/history.md) | 3 | true | 18 | true |
 | ci-linux-iouring-x64-01/udp | 2026-07-01 | [history.json](runners/ci-linux-iouring-x64-01/udp/2026-07-01/history.json) | [history.md](runners/ci-linux-iouring-x64-01/udp/2026-07-01/history.md) | 6 | true | 12 | true |
 | ci-windows-x64-01 | 2026-06-29 | [history.json](runners/ci-windows-x64-01/2026-06-29/history.json) | [history.md](runners/ci-windows-x64-01/2026-06-29/history.md) | 1 | true | 0 | true |
@@ -76,6 +76,8 @@
 | 2026-07-02 | session-01 | ci-linux-iouring-x64-01 Linux UDP loopback io_uring, provisional reference adopted from run 28566385562 | [summary.json](runners/ci-linux-iouring-x64-01/udp/2026-07-02/session-01/summary.json) | [summary.md](runners/ci-linux-iouring-x64-01/udp/2026-07-02/session-01/summary.md) | 6 | true | 1 | 1597.6 | 1414.6 | 0 |
 | 2026-07-02 | session-02 | ci-linux-iouring-x64-01 Linux TCP loopback io_uring, provisional reference adopted from run 28568500822 | [summary.json](runners/ci-linux-iouring-x64-01/tcp/2026-07-02/session-02/summary.json) | [summary.md](runners/ci-linux-iouring-x64-01/tcp/2026-07-02/session-02/summary.md) | 6 | true | 6 | 4559.9 | 4501.5 | 1 |
 | 2026-07-02 | session-02 | ci-linux-iouring-x64-01 Linux UDP loopback io_uring, provisional reference adopted from run 28568500822 | [summary.json](runners/ci-linux-iouring-x64-01/udp/2026-07-02/session-02/summary.json) | [summary.md](runners/ci-linux-iouring-x64-01/udp/2026-07-02/session-02/summary.md) | 6 | true | 3 | 1953.5 | 1300.8 | 0 |
+| 2026-07-02 | session-03 | ci-linux-iouring-x64-01 Linux TCP loopback io_uring, provisional reference adopted from run 28569649366 | [summary.json](runners/ci-linux-iouring-x64-01/tcp/2026-07-02/session-03/summary.json) | [summary.md](runners/ci-linux-iouring-x64-01/tcp/2026-07-02/session-03/summary.md) | 6 | true | 6 | 5061.1 | 4589.9 | 1 |
+| 2026-07-02 | session-03 | ci-linux-iouring-x64-01 Linux UDP loopback io_uring, provisional reference adopted from run 28569649366 | [summary.json](runners/ci-linux-iouring-x64-01/udp/2026-07-02/session-03/summary.json) | [summary.md](runners/ci-linux-iouring-x64-01/udp/2026-07-02/session-03/summary.md) | 6 | true | 2 | 1509.6 | 1317.5 | 0 |
 | 2026-07-01 | session-01 | ci-linux-iouring-x64-01 Linux TCP loopback io_uring, provisional reference adopted from run 28492234252 | [summary.json](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/session-01/summary.json) | [summary.md](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/session-01/summary.md) | 6 | true | 6 | 4298.8 | 5588.6 | 1 |
 | 2026-07-01 | session-02 | ci-linux-iouring-x64-01 Linux TCP loopback io_uring, provisional reference adopted from run 28495804466 | [summary.json](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/session-02/summary.json) | [summary.md](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/session-02/summary.md) | 6 | true | 6 | 4564.2 | 4519.7 | 1 |
 | 2026-07-01 | session-03 | ci-linux-iouring-x64-01 Linux TCP loopback io_uring, provisional reference adopted from run 28497147332 | [summary.json](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/session-03/summary.json) | [summary.md](runners/ci-linux-iouring-x64-01/tcp/2026-07-01/session-03/summary.md) | 6 | true | 6 | 4650.4 | 4585.3 | 1 |
@@ -156,10 +158,10 @@ latency hard gate 로 사용하지 않는다.
 
 | protocol | compatible sessions | raw runs | p50 max us | p99 max us | p99 median max us | p99 growth ratio max | actual rate min hz | HWM max | dropped total | payload error total | pool rented max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| TCP load | 5 | 15 | 3265.7 | 4997.6 | 4853.9 | 1.24 | 99.7 | 1 | 0 | 0 | 0 |
-| TCP open-loop | 5 | 15 | 3470.7 | 5588.6 | 4621.8 | 1.31 | 100 | 1 | 0 | 0 | 0 |
-| UDP load | 8 | 24 | 983.9 | 2033.4 | 1774.6 | 1.46 | 99.9 | 0 | 0 | 0 | 0 |
-| UDP open-loop | 8 | 24 | 1252.2 | 1414.6 | 1394.5 | 1.02 | 100 | 0 | 0 | 0 | 0 |
+| TCP load | 6 | 18 | 3265.7 | 5061.1 | 4974.3 | 1.24 | 99.7 | 1 | 0 | 0 | 0 |
+| TCP open-loop | 6 | 18 | 3471.4 | 5588.6 | 4621.8 | 1.31 | 100 | 1 | 0 | 0 | 0 |
+| UDP load | 9 | 27 | 1124.7 | 2033.4 | 1774.6 | 1.46 | 99.9 | 0 | 0 | 0 | 0 |
+| UDP open-loop | 9 | 27 | 1252.2 | 1414.6 | 1394.5 | 1.03 | 100 | 0 | 0 | 0 | 0 |
 
 채택 후 protocol별 reference history 를 대상으로 envelope command smoke 를 실행했고,
 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`을 확인했다.
@@ -213,6 +215,16 @@ UDP envelope 는 reference-summary-count 7, signal-count 0이다.
 
 D169 기준으로 run `28568500822` raw report 를 `2026-07-02/session-02` reference 로 수동 채택했다.
 TCP protocol root 는 session-count 5, warning-count 30이고 UDP protocol root 는 session-count 8, warning-count 16이다.
+둘 다 hard-passed true, comparison-compatible true 상태이며 최신 session 기준 envelope smoke 도
+`envelope-compatible=true`, `envelope-signal-count=0`이다.
+
+사용자 push 이후 run `28569649366`로 D170 reference 확장의 원격 artifact gate 를 확인했다.
+artifact `iouring-benchmark-artifacts-2026-07-02-github-28569649366-1` 기준 TCP/UDP baseline, summary, history,
+envelope exit code 는 모두 0이다. TCP envelope 는 reference-summary-count 5, signal-count 0이고,
+UDP envelope 는 reference-summary-count 8, signal-count 0이다.
+
+D172 기준으로 run `28569649366` raw report 를 `2026-07-02/session-03` reference 로 수동 채택했다.
+TCP protocol root 는 session-count 6, warning-count 36이고 UDP protocol root 는 session-count 9, warning-count 18이다.
 둘 다 hard-passed true, comparison-compatible true 상태이며 최신 session 기준 envelope smoke 도
 `envelope-compatible=true`, `envelope-signal-count=0`이다.
 

@@ -70,6 +70,18 @@
   D171 raw report 를 protocol별 `2026-07-02/session-03` reference 로 수동 채택한다.
 - 다음 실행 지점은 TCP/UDP raw report 6개씩을 `session-03`으로 복사하고 summary/history/index 와 envelope smoke 를 재검증하는 것이다.
 
+### D173 D171 raw report session-03 채택
+- run `28569649366` artifact 의 TCP/UDP raw report 6개씩을 protocol별 `2026-07-02/session-03` reference 로 수동 채택했다.
+- TCP/UDP `summary.json`/`summary.md`, 2026-07-02 date-level `history.json`/`history.md`,
+  protocol root `history.json`/`history.md`를 repository 경로 기준으로 재생성했다.
+- `docs/benchmarks/baselines/index.md`의 date-level history, session row,
+  `ci-linux-iouring-x64-01 io_uring Protocol Reference` 표를 갱신했다.
+- TCP protocol root history 는 session-count 6, hard-passed true, warning-count 36, comparison-compatible true 다.
+- UDP protocol root history 는 session-count 9, hard-passed true, warning-count 18, comparison-compatible true 다.
+- 최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`이다.
+- baseline path absolute path scan 매칭 없음, `Hps.Benchmarks.Tests` 114개 통과, `git diff --check` 통과.
+- 다음 실행 지점은 사용자 push 이후 D173 reference 를 쓰는 원격 artifact gate 검토다.
+
 ## 2026-07-01 (Codex - io_uring benchmark artifact workflow)
 
 ### 작업 단위

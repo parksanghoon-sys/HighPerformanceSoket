@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D173 — D171 raw report 는 TCP 6-session/UDP 9-session protocol history 로 채택 완료했다.
 - D172 — D171 passing artifact 는 protocol별 두 번째 date root session-03 reference 로 수동 채택한다.
 - D171 — D170 reference 확장 원격 artifact gate 는 TCP reference 5/UDP reference 8 기준 signal 0으로 통과했다.
 - D170 — D168 raw report 는 TCP 5-session/UDP 8-session protocol history 로 채택 완료했다.

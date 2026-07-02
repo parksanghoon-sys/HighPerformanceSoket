@@ -1,9 +1,9 @@
 # Baseline History
 
 - source root: `docs\benchmarks\baselines\runners\ci-linux-iouring-x64-01\tcp`
-- session count: 5
+- session count: 6
 - hard gate: PASS
-- warning count: 30
+- warning count: 36
 
 ## Comparison
 
@@ -32,6 +32,7 @@
 | 2026-07-01 | session-03 | `2026-07-01/session-03/summary.json` | `2026-07-01/session-03/summary.md` | 6 | true | 6 | 4650.4 | 4585.3 | 1 |
 | 2026-07-02 | session-01 | `2026-07-02/session-01/summary.json` | `2026-07-02/session-01/summary.md` | 6 | true | 6 | 4997.6 | 4731.4 | 1 |
 | 2026-07-02 | session-02 | `2026-07-02/session-02/summary.json` | `2026-07-02/session-02/summary.md` | 6 | true | 6 | 4559.9 | 4501.5 | 1 |
+| 2026-07-02 | session-03 | `2026-07-02/session-03/summary.json` | `2026-07-02/session-03/summary.md` | 6 | true | 6 | 5061.1 | 4589.9 | 1 |
 
 ## warning 이 있는 session
 
@@ -40,3 +41,4 @@
 - `2026-07-01` `session-03`: 6
 - `2026-07-02` `session-01`: 6
 - `2026-07-02` `session-02`: 6
+- `2026-07-02` `session-03`: 6
