@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D166 — D165 passing artifact 는 protocol별 두 번째 date root reference 로 수동 채택한다.
 - D165 — D164 reference 확장 원격 artifact gate 는 TCP reference 3/UDP reference 6 기준 signal 0으로 통과했다.
 - D164 — D163 reference expansion 은 TCP 3-session/UDP 6-session protocol history 로 채택 완료했다.
 - D163 — D160/D162 raw report 는 protocol별 provisional reference 확장 표본으로 수동 채택한다.

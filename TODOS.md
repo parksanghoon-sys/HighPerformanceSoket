@@ -9,14 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D165 이후 io_uring 후속 후보를 재평가한다.
-  - 입력: run `28566385562` TCP/UDP envelope signal-count 0, TCP reference-summary-count 3,
-    UDP reference-summary-count 6, hard-passed true, drop/payload-error/pool-rented 0.
-  - 할 일: fixed registration, zero-copy send, UDP pump 구조 변경, default promotion, latency hard gate 중
-    지금 열어도 되는 최소 후속 단위를 판단한다.
-  - 확인할 것: correctness/reliability failure 없이 signal 0인 상태에서 성능 최적화 구현을 바로 여는 근거가 충분한지,
-    또는 한 단계 더 좁은 evidence/contract 단위가 필요한지 결정한다.
-  - 제외: 재평가 전 바로 production transport 구조 변경 또는 latency hard gate 승격.
+- [ ] D166 기준으로 D165 raw report 를 protocol별 두 번째 date root reference 로 수동 채택한다.
+  - 입력: `docs/superpowers/specs/2026-07-02-iouring-post-d165-reference-date-expansion-design.md`.
+  - 할 일: run `28566385562` TCP raw report 를 `tcp/2026-07-02/session-01`,
+    UDP raw report 를 `udp/2026-07-02/session-01`로 복사한다.
+  - 확인할 것: TCP protocol history session-count 4, UDP protocol history session-count 7,
+    hard-passed true, comparison-compatible true, 최신 session envelope smoke signal 0.
+  - 제외: 자동 baseline 채택, latency hard gate, fixed registration, zero-copy 구현.
 
 ## Deferred Backlog
 
@@ -120,6 +119,14 @@
   - evidence: TCP envelope 는 reference-summary-count 3, signal-count 0이다.
   - evidence: UDP envelope 는 reference-summary-count 6, signal-count 0이다.
   - 의미: D164 확장 reference history 가 원격 workflow artifact 에서 실제 envelope reference 로 사용됐다.
+
+- [x] D165 이후 io_uring 후속 후보를 재평가했다.
+  - 범위: `docs/superpowers/specs/2026-07-02-iouring-post-d165-reference-date-expansion-design.md`,
+    D166 상태/결정 문서.
+  - 결정: 다음 단위는 fixed registration/zero-copy/default promotion/latency gate 가 아니라
+    D165 passing artifact 를 protocol별 두 번째 date root reference 로 수동 채택하는 것이다.
+  - 근거: D165는 correctness/reliability failure 가 아니라 expanded reference 기준 signal 0 evidence 이므로
+    최적화 구현보다 multi-date reference 안정화가 현재 evidence 에 맞다.
 
 - [x] D156 기준으로 `iouring-benchmark-artifacts.yml` reference-present candidate 2개를 추가 수집하고 UDP signal 반복성을 검토했다.
   - 범위: GitHub Actions runs `28494135787`, `28494404015`, D157 상태/결정 문서.

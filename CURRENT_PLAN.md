@@ -1892,9 +1892,11 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   protocol별 summary/history/envelope artifact 를 포함한다.
   TCP reference-summary-count 는 3, UDP reference-summary-count 는 6으로 D164 확장 reference 를 실제로 사용했다.
   TCP/UDP envelope 는 모두 compatible true, signal-count 0이다.
-- 다음 실행 지점: D165 이후 fixed registration, zero-copy send, UDP pump 구조 변경, default promotion, latency hard gate 중
-  지금 열어도 되는 최소 후속 단위를 재평가한다.
-  현재까지의 artifact 는 correctness/reliability failure 가 아니라 reference-expanded signal 0 상태다.
+- D166 기준으로 다음 단위는 fixed registration, zero-copy send, default promotion, latency hard gate 가 아니라
+  D165 raw report 를 protocol별 두 번째 date root reference 로 수동 채택하는 것이다.
+  설계는 `docs/superpowers/specs/2026-07-02-iouring-post-d165-reference-date-expansion-design.md`에 있다.
+- 다음 실행 지점: D165 TCP/UDP raw report 를 `2026-07-02/session-01`로 수동 채택하고
+  summary/history/index 와 envelope smoke 를 확인한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
