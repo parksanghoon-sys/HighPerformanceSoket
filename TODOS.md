@@ -9,12 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D175 원격 artifact gate 성공 이후 `io_uring` 다음 작업 후보를 재평가한다.
-  - 입력: D175 run `28627435853` artifact, D174 shutdown stale completion fix, TCP 6-session/UDP 9-session protocol reference.
-  - 할 일: fixed registration, zero-copy send, default promotion, latency gate, reference 확장 중 지금 열어도 되는 최소 단위를 판단한다.
-  - 확인할 것: correctness/reliability failure 가 없는 passing artifact 인지, 최적화 구현을 열 근거가 충분한지,
-    reference 를 더 확장하는 것이 더 안전한지.
-  - 제외: 재평가 없이 바로 fixed registration, zero-copy send, latency hard gate, default promotion 구현.
+- [ ] D176 기준 `IoUringRegisteredBufferSet` Linux native register/unregister evidence test 를 구현한다.
+  - 입력: `docs/superpowers/specs/2026-07-03-iouring-post-d175-next-scope-design.md`,
+    기존 `IoUringRegisteredBufferSet`, `iouring-linux-contract.yml`.
+  - 할 일: `IoUringRegisteredBufferSetTests`에 Linux/capability gated native register/unregister test 를 추가한다.
+  - 확인할 것: Windows/local unsupported 환경은 안전하게 skip/guard 되고, Linux available 환경에서는 작은 ring 에 2개 이상 buffer 를
+    register/dispose 하는 native path 가 통과한다.
+  - 제외: TCP/UDP pump 에 fixed buffer SQE 연결, zero-copy send, default promotion, latency hard gate.
 
 ## Deferred Backlog
 
@@ -48,6 +49,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D175 원격 artifact gate 성공 이후 `io_uring` 다음 작업 후보를 재평가했다.
+  - 범위: `docs/superpowers/specs/2026-07-03-iouring-post-d175-next-scope-design.md`, D176 상태/결정 문서.
+  - 결정: D175는 correctness/reliability failure 없이 green 이지만, fixed/zero-copy pump 연결은 아직 소유권과 fallback 범위가 크다.
+  - 결정: 다음 단위는 이미 존재하는 `IoUringRegisteredBufferSet` owner 의 실제 Linux register/unregister evidence 를
+    `iouring-linux-contract.yml` artifact 로 고정하는 것이다.
+  - 제외: D175 raw report 추가 채택, TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
 
 - [x] D174 `io_uring` shutdown stale completion fix 이후 원격 `iouring-benchmark-artifacts.yml` artifact gate 를 재검토했다.
   - 범위: GitHub Actions run `28627435853`,

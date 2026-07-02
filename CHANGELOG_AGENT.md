@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-03 (Codex - D176 post-D175 후속 후보 재평가)
+
+### 작업 단위
+- D175 원격 artifact gate 성공 이후 `io_uring` 다음 작업 후보를 재평가했다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-07-03-iouring-post-d175-next-scope-design.md`:
+  reference 추가 채택, fixed/zero-copy pump 직행, fixed buffer registration native contract evidence 를 비교했다.
+- 결론은 fixed/zero-copy pump 연결이 아니라 `IoUringRegisteredBufferSet` Linux native register/unregister evidence 를
+  `iouring-linux-contract.yml` artifact 로 먼저 고정하는 것이다.
+- `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`,
+  `docs/agent-state/changelog/2026-07.md`, `docs/agent-state/decisions/2026-07.md`:
+  D176 결정과 다음 실행 지점을 기록했다.
+
+### 검증
+- spec self-review: placeholder/파일명/범위 모순을 점검했고 `TODOs.md` 표기를 `TODOS.md`로 정정했다.
+- `rg -n "TBD|TODO|나중|미정|\?\?" docs\superpowers\specs\2026-07-03-iouring-post-d175-next-scope-design.md` 확인.
+
+### 결과
+- 다음 구현 단위는 `IoUringRegisteredBufferSetTests`에 Linux/capability gated native register/unregister test 를 추가하는 것이다.
+- TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 는 계속 후속 결정 전까지 열지 않는다.
+
 ## 2026-07-03 (Codex - D175 D174 fix 원격 artifact gate)
 
 ### 작업 단위
