@@ -33,6 +33,10 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   코드/테스트 구현 변경은 계속 작은 기능 단위로 분리한다.
 - D110에 따라 RIO UDP parity 이후에도 `TransportFactory.CreateDefault()`는 계속 `SaeaTransport`를 반환한다.
   다음 구현 후보는 default backend 승격이 아니라 RIO/SAEA backend contract matrix 보강이다.
+- D168 기준 D167 두 date root reference 가 원격 `iouring-benchmark-artifacts.yml` artifact 에서도 정상 사용됐다.
+  TCP envelope 는 reference-summary-count 4, UDP envelope 는 reference-summary-count 7이며 둘 다 signal-count 0이다.
+  다음 실행 지점은 이 evidence 를 바탕으로 fixed registration, zero-copy send, latency gate, 추가 reference 확장 중
+  무엇이 지금 가장 타당한지 재평가하는 것이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
