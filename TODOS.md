@@ -9,13 +9,14 @@
 
 ## Current TODOs
 
-- [ ] D178 fixed buffer registration 원격 contract gate 이후 `io_uring` 다음 후보를 재평가한다.
-  - 입력: D178 원격 run `28631346969`, D176 설계, D177 fixed buffer registration evidence test.
-  - 할 일: fixed-buffer pump 연결, zero-copy send, benchmark/reference evidence, default promotion 후보 중
-    지금 열어도 되는 최소 단위를 설계로 좁힌다.
-  - 확인할 것: D178은 register/unregister owner evidence 일 뿐 TCP/UDP pump fixed-buffer 사용 증거가 아니므로
-    native syscall 계약과 소유권 경계를 먼저 분리한다.
-  - 제외: 설계 없이 TCP/UDP pump를 fixed-buffer로 바로 변경, zero-copy send 즉시 구현, default promotion, latency hard gate.
+- [ ] D179 fixed-buffer SQE submission contract evidence 를 구현한다.
+  - 입력: `docs/superpowers/specs/2026-07-03-iouring-post-d178-next-scope-design.md`,
+    D178 fixed buffer registration 원격 evidence, `IoUringQueue`, `IoUringNative`.
+  - 할 일: fixed-write opcode/helper shape 를 추가하고, Linux capability available 환경에서 registered buffer 를
+    fixed write SQE 로 실제 completion 시키는 focused contract test 를 작성한다.
+  - 확인할 것: Red assertion failure, focused `Hps.Transport.IoUring.Tests`, solution tests,
+    원격 `iouring-linux-contract.yml`에서 fixed write completion result 가 expected byte count 와 일치하는지.
+  - 제외: TCP/UDP pump fixed-buffer 연결, zero-copy send, notification CQE 처리, default promotion, latency hard gate.
 
 ## Deferred Backlog
 
@@ -49,6 +50,13 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D178 fixed buffer registration 원격 contract gate 이후 `io_uring` 다음 후보를 재평가했다.
+  - 범위: `docs/superpowers/specs/2026-07-03-iouring-post-d178-next-scope-design.md`, D179 상태/결정 문서.
+  - 결정: D178은 register/unregister owner evidence 이며, TCP/UDP pump fixed-buffer 사용 또는 zero-copy send evidence 가 아니다.
+  - 결정: 다음 단위는 production pump 변경이 아니라 fixed-buffer SQE submission contract evidence 다.
+  - 다음: `IORING_OP_WRITE_FIXED` 제출 helper/shape 와 Linux capability gated native completion test 를 구현한다.
+  - 제외: TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
 
 - [x] D177 fixed buffer registration evidence test 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토했다.
   - 범위: GitHub Actions run `28631346969`,

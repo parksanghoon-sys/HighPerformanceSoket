@@ -63,6 +63,9 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   TRX counters 는 total/executed/passed 58, failed 0이고,
   `Register_WhenLinuxCapabilityAvailable_RegistersAndUnregistersMultipleBuffers`는 capability `Available` 상태에서
   `registered fixed buffer count: 2` evidence 와 함께 통과했다.
+- D179 기준 D178 이후 다음 구현 단위는 TCP/UDP pump fixed-buffer 연결이나 zero-copy send 가 아니라
+  fixed-buffer SQE submission contract evidence 다.
+  설계는 `docs/superpowers/specs/2026-07-03-iouring-post-d178-next-scope-design.md`에 있다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
@@ -1929,9 +1932,9 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP protocol root history 는 session-count 4, hard-passed true, warning-count 24, comparison-compatible true 이고,
   UDP protocol root history 는 session-count 7, hard-passed true, warning-count 13, comparison-compatible true 다.
   최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
-- 다음 실행 지점: D178 evidence 기준으로 fixed buffer registration 이후의 후속 후보를 재평가한다.
-  TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 는
-  별도 설계 없이 바로 열지 않는다.
+- 다음 실행 지점: D179 설계 기준으로 fixed-buffer SQE submission contract evidence 를 구현한다.
+  우선 `IORING_OP_WRITE_FIXED` 제출 shape/helper 와 Linux capability gated native completion test 를 추가한다.
+  TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 는 계속 제외한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
