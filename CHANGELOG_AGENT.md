@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-03 (Codex - D178 fixed buffer registration 원격 contract gate)
+
+### 작업 단위
+- D177 fixed buffer registration evidence test 가 원격 Linux contract artifact 에서 실제로 실행·통과했는지 검토했다.
+
+### 변경 내용
+- GitHub Actions run `28631346969`를 `iouring-linux-contract.yml` `workflow_dispatch`로 실행했다.
+- artifact `iouring-linux-contract-2026-07-03-github-28631346969-1`를 다운로드해 root summary 와 TRX 결과를 확인했다.
+- `CURRENT_PLAN.md`, `TODOS.md`, `DECISIONS.md`,
+  `docs/agent-state/changelog/2026-07.md`, `docs/agent-state/decisions/2026-07.md`:
+  D178 원격 contract gate 결과와 다음 후속 후보 재평가 지점을 기록했다.
+
+### 검증
+- workflow conclusion: success.
+- root `summary.md`: test exit code 0.
+- TRX counters: total 58, executed 58, passed 58, failed 0, notExecuted 0.
+- `Register_WhenLinuxCapabilityAvailable_RegistersAndUnregistersMultipleBuffers`: outcome Passed.
+- test output: `io_uring capability status: Available`, `registered fixed buffer count: 2`.
+
+### 결과
+- `IoUringRegisteredBufferSet`의 Linux native register/unregister owner evidence 가 원격 contract gate 에서 확인됐다.
+- 이 증거는 fixed buffer 등록 owner 의 native 계약을 닫는 것이며, TCP/UDP pump fixed-buffer 연결이나 zero-copy/default promotion 근거로 바로 확장하지 않는다.
+- 다음 실행 지점은 D178 evidence 기준으로 `io_uring` 후속 후보를 재평가하는 것이다.
+
 ## 2026-07-03 (Codex - D177 fixed buffer registration evidence test)
 
 ### 작업 단위

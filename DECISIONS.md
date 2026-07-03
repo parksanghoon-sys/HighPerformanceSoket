@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D178 — D177 fixed buffer registration evidence 는 원격 Linux contract gate 에서 통과했지만 pump/zero-copy/default promotion 근거로 즉시 확장하지 않는다.
 - D177 — fixed buffer registration owner 는 RegisteredBufferCount evidence 와 Linux native register/unregister test 를 가진다.
 - D176 — D175 이후 다음 단위는 fixed/zero-copy pump 연결이 아니라 fixed buffer registration Linux contract evidence 다.
 - D175 — D174 shutdown stale completion fix 는 원격 artifact gate 에서 TCP baseline exit 134 재발 없이 수락됐다.

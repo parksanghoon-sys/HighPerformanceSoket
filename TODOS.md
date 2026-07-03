@@ -9,12 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D177 fixed buffer registration evidence test 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
-  - 입력: D177 구현 커밋, `IoUringRegisteredBufferSetTests`, `iouring-linux-contract.yml`.
-  - 할 일: 사용자 push 이후 workflow 를 수동 실행하고, TRX/summary 에서 fixed buffer register/unregister evidence test 가
-    Linux capability available 상태에서 실행·통과했는지 확인한다.
-  - 확인할 것: test exit code 0, 기존 TCP/UDP io_uring tests green, `registered fixed buffer count: 2` evidence.
-  - 제외: 원격 contract 검증 전 TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
+- [ ] D178 fixed buffer registration 원격 contract gate 이후 `io_uring` 다음 후보를 재평가한다.
+  - 입력: D178 원격 run `28631346969`, D176 설계, D177 fixed buffer registration evidence test.
+  - 할 일: fixed-buffer pump 연결, zero-copy send, benchmark/reference evidence, default promotion 후보 중
+    지금 열어도 되는 최소 단위를 설계로 좁힌다.
+  - 확인할 것: D178은 register/unregister owner evidence 일 뿐 TCP/UDP pump fixed-buffer 사용 증거가 아니므로
+    native syscall 계약과 소유권 경계를 먼저 분리한다.
+  - 제외: 설계 없이 TCP/UDP pump를 fixed-buffer로 바로 변경, zero-copy send 즉시 구현, default promotion, latency hard gate.
 
 ## Deferred Backlog
 
@@ -48,6 +49,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D177 fixed buffer registration evidence test 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토했다.
+  - 범위: GitHub Actions run `28631346969`,
+    artifact `iouring-linux-contract-2026-07-03-github-28631346969-1`, D178 상태/결정 문서.
+  - 결과: workflow success, root `summary.md` 기준 test exit code 0.
+  - evidence: TRX counters 는 total 58, executed 58, passed 58, failed 0, notExecuted 0이다.
+  - evidence: `Register_WhenLinuxCapabilityAvailable_RegistersAndUnregistersMultipleBuffers`는 outcome Passed,
+    `io_uring capability status: Available`, `registered fixed buffer count: 2`를 출력했다.
+  - 의미: `IoUringRegisteredBufferSet`의 Linux native register/unregister owner evidence 는 원격 contract gate 에서 확인됐다.
+    다만 이는 TCP/UDP pump fixed-buffer 사용, zero-copy send, default promotion, latency hard gate 의 직접 근거는 아니다.
 
 - [x] D175 원격 artifact gate 성공 이후 `io_uring` 다음 작업 후보를 재평가했다.
   - 범위: `docs/superpowers/specs/2026-07-03-iouring-post-d175-next-scope-design.md`, D176 상태/결정 문서.
