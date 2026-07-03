@@ -11,6 +11,7 @@
 
 - [ ] D179 fixed-buffer SQE submission contract evidence 를 구현한다.
   - 입력: `docs/superpowers/specs/2026-07-03-iouring-post-d178-next-scope-design.md`,
+    `docs/superpowers/plans/2026-07-03-iouring-fixed-buffer-submission-evidence.md`,
     D178 fixed buffer registration 원격 evidence, `IoUringQueue`, `IoUringNative`.
   - 할 일: fixed-write opcode/helper shape 를 추가하고, Linux capability available 환경에서 registered buffer 를
     fixed write SQE 로 실제 completion 시키는 focused contract test 를 작성한다.
@@ -50,6 +51,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D179 fixed-buffer SQE submission contract evidence 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-07-03-iouring-fixed-buffer-submission-evidence.md`, D180 상태 문서.
+  - 결과: Task 1은 `IORING_OP_WRITE_FIXED` opcode shape 를 assertion Red-Green 으로 고정한다.
+  - 결과: Task 2는 `TrySubmitWriteFixed` helper 부재 Red, helper 구현, Linux pipe 기반 native completion evidence 로 진행한다.
+  - 다음: Task 1부터 실행한다.
 
 - [x] D178 fixed buffer registration 원격 contract gate 이후 `io_uring` 다음 후보를 재평가했다.
   - 범위: `docs/superpowers/specs/2026-07-03-iouring-post-d178-next-scope-design.md`, D179 상태/결정 문서.

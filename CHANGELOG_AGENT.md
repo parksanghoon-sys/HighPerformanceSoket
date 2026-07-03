@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-03 (Codex - D180 fixed-buffer SQE submission 구현 계획)
+
+### 작업 단위
+- D179 설계를 구현 가능한 TDD 커밋 단위로 나눴다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-07-03-iouring-fixed-buffer-submission-evidence.md`:
+  fixed-write opcode shape 와 fixed-write helper/native completion evidence 의 2개 task 로 분리했다.
+- Task 1은 `OperationWriteFixed` opcode shape 를 assertion failure Red 로 고정한다.
+- Task 2는 `TrySubmitWriteFixed` helper 부재를 reflection assertion failure 로 먼저 고정한 뒤,
+  Linux pipe 기반 native completion evidence test 를 추가한다.
+- `CURRENT_PLAN.md`, `TODOS.md`, `docs/agent-state/changelog/2026-07.md`:
+  D180 계획과 다음 실행 지점을 기록했다.
+
+### 검증
+- 계획 self-review: spec coverage, placeholder scan, type consistency 를 확인했다.
+- AGENTS Red 규칙에 맞게 Task 2의 helper 부재 Red 를 컴파일 실패가 아니라 reflection assertion failure 로 보정했다.
+
+### 결과
+- 다음 실행 지점은 D180 계획 Task 1 실행이다.
+- TCP/UDP pump fixed-buffer 연결과 zero-copy send 는 계속 범위 밖이다.
+
 ## 2026-07-03 (Codex - D179 post-D178 후속 후보 재평가)
 
 ### 작업 단위
