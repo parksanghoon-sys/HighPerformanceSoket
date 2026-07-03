@@ -69,6 +69,9 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
 - D180 기준 D179 구현 계획을 작성했다.
   계획은 `docs/superpowers/plans/2026-07-03-iouring-fixed-buffer-submission-evidence.md`에 있고,
   fixed-write opcode shape 와 fixed-write helper/native completion evidence 의 2개 커밋 단위로 나뉜다.
+- D181 기준 fixed-buffer SQE submission contract evidence local 구현을 완료했다.
+  `OperationWriteFixed`, `TrySubmitWriteFixed`, helper shape test, Linux capability gated pipe 기반 native completion test 를 추가했다.
+  local/Windows 에서는 capability guard 로 early-return 하고, 실제 Linux native completion 은 다음 원격 contract gate 에서 확인한다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
@@ -1935,7 +1938,9 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP protocol root history 는 session-count 4, hard-passed true, warning-count 24, comparison-compatible true 이고,
   UDP protocol root history 는 session-count 7, hard-passed true, warning-count 13, comparison-compatible true 다.
   최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
-- 다음 실행 지점: D180 계획 Task 1을 실행해 `IORING_OP_WRITE_FIXED` opcode shape 를 Red-Green 으로 고정한다.
+- 다음 실행 지점: 사용자 push 이후 원격 `iouring-linux-contract.yml`을 실행해
+  `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToPipe`가 capability available 상태에서
+  fixed write completion result 2와 pipe payload `[20, 30]`을 확인하는지 검토한다.
   TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 는 계속 제외한다.
 
 ## 이번 작업에서 건드리지 않는 범위

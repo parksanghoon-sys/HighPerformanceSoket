@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D181 — fixed-write SQE helper 는 evidence-only boundary 로 추가하고 TCP/UDP pump 연결은 원격 contract gate 이후로 둔다.
 - D179 — D178 이후 다음 단위는 pump 변경이 아니라 fixed-buffer SQE submission contract evidence 다.
 - D178 — D177 fixed buffer registration evidence 는 원격 Linux contract gate 에서 통과했지만 pump/zero-copy/default promotion 근거로 즉시 확장하지 않는다.
 - D177 — fixed buffer registration owner 는 RegisteredBufferCount evidence 와 Linux native register/unregister test 를 가진다.

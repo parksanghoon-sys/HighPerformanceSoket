@@ -198,6 +198,52 @@ namespace Hps.Transport
             return true;
         }
 
+        internal unsafe bool TrySubmitWriteFixed(
+            int fileDescriptor,
+            byte[] buffer,
+            int offset,
+            int length,
+            int bufferIndex,
+            ulong token)
+        {
+            if (fileDescriptor < 0)
+                throw new ArgumentOutOfRangeException(nameof(fileDescriptor), "write file descriptor가 유효하지 않습니다.");
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+            if (offset < 0 || offset > buffer.Length)
+                throw new ArgumentOutOfRangeException(nameof(offset), "write offset은 buffer 범위 안에 있어야 합니다.");
+            if (length <= 0 || length > buffer.Length - offset)
+                throw new ArgumentOutOfRangeException(nameof(length), "write length는 buffer 범위 안의 양수여야 합니다.");
+            if (bufferIndex < 0 || bufferIndex > ushort.MaxValue)
+                throw new ArgumentOutOfRangeException(nameof(bufferIndex), "fixed buffer index는 ushort 범위 안에 있어야 합니다.");
+            if (token == 0)
+                throw new ArgumentOutOfRangeException(nameof(token), "io_uring user_data token은 0을 사용할 수 없습니다.");
+
+            ThrowIfDisposed();
+
+            fixed (byte* bufferPointer = buffer)
+            {
+                lock (_submissionGate)
+                {
+                    IoUringSubmissionQueueEntry* submission = TryAcquireSubmissionEntry();
+                    if (submission == null)
+                        return false;
+
+                    *submission = default(IoUringSubmissionQueueEntry);
+                    submission->Opcode = IoUringNative.OperationWriteFixed;
+                    submission->FileDescriptor = fileDescriptor;
+                    submission->Address = (ulong)(bufferPointer + offset);
+                    submission->Length = (uint)length;
+                    submission->BufferIndex = (ushort)bufferIndex;
+                    submission->UserData = token;
+                    PublishSubmissionEntry(submission);
+                }
+            }
+
+            IoUringNative.Enter(FileDescriptor, 1, 0, 0);
+            return true;
+        }
+
         internal bool TrySubmitReceiveMessage(int fileDescriptor, IntPtr messageHeader, ulong token)
         {
             return TrySubmitMessage(fileDescriptor, messageHeader, token, IoUringNative.OperationReceiveMessage);

@@ -9,15 +9,12 @@
 
 ## Current TODOs
 
-- [ ] D179 fixed-buffer SQE submission contract evidence 를 구현한다.
-  - 입력: `docs/superpowers/specs/2026-07-03-iouring-post-d178-next-scope-design.md`,
-    `docs/superpowers/plans/2026-07-03-iouring-fixed-buffer-submission-evidence.md`,
-    D178 fixed buffer registration 원격 evidence, `IoUringQueue`, `IoUringNative`.
-  - 할 일: fixed-write opcode/helper shape 를 추가하고, Linux capability available 환경에서 registered buffer 를
-    fixed write SQE 로 실제 completion 시키는 focused contract test 를 작성한다.
-  - 확인할 것: Red assertion failure, focused `Hps.Transport.IoUring.Tests`, solution tests,
-    원격 `iouring-linux-contract.yml`에서 fixed write completion result 가 expected byte count 와 일치하는지.
-  - 제외: TCP/UDP pump fixed-buffer 연결, zero-copy send, notification CQE 처리, default promotion, latency hard gate.
+- [ ] D181 fixed-buffer SQE submission evidence 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
+  - 입력: D181 구현 커밋, `IoUringFixedBufferSubmissionTests`, `iouring-linux-contract.yml`.
+  - 할 일: 사용자 push 이후 workflow 를 수동 실행하고, TRX/summary 에서
+    `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToPipe`가 Linux capability available 상태에서 실행·통과했는지 확인한다.
+  - 확인할 것: test exit code 0, 기존 TCP/UDP io_uring tests green, `fixed write completion result: 2` evidence.
+  - 제외: 원격 contract 검증 전 TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
 
 ## Deferred Backlog
 
@@ -51,6 +48,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D179 fixed-buffer SQE submission contract evidence 를 구현했다.
+  - 범위: `IoUringNative`, `IoUringQueue`, `IoUringSubmissionShapeTests`, `IoUringFixedBufferSubmissionTests`, D181 상태 문서.
+  - 결과: `OperationWriteFixed` opcode shape 와 `TrySubmitWriteFixed` helper shape 를 Red-Green 으로 고정했다.
+  - 결과: Linux capability available 환경에서 registered buffer slice 를 pipe write fd 로 `WRITE_FIXED` 제출하고,
+    completion result 2와 pipe payload `[20, 30]`을 검증하는 native evidence test 를 추가했다.
+  - 검증: Red assertion failure 2개 확인, focused tests 통과, `Hps.Transport.IoUring.Tests` 61개 통과,
+    `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과.
+  - 다음: 사용자 push 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
 
 - [x] D179 fixed-buffer SQE submission contract evidence 구현 계획을 작성했다.
   - 범위: `docs/superpowers/plans/2026-07-03-iouring-fixed-buffer-submission-evidence.md`, D180 상태 문서.

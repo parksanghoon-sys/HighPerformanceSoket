@@ -39,5 +39,16 @@ namespace Hps.Transport.IoUring.Tests
             Assert.NotNull(sqeType!.GetField("BufferIndex", BindingFlags.Instance | BindingFlags.NonPublic));
             Assert.NotNull(nativeType!.GetField("OperationWriteFixed", BindingFlags.Static | BindingFlags.NonPublic));
         }
+
+        // fixed-write opcode 만 있어서는 production queue 가 registered buffer index 를 SQE에 실을 수 없다.
+        // helper 부재를 reflection assertion failure 로 먼저 고정해 컴파일 실패가 아닌 Red 를 만든다.
+        [Fact]
+        public void Queue_WhenInspected_ExposesFixedWriteSubmissionHelper()
+        {
+            Type? queueType = Type.GetType("Hps.Transport.IoUringQueue, Hps.Transport.IoUring");
+
+            Assert.NotNull(queueType);
+            Assert.NotNull(queueType!.GetMethod("TrySubmitWriteFixed", BindingFlags.Instance | BindingFlags.NonPublic));
+        }
     }
 }
