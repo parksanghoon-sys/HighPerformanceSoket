@@ -25,5 +25,19 @@ namespace Hps.Transport.IoUring.Tests
             Assert.NotNull(nativeType.GetField("OperationSend", BindingFlags.Static | BindingFlags.NonPublic));
             Assert.NotNull(nativeType.GetMethod("Enter", BindingFlags.Static | BindingFlags.NonPublic));
         }
+
+        // fixed-buffer I/O는 SQE의 opcode, address, length, buffer index 가 함께 맞아야 한다.
+        // production pump 를 바꾸기 전에 raw SQE shape 와 fixed-write opcode 존재를 assertion failure 로 먼저 고정한다.
+        [Fact]
+        public void NativeSubmissionTypes_WhenInspected_ExposeFixedWriteShape()
+        {
+            Type? sqeType = Type.GetType("Hps.Transport.IoUringSubmissionQueueEntry, Hps.Transport.IoUring");
+            Type? nativeType = Type.GetType("Hps.Transport.IoUringNative, Hps.Transport.IoUring");
+
+            Assert.NotNull(sqeType);
+            Assert.NotNull(nativeType);
+            Assert.NotNull(sqeType!.GetField("BufferIndex", BindingFlags.Instance | BindingFlags.NonPublic));
+            Assert.NotNull(nativeType!.GetField("OperationWriteFixed", BindingFlags.Static | BindingFlags.NonPublic));
+        }
     }
 }

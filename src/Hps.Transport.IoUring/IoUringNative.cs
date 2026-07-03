@@ -16,6 +16,7 @@ namespace Hps.Transport
         internal const ulong SqesOffset = 0x10000000UL;
         internal const int CompletionQueueEntrySize = 16;
         internal const int SubmissionQueueEntrySize = 64;
+        internal const byte OperationWriteFixed = 5;
         internal const byte OperationSendMessage = 9;
         internal const byte OperationReceiveMessage = 10;
         internal const byte OperationSend = 26;
