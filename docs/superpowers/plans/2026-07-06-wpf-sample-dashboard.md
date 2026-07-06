@@ -681,7 +681,7 @@ git commit -m "feat(sample): add tcp smoke service"
 - Create: `tests/Hps.Sample.Dashboard.Tests/UdpSmokeTestServiceTests.cs`
 - Modify: `samples/Hps.Sample.Dashboard/ViewModels/DashboardViewModel.cs`
 
-- [ ] **Step 1: Write failing UDP smoke test**
+- [x] **Step 1: Write failing UDP smoke test**
 
 Create `tests/Hps.Sample.Dashboard.Tests/UdpSmokeTestServiceTests.cs`.
 
@@ -714,7 +714,7 @@ namespace Hps.Sample.Dashboard.Tests
 }
 ```
 
-- [ ] **Step 2: Run Red**
+- [x] **Step 2: Run Red**
 
 Run:
 
@@ -724,7 +724,7 @@ dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj -
 
 Expected: FAIL due to missing `UdpSmokeTestService`.
 
-- [ ] **Step 3: Implement UDP smoke**
+- [x] **Step 3: Implement UDP smoke**
 
 Use the same flow as `BrokerServerTests.UdpCommandLoopback_WhenSubscriberAndPublisherUseDatagramCommands_FansOutPayload`:
 
@@ -748,7 +748,7 @@ private static Task<byte[]> ReceiveDatagramPayloadAsync(Socket socket, int maxLe
 private static Task WaitForSubscriberCountAsync(BrokerServer server, string topic, int expected)
 ```
 
-- [ ] **Step 4: Run Green**
+- [x] **Step 4: Run Green**
 
 Run:
 
@@ -758,7 +758,7 @@ dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj -
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add samples\Hps.Sample.Dashboard\Services\UdpSmokeTestService.cs samples\Hps.Sample.Dashboard\ViewModels\DashboardViewModel.cs tests\Hps.Sample.Dashboard.Tests\UdpSmokeTestServiceTests.cs

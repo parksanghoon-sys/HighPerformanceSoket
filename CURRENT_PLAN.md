@@ -92,6 +92,9 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
 - D188 기준 WPF sample dashboard Task 4 TCP smoke service 를 완료했다.
   `TcpSmokeTestService`가 실제 SAEA TCP listener/receive/send pump 와 Broker fan-out 으로 sent=1/received=1/drop=0/leak=0을 검증한다.
   다음 실행 지점은 Task 5 UDP smoke service 다.
+- D189 기준 WPF sample dashboard Task 5 UDP smoke service 를 완료했다.
+  `UdpSmokeTestService`가 실제 SAEA UDP endpoint receive/send pump 와 Broker datagram handler fan-out 으로 sent=1/received=1/drop=0/leak=0을 검증한다.
+  다음 실행 지점은 Task 6 WPF UI binding, run instructions, full verification 이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
