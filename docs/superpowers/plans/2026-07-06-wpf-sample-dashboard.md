@@ -776,7 +776,7 @@ git commit -m "feat(sample): add udp smoke service"
 - Modify: `TODOS.md`
 - Modify: `CHANGELOG_AGENT.md`
 
-- [ ] **Step 1: Write failing ViewModel orchestration test**
+- [x] **Step 1: Write failing ViewModel orchestration test**
 
 Append to `DashboardViewModelTests.cs`.
 
@@ -796,7 +796,7 @@ public async Task RunTcpSmokeCommand_WhenExecuted_AddsResultToLog()
 }
 ```
 
-- [ ] **Step 2: Run Red**
+- [x] **Step 2: Run Red**
 
 Run:
 
@@ -806,7 +806,7 @@ dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj -
 
 Expected: FAIL due to missing `CreateForTests` or command service wiring.
 
-- [ ] **Step 3: Wire ViewModel and UI**
+- [x] **Step 3: Wire ViewModel and UI**
 
 Update `DashboardViewModel` so the default constructor creates:
 
@@ -859,7 +859,7 @@ dotnet run --project samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj
 Linux native path 는 원격 `iouring-linux-contract.yml` artifact gate 로 확인한다.
 ```
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -882,7 +882,7 @@ Expected:
 - solution tests pass
 - WPF app opens locally and buttons can run TCP/UDP smoke
 
-- [ ] **Step 5: Update state docs and commit**
+- [x] **Step 5: Update state docs and commit**
 
 Update:
 

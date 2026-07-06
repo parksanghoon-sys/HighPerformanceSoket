@@ -36,7 +36,7 @@ namespace Hps.Sample.Dashboard.Commands
             if (!CanExecute(parameter))
                 return;
 
-            await ExecuteAsync().ConfigureAwait(false);
+            await ExecuteAsync();
         }
 
         public async Task ExecuteAsync()
@@ -49,7 +49,7 @@ namespace Hps.Sample.Dashboard.Commands
 
             try
             {
-                await _executeAsync().ConfigureAwait(false);
+                await _executeAsync();
             }
             finally
             {

@@ -82,6 +82,40 @@ namespace Hps.Sample.Dashboard.Tests
             Assert.True(((ICommand)command).CanExecute(null));
         }
 
+        [Fact]
+        public async Task RunTcpSmokeCommand_WhenExecuted_AddsResultToLog()
+        {
+            // UI button은 service 결과를 log와 summary에 반영해야 사용자가 성공/실패를 즉시 판단할 수 있다.
+            Type viewModelType = RequireType("Hps.Sample.Dashboard.ViewModels.DashboardViewModel");
+            Type resultType = RequireType("Hps.Sample.Dashboard.Models.SmokeRunResult");
+            MethodInfo? createForTests = viewModelType.GetMethod("CreateForTests", BindingFlags.Public | BindingFlags.Static);
+            Assert.NotNull(createForTests);
+
+            Func<Task<object>> tcpSmoke = delegate
+            {
+                object result = Activator.CreateInstance(resultType, new object[] { "TCP", true, 1, 1, 0L, 0, 0, "ok" })!;
+                return Task.FromResult(result);
+            };
+            Func<Task<object>> udpSmoke = delegate
+            {
+                object result = Activator.CreateInstance(resultType, new object[] { "UDP", true, 0, 0, 0L, 0, 0, "not-run" })!;
+                return Task.FromResult(result);
+            };
+
+            object viewModel = createForTests!.Invoke(null, new object[] { tcpSmoke, udpSmoke })!;
+            object command = ReadProperty(viewModel, "RunTcpSmokeCommand")!;
+            MethodInfo executeAsync = command.GetType().GetMethod("ExecuteAsync", Type.EmptyTypes)!;
+
+            Task task = (Task)executeAsync.Invoke(command, Array.Empty<object>())!;
+            await task;
+
+            IEnumerable entries = (IEnumerable)ReadProperty(viewModel, "LogEntries")!;
+            Assert.Equal(
+                "TCP: sent=1, received=1, dropped=0, payload-errors=0, pool-rented=0",
+                ReadProperty(viewModel, "LastSmokeSummary"));
+            Assert.Contains(entries.Cast<string>(), entry => entry.Contains("TCP smoke 성공"));
+        }
+
         private static Type RequireType(string fullName)
         {
             Type? type = Type.GetType(fullName + ", Hps.Sample.Dashboard");

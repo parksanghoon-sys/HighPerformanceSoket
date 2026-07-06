@@ -5,6 +5,37 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-06 (Codex - D190 WPF sample dashboard Task 6)
+
+### 작업 단위
+- D184 계획 Task 6 WPF UI binding, run instructions, full verification 을 구현했다.
+
+### 변경 내용
+- `DashboardViewModel`:
+  기본 생성자에서 `DashboardBrokerService`, `DiagnosticsSnapshotService`, `TcpSmokeTestService`,
+  `UdpSmokeTestService`, `IoUringEvidenceStatusService`를 연결하고 TCP/UDP smoke 결과를 log/summary 에 반영한다.
+- `MainWindow.xaml`, `MainWindow.xaml.cs`:
+  WPF DataContext, Start/Stop/TCP smoke/UDP smoke 버튼, server/TCP/UDP/io_uring status,
+  diagnostics grid, run log 를 바인딩했다.
+- `IoUringEvidenceStatusService`, `README.md`:
+  Windows WPF 앱에서는 Linux native `io_uring` path 를 직접 실행하지 않고 원격 contract gate 로 확인한다는 상태와
+  사용자가 직접 실행할 명령을 기록했다.
+- `DashboardViewModelTests`:
+  UI command 가 service 결과를 log/summary 에 반영하는 orchestration test 를 추가했다.
+
+### 검증
+- Red: `RunTcpSmokeCommand_WhenExecuted_AddsResultToLog`가 `CreateForTests` 부재로 `Assert.NotNull()` 실패함을 확인했다.
+- Green: `dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj -v minimal` 통과, 11개 통과.
+- Green: `dotnet build samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj -v minimal` 경고 0/오류 0.
+- Full: `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0.
+- Full: `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과.
+- Whitespace: `git diff --check` 통과.
+
+### 결과
+- 사용자가 `dotnet run --project samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj`로 WPF dashboard 를 실행해
+  Interface Server TCP/UDP smoke 와 diagnostics 표시를 직접 확인할 수 있게 됐다.
+- GUI 앱은 장시간 실행되는 대화형 프로세스라 자동 실행하지 않았고, 다음 지점은 사용자 수동 UI 검토다.
+
 ## 2026-07-06 (Codex - D189 WPF sample dashboard Task 5)
 
 ### 작업 단위

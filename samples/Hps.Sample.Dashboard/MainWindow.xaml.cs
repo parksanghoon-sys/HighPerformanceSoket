@@ -1,4 +1,5 @@
 using System.Windows;
+using Hps.Sample.Dashboard.ViewModels;
 
 namespace Hps.Sample.Dashboard
 {
@@ -7,6 +8,7 @@ namespace Hps.Sample.Dashboard
         public MainWindow()
         {
             InitializeComponent();
+            DataContext = new DashboardViewModel();
         }
     }
 }

@@ -95,6 +95,12 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
 - D189 기준 WPF sample dashboard Task 5 UDP smoke service 를 완료했다.
   `UdpSmokeTestService`가 실제 SAEA UDP endpoint receive/send pump 와 Broker datagram handler fan-out 으로 sent=1/received=1/drop=0/leak=0을 검증한다.
   다음 실행 지점은 Task 6 WPF UI binding, run instructions, full verification 이다.
+- D190 기준 WPF sample dashboard Task 6 UI binding, run instructions, full verification 을 완료했다.
+  `MainWindow`는 `DashboardViewModel`을 DataContext 로 연결하고 Start/Stop/TCP smoke/UDP smoke command,
+  transport diagnostics grid, bounded run log, `io_uring` evidence status 를 표시한다.
+  `samples/Hps.Sample.Dashboard/README.md`에 실행 명령과 확인 항목을 기록했다.
+  검증은 dashboard tests 11개, solution build 경고 0/오류 0, solution tests 전체 통과로 완료했다.
+  다음 실행 지점은 사용자가 WPF sample dashboard 를 직접 실행해 UI와 버튼 동작을 검토하는 것이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

@@ -9,11 +9,12 @@
 
 ## Current TODOs
 
-- [ ] D189 WPF/MVVM sample dashboard Task 6 UI binding, run instructions, full verification 을 구현한다.
-  - 입력: `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`.
-  - 할 일: ViewModel service orchestration, XAML binding, README run instructions 를 추가하고 dashboard tests/build/solution tests 를 검증한다.
-  - 확인할 것: TCP/UDP smoke command 결과가 log/summary 에 반영, WPF app build, solution build/test.
-  - 제외: WinUI 3, WPF UI automation, WPF 앱 내부 Linux `io_uring` native 실행.
+- [ ] D190 WPF/MVVM sample dashboard 를 사용자가 직접 실행해 UI/버튼 동작을 검토한다.
+  - 입력: `samples/Hps.Sample.Dashboard/README.md`.
+  - 할 일: `dotnet run --project samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj`로 WPF 앱을 열고
+    Start server, TCP smoke, UDP smoke, diagnostics/log 표시를 확인한다.
+  - 확인할 것: TCP/UDP smoke command 결과가 log/summary 에 보이고, 버튼 enable/disable 과 diagnostics row 가 사용자 관점에서 충분한지 검토한다.
+  - 제외: Linux `io_uring` native path 직접 실행, WPF UI automation, fixed-buffer pump/zero-copy 구현.
 
 ## Deferred Backlog
 
@@ -59,6 +60,22 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D189 WPF/MVVM sample dashboard Task 6 UI binding, run instructions, full verification 을 구현했다.
+  - 범위: `samples/Hps.Sample.Dashboard/MainWindow.xaml`,
+    `samples/Hps.Sample.Dashboard/MainWindow.xaml.cs`,
+    `samples/Hps.Sample.Dashboard/ViewModels/DashboardViewModel.cs`,
+    `samples/Hps.Sample.Dashboard/Services/IoUringEvidenceStatusService.cs`,
+    `samples/Hps.Sample.Dashboard/README.md`,
+    `tests/Hps.Sample.Dashboard.Tests/DashboardViewModelTests.cs`,
+    `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`, D190 상태 문서.
+  - Red: `RunTcpSmokeCommand_WhenExecuted_AddsResultToLog`가 `CreateForTests` 부재 assertion failure 로 실패함을 확인했다.
+  - Green: default ViewModel service orchestration, WPF DataContext/XAML binding, TCP/UDP smoke command result logging,
+    diagnostics grid, `io_uring` evidence status, README 실행 안내를 추가했다.
+  - 검증: dashboard tests 11개 통과, `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과.
+  - 비고: GUI 앱은 장시간 실행되는 대화형 프로세스라 자동 실행하지 않았고, README의 수동 실행 명령으로 사용자 검토 게이트를 남겼다.
+  - 다음: 사용자가 WPF sample dashboard 를 직접 실행해 UI와 smoke 버튼 동작을 검토한다.
 
 - [x] D183 WPF/MVVM sample dashboard 구현 계획을 작성했다.
   - 범위: `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`, D184 상태 문서.
