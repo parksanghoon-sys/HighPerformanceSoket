@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] D186 WPF/MVVM sample dashboard Task 3 Broker lifecycle 와 diagnostics service 를 구현한다.
+- [ ] D187 WPF/MVVM sample dashboard Task 4 TCP smoke service 를 구현한다.
   - 입력: `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`.
-  - 할 일: diagnostics row 변환 Red test 를 추가하고 `DashboardBrokerService`/`DiagnosticsSnapshotService`를 Green 으로 만든다.
-  - 확인할 것: `ITransportDiagnostics` aggregate snapshot 을 TCP/UDP row 로 변환, `DashboardBrokerService`가 같은 transport 참조를 diagnostics source 로 보존.
-  - 제외: TCP/UDP smoke socket 실행, 최종 XAML dashboard.
+  - 할 일: 실제 SAEA TCP listener/receive/send pump 와 Broker fan-out 을 묶는 TCP smoke service 를 Red-Green 으로 추가한다.
+  - 확인할 것: sent=1, received=1, dropped=0, payload-errors=0, pool-rented=0.
+  - 제외: UDP smoke socket 실행, 최종 XAML dashboard.
 
 ## Deferred Backlog
 
@@ -88,6 +88,18 @@
   - 검증: `dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj --filter DashboardViewModelTests -v minimal` 통과,
     `dotnet build samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj -v minimal` 경고 0/오류 0.
   - 다음: Task 3 Broker lifecycle 와 diagnostics service 를 구현한다.
+
+- [x] D186 WPF/MVVM sample dashboard Task 3 Broker lifecycle 와 diagnostics service 를 구현했다.
+  - 범위: `samples/Hps.Sample.Dashboard/Services/DashboardBrokerService.cs`,
+    `samples/Hps.Sample.Dashboard/Services/DiagnosticsSnapshotService.cs`,
+    `tests/Hps.Sample.Dashboard.Tests/DiagnosticsSnapshotServiceTests.cs`,
+    `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`, D187 상태 문서.
+  - Red: diagnostics service 와 broker service type 부재 assertion failure 를 확인했다.
+  - Green: aggregate TCP/UDP diagnostics snapshot 을 UI row 로 변환하고,
+    SAEA transport 기반 broker lifecycle service 가 같은 transport 참조를 diagnostics source 로 보존하게 했다.
+  - 검증: `dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj --filter DiagnosticsSnapshotServiceTests -v minimal` 통과,
+    `dotnet build samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj -v minimal` 경고 0/오류 0.
+  - 다음: Task 4 TCP smoke service 를 구현한다.
 
 - [x] D181 fixed-buffer SQE submission 흐름의 전체 사용 예제를 문서화했다.
   - 범위: `docs/examples/iouring-fixed-buffer-submission-example.md`, D182 상태 문서.

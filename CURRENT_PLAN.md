@@ -86,6 +86,9 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
 - D186 기준 WPF sample dashboard Task 2 MVVM core 를 완료했다.
   `RelayCommand`, `AsyncRelayCommand`, `DashboardStatus`, `SmokeRunResult`, `TransportMetricRow`, `DashboardViewModel`을 추가했다.
   다음 실행 지점은 Task 3 Broker lifecycle 와 diagnostics service 다.
+- D187 기준 WPF sample dashboard Task 3 Broker lifecycle 와 diagnostics service 를 완료했다.
+  `DashboardBrokerService`가 SAEA transport 기반 TCP/UDP broker lifecycle 과 diagnostics source 를 소유하고,
+  `DiagnosticsSnapshotService`가 aggregate TCP/UDP snapshot 을 UI row 로 변환한다. 다음 실행 지점은 Task 4 TCP smoke service 다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

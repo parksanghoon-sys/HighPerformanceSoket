@@ -464,7 +464,7 @@ git commit -m "feat(sample): add dashboard mvvm core"
 - Create: `tests/Hps.Sample.Dashboard.Tests/DiagnosticsSnapshotServiceTests.cs`
 - Modify: `samples/Hps.Sample.Dashboard/ViewModels/DashboardViewModel.cs`
 
-- [ ] **Step 1: Write failing service tests**
+- [x] **Step 1: Write failing service tests**
 
 Create `tests/Hps.Sample.Dashboard.Tests/DiagnosticsSnapshotServiceTests.cs`.
 
@@ -525,7 +525,7 @@ namespace Hps.Sample.Dashboard.Tests
 }
 ```
 
-- [ ] **Step 2: Run Red**
+- [x] **Step 2: Run Red**
 
 Run:
 
@@ -535,7 +535,7 @@ dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj -
 
 Expected: FAIL due to missing `DiagnosticsSnapshotService`.
 
-- [ ] **Step 3: Implement services**
+- [x] **Step 3: Implement services**
 
 Implement `DiagnosticsSnapshotService.CreateRows(object? transport)` so it checks `transport as ITransportDiagnostics`.
 
@@ -565,7 +565,7 @@ await server.StartUdpAsync(new IPEndPoint(IPAddress.Loopback, 0), cancellationTo
 
 The service keeps the same `transport` reference for diagnostics.
 
-- [ ] **Step 4: Run Green**
+- [x] **Step 4: Run Green**
 
 Run:
 
@@ -576,7 +576,7 @@ dotnet build samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj -v minimal
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add samples\Hps.Sample.Dashboard\Services samples\Hps.Sample.Dashboard\ViewModels\DashboardViewModel.cs tests\Hps.Sample.Dashboard.Tests\DiagnosticsSnapshotServiceTests.cs
