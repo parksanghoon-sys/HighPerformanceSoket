@@ -9,11 +9,12 @@
 
 ## Current TODOs
 
-- [ ] D183 WPF/MVVM sample dashboard 구현 계획을 작성한다.
-  - 입력: `docs/superpowers/specs/2026-07-06-wpf-sample-dashboard-design.md`.
-  - 할 일: WPF project skeleton, MVVM 기본 구조, TCP smoke, UDP smoke, diagnostics 표시를 TDD 가능한 작업 단위로 나눈다.
-  - 확인할 것: public API 재사용 경로, production API 확장 필요 여부, build/test/run 검증 경로.
-  - 제외: WinUI 3, WPF 앱에서 Linux `io_uring` native path 직접 실행, TCP/UDP pump fixed-buffer 연결, zero-copy send.
+- [ ] D184 WPF/MVVM sample dashboard Task 1 project contract 를 구현한다.
+  - 입력: `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`.
+  - 할 일: `Hps.Sample.Dashboard.Tests` project contract test 를 먼저 추가하고,
+    `samples/Hps.Sample.Dashboard` WPF shell 과 `HighPerformanceSocket.slnx` inclusion 을 Green 으로 만든다.
+  - 확인할 것: `net9.0-windows`, `UseWPF=true`, `OutputType=WinExe`, sample/test project solution inclusion.
+  - 제외: MVVM command/service 구현, TCP/UDP smoke 실행, XAML dashboard 완성.
 
 ## Deferred Backlog
 
@@ -59,6 +60,12 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D183 WPF/MVVM sample dashboard 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`, D184 상태 문서.
+  - 결과: project contract, MVVM core, broker diagnostics, TCP smoke, UDP smoke, UI wiring/run docs 의 6개 task 로 분리했다.
+  - 결과: 첫 task 는 WPF `net9.0-windows`/`UseWPF`/`WinExe` 계약을 test-first 로 고정한다.
+  - 다음: Task 1 project contract 와 solution inclusion 을 구현한다.
 
 - [x] D181 fixed-buffer SQE submission 흐름의 전체 사용 예제를 문서화했다.
   - 범위: `docs/examples/iouring-fixed-buffer-submission-example.md`, D182 상태 문서.

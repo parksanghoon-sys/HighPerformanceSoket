@@ -5,6 +5,25 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-06 (Codex - D184 WPF sample dashboard 구현 계획)
+
+### 작업 단위
+- D183 WPF sample dashboard 설계를 TDD 구현 계획으로 쪼갰다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`:
+  project contract, MVVM core, broker diagnostics, TCP smoke, UDP smoke, UI wiring/run docs 의 6개 task 로 분리했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 Task 1 WPF project contract 와 solution inclusion 구현으로 갱신했다.
+
+### 검증
+- 기존 `HighPerformanceSocket.slnx`, sample/test project 구조, `BrokerServer` TCP/UDP public surface,
+  benchmark/server loopback helper 흐름과 대조했다.
+- 계획 self-review 로 spec coverage, placeholder, type consistency 를 점검했다.
+
+### 결과
+- 다음 구현은 WPF shell 부터가 아니라 project contract test Red 로 시작한다.
+
 ## 2026-07-06 (Codex - D183 WPF sample dashboard 설계)
 
 ### 작업 단위
