@@ -83,6 +83,9 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
 - D185 기준 WPF sample dashboard Task 1 project contract 를 완료했다.
   `Hps.Sample.Dashboard.Tests` contract test 가 WPF `net9.0-windows`/`UseWPF`/`WinExe`와 solution inclusion 을 검증하고,
   minimal WPF shell 이 build 된다. 다음 실행 지점은 Task 2 MVVM command/model/ViewModel core 다.
+- D186 기준 WPF sample dashboard Task 2 MVVM core 를 완료했다.
+  `RelayCommand`, `AsyncRelayCommand`, `DashboardStatus`, `SmokeRunResult`, `TransportMetricRow`, `DashboardViewModel`을 추가했다.
+  다음 실행 지점은 Task 3 Broker lifecycle 와 diagnostics service 다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

@@ -314,7 +314,7 @@ git commit -m "test(sample): add dashboard project contract"
 - Create: `samples/Hps.Sample.Dashboard/ViewModels/DashboardViewModel.cs`
 - Create: `tests/Hps.Sample.Dashboard.Tests/DashboardViewModelTests.cs`
 
-- [ ] **Step 1: Write failing ViewModel tests**
+- [x] **Step 1: Write failing ViewModel tests**
 
 Create `tests/Hps.Sample.Dashboard.Tests/DashboardViewModelTests.cs`.
 
@@ -393,7 +393,7 @@ namespace Hps.Sample.Dashboard.Tests
 }
 ```
 
-- [ ] **Step 2: Run Red**
+- [x] **Step 2: Run Red**
 
 Run:
 
@@ -403,7 +403,7 @@ dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj -
 
 Expected: FAIL due to missing `DashboardViewModel`, `DashboardStatus`, `SmokeRunResult`, `AsyncRelayCommand`.
 
-- [ ] **Step 3: Implement minimal MVVM core**
+- [x] **Step 3: Implement minimal MVVM core**
 
 Create the listed command/model/ViewModel files. Use classic namespace syntax and explicit `using` statements.
 
@@ -439,7 +439,7 @@ public void ApplySmokeResult(SmokeRunResult result)
 
 `AsyncRelayCommand` must expose `Task ExecuteAsync()` so tests can await the command without WPF dispatcher coupling.
 
-- [ ] **Step 4: Run Green**
+- [x] **Step 4: Run Green**
 
 Run:
 
@@ -449,7 +449,7 @@ dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj -
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add samples\Hps.Sample.Dashboard\Commands samples\Hps.Sample.Dashboard\Models samples\Hps.Sample.Dashboard\ViewModels tests\Hps.Sample.Dashboard.Tests\DashboardViewModelTests.cs

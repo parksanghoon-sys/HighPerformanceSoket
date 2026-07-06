@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-06 (Codex - D186 WPF sample dashboard Task 2)
+
+### 작업 단위
+- D184 계획 Task 2 MVVM command/model/ViewModel core 를 구현했다.
+
+### 변경 내용
+- `samples/Hps.Sample.Dashboard/Commands`:
+  `RelayCommand`, `AsyncRelayCommand`를 추가했다.
+- `samples/Hps.Sample.Dashboard/Models`:
+  `DashboardStatus`, `SmokeRunResult`, `TransportMetricRow`를 추가했다.
+- `samples/Hps.Sample.Dashboard/ViewModels/DashboardViewModel.cs`:
+  초기 상태, command binding, bounded log, smoke summary mapping 을 추가했다.
+- `tests/Hps.Sample.Dashboard.Tests/DashboardViewModelTests.cs`:
+  MVVM core contract 를 assertion Red 로 검증했다.
+- 상태 문서와 구현 계획 체크박스를 Task 2 완료, Task 3 diagnostics service 진입점으로 갱신했다.
+
+### 검증
+- Red: compile-failure 형태를 reflection assertion Red 로 보정한 뒤 ViewModel/command/model type 부재 assertion failure 를 확인했다.
+- Green: `dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj --filter DashboardViewModelTests -v minimal` 통과.
+- Green: `dotnet build samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj -v minimal` 경고 0/오류 0.
+
+### 결과
+- WPF dashboard 의 service 연결 전 순수 MVVM core 가 준비됐다.
+- 다음 실행 지점은 Task 3 Broker lifecycle 와 diagnostics service 다.
+
 ## 2026-07-06 (Codex - D185 WPF sample dashboard Task 1)
 
 ### 작업 단위

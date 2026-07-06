@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] D185 WPF/MVVM sample dashboard Task 2 MVVM core 를 구현한다.
+- [ ] D186 WPF/MVVM sample dashboard Task 3 Broker lifecycle 와 diagnostics service 를 구현한다.
   - 입력: `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`.
-  - 할 일: `DashboardViewModelTests`를 Red 로 추가하고 command/model/ViewModel core 를 Green 으로 만든다.
-  - 확인할 것: 초기 server status, command enablement, bounded log, smoke result summary, async command 중복 실행 방지.
-  - 제외: 실제 Broker lifecycle, diagnostics snapshot, TCP/UDP smoke socket 실행, 최종 XAML dashboard.
+  - 할 일: diagnostics row 변환 Red test 를 추가하고 `DashboardBrokerService`/`DiagnosticsSnapshotService`를 Green 으로 만든다.
+  - 확인할 것: `ITransportDiagnostics` aggregate snapshot 을 TCP/UDP row 로 변환, `DashboardBrokerService`가 같은 transport 참조를 diagnostics source 로 보존.
+  - 제외: TCP/UDP smoke socket 실행, 최종 XAML dashboard.
 
 ## Deferred Backlog
 
@@ -76,6 +76,18 @@
     `dotnet build samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj -v minimal` 경고 0/오류 0.
   - 비고: 첫 병렬 build/test 실행에서는 동일 dependency obj 파일 lock 이 발생했으므로, 이후 build/test 는 순차 실행한다.
   - 다음: Task 2 MVVM command/model/ViewModel core 를 구현한다.
+
+- [x] D185 WPF/MVVM sample dashboard Task 2 MVVM core 를 구현했다.
+  - 범위: `samples/Hps.Sample.Dashboard/Commands`, `samples/Hps.Sample.Dashboard/Models`,
+    `samples/Hps.Sample.Dashboard/ViewModels`, `tests/Hps.Sample.Dashboard.Tests/DashboardViewModelTests.cs`,
+    `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`, D186 상태 문서.
+  - Red: 초기 compile-failure 형태를 저장소 규칙에 맞춰 reflection assertion Red 로 보정했고,
+    ViewModel/command/model type 부재 assertion failure 를 확인했다.
+  - Green: 초기 server status, command enablement, bounded log, smoke result summary,
+    async command 중복 실행 방지를 구현했다.
+  - 검증: `dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj --filter DashboardViewModelTests -v minimal` 통과,
+    `dotnet build samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj -v minimal` 경고 0/오류 0.
+  - 다음: Task 3 Broker lifecycle 와 diagnostics service 를 구현한다.
 
 - [x] D181 fixed-buffer SQE submission 흐름의 전체 사용 예제를 문서화했다.
   - 범위: `docs/examples/iouring-fixed-buffer-submission-example.md`, D182 상태 문서.
