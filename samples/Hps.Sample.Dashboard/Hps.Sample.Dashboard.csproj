@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- WPF는 Windows TFM, UseWPF, WinExe가 필요하므로 루트 net9.0 기본값을 명시적으로 override 한다. -->
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <OutputType>WinExe</OutputType>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Hps.Buffers\Hps.Buffers.csproj" />
+    <ProjectReference Include="..\..\src\Hps.Server\Hps.Server.csproj" />
+    <ProjectReference Include="..\..\src\Hps.Transport\Hps.Transport.csproj" />
+  </ItemGroup>
+
+</Project>

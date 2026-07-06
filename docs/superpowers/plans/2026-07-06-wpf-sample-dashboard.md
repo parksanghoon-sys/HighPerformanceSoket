@@ -73,7 +73,7 @@
 - Create: `samples/Hps.Sample.Dashboard/MainWindow.xaml.cs`
 - Modify: `HighPerformanceSocket.slnx`
 
-- [ ] **Step 1: Write the failing project contract test**
+- [x] **Step 1: Write the failing project contract test**
 
 Create `tests/Hps.Sample.Dashboard.Tests/Hps.Sample.Dashboard.Tests.csproj`.
 
@@ -163,7 +163,7 @@ namespace Hps.Sample.Dashboard.Tests
 }
 ```
 
-- [ ] **Step 2: Run Red**
+- [x] **Step 2: Run Red**
 
 Run:
 
@@ -173,7 +173,7 @@ dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj -
 
 Expected: FAIL. `DashboardProject_WhenInspected_UsesWpfWindowsBuildContract` fails with `WPF sample project file 이 존재해야 한다.`
 
-- [ ] **Step 3: Add minimal WPF project shell**
+- [x] **Step 3: Add minimal WPF project shell**
 
 Create `samples/Hps.Sample.Dashboard/Hps.Sample.Dashboard.csproj`.
 
@@ -285,7 +285,7 @@ Modify `HighPerformanceSocket.slnx`:
   </Folder>
 ```
 
-- [ ] **Step 4: Run Green**
+- [x] **Step 4: Run Green**
 
 Run:
 
@@ -296,7 +296,7 @@ dotnet build samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj -v minimal
 
 Expected: PASS. The sample project builds on Windows.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add HighPerformanceSocket.slnx samples\Hps.Sample.Dashboard tests\Hps.Sample.Dashboard.Tests

@@ -10,6 +10,7 @@
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj" />
+    <Project Path="samples/Hps.Sample.Dashboard/Hps.Sample.Dashboard.csproj" />
     <Project Path="samples/Hps.Sample.Publisher/Hps.Sample.Publisher.csproj" />
     <Project Path="samples/Hps.Sample.Subscriber/Hps.Sample.Subscriber.csproj" />
   </Folder>
@@ -20,6 +21,7 @@
     <Project Path="tests/Hps.Buffers.Tests/Hps.Buffers.Tests.csproj" />
     <Project Path="tests/Hps.Protocol.Tests/Hps.Protocol.Tests.csproj" />
     <Project Path="tests/Hps.Sample.BrokerServer.Tests/Hps.Sample.BrokerServer.Tests.csproj" />
+    <Project Path="tests/Hps.Sample.Dashboard.Tests/Hps.Sample.Dashboard.Tests.csproj" />
     <Project Path="tests/Hps.Server.Tests/Hps.Server.Tests.csproj" />
     <Project Path="tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj" />
     <Project Path="tests/Hps.Transport.Rio.Tests/Hps.Transport.Rio.Tests.csproj" />

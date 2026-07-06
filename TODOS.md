@@ -9,12 +9,11 @@
 
 ## Current TODOs
 
-- [ ] D184 WPF/MVVM sample dashboard Task 1 project contract 를 구현한다.
+- [ ] D185 WPF/MVVM sample dashboard Task 2 MVVM core 를 구현한다.
   - 입력: `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`.
-  - 할 일: `Hps.Sample.Dashboard.Tests` project contract test 를 먼저 추가하고,
-    `samples/Hps.Sample.Dashboard` WPF shell 과 `HighPerformanceSocket.slnx` inclusion 을 Green 으로 만든다.
-  - 확인할 것: `net9.0-windows`, `UseWPF=true`, `OutputType=WinExe`, sample/test project solution inclusion.
-  - 제외: MVVM command/service 구현, TCP/UDP smoke 실행, XAML dashboard 완성.
+  - 할 일: `DashboardViewModelTests`를 Red 로 추가하고 command/model/ViewModel core 를 Green 으로 만든다.
+  - 확인할 것: 초기 server status, command enablement, bounded log, smoke result summary, async command 중복 실행 방지.
+  - 제외: 실제 Broker lifecycle, diagnostics snapshot, TCP/UDP smoke socket 실행, 최종 XAML dashboard.
 
 ## Deferred Backlog
 
@@ -66,6 +65,17 @@
   - 결과: project contract, MVVM core, broker diagnostics, TCP smoke, UDP smoke, UI wiring/run docs 의 6개 task 로 분리했다.
   - 결과: 첫 task 는 WPF `net9.0-windows`/`UseWPF`/`WinExe` 계약을 test-first 로 고정한다.
   - 다음: Task 1 project contract 와 solution inclusion 을 구현한다.
+
+- [x] D184 WPF/MVVM sample dashboard Task 1 project contract 를 구현했다.
+  - 범위: `HighPerformanceSocket.slnx`, `samples/Hps.Sample.Dashboard`, `tests/Hps.Sample.Dashboard.Tests`,
+    `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`, D185 상태 문서.
+  - Red: `DashboardProject_WhenInspected_UsesWpfWindowsBuildContract`가 WPF project file 부재로 실패했고,
+    `Solution_WhenInspected_IncludesDashboardProjects`가 solution inclusion 부재로 실패했다.
+  - Green: minimal WPF shell, Windows TFM contract, sample/test project solution inclusion 을 추가했다.
+  - 검증: `dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj -v minimal` 통과,
+    `dotnet build samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj -v minimal` 경고 0/오류 0.
+  - 비고: 첫 병렬 build/test 실행에서는 동일 dependency obj 파일 lock 이 발생했으므로, 이후 build/test 는 순차 실행한다.
+  - 다음: Task 2 MVVM command/model/ViewModel core 를 구현한다.
 
 - [x] D181 fixed-buffer SQE submission 흐름의 전체 사용 예제를 문서화했다.
   - 범위: `docs/examples/iouring-fixed-buffer-submission-example.md`, D182 상태 문서.
