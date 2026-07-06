@@ -49,6 +49,13 @@
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
 
+- [x] D181 fixed-buffer SQE submission 흐름의 전체 사용 예제를 문서화했다.
+  - 범위: `docs/examples/iouring-fixed-buffer-submission-example.md`, D182 상태 문서.
+  - 결과: capability check, queue 생성, buffer registration, `TrySubmitWriteFixed`, completion 확인,
+    pipe payload 검증, unregister/dispose 순서를 end-to-end 예제로 정리했다.
+  - 비고: 이 예제는 public `ITransport` 사용법이 아니라 `Hps.Transport.IoUring` internal backend contributor 용이다.
+  - 다음: 기존 current TODO 그대로 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
+
 - [x] D179 fixed-buffer SQE submission contract evidence 를 구현했다.
   - 범위: `IoUringNative`, `IoUringQueue`, `IoUringSubmissionShapeTests`, `IoUringFixedBufferSubmissionTests`, D181 상태 문서.
   - 결과: `OperationWriteFixed` opcode shape 와 `TrySubmitWriteFixed` helper shape 를 Red-Green 으로 고정했다.
