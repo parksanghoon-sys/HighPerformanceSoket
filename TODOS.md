@@ -9,14 +9,25 @@
 
 ## Current TODOs
 
-- [ ] D181 fixed-buffer SQE submission evidence 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
-  - 입력: D181 구현 커밋, `IoUringFixedBufferSubmissionTests`, `iouring-linux-contract.yml`.
-  - 할 일: 사용자 push 이후 workflow 를 수동 실행하고, TRX/summary 에서
-    `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToPipe`가 Linux capability available 상태에서 실행·통과했는지 확인한다.
-  - 확인할 것: test exit code 0, 기존 TCP/UDP io_uring tests green, `fixed write completion result: 2` evidence.
-  - 제외: 원격 contract 검증 전 TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
+- [ ] D183 WPF/MVVM sample dashboard 구현 계획을 작성한다.
+  - 입력: `docs/superpowers/specs/2026-07-06-wpf-sample-dashboard-design.md`.
+  - 할 일: WPF project skeleton, MVVM 기본 구조, TCP smoke, UDP smoke, diagnostics 표시를 TDD 가능한 작업 단위로 나눈다.
+  - 확인할 것: public API 재사용 경로, production API 확장 필요 여부, build/test/run 검증 경로.
+  - 제외: WinUI 3, WPF 앱에서 Linux `io_uring` native path 직접 실행, TCP/UDP pump fixed-buffer 연결, zero-copy send.
 
 ## Deferred Backlog
+
+- [ ] `P1_SOON` D181 fixed-buffer SQE submission evidence 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
+  - 무엇이 남았는지: D181 local implementation 이 Linux runner 에서 실제 `WRITE_FIXED` completion evidence 를 내는지 확인해야 한다.
+  - 왜 defer 되었는지: 사용자가 먼저 실행 가능한 WPF 샘플 대시보드 설계/구현 흐름을 요청했다.
+  - objective: 원격 workflow artifact 에서 `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToPipe`가
+    Linux capability available 상태로 실행·통과했는지 확인한다.
+  - relevant context: D181, D182, `IoUringFixedBufferSubmissionTests`, `.github/workflows/iouring-linux-contract.yml`.
+  - 관련 파일/범위: `tests/Hps.Transport.IoUring.Tests`, `src/Hps.Transport.IoUring`, GitHub Actions artifact.
+  - 현재 상태 또는 이미 시도한 접근: local/Windows 는 capability guard 로 native path 를 early-return 한다.
+  - known blockers 또는 open questions: 원격 workflow 실행 결과가 필요하다.
+  - 가장 자연스러운 next step: 사용자 push 이후 workflow 를 수동 실행하고 TRX/summary 에서 test exit code 0,
+    기존 TCP/UDP io_uring tests green, `fixed write completion result: 2` evidence 를 확인한다.
 
 - [ ] `P2_LATER` RIO full IPv6 지원은 default promotion scope 가 다시 열릴 때 별도 설계로 판단한다.
   - 무엇이 남았는지: RIO backend 는 D122 기준 TCP/UDP 모두 현재 IPv4 `IPEndPoint` 전용이다.
