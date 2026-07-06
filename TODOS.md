@@ -9,11 +9,11 @@
 
 ## Current TODOs
 
-- [ ] D187 WPF/MVVM sample dashboard Task 4 TCP smoke service 를 구현한다.
+- [ ] D188 WPF/MVVM sample dashboard Task 5 UDP smoke service 를 구현한다.
   - 입력: `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`.
-  - 할 일: 실제 SAEA TCP listener/receive/send pump 와 Broker fan-out 을 묶는 TCP smoke service 를 Red-Green 으로 추가한다.
+  - 할 일: 실제 SAEA UDP endpoint receive/send pump 와 Broker datagram handler fan-out 을 묶는 UDP smoke service 를 Red-Green 으로 추가한다.
   - 확인할 것: sent=1, received=1, dropped=0, payload-errors=0, pool-rented=0.
-  - 제외: UDP smoke socket 실행, 최종 XAML dashboard.
+  - 제외: 최종 XAML dashboard.
 
 ## Deferred Backlog
 
@@ -100,6 +100,16 @@
   - 검증: `dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj --filter DiagnosticsSnapshotServiceTests -v minimal` 통과,
     `dotnet build samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj -v minimal` 경고 0/오류 0.
   - 다음: Task 4 TCP smoke service 를 구현한다.
+
+- [x] D187 WPF/MVVM sample dashboard Task 4 TCP smoke service 를 구현했다.
+  - 범위: `samples/Hps.Sample.Dashboard/Services/TcpSmokeTestService.cs`,
+    `tests/Hps.Sample.Dashboard.Tests/TcpSmokeTestServiceTests.cs`,
+    `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`, D188 상태 문서.
+  - Red: `TcpSmokeTestService` type 부재 assertion failure 를 확인했다.
+  - Green: 실제 SAEA TCP listener/receive/send pump 와 Broker fan-out 으로 TCP SUBSCRIBE/PUBLISH loopback 을 검증한다.
+  - 검증: `dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj --filter TcpSmokeTestServiceTests -v minimal` 통과,
+    `dotnet build samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj -v minimal` 경고 0/오류 0.
+  - 다음: Task 5 UDP smoke service 를 구현한다.
 
 - [x] D181 fixed-buffer SQE submission 흐름의 전체 사용 예제를 문서화했다.
   - 범위: `docs/examples/iouring-fixed-buffer-submission-example.md`, D182 상태 문서.

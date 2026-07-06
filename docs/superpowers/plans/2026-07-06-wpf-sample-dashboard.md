@@ -590,7 +590,7 @@ git commit -m "feat(sample): add dashboard broker diagnostics services"
 - Create: `tests/Hps.Sample.Dashboard.Tests/TcpSmokeTestServiceTests.cs`
 - Modify: `samples/Hps.Sample.Dashboard/ViewModels/DashboardViewModel.cs`
 
-- [ ] **Step 1: Write failing TCP smoke test**
+- [x] **Step 1: Write failing TCP smoke test**
 
 Create `tests/Hps.Sample.Dashboard.Tests/TcpSmokeTestServiceTests.cs`.
 
@@ -623,7 +623,7 @@ namespace Hps.Sample.Dashboard.Tests
 }
 ```
 
-- [ ] **Step 2: Run Red**
+- [x] **Step 2: Run Red**
 
 Run:
 
@@ -633,7 +633,7 @@ dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj -
 
 Expected: FAIL due to missing `TcpSmokeTestService`.
 
-- [ ] **Step 3: Implement TCP smoke**
+- [x] **Step 3: Implement TCP smoke**
 
 Use the same flow as `TcpLoopbackScenarioRunner`:
 
@@ -657,7 +657,7 @@ private static Task<byte[]> ReceiveFrameAsync(Socket socket)
 private static Task WaitForSubscriberCountAsync(BrokerServer server, string topic, int expected)
 ```
 
-- [ ] **Step 4: Run Green**
+- [x] **Step 4: Run Green**
 
 Run:
 
@@ -667,7 +667,7 @@ dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj -
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add samples\Hps.Sample.Dashboard\Services\TcpSmokeTestService.cs samples\Hps.Sample.Dashboard\ViewModels\DashboardViewModel.cs tests\Hps.Sample.Dashboard.Tests\TcpSmokeTestServiceTests.cs

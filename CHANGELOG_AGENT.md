@@ -5,6 +5,27 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-06 (Codex - D188 WPF sample dashboard Task 4)
+
+### 작업 단위
+- D184 계획 Task 4 TCP smoke service 를 구현했다.
+
+### 변경 내용
+- `TcpSmokeTestService`:
+  실제 SAEA TCP listener/receive/send pump 와 Broker fan-out 으로 TCP SUBSCRIBE/PUBLISH loopback 을 실행한다.
+- `TcpSmokeTestServiceTests`:
+  sent=1, received=1, dropped=0, payload-errors=0, pool-rented=0 결과를 검증한다.
+- 상태 문서와 구현 계획 체크박스를 Task 4 완료, Task 5 UDP smoke 진입점으로 갱신했다.
+
+### 검증
+- Red: `TcpSmokeTestService` type 부재 assertion failure 를 확인했다.
+- Green: `dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj --filter TcpSmokeTestServiceTests -v minimal` 통과.
+- Green: `dotnet build samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj -v minimal` 경고 0/오류 0.
+
+### 결과
+- WPF dashboard 에서 호출할 수 있는 TCP end-to-end smoke service 가 준비됐다.
+- 다음 실행 지점은 Task 5 UDP smoke service 다.
+
 ## 2026-07-06 (Codex - D187 WPF sample dashboard Task 3)
 
 ### 작업 단위
