@@ -72,6 +72,26 @@ tests/Hps.Sample.Dashboard.Tests/
   UdpSmokeTestServiceTests.cs
 ```
 
+## 프로젝트 빌드 계약
+
+루트 `Directory.Build.props`는 전체 저장소 기본값으로 `TargetFramework=net9.0`, `LangVersion=8.0`,
+`ImplicitUsings=disable`을 적용한다. WPF sample 은 이 기본 TFM 을 그대로 상속하면 빌드될 수 없으므로,
+sample project 에서 Windows 전용 TFM 과 WPF 속성을 명시적으로 override 한다.
+
+```xml
+<PropertyGroup>
+  <TargetFramework>net9.0-windows</TargetFramework>
+  <UseWPF>true</UseWPF>
+  <OutputType>WinExe</OutputType>
+</PropertyGroup>
+```
+
+테스트 프로젝트는 WPF sample project 를 참조해야 하므로 `net9.0-windows`를 사용한다. 단, 테스트 대상은
+ViewModel/service/command 같은 순수 로직으로 제한하고 WPF UI automation 은 이번 범위에서 제외한다.
+
+샘플도 저장소 공통 C# 8.0 규칙을 따른다. 따라서 record, file-scoped namespace, target-typed `new()`,
+global using, `init` 접근자 같은 C# 9+ 문법은 사용하지 않는다.
+
 ## 서비스 경계
 
 ### DashboardBrokerService
@@ -79,6 +99,8 @@ tests/Hps.Sample.Dashboard.Tests/
 - `BrokerServer` 또는 현재 sample host 가 제공하는 public surface 를 통해 서버 lifecycle 을 담당한다.
 - UI thread 와 transport thread 경계를 섞지 않는다.
 - start/stop 은 idempotent 하게 유지하고, 실패 결과는 ViewModel 이 표시할 수 있는 result model 로 변환한다.
+- diagnostics 를 위해 생성한 `ITransport` instance 를 보관하고 `DiagnosticsSnapshotService`에 같은 참조를 공유한다.
+  `BrokerServer` 자체는 diagnostics public API 를 직접 노출하지 않으므로, UI가 server 를 통해 snapshot 을 읽는 구조로 설계하지 않는다.
 
 ### TcpSmokeTestService
 
@@ -89,18 +111,23 @@ tests/Hps.Sample.Dashboard.Tests/
 ### UdpSmokeTestService
 
 - UDP register/subscribe/publish 경로를 실행한다.
-- 현재 public API 로 UDP broker smoke 를 구성할 수 있는 범위까지만 사용한다.
-- public surface 가 부족한 경우 production API 를 즉시 넓히지 않고, 부족한 경계를 다음 구현 계획의 확인 항목으로 기록한다.
+- `BrokerServer.StartUdpAsync`, `UdpLocalEndPoint`, UDP command datagram 경로는 이미 public entry 로 존재한다.
+- 구현 계획 단계에서는 `tests/Hps.Server.Tests`의 UDP command loopback helper 흐름을 대조해 register/subscribe/publish 조합을 확정한다.
+- public surface 부족이 발견되더라도 production API 를 즉시 넓히지 않고, 부족한 경계를 별도 task 로 분리한다.
 
 ### DiagnosticsSnapshotService
 
 - transport/endpoint diagnostics snapshot 을 UI 표시 모델로 변환한다.
+- `DashboardBrokerService`가 생성·보관하는 동일한 `ITransport` 참조를 받아 `ITransportDiagnostics`와
+  가능하면 `ITransportEndpointDiagnostics`로 좁혀 읽는다.
 - drop count, pending count, high-watermark 를 그대로 보여주고, UI 계산 로직으로 의미를 바꾸지 않는다.
 
 ### IoUringEvidenceStatusService
 
 - Windows WPF 앱에서는 Linux `io_uring` native path 를 실행하지 않는다.
-- D181/D182 상태를 바탕으로 local status 와 원격 `iouring-linux-contract.yml` gate 필요성을 표시한다.
+- D181 결정(`DECISIONS.md`)과 D182 예제/상태 기록(`CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`,
+  `docs/examples/iouring-fixed-buffer-submission-example.md`)을 바탕으로 local status 와 원격
+  `iouring-linux-contract.yml` gate 필요성을 표시한다.
 - production pump fixed-buffer 연결, zero-copy send, default promotion 을 암시하지 않는다.
 
 ## MVVM 규칙
