@@ -80,6 +80,49 @@ namespace Hps.Transport
             return new IoUringFixedSendLease(sendBuffer, registration, segment.Array, segment.Offset, segment.Count);
         }
 
+        internal static IoUringFixedSendLease CreateForSendPump(IoUringQueue queue, TransportSendBuffer sendBuffer)
+        {
+            if (queue == null)
+                throw new ArgumentNullException(nameof(queue));
+
+            return CreateForSendPump(
+                sendBuffer,
+                delegate(TransportSendBuffer buffer)
+                {
+                    ArraySegment<byte> segment = GetPayloadSegment(buffer);
+                    if (segment.Array == null)
+                        throw new InvalidOperationException("io_uring fixed send lease 는 pinned byte[] 기반 RefCountedBuffer 만 지원합니다.");
+
+                    return IoUringRegisteredBufferSet.Register(
+                        queue,
+                        new byte[][] { segment.Array });
+                });
+        }
+
+        internal static IoUringFixedSendLease CreateForSendPump(
+            TransportSendBuffer sendBuffer,
+            Func<TransportSendBuffer, IIoUringFixedBufferRegistration> register)
+        {
+            if (register == null)
+                throw new ArgumentNullException(nameof(register));
+
+            // production send pump 의 InFlightSend ref 는 completion/finally 경계가 소유한다.
+            // fixed-write lease 는 registration lifetime 동안 payload 를 별도로 붙잡아야 하므로
+            // 여기서 lease-owned ref 를 추가하고, 이후 Dispose 또는 실패 rollback 에서 이 ref 만 반환한다.
+            sendBuffer.Buffer.AddRef();
+
+            try
+            {
+                IIoUringFixedBufferRegistration registration = register(sendBuffer);
+                return CreateForRegisteredBuffer(sendBuffer, registration);
+            }
+            catch
+            {
+                sendBuffer.Buffer.Release();
+                throw;
+            }
+        }
+
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0)

@@ -9,15 +9,16 @@
 
 ## Current TODOs
 
-- [ ] D208 Task 1 send pump lease ref acquisition 을 구현한다.
+- [ ] D210 Task 2 TCP payload fixed-write helper 를 구현한다.
   - 입력: `docs/superpowers/plans/2026-07-08-iouring-tcp-payload-fixed-write-integration.md`,
-    `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`,
-    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs`.
-  - 할 일: `CreateForSendPump` factory 를 Red/Green 으로 추가하고, lease-owned `AddRef`/dispose release 와
-    registration 실패 rollback 을 pool count 로 검증한다.
-  - 확인할 것: 기존 `Create(...)`와 `CreateForRegisteredBuffer(...)` 계약은 유지하고,
-    production pump 에서 쓸 factory 만 extra ref 를 획득한다.
-  - 제외: `IoUringTransport.SendInFlightAsync` payload 전환, TCP prefix fixed-write, UDP fixed-buffer send.
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringSendPumpShapeTests.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringTransportTcpTests.cs`.
+  - 할 일: `SendFixedPayloadAsync` helper 를 Red/Green 으로 추가하고,
+    `SendInFlightAsync`의 payload 구간만 `TrySubmitWriteFixed` path 로 바꾼다.
+  - 확인할 것: TCP length prefix 는 기존 `SendArrayAsync`/`TrySubmitSend` scratch path 에 남기고,
+    payload length 0은 lease 를 만들지 않으며, partial completion 은 offset/remaining loop 로 처리한다.
+  - 제외: TCP prefix fixed-write, UDP fixed-buffer send, zero-copy send, registration cache, default backend promotion.
 
 ## Deferred Backlog
 
@@ -51,6 +52,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D208 Task 1 send pump lease ref acquisition 을 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs`,
+    D209 상태 문서.
+  - Red: focused `IoUringFixedSendLeaseTests` 실행에서 `CreateForSendPump` 부재로
+    `CS0117` 컴파일 오류가 발생함을 확인했다.
+    이 Red는 계획에는 허용했지만 프로젝트 규칙상 다음 task 에서는 assertion failure Red 를 우선한다.
+  - Green: `CreateForSendPump(IoUringQueue, TransportSendBuffer)`와 test seam overload 를 추가했다.
+    factory 는 lease-owned `AddRef`를 내부에서 수행하고, registration 실패 시 즉시 release 로 rollback 한다.
+  - 검증: focused `IoUringFixedSendLeaseTests` 9개 통과,
+    `Hps.Transport.IoUring.Tests` 73개 통과.
+  - 다음: Task 2에서 TCP payload 전송 구간만 fixed-write helper 로 전환한다.
 
 - [x] D207 TCP payload fixed-write integration 구현 계획을 작성했다.
   - 범위: `docs/superpowers/specs/2026-07-08-iouring-post-d206-next-scope-design.md`,

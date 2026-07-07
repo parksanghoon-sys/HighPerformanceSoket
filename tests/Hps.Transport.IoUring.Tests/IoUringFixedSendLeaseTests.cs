@@ -110,6 +110,87 @@ namespace Hps.Transport.IoUring.Tests
         }
 
         [Fact]
+        public void LeaseFactory_WhenInspected_ExposesSendPumpCreateMethod()
+        {
+            // production send pump 는 기존 InFlightSend ref 와 별도로 lease-owned ref 를 얻어야 하므로,
+            // 전용 factory shape 를 먼저 고정해 direct Create 사용 회귀를 막는다.
+            MethodInfo? method = typeof(IoUringFixedSendLease).GetMethod(
+                "CreateForSendPump",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                null,
+                new Type[] { typeof(IoUringQueue), typeof(TransportSendBuffer) },
+                null);
+
+            Assert.NotNull(method);
+        }
+
+        [Fact]
+        public void LeaseForSendPump_WhenDisposed_ReleasesOnlyLeaseOwnedRef()
+        {
+            // send pump factory 는 lease 전용 AddRef 를 내부에서 수행한다.
+            // dispose 는 그 extra ref 만 반환하고, caller/transport 가 가진 기존 ref 는 그대로 남아야 한다.
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(8);
+            RefCountedBuffer buffer = pool.RentCounted();
+            buffer.Memory.Span.Slice(0, 4).Fill(3);
+            buffer.SetLength(4);
+            buffer.AddRef();
+
+            CountingRegistration registration = new CountingRegistration();
+            IoUringFixedSendLease lease = IoUringFixedSendLease.CreateForSendPump(
+                new TransportSendBuffer(buffer, 1, 2),
+                delegate(TransportSendBuffer ignored)
+                {
+                    return registration;
+                });
+
+            Assert.Equal(1, pool.RentedCount);
+
+            lease.Dispose();
+            lease.Dispose();
+
+            Assert.Equal(1, registration.DisposeCount);
+            Assert.Equal(1, pool.RentedCount);
+
+            buffer.Release();
+            Assert.Equal(1, pool.RentedCount);
+
+            buffer.Release();
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        [Fact]
+        public void LeaseForSendPump_WhenRegistrationFails_RollsBackLeaseOwnedRef()
+        {
+            // registration 실패는 submit 전 단계에서 발생할 수 있다.
+            // 이때 factory 가 획득한 lease-owned ref 를 즉시 반환하지 않으면 close 이후 pool leak 으로 이어진다.
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(8);
+            RefCountedBuffer buffer = pool.RentCounted();
+            buffer.Memory.Span.Slice(0, 4).Fill(5);
+            buffer.SetLength(4);
+            buffer.AddRef();
+
+            InvalidOperationException failure = Assert.Throws<InvalidOperationException>(
+                delegate
+                {
+                    IoUringFixedSendLease.CreateForSendPump(
+                        new TransportSendBuffer(buffer, 0, 4),
+                        delegate(TransportSendBuffer ignored)
+                        {
+                            throw new InvalidOperationException("registration failed");
+                        });
+                });
+
+            Assert.Equal("registration failed", failure.Message);
+            Assert.Equal(1, pool.RentedCount);
+
+            buffer.Release();
+            Assert.Equal(1, pool.RentedCount);
+
+            buffer.Release();
+            Assert.Equal(0, pool.RentedCount);
+        }
+
+        [Fact]
         public void Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair()
         {
             // lease 가 registration lifetime 을 completion 이후까지 유지하고, dispose 에서 payload ref 를 반환하는지

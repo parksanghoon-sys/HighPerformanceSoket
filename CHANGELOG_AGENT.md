@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-08 (Codex - D209 send pump lease ref acquisition)
+
+### 작업 단위
+- D208 Task 1 send pump lease ref acquisition 을 구현했다.
+
+### 변경 내용
+- `IoUringFixedSendLease.CreateForSendPump(IoUringQueue, TransportSendBuffer)`를 추가했다.
+- `IoUringFixedSendLease.CreateForSendPump(TransportSendBuffer, Func<TransportSendBuffer, IIoUringFixedBufferRegistration>)`
+  test seam overload 를 추가했다.
+- factory 는 lease-owned payload ref 를 내부에서 `AddRef`로 획득하고,
+  registration 또는 lease 생성 실패 시 `Release`로 rollback 한다.
+- `IoUringFixedSendLeaseTests`에 send pump factory shape, dispose 시 lease-owned ref 반환,
+  registration 실패 rollback tests 를 추가했다.
+
+### 검증
+- Red: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --filter FullyQualifiedName~IoUringFixedSendLeaseTests -v minimal`
+  실행 시 `CreateForSendPump` 부재로 `CS0117` 컴파일 오류가 발생했다.
+  계획에는 허용된 Red였지만, 프로젝트 선호는 assertion failure Red 이므로 다음 task 에서는 reflection Red 를 우선한다.
+- Green: 같은 focused command 통과, 9개.
+- Green: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal` 통과, 73개.
+
+### 결과
+- production send pump 가 사용할 수 있는 lease 전용 ref acquisition 경계를 만들었다.
+- 다음 실행 지점은 Task 2 TCP payload fixed-write helper 구현이다.
+
 ## 2026-07-08 (Codex - D208 D207 implementation plan)
 
 ### 작업 단위
