@@ -9,20 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D181 fixed-buffer SQE submission evidence 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
-  - 입력: `tests/Hps.Transport.IoUring.Tests`, `src/Hps.Transport.IoUring`, `.github/workflows/iouring-linux-contract.yml`.
-  - 할 일: 사용자 push 이후 workflow artifact 에서 `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToPipe`가
-    Linux capability available 상태로 실행·통과했는지 확인한다.
-  - 확인할 것: TRX/summary test exit code 0, 기존 TCP/UDP io_uring tests green,
-    `fixed write completion result: 2` evidence.
-  - 현재 상태: 최신 원격 run `28631346969`은 success 이지만 head SHA `19701fce...` 기준이라
-    D181 `7109edd test(iouring): cover fixed buffer write submission`을 포함하지 않는다.
-    현재 로컬은 `origin/master`보다 16커밋 앞서 있으며, 이 세션의 `git push` 시도는 실행 정책에서 거부됐다.
-  - 현재 상태: 사용자 push 이후 run `28833852810`을 실행했지만, Linux restore 단계에서
-    WPF sample dashboard Windows TFM 때문에 `NETSDK1100`으로 실패했다.
-    workflow restore/build 범위를 `Hps.Transport.IoUring.Tests` project 로 좁히는 D194 fix 를 추가했다.
-  - known blocker: D194 workflow fix 를 push 한 뒤 새 `iouring-linux-contract.yml` run 을 다시 실행해야 한다.
-  - 제외: TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
+- [ ] D195 fixed-write 원격 evidence 이후 io_uring 후속 후보를 재평가한다.
+  - 입력: D181/D194/D195 evidence, `src/Hps.Transport.IoUring`, `tests/Hps.Transport.IoUring.Tests`,
+    `docs/superpowers/specs/2026-07-03-iouring-post-d178-next-scope-design.md`.
+  - 할 일: fixed-write SQE helper가 Linux contract gate 를 통과한 상태에서 다음 단위가
+    TCP/UDP pump fixed-buffer 연결, zero-copy send, 추가 contract evidence, 또는 benchmark/diagnostics 보강 중 무엇이어야 하는지 좁힌다.
+  - 확인할 것: D195 evidence 를 과대해석하지 않고, 소유권/ref-count/close drain/fallback 영향이 가장 작은 다음 작업 단위를 고른다.
+  - 제외: 설계 없이 즉시 pump 경로 변경, default promotion, latency hard gate.
 
 ## Deferred Backlog
 
@@ -56,6 +49,20 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D181 fixed-buffer SQE submission evidence 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토했다.
+  - 범위: GitHub Actions run `28834265348`,
+    artifact `iouring-linux-contract-2026-07-07-github-28834265348-1`, D195 상태/결정 문서.
+  - 결과: workflow conclusion success, job `io_uring contract (linux)` success, test exit code 0.
+  - evidence: head SHA 는 `848ce55341945a83d61023d7e54add5906fd7590`이다.
+  - evidence: TRX counters 는 total 61, executed 61, passed 61, failed 0, notExecuted 0이다.
+  - evidence: `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToPipe`는 outcome Passed,
+    `io_uring capability status: Available`, `fixed write completion result: 2`를 출력했다.
+  - evidence: 테스트 본문은 registered buffer `{10,20,30,40}` offset 1 length 2를 WRITE_FIXED로 pipe 에 쓰고
+    pipe payload `{20,30}`을 assertion 으로 검증한다.
+  - 의미: D181 fixed-write SQE helper/native completion evidence gate 는 원격 Linux에서 충족됐다.
+    다만 이는 TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 의 직접 근거는 아니다.
+  - 다음: D195 evidence 기준으로 io_uring 후속 후보를 재평가한다.
 
 - [x] D189 WPF/MVVM sample dashboard Task 6 UI binding, run instructions, full verification 을 구현했다.
   - 범위: `samples/Hps.Sample.Dashboard/MainWindow.xaml`,

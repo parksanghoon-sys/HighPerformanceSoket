@@ -128,6 +128,15 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   `tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj`로 좁히고 static contract test 를 추가했다.
   다음 실행 지점은 이 workflow fix 를 push 한 뒤 `iouring-linux-contract.yml`을 다시 실행해
   D181 fixed-write native evidence 를 검토하는 것이다.
+- D195 기준 D194 workflow fix push 이후 원격 `iouring-linux-contract.yml` run `28834265348`은 success 로 완료됐다.
+  head SHA 는 `848ce55341945a83d61023d7e54add5906fd7590`이며, Ubuntu 24.04 runner 에서
+  `Hps.Transport.IoUring.Tests` 61개가 executed/passed 61, failed 0으로 통과했다.
+  TRX 기준 `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToPipe`는 capability `Available`
+  상태로 Passed 이고 stdout 에 `fixed write completion result: 2`를 남겼다.
+  테스트 본문은 registered buffer `{10,20,30,40}`의 offset 1 length 2를 pipe 로 WRITE_FIXED 제출한 뒤
+  pipe payload `{20,30}`을 assertion 으로 검증한다.
+  D181 fixed-write evidence gate 는 충족됐지만, 이는 pump fixed-buffer 연결/zero-copy send/default promotion 의 직접 근거가 아니다.
+  다음 실행 지점은 D195 evidence 기준으로 io_uring 후속 후보를 재평가하는 것이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
