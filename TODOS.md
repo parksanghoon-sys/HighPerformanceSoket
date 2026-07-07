@@ -9,19 +9,15 @@
 
 ## Current TODOs
 
-- [ ] D207 TCP payload fixed-write integration 구현 계획을 작성한다.
-  - 입력: `docs/superpowers/specs/2026-07-08-iouring-post-d206-next-scope-design.md`,
+- [ ] D208 Task 1 send pump lease ref acquisition 을 구현한다.
+  - 입력: `docs/superpowers/plans/2026-07-08-iouring-tcp-payload-fixed-write-integration.md`,
     `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`,
-    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
-    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs`,
-    `tests/Hps.Transport.IoUring.Tests/IoUringTransportTcpTests.cs`.
-  - 할 일: send pump 전용 lease ref 획득/rollback, payload fixed-write helper,
-    remote Linux contract gate 를 TDD task 로 쪼갠다.
-  - 확인할 것: `AddRef` rollback, `InFlightSend` ref 와 lease ref 분리,
-    TCP length prefix 는 기존 scratch send 유지, partial completion offset 처리,
-    close/error unwind 이후 pool leak 0.
-  - 제외: 계획 없이 바로 production pump 수정, TCP prefix fixed-write, UDP fixed-buffer send,
-    zero-copy send, registration cache, default backend promotion.
+    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs`.
+  - 할 일: `CreateForSendPump` factory 를 Red/Green 으로 추가하고, lease-owned `AddRef`/dispose release 와
+    registration 실패 rollback 을 pool count 로 검증한다.
+  - 확인할 것: 기존 `Create(...)`와 `CreateForRegisteredBuffer(...)` 계약은 유지하고,
+    production pump 에서 쓸 factory 만 extra ref 를 획득한다.
+  - 제외: `IoUringTransport.SendInFlightAsync` payload 전환, TCP prefix fixed-write, UDP fixed-buffer send.
 
 ## Deferred Backlog
 
@@ -55,6 +51,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D207 TCP payload fixed-write integration 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/specs/2026-07-08-iouring-post-d206-next-scope-design.md`,
+    `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`,
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringSendPumpShapeTests.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringTransportTcpTests.cs`.
+  - 결과: 계획을 3개 task 로 분리했다.
+    Task 1은 send pump 전용 lease ref acquisition, Task 2는 TCP payload fixed-write helper,
+    Task 3은 원격 Linux contract gate documentation 이다.
+  - 산출물: `docs/superpowers/plans/2026-07-08-iouring-tcp-payload-fixed-write-integration.md`.
+  - 다음: Task 1에서 `CreateForSendPump` factory 와 AddRef rollback tests 를 Red/Green 으로 구현한다.
 
 - [x] D206 원격 Linux contract evidence 이후 io_uring 후속 후보를 재평가했다.
   - 범위: D206 evidence, `src/Hps.Transport.IoUring/IoUringTransport.cs`,

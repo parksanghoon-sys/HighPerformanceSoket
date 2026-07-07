@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-08 (Codex - D208 D207 implementation plan)
+
+### 작업 단위
+- D207 TCP payload fixed-write integration 설계를 구현 가능한 TDD task 로 쪼갰다.
+
+### 확인 내용
+- `IoUringFixedSendLease`는 현재 dispose 시 `_sendBuffer.Buffer.Release()`를 수행한다.
+- production `IoUringTransport.SendLoopAsync`는 `InFlightSend`를 `using`으로 잡고, `SendInFlightAsync` 완료 후
+  `inFlight.Complete()`와 `InFlightSend.Dispose()` 경계에서 transport-owned ref 를 반환한다.
+- 따라서 payload fixed-write path 는 기존 ref 를 공유하지 않고 send pump 전용 extra ref 를 획득해야 한다.
+- `SendInFlightAsync`는 현재 prefix 와 payload 모두 `SendArrayAsync`로 보내며, 계획에서는 prefix path 를 유지하고
+  payload path 만 `SendFixedPayloadAsync`로 바꾼다.
+
+### 변경 내용
+- 구현 계획 `docs/superpowers/plans/2026-07-08-iouring-tcp-payload-fixed-write-integration.md`를 추가했다.
+- 계획은 Task 1 send pump lease ref acquisition, Task 2 TCP payload fixed-write helper,
+  Task 3 remote Linux contract gate documentation 으로 구성했다.
+- 상태 문서의 현재 실행 지점을 Task 1 구현으로 갱신했다.
+
+### 검증
+- 계획은 실제 코드의 현재 method names 와 test files 를 기준으로 작성했다.
+- `rg` 기반 placeholder scan 과 `git diff --check`로 문서 품질을 확인한다.
+
+### 결과
+- 다음 실행 지점은 D208 Task 1 `CreateForSendPump` factory 와 AddRef rollback tests 구현이다.
+
 ## 2026-07-08 (Codex - D207 io_uring post-D206 next scope)
 
 ### 작업 단위
