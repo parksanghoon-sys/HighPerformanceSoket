@@ -59,12 +59,13 @@
   - `internal int PayloadOffset { get; }`
   - `internal int PayloadLength { get; }`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs`:
 
 ```csharp
 using System;
+using System.Reflection;
 using Hps.Buffers;
 using Xunit;
 
@@ -73,6 +74,22 @@ namespace Hps.Transport.IoUring.Tests
     public sealed class IoUringFixedSendLeaseTests
     {
         [Fact]
+        public void LeaseContract_WhenInspected_ExposesPureOwnershipSurface()
+        {
+            // Red 단계가 컴파일 실패가 아니라 명확한 assertion failure 가 되도록 reflection 으로 contract surface 를 먼저 고정한다.
+            Type? leaseType = typeof(IoUringQueue).Assembly.GetType("Hps.Transport.IoUringFixedSendLease");
+            Type? registrationType = typeof(IoUringQueue).Assembly.GetType("Hps.Transport.IIoUringFixedBufferRegistration");
+
+            Assert.NotNull(leaseType);
+            Assert.NotNull(registrationType);
+            Assert.NotNull(leaseType!.GetMethod("CreateForRegisteredBuffer", BindingFlags.Static | BindingFlags.NonPublic));
+            Assert.NotNull(leaseType.GetProperty("RegisteredArray", BindingFlags.Instance | BindingFlags.NonPublic));
+            Assert.NotNull(leaseType.GetProperty("BufferIndex", BindingFlags.Instance | BindingFlags.NonPublic));
+            Assert.NotNull(leaseType.GetProperty("PayloadOffset", BindingFlags.Instance | BindingFlags.NonPublic));
+            Assert.NotNull(leaseType.GetProperty("PayloadLength", BindingFlags.Instance | BindingFlags.NonPublic));
+        }
+
+        [Fact]
         public void Lease_WhenDisposed_ReleasesPayloadRefAndRegistrationOnce()
         {
             // 이 테스트는 fixed-write pump 연결 전에 lease 가 Transport 소유 payload ref 와
@@ -80,7 +97,7 @@ namespace Hps.Transport.IoUring.Tests
             PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(8);
             RefCountedBuffer buffer = pool.RentCounted();
             buffer.Memory.Span.Slice(0, 4).Fill(7);
-            buffer.Length = 4;
+            buffer.SetLength(4);
             buffer.AddRef();
 
             CountingRegistration registration = new CountingRegistration();
@@ -113,7 +130,7 @@ namespace Hps.Transport.IoUring.Tests
             buffer.Memory.Span[1] = 20;
             buffer.Memory.Span[2] = 30;
             buffer.Memory.Span[3] = 40;
-            buffer.Length = 4;
+            buffer.SetLength(4);
             buffer.AddRef();
 
             CountingRegistration registration = new CountingRegistration();
@@ -147,17 +164,20 @@ namespace Hps.Transport.IoUring.Tests
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
 ```powershell
-dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --filter IoUringFixedSendLeaseTests -v minimal
+dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --filter LeaseContract_WhenInspected_ExposesPureOwnershipSurface -v minimal
 ```
 
-Expected: FAIL with compile errors or assertion failures because `IoUringFixedSendLease` and `IIoUringFixedBufferRegistration` do not exist.
+Expected: FAIL with `Assert.NotNull() Failure` because `IoUringFixedSendLease` and `IIoUringFixedBufferRegistration` do not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+Observed: `LeaseContract_WhenInspected_ExposesPureOwnershipSurface` failed with `Assert.NotNull() Failure`.
+After the surface skeleton passed, the ownership behavior tests failed with `NotImplementedException`, then Green implementation closed them.
+
+- [x] **Step 3: Write minimal implementation**
 
 Add `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`:
 
@@ -253,7 +273,7 @@ Modify the class declaration in `src/Hps.Transport.IoUring/IoUringRegisteredBuff
 internal sealed class IoUringRegisteredBufferSet : IIoUringFixedBufferRegistration
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run:
 
@@ -263,7 +283,9 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected: PASS, 2 tests.
 
-- [ ] **Step 5: Run focused project tests**
+Observed: focused `IoUringFixedSendLeaseTests` passed, 3 tests.
+
+- [x] **Step 5: Run focused project tests**
 
 Run:
 
@@ -273,7 +295,9 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected: PASS, existing io_uring test count plus 2.
 
-- [ ] **Step 6: Commit**
+Observed: `Hps.Transport.IoUring.Tests` passed, 66 tests.
+
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src/Hps.Transport.IoUring/IoUringFixedSendLease.cs src/Hps.Transport.IoUring/IoUringRegisteredBufferSet.cs tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs docs/superpowers/plans/2026-07-07-iouring-fixed-send-lease-owner.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md
@@ -408,7 +432,7 @@ public void Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSoc
     buffer.Memory.Span[1] = 20;
     buffer.Memory.Span[2] = 30;
     buffer.Memory.Span[3] = 40;
-    buffer.Length = 4;
+    buffer.SetLength(4);
     buffer.AddRef();
 
     using (LinuxSocketPair socketPair = LinuxSocketPair.Create())

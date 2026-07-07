@@ -9,15 +9,15 @@
 
 ## Current TODOs
 
-- [ ] D200 Task 1 pure lease ownership contract 를 구현한다.
+- [ ] D200 Task 2 queue-based real registration factory 를 구현한다.
   - 입력: `docs/superpowers/plans/2026-07-07-iouring-fixed-send-lease-owner.md`,
+    `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`,
     `src/Hps.Transport.IoUring/IoUringRegisteredBufferSet.cs`,
     `tests/Hps.Transport.IoUring.Tests`.
-  - 할 일: `IoUringFixedSendLease`와 `IIoUringFixedBufferRegistration`의 pure ownership contract 를
-    Red-Green 으로 추가한다.
-  - 확인할 것: lease dispose 가 registration owner 와 payload ref 를 정확히 1회 정리하고,
-    slice offset/length 를 WRITE_FIXED 입력으로 사용할 수 있게 노출한다.
-  - 제외: production TCP pump 변경, queue 기반 real registration factory, Linux native socket write evidence.
+  - 할 일: `IoUringFixedSendLease.Create(IoUringQueue, TransportSendBuffer)` factory shape 와
+    real `IoUringRegisteredBufferSet.Register(...)` 연결을 Red-Green 으로 추가한다.
+  - 확인할 것: Task 1의 pure ownership contract 를 유지하고, production pump 는 아직 호출하지 않는다.
+  - 제외: production TCP pump 변경, Linux native socket write evidence, zero-copy send.
 
 ## Deferred Backlog
 
@@ -69,6 +69,19 @@
     remote contract gate documentation 의 4개 task 로 분리했다.
   - 산출물: `docs/superpowers/plans/2026-07-07-iouring-fixed-send-lease-owner.md`.
   - 다음: Task 1에서 lease dispose/ref-count/registration owner 정리 계약을 Red-Green 으로 구현한다.
+
+- [x] D200 Task 1 pure lease ownership contract 를 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`,
+    `src/Hps.Transport.IoUring/IoUringRegisteredBufferSet.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs`,
+    `docs/superpowers/plans/2026-07-07-iouring-fixed-send-lease-owner.md`, root 상태 문서.
+  - Red: `LeaseContract_WhenInspected_ExposesPureOwnershipSurface`가 type 부재로 `Assert.NotNull() Failure`를 냈고,
+    skeleton 이후 behavior tests 2개가 `NotImplementedException`으로 실패함을 확인했다.
+  - Green: `IIoUringFixedBufferRegistration`, `IoUringFixedSendLease.CreateForRegisteredBuffer(...)`,
+    slice metadata surface, idempotent dispose 를 구현했다.
+  - 검증: focused `IoUringFixedSendLeaseTests` 3개 통과,
+    `Hps.Transport.IoUring.Tests` 66개 통과.
+  - 다음: Task 2에서 queue-based real registration factory 를 구현한다.
 
 - [x] D196 socket fixed-write evidence 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토했다.
   - 범위: GitHub Actions run `28837405462`,

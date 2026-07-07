@@ -9,7 +9,7 @@ namespace Hps.Transport
     /// kernel 에 등록된 iovec 는 등록 해제 전까지 같은 주소를 유지해야 하므로, owner 는 buffer 를 먼저 pin 하고
     /// register 에 성공한 뒤 Dispose 에서 unregister 후 pin 을 해제한다. 실제 send/recv pump 연결은 후속 task 범위다.
     /// </summary>
-    internal sealed class IoUringRegisteredBufferSet : IDisposable
+    internal sealed class IoUringRegisteredBufferSet : IIoUringFixedBufferRegistration
     {
         private readonly IoUringQueue _queue;
         private readonly int _fileDescriptor;
@@ -26,6 +26,11 @@ namespace Hps.Transport
         }
 
         internal int RegisteredBufferCount
+        {
+            get { return _registeredBufferCount; }
+        }
+
+        int IIoUringFixedBufferRegistration.RegisteredBufferCount
         {
             get { return _registeredBufferCount; }
         }

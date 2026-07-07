@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-07 (Codex - D201 fixed send lease ownership)
+
+### 작업 단위
+- D200 Task 1 pure lease ownership contract 를 구현했다.
+
+### 변경 내용
+- `IoUringFixedSendLease`:
+  `TransportSendBuffer` slice metadata 와 registration owner 를 하나의 lease 로 묶고,
+  dispose 시 registration owner 와 payload ref 를 정확히 1회 정리하게 했다.
+- `IoUringRegisteredBufferSet`:
+  `IIoUringFixedBufferRegistration` internal interface 를 구현하게 했다.
+- `IoUringFixedSendLeaseTests`:
+  reflection surface Red, ownership cleanup Red/Green, slice range surface 검증을 추가했다.
+- 상태 문서:
+  다음 실행 지점을 D200 Task 2 queue-based real registration factory 로 갱신했다.
+
+### 검증
+- Red: surface type 부재 `Assert.NotNull() Failure`.
+- Red: behavior tests 2개 `NotImplementedException`.
+- Green: focused `IoUringFixedSendLeaseTests` 3개 통과.
+- Green: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal` 통과, 66개.
+
+### 결과
+- fixed-write production pump 연결 전 payload ref 와 registration owner 를 함께 정리하는 pure lease contract 가 생겼다.
+- 아직 queue-based real registration factory, Linux native socket write evidence, production pump 연결은 하지 않았다.
+
 ## 2026-07-07 (Codex - D200 fixed send lease owner implementation plan)
 
 ### 작업 단위
