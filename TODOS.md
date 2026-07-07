@@ -9,14 +9,17 @@
 
 ## Current TODOs
 
-- [ ] D198 socket fixed-write 원격 evidence 이후 io_uring 후속 후보를 재평가한다.
-  - 입력: D196/D197/D198 evidence, `src/Hps.Transport.IoUring`, `tests/Hps.Transport.IoUring.Tests`,
-    `docs/superpowers/specs/2026-07-07-iouring-post-d195-next-scope-design.md`.
-  - 할 일: socket fd fixed-write contract 가 원격 Linux에서 통과한 상태에서 다음 단위가
-    TCP pump fixed-buffer lease owner 설계, 추가 ownership contract evidence, benchmark/diagnostics 보강 중 무엇이어야 하는지 좁힌다.
-  - 확인할 것: D198 evidence 를 과대해석하지 않고, `RefCountedBuffer` fan-out ownership,
-    TCP length prefix, close drain, fallback 영향이 가장 작은 다음 작업 단위를 고른다.
-  - 제외: 설계 없이 즉시 TCP/UDP pump 변경, zero-copy send, default promotion, latency hard gate.
+- [ ] D199 설계에 따라 TCP fixed-send lease owner 구현 계획을 작성한다.
+  - 입력: `docs/superpowers/specs/2026-07-07-iouring-post-d198-next-scope-design.md`,
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `src/Hps.Transport.IoUring/IoUringRegisteredBufferSet.cs`,
+    `src/Hps.Transport/Runtime/TransportConnection.cs`,
+    `tests/Hps.Transport.IoUring.Tests`.
+  - 할 일: `IoUringFixedSendLease` 또는 동등한 internal owner 의 surface, contract tests,
+    Red-Green task 순서, local/remote validation path 를 구현 계획으로 쪼갠다.
+  - 확인할 것: lease 가 payload ref 반환과 fixed registration lifetime 을 정확히 묶고,
+    TCP length prefix 는 이번 범위에서 기존 connection scratch send 로 분리 유지한다.
+  - 제외: 계획 없이 production TCP/UDP pump 변경, zero-copy send, default promotion, latency hard gate.
 
 ## Deferred Backlog
 
@@ -50,6 +53,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D198 socket fixed-write 원격 evidence 이후 io_uring 후속 후보를 재평가했다.
+  - 범위: D196/D197/D198 evidence, `src/Hps.Transport.IoUring`, `src/Hps.Transport/Runtime/TransportConnection.cs`,
+    `tests/Hps.Transport.IoUring.Tests`,
+    `docs/superpowers/specs/2026-07-07-iouring-post-d195-next-scope-design.md`.
+  - 결과: D198은 stream socket fd 에 fixed-write 가 동작한다는 native contract 를 닫지만,
+    production TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 의 직접 근거는 아니라고 판단했다.
+  - 결정: 다음 단위는 production pump 변경이 아니라 TCP fixed-send lease owner 구현 계획이다.
+  - 산출물: `docs/superpowers/specs/2026-07-07-iouring-post-d198-next-scope-design.md`, D199 상태/결정 문서.
+  - 다음: D200 구현 계획에서 lifetime owner contract tests 와 validation path 를 쪼갠다.
 
 - [x] D196 socket fixed-write evidence 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토했다.
   - 범위: GitHub Actions run `28837405462`,

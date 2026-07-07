@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-07 (Codex - D199 io_uring post-D198 next scope)
+
+### 작업 단위
+- D198 socket fixed-write 원격 evidence 이후 `io_uring` 후속 후보를 재평가했다.
+
+### 확인 내용
+- D198은 stream socket fd 에 `IORING_OP_WRITE_FIXED`로 registered buffer slice 를 쓸 수 있음을 검증했다.
+- 현재 production TCP send pump 는 length prefix scratch 전송 뒤 payload 를 `TrySubmitSend`로 보낸다.
+- `IoUringRegisteredBufferSet`은 존재하지만 `TransportConnection.InFlightSend`와 `RefCountedBuffer` fan-out ownership lifetime 에 아직 연결되어 있지 않다.
+- 따라서 바로 TCP/UDP pump 를 fixed-write 로 바꾸면 native contract, registration lifetime, close drain, length prefix framing 을 동시에 건드리게 된다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-07-07-iouring-post-d198-next-scope-design.md`:
+  다음 단위를 TCP fixed-send lease owner 구현 계획으로 정했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-07.md`:
+  D199 결정을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  D198 재평가를 완료하고 다음 실행 지점을 D200 구현 계획 작성으로 갱신했다.
+
+### 검증
+- 문서 전용 변경이므로 build/test 는 실행하지 않았다.
+- `git diff --check`로 whitespace 오류가 없음을 확인했다.
+
+### 결과
+- 다음 작업은 `IoUringFixedSendLease` 또는 동등한 internal owner 의 TDD 구현 계획 작성이다.
+- production pump fixed-write 연결, UDP fixed-buffer send, zero-copy send, default promotion, latency hard gate 는 계속 제외한다.
+
 ## 2026-07-07 (Codex - D198 socket fixed-write remote gate)
 
 ### 작업 단위
