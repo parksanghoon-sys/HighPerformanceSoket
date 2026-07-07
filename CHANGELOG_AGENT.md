@@ -5,6 +5,35 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-07 (Codex - D198 socket fixed-write remote gate)
+
+### 작업 단위
+- D197 socket fixed-write evidence 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토했다.
+
+### 확인 내용
+- 사용자 push 이후 `git fetch origin` 기준 로컬 `HEAD`와 `origin/master`가
+  `84af508110a1c104c8b484cf138e05c83f8893d8`로 일치함을 확인했다.
+- `gh workflow run iouring-linux-contract.yml --ref master`로 run `28837405462`를 실행했다.
+- `gh run watch 28837405462 --exit-status`:
+  workflow conclusion success, job `io_uring contract (linux)` success.
+- run metadata:
+  head SHA 는 `84af508110a1c104c8b484cf138e05c83f8893d8`, branch 는 `master`다.
+- workflow log:
+  Ubuntu 24.04 runner 에서 project-scoped restore/build 가 통과했고, build 는 warning 0/error 0이다.
+  `Hps.Transport.IoUring.Tests`는 Failed 0, Passed 63, Skipped 0, Total 63으로 통과했다.
+- artifact:
+  `iouring-linux-contract-2026-07-07-github-28837405462-1`는 `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`를 포함한다.
+- TRX:
+  counters 는 total 63, executed 63, passed 63, failed 0, notExecuted 0이다.
+  `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`는 outcome Passed,
+  stdout 은 `io_uring capability status: Available`, `fixed socket write completion result: 2`를 기록했다.
+
+### 결과
+- D197 socket fixed-write native evidence gate 는 원격 Linux에서 충족됐다.
+- 이 evidence 는 stream socket fd 에 `WRITE_FIXED`로 registered buffer slice 를 쓸 수 있음을 닫는 것이며,
+  TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 의 직접 근거는 아니다.
+- 다음 실행 지점은 D198 evidence 기준으로 io_uring 후속 후보를 재평가하는 것이다.
+
 ## 2026-07-07 (Codex - D197 io_uring socket fixed-write local evidence)
 
 ### 작업 단위

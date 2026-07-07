@@ -9,13 +9,14 @@
 
 ## Current TODOs
 
-- [ ] D196 socket fixed-write evidence 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
-  - 입력: D197 local implementation, `tests/Hps.Transport.IoUring.Tests/IoUringFixedBufferSubmissionTests.cs`,
-    GitHub Actions `iouring-linux-contract.yml` run artifact.
-  - 할 일: 사용자 push 이후 workflow 를 실행하고 TRX/summary 에서
-    `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`가 capability `Available` 상태로 Passed 인지 확인한다.
-  - 확인할 것: socket fixed-write completion result 2, peer socket payload `{20,30}`, existing io_uring tests 전체 green.
-  - 제외: remote gate 전 TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
+- [ ] D198 socket fixed-write 원격 evidence 이후 io_uring 후속 후보를 재평가한다.
+  - 입력: D196/D197/D198 evidence, `src/Hps.Transport.IoUring`, `tests/Hps.Transport.IoUring.Tests`,
+    `docs/superpowers/specs/2026-07-07-iouring-post-d195-next-scope-design.md`.
+  - 할 일: socket fd fixed-write contract 가 원격 Linux에서 통과한 상태에서 다음 단위가
+    TCP pump fixed-buffer lease owner 설계, 추가 ownership contract evidence, benchmark/diagnostics 보강 중 무엇이어야 하는지 좁힌다.
+  - 확인할 것: D198 evidence 를 과대해석하지 않고, `RefCountedBuffer` fan-out ownership,
+    TCP length prefix, close drain, fallback 영향이 가장 작은 다음 작업 단위를 고른다.
+  - 제외: 설계 없이 즉시 TCP/UDP pump 변경, zero-copy send, default promotion, latency hard gate.
 
 ## Deferred Backlog
 
@@ -49,6 +50,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D196 socket fixed-write evidence 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토했다.
+  - 범위: GitHub Actions run `28837405462`,
+    artifact `iouring-linux-contract-2026-07-07-github-28837405462-1`, D198 상태/결정 문서.
+  - 결과: workflow conclusion success, job `io_uring contract (linux)` success, test exit code 0.
+  - evidence: head SHA 는 `84af508110a1c104c8b484cf138e05c83f8893d8`이다.
+  - evidence: TRX counters 는 total 63, executed 63, passed 63, failed 0, notExecuted 0이다.
+  - evidence: `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`는 outcome Passed,
+    `io_uring capability status: Available`, `fixed socket write completion result: 2`를 출력했다.
+  - 의미: stream socket fd 에 `WRITE_FIXED`로 registered buffer slice 를 쓰는 native evidence 는 원격 Linux에서 충족됐다.
+    다만 이는 TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 의 직접 근거는 아니다.
+  - 다음: D198 evidence 기준으로 io_uring 후속 후보를 재평가한다.
 
 - [x] D196 fixed-write socket fd contract evidence 를 로컬 구현했다.
   - 범위: `tests/Hps.Transport.IoUring.Tests/IoUringFixedBufferSubmissionTests.cs`, D197 상태/결정 문서.

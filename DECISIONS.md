@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D198 — D197 socket fixed-write evidence 는 원격 Linux contract gate 를 통과했지만 pump/zero-copy/default promotion 근거로 즉시 확장하지 않는다.
 - D197 — D196 socketpair fixed-write local implementation 은 evidence-only 이며 원격 Linux contract gate 전에는 pump 근거로 쓰지 않는다.
 - D196 — D195 이후 다음 단위는 production pump 변경이 아니라 fixed-write socket fd contract evidence 다.
 - D195 — D181 fixed-write SQE evidence 는 원격 Linux contract gate 를 통과했지만 pump/zero-copy/default promotion 근거로 즉시 확장하지 않는다.
