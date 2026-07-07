@@ -416,7 +416,7 @@ git commit -m "feat(iouring): add fixed send lease factory"
 - Produces:
   - Linux capability gated test proving lease-owned registered buffer can be written to stream socket fd and disposed after completion.
 
-- [ ] **Step 1: Write the failing native evidence test**
+- [x] **Step 1: Write the failing native evidence test**
 
 Append to `IoUringFixedSendLeaseTests`:
 
@@ -474,7 +474,9 @@ public void Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSoc
 
 Add a private `LinuxSocketPair` helper by copying the D197 helper shape from `IoUringFixedBufferSubmissionTests`, including `socketpair`, `read`, `close`, and `Dispose` members. Keep it private to this test file unless a later cleanup task deliberately extracts a shared helper.
 
-- [ ] **Step 2: Run local focused test**
+Observed Red: `LinuxSocketPair_HelperExistsForLeaseNativeEvidence` failed with `Assert.NotNull() Failure`.
+
+- [x] **Step 2: Run local focused test**
 
 Run:
 
@@ -485,7 +487,9 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 Expected on Windows/local unavailable: PASS via capability guard early-return.
 Expected on Linux available: PASS with completion result 2 and payload `{20,30}`.
 
-- [ ] **Step 3: Run full io_uring project tests**
+Observed: local Windows focused native evidence test passed via capability guard.
+
+- [x] **Step 3: Run full io_uring project tests**
 
 Run:
 
@@ -495,7 +499,9 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected: PASS.
 
-- [ ] **Step 4: Run solution tests**
+Observed: `Hps.Transport.IoUring.Tests` passed, 69 tests.
+
+- [x] **Step 4: Run solution tests**
 
 Run:
 
@@ -505,7 +511,9 @@ dotnet test HighPerformanceSocket.slnx -v minimal
 
 Expected: PASS. If Windows WPF restore/build constraints appear, use the same repository-supported command path already used by current state docs and record the exact limitation.
 
-- [ ] **Step 5: Commit**
+Observed: `dotnet test HighPerformanceSocket.slnx -v minimal` passed.
+
+- [x] **Step 5: Commit**
 
 ```powershell
 git add tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs docs/superpowers/plans/2026-07-07-iouring-fixed-send-lease-owner.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md

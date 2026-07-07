@@ -9,15 +9,14 @@
 
 ## Current TODOs
 
-- [ ] D200 Task 3 Linux native lease evidence 를 구현한다.
+- [ ] D203 fixed-send lease native evidence 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
   - 입력: `docs/superpowers/plans/2026-07-07-iouring-fixed-send-lease-owner.md`,
-    `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`,
-    `tests/Hps.Transport.IoUring.Tests`.
-  - 할 일: Linux capability available 환경에서 lease 가 소유한 registered buffer slice 를
-    stream socket fd 로 `TrySubmitWriteFixed` 제출하는 native evidence test 를 추가한다.
-  - 확인할 것: Windows/local unavailable 환경은 capability guard 로 early-return 하고,
-    Linux available 환경에서는 completion result 2와 payload `{20,30}`을 검증한다.
-  - 제외: production TCP pump 변경, zero-copy send, default promotion.
+    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs`, GitHub Actions artifact.
+  - 할 일: push 이후 `iouring-linux-contract.yml`을 실행하고 artifact/TRX에서
+    `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair` 결과를 확인한다.
+  - 확인할 것: capability `Available`, completion result 2, payload `{20,30}` assertion 경로,
+    전체 `Hps.Transport.IoUring.Tests` counters failed 0.
+  - 제외: remote gate 전 production TCP pump fixed-write 연결, zero-copy send, default promotion.
 
 ## Deferred Backlog
 
@@ -93,6 +92,19 @@
   - 검증: focused `IoUringFixedSendLeaseTests` 4개 통과,
     `Hps.Transport.IoUring.Tests` 67개 통과.
   - 다음: Task 3에서 Linux capability gated native lease write evidence 를 추가한다.
+
+- [x] D200 Task 3 Linux native lease evidence 를 로컬 구현했다.
+  - 범위: `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs`,
+    `docs/superpowers/plans/2026-07-07-iouring-fixed-send-lease-owner.md`, root 상태 문서.
+  - Red: `LinuxSocketPair_HelperExistsForLeaseNativeEvidence`가 helper type 부재로 `Assert.NotNull() Failure`를 냈다.
+  - Green: test-only `LinuxSocketPair` helper 와
+    `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`를 추가했다.
+  - 결과: Linux capability available 환경에서 lease 가 소유한 registered buffer slice 를
+    stream socket fd 로 `TrySubmitWriteFixed` 제출하고 `{20,30}` payload 를 읽도록 검증한다.
+  - 검증: focused native evidence test 로컬 guard 통과,
+    `Hps.Transport.IoUring.Tests` 69개 통과,
+    `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과.
+  - 다음: push 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
 
 - [x] D196 socket fixed-write evidence 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토했다.
   - 범위: GitHub Actions run `28837405462`,

@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Hps.Buffers;
 using Xunit;
 
@@ -96,6 +97,65 @@ namespace Hps.Transport.IoUring.Tests
             Assert.NotNull(method);
         }
 
+        [Fact]
+        public void LinuxSocketPair_HelperExistsForLeaseNativeEvidence()
+        {
+            // Windows/local 에서는 native body 가 capability guard 로 early-return 하므로,
+            // test-only socketpair helper 존재를 별도 contract 로 고정해 Red 단계를 명확히 만든다.
+            Type? helperType = typeof(IoUringFixedSendLeaseTests).GetNestedType(
+                "LinuxSocketPair",
+                BindingFlags.NonPublic);
+
+            Assert.NotNull(helperType);
+        }
+
+        [Fact]
+        public void Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair()
+        {
+            // lease 가 registration lifetime 을 completion 이후까지 유지하고, dispose 에서 payload ref 를 반환하는지
+            // Linux native WRITE_FIXED + stream socket fd 경로로 검증한다.
+            IoUringCapabilityStatus status = IoUringCapabilityProbe.GetStatus();
+            if (status != IoUringCapabilityStatus.Available)
+                return;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(4);
+            RefCountedBuffer buffer = pool.RentCounted();
+            buffer.Memory.Span[0] = 10;
+            buffer.Memory.Span[1] = 20;
+            buffer.Memory.Span[2] = 30;
+            buffer.Memory.Span[3] = 40;
+            buffer.SetLength(4);
+            buffer.AddRef();
+
+            using (LinuxSocketPair socketPair = LinuxSocketPair.Create())
+            using (IoUringQueue queue = IoUringQueue.CreateForProbe(4))
+            using (IoUringFixedSendLease lease = IoUringFixedSendLease.Create(
+                queue,
+                new TransportSendBuffer(buffer, 1, 2)))
+            {
+                const ulong Token = 0x199UL;
+                Assert.True(queue.TrySubmitWriteFixed(
+                    socketPair.WriterFileDescriptor,
+                    lease.RegisteredArray,
+                    lease.PayloadOffset,
+                    lease.PayloadLength,
+                    lease.BufferIndex,
+                    Token));
+
+                IoUringNative.Enter(queue.FileDescriptor, 0, 1, IoUringNative.EnterGetEvents);
+
+                IoUringCompletion completion;
+                Assert.True(queue.TryDequeueCompletion(out completion));
+                Assert.Equal(Token, completion.Token);
+                Assert.Equal(2, completion.Result);
+                Assert.Equal(new byte[] { 20, 30 }, socketPair.ReadExact(2));
+            }
+
+            Assert.Equal(1, pool.RentedCount);
+            buffer.Release();
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         private sealed class CountingRegistration : IIoUringFixedBufferRegistration
         {
             public int DisposeCount { get; private set; }
@@ -109,6 +169,81 @@ namespace Hps.Transport.IoUring.Tests
             {
                 DisposeCount++;
             }
+        }
+
+        private sealed class LinuxSocketPair : IDisposable
+        {
+            private const int AddressFamilyUnix = 1;
+            private const int SocketTypeStream = 1;
+
+            private int _readerFileDescriptor;
+            private int _writerFileDescriptor;
+
+            private LinuxSocketPair(int readerFileDescriptor, int writerFileDescriptor)
+            {
+                _readerFileDescriptor = readerFileDescriptor;
+                _writerFileDescriptor = writerFileDescriptor;
+            }
+
+            internal int WriterFileDescriptor
+            {
+                get { return _writerFileDescriptor; }
+            }
+
+            internal static LinuxSocketPair Create()
+            {
+                int[] fileDescriptors = new int[2];
+                if (SocketPair(AddressFamilyUnix, SocketTypeStream, 0, fileDescriptors) != 0)
+                    throw new InvalidOperationException("socketpair 생성에 실패했습니다.");
+
+                return new LinuxSocketPair(fileDescriptors[0], fileDescriptors[1]);
+            }
+
+            internal unsafe byte[] ReadExact(int length)
+            {
+                byte[] buffer = new byte[length];
+                int offset = 0;
+
+                fixed (byte* bufferPointer = buffer)
+                {
+                    while (offset < length)
+                    {
+                        IntPtr result = Read(
+                            _readerFileDescriptor,
+                            new IntPtr(bufferPointer + offset),
+                            new UIntPtr((uint)(length - offset)));
+                        int read = result.ToInt32();
+                        if (read <= 0)
+                            throw new InvalidOperationException("socketpair 에서 expected payload 를 읽지 못했습니다.");
+
+                        offset += read;
+                    }
+                }
+
+                return buffer;
+            }
+
+            public void Dispose()
+            {
+                int readerFd = _readerFileDescriptor;
+                int writerFd = _writerFileDescriptor;
+                _readerFileDescriptor = -1;
+                _writerFileDescriptor = -1;
+
+                if (readerFd >= 0)
+                    Close(readerFd);
+                if (writerFd >= 0)
+                    Close(writerFd);
+            }
+
+            [DllImport("libc", EntryPoint = "socketpair", SetLastError = true)]
+            private static extern int SocketPair(int domain, int type, int protocol, [Out] int[] fileDescriptors);
+
+            [DllImport("libc", EntryPoint = "read", SetLastError = true)]
+            private static extern IntPtr Read(int fileDescriptor, IntPtr buffer, UIntPtr count);
+
+            [DllImport("libc", EntryPoint = "close", SetLastError = true)]
+            private static extern int Close(int fileDescriptor);
         }
     }
 }
