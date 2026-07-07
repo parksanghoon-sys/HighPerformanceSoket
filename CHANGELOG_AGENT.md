@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-07 (Codex - D196 io_uring post-D195 next scope)
+
+### 작업 단위
+- D195 fixed-write 원격 evidence 이후 `io_uring` 후속 후보를 재평가했다.
+
+### 확인 내용
+- D195 run `28834265348`은 fixed-write helper 가 registered buffer slice 를 pipe fd 로 쓸 수 있음을 검증했다.
+- 현재 production TCP send pump 는 아직 `TrySubmitSend`를 사용하고, UDP send pump 는 `TrySubmitSendMessage`를 사용한다.
+- `IoUringRegisteredBufferSet`은 존재하지만 production `TransportConnection`/`RefCountedBuffer` lifetime 에 연결되어 있지 않다.
+- 따라서 D195를 TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 근거로 확장하지 않는다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-07-07-iouring-post-d195-next-scope-design.md`:
+  D196 다음 단위를 fixed-write socket fd contract evidence 로 정했다.
+- `DECISIONS.md`, `docs/agent-state/decisions/2026-07.md`:
+  D196 결정을 추가했다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  현재 실행 지점을 Linux capability gated `socketpair(AF_UNIX, SOCK_STREAM)` evidence 구현으로 갱신했다.
+
+### 결과
+- 다음 구현은 production pump 변경이 아니라 test-only socketpair evidence 다.
+- 이 구현은 registered buffer `{10,20,30,40}` offset 1 length 2를 `TrySubmitWriteFixed`로 stream socket fd 에 쓰고,
+  peer socket 에서 `{20,30}`을 읽는지 검증한다.
+- TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 는 계속 제외한다.
+
 ## 2026-07-07 (Codex - D195 D181 fixed-write remote gate)
 
 ### 작업 단위

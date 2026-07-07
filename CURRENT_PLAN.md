@@ -137,6 +137,12 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   pipe payload `{20,30}`을 assertion 으로 검증한다.
   D181 fixed-write evidence gate 는 충족됐지만, 이는 pump fixed-buffer 연결/zero-copy send/default promotion 의 직접 근거가 아니다.
   다음 실행 지점은 D195 evidence 기준으로 io_uring 후속 후보를 재평가하는 것이다.
+- D196 기준 D195 이후 후속 후보를 재평가했고, 다음 단위는 production TCP/UDP pump 변경이 아니라
+  fixed-write socket fd contract evidence 로 좁혔다.
+  설계는 `docs/superpowers/specs/2026-07-07-iouring-post-d195-next-scope-design.md`에 있다.
+  다음 실행 지점은 Linux capability gated `socketpair(AF_UNIX, SOCK_STREAM)` test 로
+  registered buffer slice `{20,30}`이 stream socket fd 를 통해 전송되는지 확인하는 것이다.
+  TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 는 계속 제외한다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
@@ -2003,9 +2009,9 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP protocol root history 는 session-count 4, hard-passed true, warning-count 24, comparison-compatible true 이고,
   UDP protocol root history 는 session-count 7, hard-passed true, warning-count 13, comparison-compatible true 다.
   최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
-- 다음 실행 지점: 사용자 push 이후 원격 `iouring-linux-contract.yml`을 실행해
-  `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToPipe`가 capability available 상태에서
-  fixed write completion result 2와 pipe payload `[20, 30]`을 확인하는지 검토한다.
+- 다음 실행 지점: D196 fixed-write socket fd contract evidence 를 구현한다.
+  Linux capability gated `socketpair(AF_UNIX, SOCK_STREAM)` test 로 registered buffer slice `{20,30}`이
+  stream socket fd 를 통해 전송되는지 확인한다.
   TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 는 계속 제외한다.
 
 ## 이번 작업에서 건드리지 않는 범위

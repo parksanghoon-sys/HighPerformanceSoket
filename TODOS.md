@@ -9,13 +9,15 @@
 
 ## Current TODOs
 
-- [ ] D195 fixed-write 원격 evidence 이후 io_uring 후속 후보를 재평가한다.
-  - 입력: D181/D194/D195 evidence, `src/Hps.Transport.IoUring`, `tests/Hps.Transport.IoUring.Tests`,
-    `docs/superpowers/specs/2026-07-03-iouring-post-d178-next-scope-design.md`.
-  - 할 일: fixed-write SQE helper가 Linux contract gate 를 통과한 상태에서 다음 단위가
-    TCP/UDP pump fixed-buffer 연결, zero-copy send, 추가 contract evidence, 또는 benchmark/diagnostics 보강 중 무엇이어야 하는지 좁힌다.
-  - 확인할 것: D195 evidence 를 과대해석하지 않고, 소유권/ref-count/close drain/fallback 영향이 가장 작은 다음 작업 단위를 고른다.
-  - 제외: 설계 없이 즉시 pump 경로 변경, default promotion, latency hard gate.
+- [ ] D196 fixed-write socket fd contract evidence 를 구현한다.
+  - 입력: `docs/superpowers/specs/2026-07-07-iouring-post-d195-next-scope-design.md`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringFixedBufferSubmissionTests.cs`,
+    `src/Hps.Transport.IoUring/IoUringQueue.cs`, `IoUringRegisteredBufferSet`.
+  - 할 일: Linux capability gated test 에서 test-only `socketpair(AF_UNIX, SOCK_STREAM)` helper 로 stream socket pair 를 만들고,
+    한쪽 fd 에 `TrySubmitWriteFixed`를 제출해 반대쪽 fd 에서 registered buffer slice `{20,30}`을 읽는지 검증한다.
+  - 확인할 것: completion result 2, payload `{20,30}`, Windows/local unavailable guard 유지,
+    production pump/API/registration lifetime surface 변경 없음.
+  - 제외: TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
 
 ## Deferred Backlog
 
@@ -49,6 +51,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D195 fixed-write 원격 evidence 이후 io_uring 후속 후보를 재평가했다.
+  - 범위: D181/D194/D195 evidence, `src/Hps.Transport.IoUring`, `tests/Hps.Transport.IoUring.Tests`,
+    `docs/superpowers/specs/2026-07-03-iouring-post-d178-next-scope-design.md`.
+  - 결과: D195는 pipe fd 기반 fixed-write SQE/native completion contract 를 닫지만,
+    TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 의 직접 근거는 아니라고 판단했다.
+  - 결정: 다음 단위는 production pump 변경이 아니라 fixed-write socket fd contract evidence 다.
+  - 산출물: `docs/superpowers/specs/2026-07-07-iouring-post-d195-next-scope-design.md`, D196 상태/결정 문서.
+  - 다음: D196 구현에서 Linux capability gated socketpair test 를 추가한다.
 
 - [x] D181 fixed-buffer SQE submission evidence 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토했다.
   - 범위: GitHub Actions run `28834265348`,
