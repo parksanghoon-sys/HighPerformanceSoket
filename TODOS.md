@@ -9,17 +9,15 @@
 
 ## Current TODOs
 
-- [ ] D205 TCP send pump task tracking fix 의 원격 `iouring-linux-contract.yml` artifact gate 를 재검토한다.
-  - 입력: `src/Hps.Transport/Runtime/TransportConnection.cs`,
-    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
-    `tests/Hps.Transport.Tests/Runtime/TransportSendQueueTests.cs`,
-    `tests/Hps.Transport.IoUring.Tests/IoUringSendPumpShapeTests.cs`, GitHub Actions artifact.
-  - 할 일: push 이후 `iouring-linux-contract.yml`을 실행하고 artifact/TRX에서
-    `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`와
-    `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair` 결과를 확인한다.
-  - 확인할 것: capability `Available`, 전체 `Hps.Transport.IoUring.Tests` counters failed 0,
-    lease test completion result 2와 payload `{20,30}`, TCP send loopback pool leak 단언 재발 없음.
-  - 제외: remote gate 전 production TCP pump fixed-write 연결, zero-copy send, default promotion.
+- [ ] D206 원격 Linux contract evidence 이후 io_uring 후속 후보를 재평가한다.
+  - 입력: D206 evidence, `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`, `tests/Hps.Transport.IoUring.Tests`,
+    `CURRENT_PLAN.md`, `DECISIONS.md`.
+  - 할 일: fixed-send lease/native evidence 가 production TCP pump fixed-write 연결을 열기에 충분한지,
+    아니면 추가 설계/관측/계약 테스트가 먼저 필요한지 판단한다.
+  - 확인할 것: length prefix 처리, payload registration lifetime, close/error unwind,
+    benchmark/latency evidence, default backend policy 와의 경계.
+  - 제외: 재평가 없이 바로 production pump fixed-write 연결, zero-copy send, default promotion.
 
 ## Deferred Backlog
 
@@ -53,6 +51,21 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D205 TCP send pump task tracking fix 의 원격 `iouring-linux-contract.yml` artifact gate 를 재검토했다.
+  - 범위: GitHub Actions run `28842952688`,
+    artifact `iouring-linux-contract-2026-07-07-github-28842952688-1`, D206 상태/결정 문서.
+  - 결과: workflow conclusion success, job `io_uring contract (linux)` success, test exit code 0.
+  - evidence: head SHA 는 `6e9e14d679740235cfe79f10faae02fc3e356b09`이다.
+  - evidence: TRX counters 는 total 70, executed 70, passed 70, failed 0, notExecuted 0이다.
+  - evidence: `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`는 outcome Passed 로,
+    D204/D205에서 반복됐던 pool leak 단언이 재발하지 않았다.
+  - evidence: `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`는 outcome Passed 다.
+  - evidence: `IoUringCapabilityEvidenceTests`는 `io_uring capability status: Available`을 출력했다.
+  - evidence: socket fixed-write test 는 `fixed socket write completion result: 2`를 출력했다.
+  - 의미: D205 shutdown tracking fix 와 D203 fixed-send lease native evidence 는 원격 Linux에서 충족됐다.
+    다만 이는 production TCP pump fixed-write 연결, zero-copy send, default promotion, latency hard gate 의 직접 근거는 아니다.
+  - 다음: D206 evidence 기준으로 io_uring 후속 후보를 재평가한다.
 
 - [x] D204 TCP in-flight drain fix 재실행 gate 를 검토하고 close-unregistered send pump task 추적을 보강했다.
   - 범위: GitHub Actions run `28841586637`,

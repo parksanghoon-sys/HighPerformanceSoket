@@ -193,7 +193,11 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   unregister 되고, `StopAsync`의 open connection snapshot 에서 빠진 것이다.
   `IoUringTransport`가 TCP send pump task 를 connection list 와 별도로 추적하고, `StopAsync`/`Dispose`가 해당 task snapshot 을
   기다린 뒤 native owner 를 dispose 하도록 보강했다.
-  다음 실행 지점은 push 이후 같은 원격 workflow 를 재실행해 전체 `Hps.Transport.IoUring.Tests` failed 0을 확인하는 것이다.
+- D206 기준 D205 push 이후 원격 `iouring-linux-contract.yml` run `28842952688`이 success 로 완료됐다.
+  head SHA 는 `6e9e14d679740235cfe79f10faae02fc3e356b09`이고, TRX counters 는 total/executed/passed 70, failed 0이다.
+  `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`와
+  `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`가 모두 Passed 로 확인됐다.
+  다음 실행 지점은 D206 evidence 기준으로 io_uring 후속 후보를 재평가하는 것이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
@@ -2060,11 +2064,8 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP protocol root history 는 session-count 4, hard-passed true, warning-count 24, comparison-compatible true 이고,
   UDP protocol root history 는 session-count 7, hard-passed true, warning-count 13, comparison-compatible true 다.
   최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
-- 다음 실행 지점: 사용자 push 이후 `iouring-linux-contract.yml`을 다시 실행해
-  `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`의 pool leak 단언이 재발하지 않고,
-  `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`가 capability `Available` 상태에서
-  completion result 2와 payload `{20,30}`으로 통과하는지 검토한다.
-  이 remote gate 전까지 production TCP pump fixed-write 연결 근거로 쓰지 않는다.
+- 다음 실행 지점: D206 원격 Linux contract evidence 기준으로 io_uring 후속 후보를 재평가한다.
+  production TCP pump fixed-write 연결, zero-copy send, default promotion, latency hard gate 는 아직 자동으로 열지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

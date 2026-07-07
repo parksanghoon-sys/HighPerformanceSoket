@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D206 — D205 send pump shutdown fix 는 원격 Linux contract gate 를 통과했지만 fixed-write pump/default promotion 근거로 즉시 확장하지 않는다.
 - D205 — io_uring transport 는 close 로 unregister 된 connection 의 TCP send pump task 도 shutdown 때 기다린다.
 - D204 — io_uring `StopAsync`는 connection close 이후 TCP in-flight send ref 반환 완료를 기다린다.
 - D199 — D198 이후 다음 단위는 production pump 변경이 아니라 TCP fixed-send lease owner 구현 계획이다.

@@ -5,6 +5,35 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-07 (Codex - D206 D205 remote gate)
+
+### 작업 단위
+- D205 TCP send pump task tracking fix 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토했다.
+
+### 확인 내용
+- 사용자 push 이후 `iouring-linux-contract.yml` run `28842952688`을 실행했다.
+- workflow conclusion 은 success 이고 job `io_uring contract (linux)`도 success 다.
+- run metadata:
+  head SHA 는 `6e9e14d679740235cfe79f10faae02fc3e356b09`, branch 는 `master`다.
+- artifact:
+  `iouring-linux-contract-2026-07-07-github-28842952688-1`는 `summary.md`, `dotnet-info.txt`,
+  `iouring-tests.trx`를 포함한다.
+- summary:
+  Ubuntu 24.04 runner, .NET SDK 9.0.315, test exit code 0.
+- TRX:
+  counters 는 total 70, executed 70, passed 70, failed 0, notExecuted 0이다.
+  `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`는 outcome Passed 로,
+  D204/D205에서 반복됐던 pool `RentedCount` leak 단언이 재발하지 않았다.
+  `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`도 outcome Passed 다.
+  capability evidence 는 `io_uring capability status: Available`을 출력했다.
+  socket fixed-write evidence 는 `fixed socket write completion result: 2`를 출력했다.
+
+### 결과
+- D205 send pump shutdown tracking fix 와 D203 fixed-send lease native evidence 는 원격 Linux contract gate 를 통과했다.
+- 이 evidence 는 shutdown ownership race 와 lease native write contract 를 닫는 것이며,
+  production TCP pump fixed-write 연결, zero-copy send, default promotion, latency hard gate 의 직접 근거로 즉시 확장하지 않는다.
+- 다음 실행 지점은 D206 evidence 기준으로 io_uring 후속 후보를 재평가하는 것이다.
+
 ## 2026-07-07 (Codex - D205 io_uring send pump task tracking)
 
 ### 작업 단위
