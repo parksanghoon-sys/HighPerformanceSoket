@@ -25,6 +25,7 @@ namespace Hps.Transport
         private readonly List<IoUringConnectionListener> _listeners;
         private readonly List<TransportConnection> _connections;
         private readonly List<IoUringUdpEndpoint> _udpEndpoints;
+        private readonly List<Task> _connectionSendPumpTasks;
         private IoUringQueue? _queue;
         private IoUringOperationRegistry? _operationRegistry;
         private IoUringCompletionLoop? _completionLoop;
@@ -43,6 +44,7 @@ namespace Hps.Transport
             _listeners = new List<IoUringConnectionListener>();
             _connections = new List<TransportConnection>();
             _udpEndpoints = new List<IoUringUdpEndpoint>();
+            _connectionSendPumpTasks = new List<Task>();
         }
 
         /// <inheritdoc />
@@ -80,8 +82,10 @@ namespace Hps.Transport
         public override async ValueTask StopAsync(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            TransportConnection[] connections = StopCore();
-            await WaitForTcpInFlightSendsToDrainAsync(connections).ConfigureAwait(false);
+            IoUringStopSnapshot snapshot = StopCore();
+            await WaitForConnectionSendPumpTasksAsync(snapshot.ConnectionSendPumpTasks).ConfigureAwait(false);
+            await WaitForTcpInFlightSendsToDrainAsync(snapshot.Connections).ConfigureAwait(false);
+            snapshot.DisposeNativeOwners();
         }
 
         /// <inheritdoc />
@@ -245,7 +249,10 @@ namespace Hps.Transport
         /// <inheritdoc />
         public override void Dispose()
         {
-            StopCore();
+            IoUringStopSnapshot snapshot = StopCore();
+            WaitForConnectionSendPumpTasksAsync(snapshot.ConnectionSendPumpTasks).GetAwaiter().GetResult();
+            WaitForTcpInFlightSendsToDrainAsync(snapshot.Connections).GetAwaiter().GetResult();
+            snapshot.DisposeNativeOwners();
         }
 
         internal TransportConnection CreateAcceptedConnection(Socket socket)
@@ -351,10 +358,39 @@ namespace Hps.Transport
 
         private void StartSendLoop(TransportConnection connection, IoUringTcpConnectionResource resource)
         {
-            _ = Task.Run(delegate()
+            Task task = Task.Run(delegate()
             {
                 return SendLoopAsync(connection, resource);
             });
+
+            TrackConnectionSendPumpTask(task);
+        }
+
+        private void TrackConnectionSendPumpTask(Task task)
+        {
+            if (task == null)
+                throw new ArgumentNullException(nameof(task));
+
+            lock (_gate)
+            {
+                if (!task.IsCompleted)
+                    _connectionSendPumpTasks.Add(task);
+            }
+
+            if (!task.IsCompleted)
+            {
+                task.ContinueWith(
+                    completedTask => RemoveConnectionSendPumpTask(completedTask),
+                    TaskScheduler.Default);
+            }
+        }
+
+        private void RemoveConnectionSendPumpTask(Task task)
+        {
+            lock (_gate)
+            {
+                _connectionSendPumpTasks.Remove(task);
+            }
         }
 
         private void StartUdpReceiveLoop(IoUringUdpEndpoint udpEndpoint)
@@ -742,11 +778,12 @@ namespace Hps.Transport
             return segment;
         }
 
-        private TransportConnection[] StopCore()
+        private IoUringStopSnapshot StopCore()
         {
             IoUringConnectionListener[] listeners;
             TransportConnection[] connections;
             IoUringUdpEndpoint[] udpEndpoints;
+            Task[] connectionSendPumpTasks;
             IoUringCompletionLoop? completionLoop;
             IoUringQueue? queue;
 
@@ -758,9 +795,11 @@ namespace Hps.Transport
                 listeners = _listeners.ToArray();
                 connections = _connections.ToArray();
                 udpEndpoints = _udpEndpoints.ToArray();
+                connectionSendPumpTasks = _connectionSendPumpTasks.ToArray();
                 _listeners.Clear();
                 _connections.Clear();
                 _udpEndpoints.Clear();
+                _connectionSendPumpTasks.Clear();
 
                 completionLoop = _completionLoop;
                 queue = _queue;
@@ -783,16 +822,47 @@ namespace Hps.Transport
             for (int index = 0; index < udpEndpoints.Length; index++)
                 udpEndpoints[index].Dispose();
 
-            completionLoop?.Dispose();
-            queue?.Dispose();
+            return new IoUringStopSnapshot(connections, connectionSendPumpTasks, completionLoop, queue);
+        }
 
-            return connections;
+        private static async Task WaitForConnectionSendPumpTasksAsync(Task[] sendPumpTasks)
+        {
+            for (int index = 0; index < sendPumpTasks.Length; index++)
+                await sendPumpTasks[index].ConfigureAwait(false);
         }
 
         private static async Task WaitForTcpInFlightSendsToDrainAsync(TransportConnection[] connections)
         {
             for (int index = 0; index < connections.Length; index++)
                 await connections[index].WaitForInFlightSendsToDrainAsync().ConfigureAwait(false);
+        }
+
+        private readonly struct IoUringStopSnapshot
+        {
+            private readonly IoUringCompletionLoop? _completionLoop;
+            private readonly IoUringQueue? _queue;
+
+            internal IoUringStopSnapshot(
+                TransportConnection[] connections,
+                Task[] connectionSendPumpTasks,
+                IoUringCompletionLoop? completionLoop,
+                IoUringQueue? queue)
+            {
+                Connections = connections;
+                ConnectionSendPumpTasks = connectionSendPumpTasks;
+                _completionLoop = completionLoop;
+                _queue = queue;
+            }
+
+            internal TransportConnection[] Connections { get; }
+
+            internal Task[] ConnectionSendPumpTasks { get; }
+
+            internal void DisposeNativeOwners()
+            {
+                _completionLoop?.Dispose();
+                _queue?.Dispose();
+            }
         }
 
         private void EnsureRunning()

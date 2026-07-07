@@ -5,6 +5,50 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-07 (Codex - D205 io_uring send pump task tracking)
+
+### 작업 단위
+- D204 remote gate 재실행 실패를 분석하고, close 로 unregister 된 connection 의 TCP send pump task 추적을 보강했다.
+
+### 확인 내용
+- D204 push 이후 `iouring-linux-contract.yml` run `28841586637`을 실행했다.
+- workflow 는 동일하게 `Fail if io_uring tests failed` 단계에서 실패했다.
+- artifact `iouring-linux-contract-2026-07-07-github-28841586637-1`의 TRX counters 는
+  total 69, executed 69, passed 68, failed 1이다.
+- 실패 테스트는 여전히 `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`이고,
+  pool `RentedCount` 단언이 expected 0 / actual 1로 실패했다.
+- `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`는 capability `Available` 상태로 Passed 였다.
+- 추가 원인: 테스트는 payload 수신 후 `server.Close()`를 먼저 호출한다.
+  이때 connection 이 transport `_connections` 목록에서 unregister 되어 `StopAsync`의 open connection snapshot 에서 빠진다.
+
+### 변경 내용
+- `IoUringTransport`:
+  TCP send pump task 를 connection list 와 별도로 추적하는 `_connectionSendPumpTasks`와
+  `TrackConnectionSendPumpTask`/`RemoveConnectionSendPumpTask`를 추가했다.
+- `IoUringTransport.StopAsync`/`Dispose`:
+  `StopCore()` snapshot 의 send pump task 들을 기다린 뒤 TCP in-flight send drain 과 native owner dispose 를 수행한다.
+- `IoUringSendPumpShapeTests`:
+  tracked send pump task 가 완료되기 전에는 `StopAsync`가 완료되지 않는지 검증하는 behavior test 를 추가했다.
+- 상태 문서:
+  D205 결정/현재 TODO/다음 remote gate 를 반영했다.
+
+### 검증
+- Red: `StopAsync_WhenTcpSendPumpTaskIsTracked_WaitsForTaskCompletion`이
+  `Assert.NotNull() Failure`로 tracking surface 부재를 확인했다.
+- Green: focused tracking test 통과.
+- Green: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal`
+  통과, 70개.
+- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter FullyQualifiedName~TransportSendQueueTests -v minimal`
+  통과, 14개.
+- Full: `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0.
+- Full: `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과.
+- Full: `git diff --check` whitespace 오류 없음.
+
+### 결과
+- `server.Close()`로 이미 unregister 된 connection 의 send pump unwind 도 transport shutdown 에서 기다릴 수 있게 됐다.
+- 다음 실행 지점은 push 이후 `iouring-linux-contract.yml`을 다시 실행해 failed 0을 확인하는 것이다.
+- remote gate 전에는 production TCP pump fixed-write 연결, zero-copy send, default promotion 으로 확장하지 않는다.
+
 ## 2026-07-07 (Codex - D204 io_uring TCP in-flight drain fix)
 
 ### 작업 단위

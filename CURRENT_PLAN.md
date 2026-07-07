@@ -188,6 +188,11 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   원인은 `IoUringTransport.StopAsync`가 close 이후 TCP send pump 의 in-flight ref 반환 완료를 기다리지 않아
   shutdown 직후 pool leak 단언이 pump finally와 경쟁한 것이다.
   `TransportConnection.WaitForInFlightSendsToDrainAsync()`와 `IoUringTransport.StopAsync` drain 대기를 추가했다.
+- D205 기준 D204 push 이후 원격 `iouring-linux-contract.yml` run `28841586637`을 실행했지만 같은 TCP loopback pool count
+  단언이 재발했다. 추가 원인은 테스트가 `server.Close()`를 먼저 호출해 connection 이 transport `_connections` 목록에서
+  unregister 되고, `StopAsync`의 open connection snapshot 에서 빠진 것이다.
+  `IoUringTransport`가 TCP send pump task 를 connection list 와 별도로 추적하고, `StopAsync`/`Dispose`가 해당 task snapshot 을
+  기다린 뒤 native owner 를 dispose 하도록 보강했다.
   다음 실행 지점은 push 이후 같은 원격 workflow 를 재실행해 전체 `Hps.Transport.IoUring.Tests` failed 0을 확인하는 것이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.

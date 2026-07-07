@@ -9,10 +9,11 @@
 
 ## Current TODOs
 
-- [ ] D204 TCP in-flight send drain fix 의 원격 `iouring-linux-contract.yml` artifact gate 를 재검토한다.
+- [ ] D205 TCP send pump task tracking fix 의 원격 `iouring-linux-contract.yml` artifact gate 를 재검토한다.
   - 입력: `src/Hps.Transport/Runtime/TransportConnection.cs`,
     `src/Hps.Transport.IoUring/IoUringTransport.cs`,
-    `tests/Hps.Transport.Tests/Runtime/TransportSendQueueTests.cs`, GitHub Actions artifact.
+    `tests/Hps.Transport.Tests/Runtime/TransportSendQueueTests.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringSendPumpShapeTests.cs`, GitHub Actions artifact.
   - 할 일: push 이후 `iouring-linux-contract.yml`을 실행하고 artifact/TRX에서
     `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`와
     `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair` 결과를 확인한다.
@@ -52,6 +53,22 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D204 TCP in-flight drain fix 재실행 gate 를 검토하고 close-unregistered send pump task 추적을 보강했다.
+  - 범위: GitHub Actions run `28841586637`,
+    artifact `iouring-linux-contract-2026-07-07-github-28841586637-1`,
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringSendPumpShapeTests.cs`.
+  - 결과: D204 push 이후에도 `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`가 pool `RentedCount`
+    expected 0 / actual 1로 실패했다. fixed-send lease native evidence 는 capability `Available` 상태로 통과했다.
+  - 원인: 테스트가 `server.Close()`를 먼저 호출해 connection 이 `_connections`에서 unregister 되었고,
+    `StopAsync`의 open connection snapshot 에서 빠져 send pump finally 를 기다리지 못했다.
+  - 조치: `IoUringTransport`가 TCP send pump task 를 connection list 와 별도로 추적하고,
+    `StopAsync`/`Dispose`가 send pump task snapshot 을 기다린 뒤 in-flight drain/native owner dispose 를 수행하게 했다.
+  - 검증: focused send pump tracking Red assertion failure 확인, focused tracking test 통과,
+    `Hps.Transport.IoUring.Tests` 70개 통과, `TransportSendQueueTests` 14개 통과,
+    solution build 경고 0/오류 0, solution tests 전체 통과, `git diff --check` whitespace 오류 없음.
+  - 다음: push 이후 원격 `iouring-linux-contract.yml`을 재실행해 전체 counters failed 0을 확인한다.
 
 - [x] D203 fixed-send lease native evidence 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토하고 TCP drain race 를 보정했다.
   - 범위: GitHub Actions run `28840613527`,
