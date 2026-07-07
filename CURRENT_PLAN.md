@@ -143,6 +143,14 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   다음 실행 지점은 Linux capability gated `socketpair(AF_UNIX, SOCK_STREAM)` test 로
   registered buffer slice `{20,30}`이 stream socket fd 를 통해 전송되는지 확인하는 것이다.
   TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 는 계속 제외한다.
+- D197 기준 D196 socket fixed-write evidence 를 로컬 구현했다.
+  `IoUringFixedBufferSubmissionTests`에 test-only `LinuxSocketPair` helper 와
+  `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`를 추가했다.
+  Windows/local 환경에서는 capability guard 로 native body 가 early-return 하며,
+  focused fixed-buffer submission tests 3개와 `Hps.Transport.IoUring.Tests` 63개가 통과했다.
+  다음 실행 지점은 사용자 push 이후 원격 `iouring-linux-contract.yml` artifact 에서
+  socketpair test 가 capability `Available`, completion result 2, payload `{20,30}`으로 통과하는지 검토하는 것이다.
+  이 remote gate 전까지는 TCP/UDP pump fixed-buffer 연결 근거로 쓰지 않는다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
@@ -2009,9 +2017,9 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP protocol root history 는 session-count 4, hard-passed true, warning-count 24, comparison-compatible true 이고,
   UDP protocol root history 는 session-count 7, hard-passed true, warning-count 13, comparison-compatible true 다.
   최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
-- 다음 실행 지점: D196 fixed-write socket fd contract evidence 를 구현한다.
-  Linux capability gated `socketpair(AF_UNIX, SOCK_STREAM)` test 로 registered buffer slice `{20,30}`이
-  stream socket fd 를 통해 전송되는지 확인한다.
+- 다음 실행 지점: 사용자 push 이후 원격 `iouring-linux-contract.yml` artifact gate 를 실행/검토한다.
+  `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`가 capability available 상태에서
+  fixed socket write completion result 2와 peer socket payload `{20,30}`을 확인하는지 본다.
   TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 는 계속 제외한다.
 
 ## 이번 작업에서 건드리지 않는 범위

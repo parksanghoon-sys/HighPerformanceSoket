@@ -5,6 +5,38 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-07 (Codex - D197 io_uring socket fixed-write local evidence)
+
+### 작업 단위
+- D196 fixed-write socket fd contract evidence 를 로컬 구현했다.
+
+### 변경 내용
+- `IoUringFixedBufferSubmissionTests`:
+  `LinuxSocketPair_HelperExistsForSocketFixedWriteEvidence` contract test 를 추가했다.
+- `IoUringFixedBufferSubmissionTests`:
+  test-only `LinuxSocketPair` helper 를 추가했다.
+- `IoUringFixedBufferSubmissionTests`:
+  `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`를 추가했다.
+  Linux capability available 환경에서 registered buffer `{10,20,30,40}` offset 1 length 2를
+  `TrySubmitWriteFixed`로 stream socket fd 에 제출하고 peer socket 에서 `{20,30}`을 읽는다.
+- 상태 문서:
+  다음 실행 지점을 원격 `iouring-linux-contract.yml` artifact gate 검토로 넘겼다.
+
+### 검증
+- Red: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --filter LinuxSocketPair_HelperExistsForSocketFixedWriteEvidence -v minimal`
+  실행 결과 `Assert.NotNull() Failure: Value is null`로 실패함을 확인했다.
+- Green: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --filter FullyQualifiedName~IoUringFixedBufferSubmissionTests -v minimal`
+  통과, 3개.
+- Green: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal`
+  통과, 63개.
+- Full: `dotnet test HighPerformanceSocket.slnx -v minimal`
+  통과, 전체 467개.
+
+### 결과
+- Windows/local에서는 native body 가 capability guard 로 early-return 한다.
+- 실제 socket fd fixed-write evidence 는 사용자 push 이후 원격 Linux contract artifact 에서 확인해야 한다.
+- TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate 는 계속 제외한다.
+
 ## 2026-07-07 (Codex - D196 io_uring post-D195 next scope)
 
 ### 작업 단위

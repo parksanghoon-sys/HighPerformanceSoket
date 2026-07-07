@@ -9,15 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D196 fixed-write socket fd contract evidence 를 구현한다.
-  - 입력: `docs/superpowers/specs/2026-07-07-iouring-post-d195-next-scope-design.md`,
-    `tests/Hps.Transport.IoUring.Tests/IoUringFixedBufferSubmissionTests.cs`,
-    `src/Hps.Transport.IoUring/IoUringQueue.cs`, `IoUringRegisteredBufferSet`.
-  - 할 일: Linux capability gated test 에서 test-only `socketpair(AF_UNIX, SOCK_STREAM)` helper 로 stream socket pair 를 만들고,
-    한쪽 fd 에 `TrySubmitWriteFixed`를 제출해 반대쪽 fd 에서 registered buffer slice `{20,30}`을 읽는지 검증한다.
-  - 확인할 것: completion result 2, payload `{20,30}`, Windows/local unavailable guard 유지,
-    production pump/API/registration lifetime surface 변경 없음.
-  - 제외: TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
+- [ ] D196 socket fixed-write evidence 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
+  - 입력: D197 local implementation, `tests/Hps.Transport.IoUring.Tests/IoUringFixedBufferSubmissionTests.cs`,
+    GitHub Actions `iouring-linux-contract.yml` run artifact.
+  - 할 일: 사용자 push 이후 workflow 를 실행하고 TRX/summary 에서
+    `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`가 capability `Available` 상태로 Passed 인지 확인한다.
+  - 확인할 것: socket fixed-write completion result 2, peer socket payload `{20,30}`, existing io_uring tests 전체 green.
+  - 제외: remote gate 전 TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
 
 ## Deferred Backlog
 
@@ -51,6 +49,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D196 fixed-write socket fd contract evidence 를 로컬 구현했다.
+  - 범위: `tests/Hps.Transport.IoUring.Tests/IoUringFixedBufferSubmissionTests.cs`, D197 상태/결정 문서.
+  - Red: `LinuxSocketPair_HelperExistsForSocketFixedWriteEvidence`가 helper type 부재로 `Assert.NotNull()` 실패함을 확인했다.
+  - Green: test-only `LinuxSocketPair` helper 와
+    `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`를 추가했다.
+  - 결과: Linux capability available 환경에서 registered buffer `{10,20,30,40}` offset 1 length 2를
+    `TrySubmitWriteFixed`로 stream socket fd 에 제출하고 peer socket 에서 `{20,30}`을 읽도록 검증한다.
+  - 검증: focused fixed-buffer submission tests 3개 통과, `Hps.Transport.IoUring.Tests` 63개 통과,
+    `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 467개 통과.
+  - 의미: Windows/local에서는 native body 가 guard 로 early-return 하므로 실제 Linux socket fd evidence 는
+    다음 원격 `iouring-linux-contract.yml` artifact gate 에서 닫는다.
 
 - [x] D195 fixed-write 원격 evidence 이후 io_uring 후속 후보를 재평가했다.
   - 범위: D181/D194/D195 evidence, `src/Hps.Transport.IoUring`, `tests/Hps.Transport.IoUring.Tests`,
