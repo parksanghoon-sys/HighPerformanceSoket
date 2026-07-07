@@ -5,6 +5,49 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-07 (Codex - D204 io_uring TCP in-flight drain fix)
+
+### 작업 단위
+- D203 remote gate 실패를 분석하고 io_uring TCP send shutdown drain race 를 보정했다.
+
+### 확인 내용
+- 사용자 push 이후 `iouring-linux-contract.yml` run `28840613527`을 실행했다.
+- workflow 는 `Fail if io_uring tests failed` 단계에서 실패했다.
+- artifact `iouring-linux-contract-2026-07-07-github-28840613527-1`의 TRX counters 는
+  total 69, executed 69, passed 68, failed 1이다.
+- `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`는 capability `Available` 상태로 Passed 였다.
+- 실패 테스트는 `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`이고,
+  pool `RentedCount` 단언이 expected 0 / actual 1로 실패했다.
+
+### 변경 내용
+- `TransportConnection`:
+  pending queue 에서 dequeue 된 in-flight send count 를 추적하고,
+  `WaitForInFlightSendsToDrainAsync()`로 pump finally/release 완료를 기다릴 수 있게 했다.
+- `IoUringTransport`:
+  `StopAsync`에서 close 이후 TCP connection 의 in-flight send ref 반환 완료를 기다리게 했다.
+- `TransportSendQueueTests`:
+  in-flight ref 가 남아 있으면 drain task 가 완료되지 않고,
+  `InFlightSend.Dispose()` 후 완료되는 계약 테스트를 추가했다.
+- 상태 문서:
+  D203 remote gate 를 완료 항목으로 이동하고, D204 fix 이후 재실행해야 할 remote gate 를 current TODO 로 남겼다.
+
+### 검증
+- Red: `InFlightSendDrain_WhenSendIsStillInFlight_CompletesAfterHandleReleasesRef`가
+  `Assert.NotNull() Failure`로 drain surface 부재를 확인했다.
+- Green: focused drain test 통과.
+- Green: `dotnet test tests\Hps.Transport.Tests\Hps.Transport.Tests.csproj --filter FullyQualifiedName~TransportSendQueueTests -v minimal`
+  통과, 14개.
+- Green: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal`
+  통과, 69개.
+- Full: `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0.
+- Full: `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과.
+- Full: `git diff --check` whitespace 오류 없음.
+
+### 결과
+- 원격 failure 는 새 lease native evidence 자체가 아니라 기존 TCP send shutdown 관측 race 로 분리됐다.
+- 다음 실행 지점은 push 이후 `iouring-linux-contract.yml`을 다시 실행해 failed 0을 확인하는 것이다.
+- remote gate 전에는 production TCP pump fixed-write 연결, zero-copy send, default promotion 으로 확장하지 않는다.
+
 ## 2026-07-07 (Codex - D203 fixed send lease native evidence)
 
 ### 작업 단위

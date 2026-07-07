@@ -9,13 +9,15 @@
 
 ## Current TODOs
 
-- [ ] D203 fixed-send lease native evidence 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
-  - 입력: `docs/superpowers/plans/2026-07-07-iouring-fixed-send-lease-owner.md`,
-    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs`, GitHub Actions artifact.
+- [ ] D204 TCP in-flight send drain fix 의 원격 `iouring-linux-contract.yml` artifact gate 를 재검토한다.
+  - 입력: `src/Hps.Transport/Runtime/TransportConnection.cs`,
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.Tests/Runtime/TransportSendQueueTests.cs`, GitHub Actions artifact.
   - 할 일: push 이후 `iouring-linux-contract.yml`을 실행하고 artifact/TRX에서
+    `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`와
     `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair` 결과를 확인한다.
-  - 확인할 것: capability `Available`, completion result 2, payload `{20,30}` assertion 경로,
-    전체 `Hps.Transport.IoUring.Tests` counters failed 0.
+  - 확인할 것: capability `Available`, 전체 `Hps.Transport.IoUring.Tests` counters failed 0,
+    lease test completion result 2와 payload `{20,30}`, TCP send loopback pool leak 단언 재발 없음.
   - 제외: remote gate 전 production TCP pump fixed-write 연결, zero-copy send, default promotion.
 
 ## Deferred Backlog
@@ -50,6 +52,23 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D203 fixed-send lease native evidence 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토하고 TCP drain race 를 보정했다.
+  - 범위: GitHub Actions run `28840613527`,
+    artifact `iouring-linux-contract-2026-07-07-github-28840613527-1`,
+    `src/Hps.Transport/Runtime/TransportConnection.cs`,
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.Tests/Runtime/TransportSendQueueTests.cs`.
+  - 결과: 새 lease native evidence test 는 원격 Linux에서 capability `Available` 상태로 통과했지만,
+    기존 `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`가 pool `RentedCount` expected 0 / actual 1로 실패했다.
+  - 원인: payload 수신 직후 `StopAsync`가 TCP send pump의 in-flight ref 반환 완료를 기다리지 않아,
+    close/shutdown 직후 pool leak 단언이 pump finally와 경쟁했다.
+  - 조치: `TransportConnection.WaitForInFlightSendsToDrainAsync()`를 추가하고,
+    `IoUringTransport.StopAsync`가 close 이후 TCP in-flight send drain을 기다리게 했다.
+  - 검증: focused drain Red assertion failure 확인, focused `TransportSendQueueTests` 14개 통과,
+    `Hps.Transport.IoUring.Tests` 69개 통과, solution build 경고 0/오류 0, solution tests 전체 통과,
+    `git diff --check` whitespace 오류 없음.
+  - 다음: push 이후 원격 `iouring-linux-contract.yml`을 재실행해 전체 counters failed 0을 확인한다.
 
 - [x] D198 socket fixed-write 원격 evidence 이후 io_uring 후속 후보를 재평가했다.
   - 범위: D196/D197/D198 evidence, `src/Hps.Transport.IoUring`, `src/Hps.Transport/Runtime/TransportConnection.cs`,

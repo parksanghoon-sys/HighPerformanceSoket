@@ -179,6 +179,37 @@ namespace Hps.Transport.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        // StopAsync drain 대기 계약 테스트: close 가 pending queue 는 즉시 비우지만, 이미 pump 가 dequeue 한
+        // in-flight ref 는 커널 send completion/finally 경로가 끝난 뒤에만 안전하게 반환된다.
+        // transport 종료 코드는 이 task 를 기다려 shutdown 직후 pool leak 오탐과 실제 수명 경쟁을 막아야 한다.
+        [Fact]
+        public void InFlightSendDrain_WhenSendIsStillInFlight_CompletesAfterHandleReleasesRef()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(32);
+            RefCountedBuffer buffer = pool.RentCounted();
+            buffer.SetLength(4);
+            buffer.AddRef();
+            TransportSendBuffer sendBuffer = new TransportSendBuffer(buffer, 0, 4);
+            TestTransport transport = new TestTransport();
+            TransportConnection connection = transport.CreateConnection();
+
+            Assert.True(transport.TrySend(connection, sendBuffer));
+            Assert.True(connection.TryBeginInFlightSend(out TransportConnection.InFlightSend? inFlight));
+            Assert.NotNull(inFlight);
+
+            buffer.Release();
+            connection.Close();
+
+            Task drainTask = WaitForInFlightSendsToDrainAsync(connection);
+            Assert.False(drainTask.IsCompleted);
+            Assert.Equal(1, pool.RentedCount);
+
+            inFlight!.Dispose();
+
+            Assert.True(drainTask.IsCompleted);
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         // TCP backpressure drop-oldest 테스트: pending queue 가 용량을 넘으면 이미 enqueue 된 가장 오래된 항목을 제거하고
         // 그 Transport 소유 ref 를 즉시 Release 해야 한다. 그래야 느린 소비자에서 큐가 무한 증가하지 않고 D012의 evict-release 계약을 지킨다.
         [Fact]
@@ -459,6 +490,17 @@ namespace Hps.Transport.Tests
 
             object? result = method!.Invoke(connection, new object[] { transportKind });
             return Assert.IsType<EndpointSnapshot>(result);
+        }
+
+        private static Task WaitForInFlightSendsToDrainAsync(TransportConnection connection)
+        {
+            MethodInfo? method = typeof(TransportConnection).GetMethod(
+                "WaitForInFlightSendsToDrainAsync",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(method);
+
+            object? result = method!.Invoke(connection, Array.Empty<object>());
+            return Assert.IsAssignableFrom<Task>(result);
         }
 
         private sealed class TestTransport : TransportBase

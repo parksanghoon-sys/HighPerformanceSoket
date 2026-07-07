@@ -77,11 +77,11 @@ namespace Hps.Transport
         }
 
         /// <inheritdoc />
-        public override ValueTask StopAsync(CancellationToken cancellationToken = default)
+        public override async ValueTask StopAsync(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            StopCore();
-            return default(ValueTask);
+            TransportConnection[] connections = StopCore();
+            await WaitForTcpInFlightSendsToDrainAsync(connections).ConfigureAwait(false);
         }
 
         /// <inheritdoc />
@@ -742,7 +742,7 @@ namespace Hps.Transport
             return segment;
         }
 
-        private void StopCore()
+        private TransportConnection[] StopCore()
         {
             IoUringConnectionListener[] listeners;
             TransportConnection[] connections;
@@ -785,6 +785,14 @@ namespace Hps.Transport
 
             completionLoop?.Dispose();
             queue?.Dispose();
+
+            return connections;
+        }
+
+        private static async Task WaitForTcpInFlightSendsToDrainAsync(TransportConnection[] connections)
+        {
+            for (int index = 0; index < connections.Length; index++)
+                await connections[index].WaitForInFlightSendsToDrainAsync().ConfigureAwait(false);
         }
 
         private void EnsureRunning()

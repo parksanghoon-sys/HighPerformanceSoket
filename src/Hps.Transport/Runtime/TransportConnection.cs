@@ -27,6 +27,8 @@ namespace Hps.Transport
         private readonly int _pendingSendCapacity;
         private long _droppedPendingSendCount;
         private int _pendingSendQueueHighWatermark;
+        private int _inFlightSendCount;
+        private TaskCompletionSource<bool>? _inFlightSendDrainCompletion;
         private bool _closed;
 
         internal TransportConnection()
@@ -175,6 +177,7 @@ namespace Hps.Transport
                     return false;
                 }
 
+                _inFlightSendCount++;
                 inFlightSend = new InFlightSend(this, _pendingSends.Dequeue());
                 return true;
             }
@@ -186,6 +189,25 @@ namespace Hps.Transport
         internal Task WaitForSendSignalAsync()
         {
             return _sendSignal.WaitAsync();
+        }
+
+        /// <summary>
+        /// 이미 pending queue 에서 빠져 pump 가 소유한 send ref 가 모두 반환될 때까지 기다린다.
+        /// Close 는 in-flight ref 를 직접 반환하지 않는다. 커널 send 가 아직 payload 를 참조할 수 있기 때문에,
+        /// shutdown 경로는 pump 의 completion/finally 가 Release 를 끝냈다는 신호를 이 task 로 관측해야 한다.
+        /// </summary>
+        internal Task WaitForInFlightSendsToDrainAsync()
+        {
+            lock (_gate)
+            {
+                if (_inFlightSendCount == 0)
+                    return Task.CompletedTask;
+
+                if (_inFlightSendDrainCompletion == null || _inFlightSendDrainCompletion.Task.IsCompleted)
+                    _inFlightSendDrainCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                return _inFlightSendDrainCompletion.Task;
+            }
         }
 
         /// <summary>
@@ -236,12 +258,40 @@ namespace Hps.Transport
         {
             // in-flight 소유권은 단일 송신 펌프가 들고 있으므로 pending 큐 lock 을 다시 잡지 않는다.
             // close 와의 경합에서도 close 는 pending 만 drain 하고, 이미 dequeue 된 ref 는 이 경로에서만 반환된다.
-            sendBuffer.Buffer.Release();
+            ReleaseInFlightSend(sendBuffer);
         }
 
         private long ReadDroppedPendingSendCount()
         {
             return Volatile.Read(ref _droppedPendingSendCount);
+        }
+
+        private void ReleaseInFlightSend(TransportSendBuffer sendBuffer)
+        {
+            TaskCompletionSource<bool>? drainCompletion = null;
+
+            try
+            {
+                sendBuffer.Buffer.Release();
+            }
+            finally
+            {
+                lock (_gate)
+                {
+                    if (_inFlightSendCount <= 0)
+                        throw new InvalidOperationException("in-flight send count가 이미 0입니다.");
+
+                    _inFlightSendCount--;
+                    if (_inFlightSendCount == 0 && _inFlightSendDrainCompletion != null)
+                    {
+                        drainCompletion = _inFlightSendDrainCompletion;
+                        _inFlightSendDrainCompletion = null;
+                    }
+                }
+            }
+
+            if (drainCompletion != null)
+                drainCompletion.TrySetResult(true);
         }
 
         private void IncrementDroppedPendingSendCount()
