@@ -174,6 +174,10 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   `IoUringFixedSendLease`와 `IIoUringFixedBufferRegistration`을 추가했고,
   lease dispose 가 registration owner 와 payload ref 를 정확히 1회 정리하는지 focused tests 로 검증했다.
   다음 실행 지점은 Task 2 queue-based real registration factory 다.
+- D202 기준 D200 Task 2 queue-based real registration factory 를 구현했다.
+  `IoUringFixedSendLease.Create(IoUringQueue, TransportSendBuffer)`가 실제 `IoUringRegisteredBufferSet.Register(...)`를 사용해
+  payload underlying array 를 등록하고 lease 를 만들 수 있는 shape 를 고정했다.
+  다음 실행 지점은 Task 3 Linux native lease evidence 다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
@@ -2040,9 +2044,9 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP protocol root history 는 session-count 4, hard-passed true, warning-count 24, comparison-compatible true 이고,
   UDP protocol root history 는 session-count 7, hard-passed true, warning-count 13, comparison-compatible true 다.
   최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
-- 다음 실행 지점: D200 구현 계획 Task 2 queue-based real registration factory 를 실행한다.
-  `IoUringFixedSendLease.Create(IoUringQueue, TransportSendBuffer)`가 실제 `IoUringRegisteredBufferSet.Register(...)`를 사용해
-  lease 를 만들 수 있는 shape 를 Red-Green 으로 고정한다.
+- 다음 실행 지점: D200 구현 계획 Task 3 Linux native lease evidence 를 실행한다.
+  lease 가 소유한 registered buffer slice 를 `TrySubmitWriteFixed`로 stream socket fd 에 제출하고,
+  completion 이후 dispose 가 payload ref 와 registration owner 를 정리하는지 Linux capability gated test 로 검증한다.
   production TCP pump fixed-write 연결은 D200 Task 1~3 contract evidence 이후 별도 후속으로 둔다.
 
 ## 이번 작업에서 건드리지 않는 범위

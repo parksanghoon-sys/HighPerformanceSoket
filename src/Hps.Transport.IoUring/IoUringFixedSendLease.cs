@@ -64,6 +64,22 @@ namespace Hps.Transport
             return new IoUringFixedSendLease(sendBuffer, registration, segment.Array, segment.Offset, segment.Count);
         }
 
+        internal static IoUringFixedSendLease Create(IoUringQueue queue, TransportSendBuffer sendBuffer)
+        {
+            if (queue == null)
+                throw new ArgumentNullException(nameof(queue));
+
+            ArraySegment<byte> segment = GetPayloadSegment(sendBuffer);
+            if (segment.Array == null)
+                throw new InvalidOperationException("io_uring fixed send lease 는 pinned byte[] 기반 RefCountedBuffer 만 지원합니다.");
+
+            IoUringRegisteredBufferSet registration = IoUringRegisteredBufferSet.Register(
+                queue,
+                new byte[][] { segment.Array });
+
+            return new IoUringFixedSendLease(sendBuffer, registration, segment.Array, segment.Offset, segment.Count);
+        }
+
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0)

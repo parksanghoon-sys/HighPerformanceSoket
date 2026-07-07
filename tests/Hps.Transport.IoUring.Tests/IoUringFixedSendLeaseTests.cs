@@ -82,6 +82,20 @@ namespace Hps.Transport.IoUring.Tests
             buffer.Release();
         }
 
+        [Fact]
+        public void LeaseFactory_WhenInspected_ExposesQueueBasedCreateMethod()
+        {
+            // 다음 native evidence task 가 production helper 를 우회하지 않도록 queue 기반 factory shape 를 고정한다.
+            MethodInfo? method = typeof(IoUringFixedSendLease).GetMethod(
+                "Create",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                null,
+                new Type[] { typeof(IoUringQueue), typeof(TransportSendBuffer) },
+                null);
+
+            Assert.NotNull(method);
+        }
+
         private sealed class CountingRegistration : IIoUringFixedBufferRegistration
         {
             public int DisposeCount { get; private set; }

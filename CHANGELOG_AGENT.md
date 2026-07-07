@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-07 (Codex - D202 fixed send lease factory)
+
+### 작업 단위
+- D200 Task 2 queue-based real registration factory 를 구현했다.
+
+### 변경 내용
+- `IoUringFixedSendLease.Create(IoUringQueue, TransportSendBuffer)`를 추가했다.
+- factory 는 `TransportSendBuffer` payload slice 의 underlying array 를 `IoUringRegisteredBufferSet.Register(...)`로 등록하고,
+  buffer index 0, payload offset/length 를 가진 lease 를 반환한다.
+- `IoUringFixedSendLeaseTests`에 queue-based factory shape contract 를 추가했다.
+- 상태 문서:
+  다음 실행 지점을 D200 Task 3 Linux native lease evidence 로 갱신했다.
+
+### 검증
+- Red: `LeaseFactory_WhenInspected_ExposesQueueBasedCreateMethod`가 `Assert.NotNull() Failure`.
+- Green: focused `IoUringFixedSendLeaseTests` 4개 통과.
+- Green: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal` 통과, 67개.
+
+### 결과
+- real `IoUringRegisteredBufferSet` 기반 lease factory shape 가 생겼다.
+- 아직 Linux native socket write evidence 와 production TCP pump 연결은 하지 않았다.
+
 ## 2026-07-07 (Codex - D201 fixed send lease ownership)
 
 ### 작업 단위

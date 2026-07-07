@@ -323,7 +323,7 @@ git commit -m "test(iouring): cover fixed send lease ownership"
 - Produces:
   - `internal static IoUringFixedSendLease Create(IoUringQueue queue, TransportSendBuffer sendBuffer)`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `IoUringFixedSendLeaseTests`:
 
@@ -343,7 +343,7 @@ public void LeaseFactory_WhenInspected_ExposesQueueBasedCreateMethod()
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -353,7 +353,9 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected: FAIL with `Assert.NotNull() Failure`.
 
-- [ ] **Step 3: Write minimal implementation**
+Observed: `LeaseFactory_WhenInspected_ExposesQueueBasedCreateMethod` failed with `Assert.NotNull() Failure`.
+
+- [x] **Step 3: Write minimal implementation**
 
 Add to `IoUringFixedSendLease`:
 
@@ -375,7 +377,7 @@ internal static IoUringFixedSendLease Create(IoUringQueue queue, TransportSendBu
 }
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -385,7 +387,9 @@ dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj
 
 Expected: PASS, 3 tests.
 
-- [ ] **Step 5: Commit**
+Observed: focused `IoUringFixedSendLeaseTests` passed, 4 tests. `Hps.Transport.IoUring.Tests` passed, 67 tests.
+
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/Hps.Transport.IoUring/IoUringFixedSendLease.cs tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs docs/superpowers/plans/2026-07-07-iouring-fixed-send-lease-owner.md CURRENT_PLAN.md TODOS.md CHANGELOG_AGENT.md
