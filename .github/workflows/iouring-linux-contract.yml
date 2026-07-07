@@ -38,10 +38,10 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Restore
-        run: dotnet restore HighPerformanceSocket.slnx
+        run: dotnet restore tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj
 
       - name: Build
-        run: dotnet build HighPerformanceSocket.slnx --no-restore
+        run: dotnet build tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj --no-restore
 
       - name: Capture dotnet info
         shell: bash

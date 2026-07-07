@@ -121,6 +121,13 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   현재 로컬은 `origin/master`보다 16커밋 앞서 있고, `git push`는 현재 실행 정책에서 거부됐다.
   따라서 다음 실행 지점은 사용자가 push 한 뒤 `iouring-linux-contract.yml`을 다시 실행해
   `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToPipe`의 Linux native evidence 를 검토하는 것이다.
+- D194 기준 사용자 push 이후 `iouring-linux-contract.yml` run `28833852810`을 실행했지만
+  Linux restore 단계에서 `samples/Hps.Sample.Dashboard`의 Windows TFM 때문에 `NETSDK1100`으로 실패했다.
+  원인은 D183~D192로 WPF sample dashboard가 solution에 포함된 뒤에도 Linux contract workflow가
+  solution-level restore/build 를 계속 수행한 것이다. D194로 workflow restore/build 범위를
+  `tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj`로 좁히고 static contract test 를 추가했다.
+  다음 실행 지점은 이 workflow fix 를 push 한 뒤 `iouring-linux-contract.yml`을 다시 실행해
+  D181 fixed-write native evidence 를 검토하는 것이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

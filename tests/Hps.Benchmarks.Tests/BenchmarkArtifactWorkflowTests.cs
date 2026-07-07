@@ -160,6 +160,22 @@ namespace Hps.Benchmarks.Tests
             Assert.DoesNotContain("udp_root=\"${bench_root}/udp\"", workflow);
         }
 
+        // Linux contract workflow는 io_uring backend의 native syscall 계약만 검증한다.
+        // WPF Windows TFM sample이 solution에 포함되어도 Linux runner restore가 깨지지 않도록
+        // restore/build 범위를 io_uring test project로 고정한다.
+        [Fact]
+        public void IoUringLinuxContractWorkflow_WhenRunOnLinux_RestoresAndBuildsOnlyIoUringTestProject()
+        {
+            string workflow = ReadIoUringLinuxContractWorkflow();
+
+            Assert.Contains("dotnet restore tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj", workflow);
+            Assert.Contains("dotnet build tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj --no-restore", workflow);
+            Assert.Contains("dotnet test tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj", workflow);
+            Assert.DoesNotContain("dotnet restore HighPerformanceSocket.slnx", workflow);
+            Assert.DoesNotContain("dotnet build HighPerformanceSocket.slnx", workflow);
+            Assert.DoesNotContain("EnableWindowsTargeting", workflow);
+        }
+
         private static string ReadBenchmarkArtifactWorkflow()
         {
             string root = FindRepositoryRoot();
@@ -173,6 +189,16 @@ namespace Hps.Benchmarks.Tests
             string workflowPath = Path.Combine(root, ".github", "workflows", "iouring-benchmark-artifacts.yml");
             if (!File.Exists(workflowPath))
                 throw new InvalidOperationException("iouring-benchmark-artifacts.yml 파일을 찾을 수 없습니다.");
+
+            return File.ReadAllText(workflowPath);
+        }
+
+        private static string ReadIoUringLinuxContractWorkflow()
+        {
+            string root = FindRepositoryRoot();
+            string workflowPath = Path.Combine(root, ".github", "workflows", "iouring-linux-contract.yml");
+            if (!File.Exists(workflowPath))
+                throw new InvalidOperationException("iouring-linux-contract.yml 파일을 찾을 수 없습니다.");
 
             return File.ReadAllText(workflowPath);
         }
