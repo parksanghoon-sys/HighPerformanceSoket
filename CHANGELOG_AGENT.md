@@ -5,6 +5,34 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-07 (Codex - D193 D181 remote gate status)
+
+### 작업 단위
+- D181 fixed-buffer SQE submission evidence 의 원격 `iouring-linux-contract.yml` artifact gate 가능 여부를 확인했다.
+
+### 확인 내용
+- `gh run list --workflow iouring-linux-contract.yml --limit 10`:
+  최신 run 은 `28631346969`, conclusion `success`, event `workflow_dispatch`, created `2026-07-03T00:58:33Z`다.
+- `gh run view 28631346969 --json ...`:
+  head SHA 는 `19701fceaadff1feaf1bd1aa98421879937e4f4c`다.
+- git ancestry 확인:
+  `19701fce`는 `test(iouring): cover fixed buffer registration`이고,
+  D181 핵심 커밋 `7109edd test(iouring): cover fixed buffer write submission`은 이 run 에 포함되지 않는다.
+- `gh run view 28631346969 --log`:
+  Linux run 자체는 test exit code 0, `Hps.Transport.IoUring.Tests` 58개 통과로 완료됐다.
+  다만 이 통과는 D177 register/unregister gate 에 대한 것이며 D181 fixed-write gate 는 아니다.
+
+### blocker
+- 현재 로컬 브랜치는 `origin/master`보다 16커밋 앞서 있고 D181 커밋도 그 안에 있다.
+- 이 세션에서 `git push`를 시도했지만 실행 정책이 `git push`를 거부했다.
+- 따라서 D181 remote gate 는 사용자가 push 한 뒤 `iouring-linux-contract.yml`을 다시 실행해야 닫을 수 있다.
+
+### 결과
+- D181 remote gate 는 아직 미완료다.
+- 다음 실행 지점은 push 이후 새 workflow run 의 TRX/summary 에서
+  `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToPipe`,
+  `fixed write completion result: 2`, pipe payload `[20, 30]` evidence 를 확인하는 것이다.
+
 ## 2026-07-07 (Codex - D192 WPF dashboard smoke copy)
 
 ### 작업 단위

@@ -15,6 +15,10 @@
     Linux capability available 상태로 실행·통과했는지 확인한다.
   - 확인할 것: TRX/summary test exit code 0, 기존 TCP/UDP io_uring tests green,
     `fixed write completion result: 2` evidence.
+  - 현재 상태: 최신 원격 run `28631346969`은 success 이지만 head SHA `19701fce...` 기준이라
+    D181 `7109edd test(iouring): cover fixed buffer write submission`을 포함하지 않는다.
+    현재 로컬은 `origin/master`보다 16커밋 앞서 있으며, 이 세션의 `git push` 시도는 실행 정책에서 거부됐다.
+  - known blocker: 원격 workflow 가 검증할 수 있도록 사용자가 push 하거나 push 가능한 환경에서 `origin/master`를 갱신해야 한다.
   - 제외: TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
 
 ## Deferred Backlog
