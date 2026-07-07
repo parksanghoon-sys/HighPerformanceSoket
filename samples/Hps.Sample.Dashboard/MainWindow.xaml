@@ -46,7 +46,7 @@
                            FontSize="24"
                            FontWeight="SemiBold"
                            Foreground="#14212B" />
-                <TextBlock Text="TCP/UDP publish-subscribe smoke와 transport diagnostics"
+                <TextBlock Text="TCP/UDP 독립 loopback smoke와 transport diagnostics"
                            Margin="0,3,0,0"
                            Foreground="#5D6978" />
             </StackPanel>

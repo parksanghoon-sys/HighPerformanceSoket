@@ -107,6 +107,12 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   검증은 protocol-specific summary Red/Green, dashboard tests 12개, solution build 경고 0/오류 0,
   solution tests 전체 통과, 실제 WPF 재실행 후 TCP/UDP 카드 분리 확인으로 완료했다.
   다음 실행 후보는 smoke 버튼이 self-contained transient server 를 사용한다는 의미를 UI 문구/설명에 명확히 드러내는 것이다.
+- D192 기준 WPF sample dashboard smoke 버튼 의미 명확화를 완료했다.
+  화면 subtitle 을 `TCP/UDP 독립 loopback smoke와 transport diagnostics`로 바꾸고,
+  README 에 TCP/UDP smoke 가 Start server와 별개로 임시 loopback server 를 만드는 독립 검증임을 명시했다.
+  검증은 copy contract Red/Green, dashboard tests 13개, solution build 경고 0/오류 0,
+  solution tests 전체 통과, 실제 WPF 실행 화면에서 subtitle 표시 확인으로 완료했다.
+  다음 실행 후보는 사용자의 추가 UI 검토 의견을 받거나 deferred 된 `iouring-linux-contract.yml` artifact gate 로 돌아가는 것이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

@@ -55,6 +55,28 @@ namespace Hps.Sample.Dashboard.Tests
             Assert.Contains("tests/Hps.Sample.Dashboard.Tests/Hps.Sample.Dashboard.Tests.csproj", solution);
         }
 
+        [Fact]
+        public void DashboardCopy_WhenInspected_ExplainsSmokeCommandsAreIndependentLoopbackChecks()
+        {
+            // smoke 버튼은 Start server로 띄운 endpoint가 아니라 독립 loopback 서버를 잠깐 만들어 검증한다.
+            // UI와 README가 이 차이를 설명해야 사용자가 현재 server diagnostics와 smoke 결과를 혼동하지 않는다.
+            string sampleRoot = Path.GetFullPath(Path.Combine(
+                AppContext.BaseDirectory,
+                "..",
+                "..",
+                "..",
+                "..",
+                "..",
+                "samples",
+                "Hps.Sample.Dashboard"));
+            string xaml = File.ReadAllText(Path.Combine(sampleRoot, "MainWindow.xaml"));
+            string readme = File.ReadAllText(Path.Combine(sampleRoot, "README.md"));
+
+            Assert.Contains("독립 loopback smoke", xaml);
+            Assert.Contains("Start server와 별개", readme);
+            Assert.Contains("임시 loopback server", readme);
+        }
+
         private static string? ReadProperty(XElement project, string name)
         {
             return project

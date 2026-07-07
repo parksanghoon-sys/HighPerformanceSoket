@@ -9,27 +9,15 @@
 
 ## Current TODOs
 
-- [ ] D191 WPF sample dashboard smoke 버튼 의미를 명확히 한다.
-  - 입력: 실제 실행 검토 결과, `samples/Hps.Sample.Dashboard/MainWindow.xaml`,
-    `samples/Hps.Sample.Dashboard/ViewModels/DashboardViewModel.cs`, `samples/Hps.Sample.Dashboard/README.md`.
-  - 할 일: 현재 TCP/UDP smoke 버튼은 dashboard 가 Start 한 server endpoint 가 아니라 self-contained transient server 로 loopback smoke 를 수행한다.
-    사용자 오해를 줄이기 위해 UI label/log/README 중 가장 작은 변경으로 이 의미를 드러낸다.
-  - 확인할 것: 문구 변경이 production API 또는 smoke service 동작을 넓히지 않고, WPF build/test 가 계속 green 인지 확인한다.
-  - 제외: smoke service 를 현재 DashboardBrokerService endpoint 기반으로 재설계하는 작업, WPF UI automation 추가.
+- [ ] D181 fixed-buffer SQE submission evidence 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
+  - 입력: `tests/Hps.Transport.IoUring.Tests`, `src/Hps.Transport.IoUring`, `.github/workflows/iouring-linux-contract.yml`.
+  - 할 일: 사용자 push 이후 workflow artifact 에서 `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToPipe`가
+    Linux capability available 상태로 실행·통과했는지 확인한다.
+  - 확인할 것: TRX/summary test exit code 0, 기존 TCP/UDP io_uring tests green,
+    `fixed write completion result: 2` evidence.
+  - 제외: TCP/UDP pump fixed-buffer 연결, zero-copy send, default promotion, latency hard gate.
 
 ## Deferred Backlog
-
-- [ ] `P1_SOON` D181 fixed-buffer SQE submission evidence 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
-  - 무엇이 남았는지: D181 local implementation 이 Linux runner 에서 실제 `WRITE_FIXED` completion evidence 를 내는지 확인해야 한다.
-  - 왜 defer 되었는지: 사용자가 먼저 실행 가능한 WPF 샘플 대시보드 설계/구현 흐름을 요청했다.
-  - objective: 원격 workflow artifact 에서 `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToPipe`가
-    Linux capability available 상태로 실행·통과했는지 확인한다.
-  - relevant context: D181, D182, `IoUringFixedBufferSubmissionTests`, `.github/workflows/iouring-linux-contract.yml`.
-  - 관련 파일/범위: `tests/Hps.Transport.IoUring.Tests`, `src/Hps.Transport.IoUring`, GitHub Actions artifact.
-  - 현재 상태 또는 이미 시도한 접근: local/Windows 는 capability guard 로 native path 를 early-return 한다.
-  - known blockers 또는 open questions: 원격 workflow 실행 결과가 필요하다.
-  - 가장 자연스러운 next step: 사용자 push 이후 workflow 를 수동 실행하고 TRX/summary 에서 test exit code 0,
-    기존 TCP/UDP io_uring tests green, `fixed write completion result: 2` evidence 를 확인한다.
 
 - [ ] `P2_LATER` RIO full IPv6 지원은 default promotion scope 가 다시 열릴 때 별도 설계로 판단한다.
   - 무엇이 남았는지: RIO backend 는 D122 기준 TCP/UDP 모두 현재 IPv4 `IPEndPoint` 전용이다.
@@ -90,6 +78,20 @@
   - GUI 검토: WPF 앱을 실제 실행해 Start server, TCP smoke, UDP smoke, Stop server 를 눌렀고,
     TCP 카드에는 TCP 결과, UDP 카드에는 UDP 결과가 따로 표시됨을 확인했다.
   - 다음: smoke 버튼이 self-contained transient server 를 사용하는 의미를 UI 문구/README에서 명확히 한다.
+
+- [x] D191 WPF sample dashboard smoke 버튼 의미를 명확히 했다.
+  - 범위: `samples/Hps.Sample.Dashboard/MainWindow.xaml`,
+    `samples/Hps.Sample.Dashboard/README.md`,
+    `tests/Hps.Sample.Dashboard.Tests/DashboardProjectContractTests.cs`, D192 상태 문서.
+  - Red: `DashboardCopy_WhenInspected_ExplainsSmokeCommandsAreIndependentLoopbackChecks`가
+    `독립 loopback smoke` 문구 부재로 실패함을 확인했다.
+  - Green: subtitle 에 `TCP/UDP 독립 loopback smoke와 transport diagnostics`를 표시하고,
+    README 에 TCP/UDP smoke 가 Start server와 별개로 임시 loopback server 를 만드는 독립 검증임을 명시했다.
+  - 검증: focused Red/Green, dashboard tests 13개 통과,
+    `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과.
+  - GUI 검토: WPF 앱을 실제 실행해 subtitle 변경이 화면에 표시됨을 확인했다.
+  - 다음: deferred 되어 있던 D181 `iouring-linux-contract.yml` artifact gate 를 다시 current TODO 로 승격한다.
 
 - [x] D183 WPF/MVVM sample dashboard 구현 계획을 작성했다.
   - 범위: `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`, D184 상태 문서.
