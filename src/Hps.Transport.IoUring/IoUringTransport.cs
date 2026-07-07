@@ -710,11 +710,46 @@ namespace Hps.Transport
             if (sendBuffer.Length == 0)
                 return;
 
-            ArraySegment<byte> segment = GetRefCountedBlockSegment(sendBuffer.Buffer, sendBuffer.Offset, sendBuffer.Length);
-            if (segment.Array == null)
-                throw new InvalidOperationException("io_uring TCP send는 pinned byte[] 기반 RefCountedBuffer만 지원합니다.");
+            await SendFixedPayloadAsync(resource, connection, sendBuffer).ConfigureAwait(false);
+        }
 
-            await SendArrayAsync(resource, connection, segment.Array, segment.Offset, segment.Count).ConfigureAwait(false);
+        private static async Task SendFixedPayloadAsync(
+            IoUringTcpConnectionResource resource,
+            TransportConnection connection,
+            TransportSendBuffer sendBuffer)
+        {
+            using (IoUringFixedSendLease lease = IoUringFixedSendLease.CreateForSendPump(resource.Queue, sendBuffer))
+            {
+                int currentOffset = lease.PayloadOffset;
+                int remaining = lease.PayloadLength;
+
+                while (remaining != 0)
+                {
+                    if (connection.IsClosed || resource.IsDisposed)
+                        throw new ObjectDisposedException(nameof(TransportConnection));
+
+                    IoUringOperationContext context = resource.SendContext;
+                    context.Reset(context.Token, IoUringOperationKind.Send);
+                    ValueTask<IoUringCompletion> wait = context.WaitAsync();
+
+                    bool submitted = resource.Queue.TrySubmitWriteFixed(
+                        resource.SocketFileDescriptor,
+                        lease.RegisteredArray,
+                        currentOffset,
+                        remaining,
+                        lease.BufferIndex,
+                        context.Token);
+                    if (!submitted)
+                        throw new SocketException((int)SocketError.NoBufferSpaceAvailable);
+
+                    IoUringCompletion completion = await wait.ConfigureAwait(false);
+                    if (completion.Result <= 0 || completion.Result > remaining)
+                        throw new SocketException((int)SocketError.ConnectionReset);
+
+                    currentOffset += completion.Result;
+                    remaining -= completion.Result;
+                }
+            }
         }
 
         private static async Task SendArrayAsync(

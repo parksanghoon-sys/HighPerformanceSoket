@@ -20,6 +20,23 @@ namespace Hps.Transport.IoUring.Tests
             Assert.NotNull(transportType.GetMethod("SendInFlightAsync", BindingFlags.Instance | BindingFlags.NonPublic));
         }
 
+        // Windows/local 환경에서는 Linux send pump native body 가 skip 될 수 있다.
+        // 그래서 payload fixed-write helper 존재와 WRITE_FIXED queue surface 를 reflection 으로 고정한다.
+        [Fact]
+        public void Transport_WhenInspected_ExposesFixedPayloadSendHelper()
+        {
+            MethodInfo? helper = typeof(IoUringTransport).GetMethod(
+                "SendFixedPayloadAsync",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            MethodInfo? writeFixed = typeof(IoUringQueue).GetMethod(
+                "TrySubmitWriteFixed",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(helper);
+            Assert.NotNull(writeFixed);
+        }
+
         // remote Linux gate 에서 발견된 shutdown race 회귀 테스트:
         // connection.Close()가 먼저 unregister 된 connection 은 StopCore 의 open-connection snapshot 에 없을 수 있다.
         // 그래서 transport 는 자신이 시작한 TCP send pump task 를 별도로 추적하고 StopAsync 에서 완료를 기다려야 한다.

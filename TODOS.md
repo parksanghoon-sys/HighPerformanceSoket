@@ -9,16 +9,16 @@
 
 ## Current TODOs
 
-- [ ] D210 Task 2 TCP payload fixed-write helper 를 구현한다.
+- [ ] D211 TCP payload fixed-write helper 의 원격 Linux contract gate 를 검토한다.
   - 입력: `docs/superpowers/plans/2026-07-08-iouring-tcp-payload-fixed-write-integration.md`,
-    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
-    `tests/Hps.Transport.IoUring.Tests/IoUringSendPumpShapeTests.cs`,
-    `tests/Hps.Transport.IoUring.Tests/IoUringTransportTcpTests.cs`.
-  - 할 일: `SendFixedPayloadAsync` helper 를 Red/Green 으로 추가하고,
-    `SendInFlightAsync`의 payload 구간만 `TrySubmitWriteFixed` path 로 바꾼다.
-  - 확인할 것: TCP length prefix 는 기존 `SendArrayAsync`/`TrySubmitSend` scratch path 에 남기고,
-    payload length 0은 lease 를 만들지 않으며, partial completion 은 offset/remaining loop 로 처리한다.
-  - 제외: TCP prefix fixed-write, UDP fixed-buffer send, zero-copy send, registration cache, default backend promotion.
+    GitHub Actions `iouring-linux-contract.yml`, pushed head SHA,
+    artifact `summary.md`, `iouring-tests.trx`.
+  - 할 일: `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`,
+    `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`,
+    `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`가 모두 Passed 인지 확인한다.
+  - 확인할 것: workflow/job success, test exit code 0, TRX failed 0,
+    capability `Available`, fixed socket write completion result 2.
+  - 제외: remote gate 전 zero-copy send, registration cache, UDP fixed-buffer send, default backend promotion 판단.
 
 ## Deferred Backlog
 
@@ -52,6 +52,21 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D208 Task 2 TCP payload fixed-write helper 를 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringSendPumpShapeTests.cs`,
+    D210 상태/결정 문서.
+  - Red: focused `IoUringSendPumpShapeTests`에서 `SendFixedPayloadAsync` 부재로
+    `Assert.NotNull() Failure`가 발생함을 확인했다.
+  - Green: `SendInFlightAsync`의 payload 구간만 `SendFixedPayloadAsync`로 전환했다.
+    length prefix 는 기존 `SendArrayAsync`/`TrySubmitSend` scratch path 에 남겼다.
+  - 검증: focused send pump shape tests 3개 통과,
+    `Hps.Transport.IoUring.Tests` 74개 통과,
+    `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과,
+    `git diff --check` whitespace 오류 없음.
+  - 다음: push 이후 원격 `iouring-linux-contract.yml`에서 Linux capability available 상태의 TCP loopback/fixed-write evidence 를 검토한다.
 
 - [x] D208 Task 1 send pump lease ref acquisition 을 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`,

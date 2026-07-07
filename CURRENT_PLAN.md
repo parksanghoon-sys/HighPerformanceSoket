@@ -212,6 +212,12 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   registration 실패 시 rollback release 를 수행한다.
   focused lease tests 9개와 `Hps.Transport.IoUring.Tests` 73개가 통과했다.
   다음 실행 지점은 Task 2 TCP payload fixed-write helper 다.
+- D210 기준 D208 Task 2 TCP payload fixed-write helper 를 완료했다.
+  `IoUringTransport.SendInFlightAsync`는 length prefix 를 기존 `SendArrayAsync` path 로 유지하고,
+  non-empty payload 만 `SendFixedPayloadAsync`에서 `TrySubmitWriteFixed`로 전송한다.
+  focused send pump shape tests 3개, `Hps.Transport.IoUring.Tests` 74개, solution build 경고 0/오류 0,
+  solution tests 전체 통과, `git diff --check` 통과를 확인했다.
+  다음 실행 지점은 push 이후 원격 `iouring-linux-contract.yml` gate 검토다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

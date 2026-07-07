@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D210 — io_uring TCP send pump 는 payload 구간만 `WRITE_FIXED` helper 로 전송하고, length prefix 는 기존 scratch `SEND` path 로 유지한다.
 - D207 — D206 이후 다음 단위는 TCP payload fixed-write integration 이며 send pump 전용 lease ref 획득 경계를 먼저 둔다.
 - D206 — D205 send pump shutdown fix 는 원격 Linux contract gate 를 통과했지만 fixed-write pump/default promotion 근거로 즉시 확장하지 않는다.
 - D205 — io_uring transport 는 close 로 unregister 된 connection 의 TCP send pump task 도 shutdown 때 기다린다.

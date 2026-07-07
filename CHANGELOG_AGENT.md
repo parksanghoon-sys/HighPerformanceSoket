@@ -5,6 +5,34 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-08 (Codex - D210 TCP payload fixed-write helper)
+
+### 작업 단위
+- D208 Task 2 TCP payload fixed-write helper 를 구현했다.
+
+### 변경 내용
+- `IoUringTransport.SendInFlightAsync`의 non-empty payload 전송 구간을 `SendFixedPayloadAsync(...)` 호출로 바꿨다.
+- `SendFixedPayloadAsync(...)`는 `IoUringFixedSendLease.CreateForSendPump(...)`로 lease-owned ref 와 fixed buffer registration 을 잡고,
+  `IoUringQueue.TrySubmitWriteFixed(...)` completion loop 로 payload 를 전송한다.
+- TCP length prefix 는 기존 `LengthPrefixBlock` + `SendArrayAsync(...)` + `TrySubmitSend(...)` 경로를 유지했다.
+- `IoUringSendPumpShapeTests`에 fixed payload helper shape test 를 추가했다.
+- D210 결정 문서에 payload-only fixed-write 전환과 remote Linux gate 필요성을 기록했다.
+
+### 검증
+- Red: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --filter FullyQualifiedName~IoUringSendPumpShapeTests -v minimal`
+  실행 시 `SendFixedPayloadAsync` 부재로 `Assert.NotNull() Failure`가 발생했다.
+- Green: 같은 focused command 통과, 3개.
+- Green: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal` 통과, 74개.
+- Full: `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0.
+- Full: `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과.
+- Full: `git diff --check` whitespace 오류 없음.
+
+### 결과
+- production TCP send pump 의 payload 구간은 fixed-write path 로 연결됐다.
+- Linux native evidence 는 아직 local Windows에서 직접 실행되지 않았으므로,
+  다음 실행 지점은 push 이후 원격 `iouring-linux-contract.yml` gate 검토다.
+- 이 결과는 zero-copy send, registration cache, UDP fixed-buffer send, default backend promotion 근거가 아니다.
+
 ## 2026-07-08 (Codex - D209 send pump lease ref acquisition)
 
 ### 작업 단위
