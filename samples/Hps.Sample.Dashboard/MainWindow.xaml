@@ -77,14 +77,14 @@
             <Border Grid.Column="1" Style="{StaticResource PanelBorder}" Margin="0,0,10,0">
                 <StackPanel>
                     <TextBlock Text="TCP" Foreground="#5D6978" />
-                    <TextBlock Text="{Binding LastSmokeSummary}" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#14212B" />
+                    <TextBlock Text="{Binding TcpSmokeSummary}" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#14212B" />
                 </StackPanel>
             </Border>
 
             <Border Grid.Column="2" Style="{StaticResource PanelBorder}" Margin="0,0,10,0">
                 <StackPanel>
                     <TextBlock Text="UDP" Foreground="#5D6978" />
-                    <TextBlock Text="{Binding LastSmokeSummary}" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#14212B" />
+                    <TextBlock Text="{Binding UdpSmokeSummary}" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#14212B" />
                 </StackPanel>
             </Border>
 

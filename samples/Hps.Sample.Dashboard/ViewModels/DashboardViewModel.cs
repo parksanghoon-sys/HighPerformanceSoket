@@ -21,6 +21,8 @@ namespace Hps.Sample.Dashboard.ViewModels
         private readonly RelayCommand? _stopServerCommandState;
         private DashboardStatus _serverStatus;
         private string _lastSmokeSummary;
+        private string _tcpSmokeSummary;
+        private string _udpSmokeSummary;
         private string _ioUringStatusText;
 
         public DashboardViewModel()
@@ -69,6 +71,8 @@ namespace Hps.Sample.Dashboard.ViewModels
             _udpSmoke = udpSmoke;
             _serverStatus = DashboardStatus.Stopped;
             _lastSmokeSummary = string.Empty;
+            _tcpSmokeSummary = string.Empty;
+            _udpSmokeSummary = string.Empty;
             _ioUringStatusText = ioUringEvidenceStatusService.GetStatusText();
             LogEntries = new ObservableCollection<string>();
             Metrics = new ObservableCollection<TransportMetricRow>();
@@ -140,6 +144,32 @@ namespace Hps.Sample.Dashboard.ViewModels
             }
         }
 
+        public string TcpSmokeSummary
+        {
+            get { return _tcpSmokeSummary; }
+            private set
+            {
+                if (string.Equals(_tcpSmokeSummary, value, StringComparison.Ordinal))
+                    return;
+
+                _tcpSmokeSummary = value;
+                OnPropertyChanged(nameof(TcpSmokeSummary));
+            }
+        }
+
+        public string UdpSmokeSummary
+        {
+            get { return _udpSmokeSummary; }
+            private set
+            {
+                if (string.Equals(_udpSmokeSummary, value, StringComparison.Ordinal))
+                    return;
+
+                _udpSmokeSummary = value;
+                OnPropertyChanged(nameof(UdpSmokeSummary));
+            }
+        }
+
         public string IoUringStatusText
         {
             get { return _ioUringStatusText; }
@@ -178,7 +208,7 @@ namespace Hps.Sample.Dashboard.ViewModels
             if (result == null)
                 throw new ArgumentNullException(nameof(result));
 
-            LastSmokeSummary = string.Format(
+            string summary = string.Format(
                 "{0}: sent={1}, received={2}, dropped={3}, payload-errors={4}, pool-rented={5}",
                 result.Protocol,
                 result.Sent,
@@ -186,6 +216,19 @@ namespace Hps.Sample.Dashboard.ViewModels
                 result.Dropped,
                 result.PayloadErrors,
                 result.PoolRented);
+
+            LastSmokeSummary = summary;
+
+            if (string.Equals(result.Protocol, "TCP", StringComparison.OrdinalIgnoreCase))
+            {
+                TcpSmokeSummary = summary;
+                return;
+            }
+
+            if (string.Equals(result.Protocol, "UDP", StringComparison.OrdinalIgnoreCase))
+            {
+                UdpSmokeSummary = summary;
+            }
         }
 
         private bool CanStartServer()

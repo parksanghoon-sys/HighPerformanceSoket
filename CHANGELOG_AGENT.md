@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-07 (Codex - D191 WPF dashboard runtime review fix)
+
+### 작업 단위
+- WPF sample dashboard 를 실제 실행해 UI/버튼 동작을 검토하고, TCP/UDP 상태 카드가 마지막 smoke 결과를 공유하는 오류를 수정했다.
+
+### 변경 내용
+- `DashboardViewModel`:
+  `TcpSmokeSummary`와 `UdpSmokeSummary`를 추가하고 `ApplySmokeResult`가 protocol 별 summary 를 각각 갱신하게 했다.
+  기존 `LastSmokeSummary`는 마지막 smoke 결과 요약 호환 surface 로 유지했다.
+- `MainWindow.xaml`:
+  TCP 카드와 UDP 카드가 더 이상 `LastSmokeSummary`를 공유하지 않고 각각 `TcpSmokeSummary`, `UdpSmokeSummary`를 표시한다.
+- `DashboardViewModelTests`:
+  TCP smoke 실행 후 UDP summary 가 비어 있고, UDP smoke 실행 후 TCP summary 가 보존되는 회귀 테스트를 추가했다.
+
+### 검증
+- GUI: WPF 앱을 실행하고 Start server, TCP smoke, UDP smoke, Stop server 를 직접 눌러 확인했다.
+- Red: `SmokeCommands_WhenExecuted_UpdateProtocolSpecificSummaries`가 `TcpSmokeSummary` 속성 부재로 `Assert.NotNull()` 실패함을 확인했다.
+- Green: focused test 통과.
+- Green: `dotnet test tests\Hps.Sample.Dashboard.Tests\Hps.Sample.Dashboard.Tests.csproj -v minimal` 통과, 12개.
+- Full: `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0.
+- Full: `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과.
+- GUI 재검증: TCP 카드에는 TCP 결과, UDP 카드에는 UDP 결과가 따로 표시됨을 확인했다.
+
+### 결과
+- TCP/UDP smoke 기능은 기존처럼 성공하면서, 프로토콜별 상태 카드의 의미가 실제 UI에서 맞게 표시된다.
+- 남은 개선 후보는 smoke 버튼이 self-contained transient server 를 사용하는 의미를 UI 문구/README에서 명확히 하는 것이다.
+
 ## 2026-07-06 (Codex - D190 WPF sample dashboard Task 6)
 
 ### 작업 단위

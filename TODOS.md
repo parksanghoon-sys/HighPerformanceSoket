@@ -9,12 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D190 WPF/MVVM sample dashboard 를 사용자가 직접 실행해 UI/버튼 동작을 검토한다.
-  - 입력: `samples/Hps.Sample.Dashboard/README.md`.
-  - 할 일: `dotnet run --project samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj`로 WPF 앱을 열고
-    Start server, TCP smoke, UDP smoke, diagnostics/log 표시를 확인한다.
-  - 확인할 것: TCP/UDP smoke command 결과가 log/summary 에 보이고, 버튼 enable/disable 과 diagnostics row 가 사용자 관점에서 충분한지 검토한다.
-  - 제외: Linux `io_uring` native path 직접 실행, WPF UI automation, fixed-buffer pump/zero-copy 구현.
+- [ ] D191 WPF sample dashboard smoke 버튼 의미를 명확히 한다.
+  - 입력: 실제 실행 검토 결과, `samples/Hps.Sample.Dashboard/MainWindow.xaml`,
+    `samples/Hps.Sample.Dashboard/ViewModels/DashboardViewModel.cs`, `samples/Hps.Sample.Dashboard/README.md`.
+  - 할 일: 현재 TCP/UDP smoke 버튼은 dashboard 가 Start 한 server endpoint 가 아니라 self-contained transient server 로 loopback smoke 를 수행한다.
+    사용자 오해를 줄이기 위해 UI label/log/README 중 가장 작은 변경으로 이 의미를 드러낸다.
+  - 확인할 것: 문구 변경이 production API 또는 smoke service 동작을 넓히지 않고, WPF build/test 가 계속 green 인지 확인한다.
+  - 제외: smoke service 를 현재 DashboardBrokerService endpoint 기반으로 재설계하는 작업, WPF UI automation 추가.
 
 ## Deferred Backlog
 
@@ -76,6 +77,19 @@
     `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과.
   - 비고: GUI 앱은 장시간 실행되는 대화형 프로세스라 자동 실행하지 않았고, README의 수동 실행 명령으로 사용자 검토 게이트를 남겼다.
   - 다음: 사용자가 WPF sample dashboard 를 직접 실행해 UI와 smoke 버튼 동작을 검토한다.
+
+- [x] D190 WPF/MVVM sample dashboard 를 실제 실행해 UI/버튼 동작을 검토하고 summary 공유 오류를 수정했다.
+  - 범위: `samples/Hps.Sample.Dashboard/ViewModels/DashboardViewModel.cs`,
+    `samples/Hps.Sample.Dashboard/MainWindow.xaml`,
+    `tests/Hps.Sample.Dashboard.Tests/DashboardViewModelTests.cs`, D191 상태 문서.
+  - Red: `SmokeCommands_WhenExecuted_UpdateProtocolSpecificSummaries`가 `TcpSmokeSummary` 속성 부재 assertion failure 로 실패함을 확인했다.
+  - Green: `TcpSmokeSummary`와 `UdpSmokeSummary`를 분리하고 TCP/UDP 카드 XAML binding 을 각각의 속성으로 바꿨다.
+  - 검증: focused Red/Green, dashboard tests 12개 통과,
+    `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과.
+  - GUI 검토: WPF 앱을 실제 실행해 Start server, TCP smoke, UDP smoke, Stop server 를 눌렀고,
+    TCP 카드에는 TCP 결과, UDP 카드에는 UDP 결과가 따로 표시됨을 확인했다.
+  - 다음: smoke 버튼이 self-contained transient server 를 사용하는 의미를 UI 문구/README에서 명확히 한다.
 
 - [x] D183 WPF/MVVM sample dashboard 구현 계획을 작성했다.
   - 범위: `docs/superpowers/plans/2026-07-06-wpf-sample-dashboard.md`, D184 상태 문서.
