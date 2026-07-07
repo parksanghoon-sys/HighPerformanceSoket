@@ -198,6 +198,11 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`와
   `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`가 모두 Passed 로 확인됐다.
   다음 실행 지점은 D206 evidence 기준으로 io_uring 후속 후보를 재평가하는 것이다.
+- D207 기준 D206 evidence 를 재평가했고, 다음 구현 후보는 TCP payload fixed-write integration 으로 정했다.
+  단, production pump 가 기존 `InFlightSend` ref 와 fixed-write lease ref 를 섞어 double release 하지 않도록,
+  send pump 전용 lease ref 획득/rollback 경계를 먼저 둔다.
+  설계는 `docs/superpowers/specs/2026-07-08-iouring-post-d206-next-scope-design.md`에 있다.
+  다음 실행 지점은 D207 구현 계획 작성이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

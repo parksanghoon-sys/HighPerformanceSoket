@@ -5,6 +5,29 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-08 (Codex - D207 io_uring post-D206 next scope)
+
+### 작업 단위
+- D206 원격 Linux contract evidence 이후 io_uring 후속 후보를 재평가했다.
+
+### 확인 내용
+- D206 evidence 는 `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`와
+  `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`가 모두 Linux capability `Available`
+  환경에서 통과했음을 보여준다.
+- production TCP send pump 는 아직 length prefix 와 payload 를 모두 `TrySubmitSend` 계열로 보낸다.
+- `IoUringFixedSendLease`는 dispose 시 payload ref 를 release 하므로,
+  production pump 에서 기존 `InFlightSend` ref 를 그대로 lease 에 넘기면 double release 위험이 있다.
+
+### 변경 내용
+- D207 설계 문서 `docs/superpowers/specs/2026-07-08-iouring-post-d206-next-scope-design.md`를 추가했다.
+- D207 결정/현재 TODO/완료 이력을 상태 문서에 반영했다.
+
+### 결과
+- 다음 구현 후보는 TCP payload fixed-write integration 으로 정했다.
+- 단, 첫 구현 계획은 send pump 전용 lease ref 획득/rollback 경계를 먼저 고정해야 한다.
+- TCP length prefix fixed-write, UDP fixed-buffer send, zero-copy send, registration cache,
+  default backend promotion 은 이번 범위에서 제외한다.
+
 ## 2026-07-07 (Codex - D206 D205 remote gate)
 
 ### 작업 단위

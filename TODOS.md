@@ -9,15 +9,19 @@
 
 ## Current TODOs
 
-- [ ] D206 원격 Linux contract evidence 이후 io_uring 후속 후보를 재평가한다.
-  - 입력: D206 evidence, `src/Hps.Transport.IoUring/IoUringTransport.cs`,
-    `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`, `tests/Hps.Transport.IoUring.Tests`,
-    `CURRENT_PLAN.md`, `DECISIONS.md`.
-  - 할 일: fixed-send lease/native evidence 가 production TCP pump fixed-write 연결을 열기에 충분한지,
-    아니면 추가 설계/관측/계약 테스트가 먼저 필요한지 판단한다.
-  - 확인할 것: length prefix 처리, payload registration lifetime, close/error unwind,
-    benchmark/latency evidence, default backend policy 와의 경계.
-  - 제외: 재평가 없이 바로 production pump fixed-write 연결, zero-copy send, default promotion.
+- [ ] D207 TCP payload fixed-write integration 구현 계획을 작성한다.
+  - 입력: `docs/superpowers/specs/2026-07-08-iouring-post-d206-next-scope-design.md`,
+    `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`,
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendLeaseTests.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringTransportTcpTests.cs`.
+  - 할 일: send pump 전용 lease ref 획득/rollback, payload fixed-write helper,
+    remote Linux contract gate 를 TDD task 로 쪼갠다.
+  - 확인할 것: `AddRef` rollback, `InFlightSend` ref 와 lease ref 분리,
+    TCP length prefix 는 기존 scratch send 유지, partial completion offset 처리,
+    close/error unwind 이후 pool leak 0.
+  - 제외: 계획 없이 바로 production pump 수정, TCP prefix fixed-write, UDP fixed-buffer send,
+    zero-copy send, registration cache, default backend promotion.
 
 ## Deferred Backlog
 
@@ -51,6 +55,20 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D206 원격 Linux contract evidence 이후 io_uring 후속 후보를 재평가했다.
+  - 범위: D206 evidence, `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `src/Hps.Transport.IoUring/IoUringFixedSendLease.cs`,
+    `src/Hps.Transport.IoUring/IoUringQueue.cs`, `src/Hps.Transport.IoUring/IoUringRegisteredBufferSet.cs`,
+    관련 io_uring tests.
+  - 결과: fixed-send lease/native evidence 와 send pump shutdown gate 는 production TCP payload fixed-write 연결을
+    다음 후보로 열기에 충분하다고 판단했다.
+  - 핵심 보정: 기존 `IoUringFixedSendLease.Create(IoUringQueue, TransportSendBuffer)`를 production pump 에 직접 쓰면
+    `TransportConnection.InFlightSend`가 소유한 ref 와 lease dispose ref 가 섞여 double release 위험이 있다.
+  - 결정: D207은 send pump 전용 lease ref 획득 경계를 먼저 두고, payload 부분만 fixed-write 로 연결한다.
+    TCP length prefix 는 기존 scratch `TrySubmitSend` 경로를 유지한다.
+  - 산출물: `docs/superpowers/specs/2026-07-08-iouring-post-d206-next-scope-design.md`.
+  - 다음: D207 구현 계획에서 TDD task 와 검증 경로를 쪼갠다.
 
 - [x] D205 TCP send pump task tracking fix 의 원격 `iouring-linux-contract.yml` artifact gate 를 재검토했다.
   - 범위: GitHub Actions run `28842952688`,
