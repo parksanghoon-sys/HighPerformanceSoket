@@ -9,17 +9,15 @@
 
 ## Current TODOs
 
-- [ ] D199 설계에 따라 TCP fixed-send lease owner 구현 계획을 작성한다.
-  - 입력: `docs/superpowers/specs/2026-07-07-iouring-post-d198-next-scope-design.md`,
-    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+- [ ] D200 Task 1 pure lease ownership contract 를 구현한다.
+  - 입력: `docs/superpowers/plans/2026-07-07-iouring-fixed-send-lease-owner.md`,
     `src/Hps.Transport.IoUring/IoUringRegisteredBufferSet.cs`,
-    `src/Hps.Transport/Runtime/TransportConnection.cs`,
     `tests/Hps.Transport.IoUring.Tests`.
-  - 할 일: `IoUringFixedSendLease` 또는 동등한 internal owner 의 surface, contract tests,
-    Red-Green task 순서, local/remote validation path 를 구현 계획으로 쪼갠다.
-  - 확인할 것: lease 가 payload ref 반환과 fixed registration lifetime 을 정확히 묶고,
-    TCP length prefix 는 이번 범위에서 기존 connection scratch send 로 분리 유지한다.
-  - 제외: 계획 없이 production TCP/UDP pump 변경, zero-copy send, default promotion, latency hard gate.
+  - 할 일: `IoUringFixedSendLease`와 `IIoUringFixedBufferRegistration`의 pure ownership contract 를
+    Red-Green 으로 추가한다.
+  - 확인할 것: lease dispose 가 registration owner 와 payload ref 를 정확히 1회 정리하고,
+    slice offset/length 를 WRITE_FIXED 입력으로 사용할 수 있게 노출한다.
+  - 제외: production TCP pump 변경, queue 기반 real registration factory, Linux native socket write evidence.
 
 ## Deferred Backlog
 
@@ -63,6 +61,14 @@
   - 결정: 다음 단위는 production pump 변경이 아니라 TCP fixed-send lease owner 구현 계획이다.
   - 산출물: `docs/superpowers/specs/2026-07-07-iouring-post-d198-next-scope-design.md`, D199 상태/결정 문서.
   - 다음: D200 구현 계획에서 lifetime owner contract tests 와 validation path 를 쪼갠다.
+
+- [x] D199 설계에 따라 TCP fixed-send lease owner 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/specs/2026-07-07-iouring-post-d198-next-scope-design.md`,
+    `src/Hps.Transport.IoUring`, `tests/Hps.Transport.IoUring.Tests`, root 상태 문서.
+  - 결과: plan 을 pure lease ownership contract, real registration factory, Linux native lease evidence,
+    remote contract gate documentation 의 4개 task 로 분리했다.
+  - 산출물: `docs/superpowers/plans/2026-07-07-iouring-fixed-send-lease-owner.md`.
+  - 다음: Task 1에서 lease dispose/ref-count/registration owner 정리 계약을 Red-Green 으로 구현한다.
 
 - [x] D196 socket fixed-write evidence 의 원격 `iouring-linux-contract.yml` artifact gate 를 검토했다.
   - 범위: GitHub Actions run `28837405462`,

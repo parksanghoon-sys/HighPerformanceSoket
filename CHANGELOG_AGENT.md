@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-07 (Codex - D200 fixed send lease owner implementation plan)
+
+### 작업 단위
+- D199 설계에 따라 TCP fixed-send lease owner 구현 계획을 작성했다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-07-07-iouring-fixed-send-lease-owner.md`:
+  pure lease ownership contract, queue-based real registration factory, Linux native lease evidence,
+  remote contract gate documentation 의 4개 task 로 구현을 나눴다.
+- `CURRENT_PLAN.md`, `TODOS.md`:
+  다음 실행 지점을 Task 1 pure lease ownership contract 로 갱신했다.
+
+### 검증
+- 계획 self-review 로 spec coverage, placeholder scan, type consistency 를 확인했다.
+- `git diff --check`로 whitespace 오류가 없음을 확인했다.
+
+### 결과
+- 다음 구현은 production pump 변경이 아니라 `IoUringFixedSendLease` pure ownership contract 의 Red-Green 구현이다.
+- production TCP pump fixed-write 연결, UDP fixed-buffer send, zero-copy send, default promotion, latency hard gate 는 계속 제외한다.
+
 ## 2026-07-07 (Codex - D199 io_uring post-D198 next scope)
 
 ### 작업 단위
