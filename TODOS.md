@@ -9,12 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D213 io_uring Linux contract hang diagnostics 구현 계획을 작성한다.
-  - 입력: `docs/superpowers/specs/2026-07-08-iouring-contract-hang-diagnostics-design.md`,
-    `.github/workflows/iouring-linux-contract.yml`, D211/D212 evidence.
-  - 할 일: workflow static contract test, blame-hang/diag workflow 변경,
-    remote artifact 검토를 TDD task 로 쪼갠다.
-  - 확인할 것: production code 변경 없이 remote test hang 을 2분 단위 실패와 artifact evidence 로 수렴시킨다.
+- [ ] D214 Task 1 workflow hang diagnostics contract 를 구현한다.
+  - 입력: `docs/superpowers/plans/2026-07-08-iouring-contract-hang-diagnostics.md`,
+    `.github/workflows/iouring-linux-contract.yml`,
+    `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`.
+  - 할 일: workflow static contract test 를 Red/Green 으로 추가하고,
+    `dotnet test`에 blame-hang/diag 옵션과 summary evidence line 을 붙인다.
+  - 확인할 것: production code 는 변경하지 않고, artifact 에 `vstest-diag.log`와 hang diagnostics 설정이 남게 한다.
   - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
 
 ## Deferred Backlog
@@ -49,6 +50,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D213 io_uring Linux contract hang diagnostics 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/specs/2026-07-08-iouring-contract-hang-diagnostics-design.md`,
+    `.github/workflows/iouring-linux-contract.yml`,
+    `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`.
+  - 결과: 계획을 Task 1 workflow static contract/변경, Task 2 full local verification,
+    Task 3 remote contract gate review 로 분리했다.
+  - 산출물: `docs/superpowers/plans/2026-07-08-iouring-contract-hang-diagnostics.md`.
+  - 다음: Task 1에서 workflow hang diagnostics contract 를 Red/Green 으로 구현한다.
 
 - [x] D212 rollback green evidence 이후 io_uring 후속 후보를 재평가했다.
   - 범위: D210 failed attempt, D211 rollback decision, D212 remote gate evidence,

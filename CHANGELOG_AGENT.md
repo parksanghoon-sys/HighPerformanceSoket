@@ -5,6 +5,24 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-08 (Codex - D214 D213 implementation plan)
+
+### 작업 단위
+- D213 io_uring Linux contract hang diagnostics 구현 계획을 작성했다.
+
+### 변경 내용
+- 구현 계획 `docs/superpowers/plans/2026-07-08-iouring-contract-hang-diagnostics.md`를 추가했다.
+- 계획은 Task 1 workflow hang diagnostics contract, Task 2 full local verification,
+  Task 3 remote contract gate review 로 구성했다.
+- 상태 문서의 현재 실행 지점을 Task 1 구현으로 갱신했다.
+
+### 검증
+- 계획은 실제 workflow path 와 기존 workflow static test file 을 기준으로 작성했다.
+- plan placeholder scan 과 `git diff --check`로 문서 품질을 확인한다.
+
+### 결과
+- 다음 실행 지점은 D214 Task 1 workflow hang diagnostics contract 구현이다.
+
 ## 2026-07-08 (Codex - D213 post-D212 next scope)
 
 ### 작업 단위
