@@ -5,6 +5,36 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-08 (Codex - D215 contract hang diagnostics)
+
+### 작업 단위
+- `iouring-linux-contract.yml`에 test hang diagnostics 를 추가하고 full local verification 까지 완료했다.
+
+### 변경 내용
+- `BenchmarkArtifactWorkflowTests`에 Linux contract workflow 가 `--blame-hang`, 2분 hang timeout,
+  dump 없음, VSTest diag log, summary evidence line 을 포함하는지 검증하는 static contract test 를 추가했다.
+- `iouring-linux-contract.yml`의 `dotnet test` command 에 `--blame-hang`,
+  `--blame-hang-timeout 2m`, `--blame-hang-dump-type none`,
+  `--diag "$IOURING_CONTRACT_ROOT/vstest-diag.log"`를 추가했다.
+- summary artifact 에 `VSTest diag: vstest-diag.log`와
+  `Hang diagnostics: blame-hang timeout 2m, dump none`을 기록하게 했다.
+- production transport code 는 변경하지 않았다.
+
+### 검증
+- Red: focused static contract test 가 `--blame-hang` 부재로 `Assert.Contains() Failure`를 냈다.
+- Green: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj --filter FullyQualifiedName~IoUringLinuxContractWorkflow -v minimal`
+  통과, 2개.
+- Relevant: `dotnet test tests\Hps.Benchmarks.Tests\Hps.Benchmarks.Tests.csproj -v minimal` 통과, 116개.
+- Relevant: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal` 통과, 73개.
+- Full: `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0.
+- Full: `dotnet test HighPerformanceSocket.slnx -v minimal` 전체 통과.
+- Full: `git diff --check` whitespace 오류 없음.
+
+### 결과
+- 다음 실행 지점은 push 이후 원격 `iouring-linux-contract.yml`을 실행해
+  `summary.md`, `iouring-tests.trx`, `vstest-diag.log` artifact 와 TRX counters failed 0을 확인하는 것이다.
+- fixed-write production 재연결, registration cache, zero-copy send, default backend promotion 은 계속 제외한다.
+
 ## 2026-07-08 (Codex - D214 D213 implementation plan)
 
 ### 작업 단위

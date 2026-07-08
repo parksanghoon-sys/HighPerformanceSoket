@@ -176,6 +176,21 @@ namespace Hps.Benchmarks.Tests
             Assert.DoesNotContain("EnableWindowsTargeting", workflow);
         }
 
+        // D211 remote gate 는 test step 이 20분 workflow timeout 으로 cancelled 되어 TRX 없이 끝났다.
+        // workflow 는 다음 native hang 을 짧게 실패시키고 diag/sequence evidence 를 artifact 에 남겨야 한다.
+        [Fact]
+        public void IoUringLinuxContractWorkflow_WhenTestsHang_WritesBlameHangDiagnostics()
+        {
+            string workflow = ReadIoUringLinuxContractWorkflow();
+
+            Assert.Contains("--blame-hang", workflow);
+            Assert.Contains("--blame-hang-timeout 2m", workflow);
+            Assert.Contains("--blame-hang-dump-type none", workflow);
+            Assert.Contains("--diag \"$IOURING_CONTRACT_ROOT/vstest-diag.log\"", workflow);
+            Assert.Contains("Hang diagnostics: blame-hang timeout 2m, dump none", workflow);
+            Assert.Contains("- VSTest diag: vstest-diag.log", workflow);
+        }
+
         private static string ReadBenchmarkArtifactWorkflow()
         {
             string root = FindRepositoryRoot();

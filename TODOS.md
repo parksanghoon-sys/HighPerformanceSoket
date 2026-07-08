@@ -9,13 +9,12 @@
 
 ## Current TODOs
 
-- [ ] D214 Task 1 workflow hang diagnostics contract 를 구현한다.
+- [ ] D216 remote `iouring-linux-contract.yml` hang diagnostics artifact gate 를 검토한다.
   - 입력: `docs/superpowers/plans/2026-07-08-iouring-contract-hang-diagnostics.md`,
-    `.github/workflows/iouring-linux-contract.yml`,
-    `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`.
-  - 할 일: workflow static contract test 를 Red/Green 으로 추가하고,
-    `dotnet test`에 blame-hang/diag 옵션과 summary evidence line 을 붙인다.
-  - 확인할 것: production code 는 변경하지 않고, artifact 에 `vstest-diag.log`와 hang diagnostics 설정이 남게 한다.
+    `.github/workflows/iouring-linux-contract.yml`.
+  - 할 일: push 된 head 에서 workflow 를 실행하고, artifact 의 `summary.md`, `iouring-tests.trx`,
+    `vstest-diag.log` 존재와 summary diagnostics line 을 확인한다.
+  - 확인할 것: 정상 green run 에서도 diag artifact 가 남고, TRX counters failed 0을 유지해야 한다.
   - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
 
 ## Deferred Backlog
@@ -50,6 +49,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D215 io_uring Linux contract hang diagnostics local 구현과 full verification 을 완료했다.
+  - 범위: `.github/workflows/iouring-linux-contract.yml`,
+    `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`, root 상태 문서.
+  - Red: focused static contract test 가 `--blame-hang` 부재로 `Assert.Contains() Failure`를 냈다.
+  - Green: workflow `dotnet test` command 에 `--blame-hang`, `--blame-hang-timeout 2m`,
+    `--blame-hang-dump-type none`, `--diag "$IOURING_CONTRACT_ROOT/vstest-diag.log"`를 추가했다.
+  - 결과: summary artifact 에 `VSTest diag: vstest-diag.log`와
+    `Hang diagnostics: blame-hang timeout 2m, dump none`을 남긴다.
+  - 검증: focused workflow contract tests 2개 통과, `Hps.Benchmarks.Tests` 116개 통과,
+    `Hps.Transport.IoUring.Tests` 73개 통과, solution build 경고 0/오류 0,
+    solution tests 전체 통과, `git diff --check` whitespace 오류 없음.
+  - 다음: push 이후 원격 `iouring-linux-contract.yml` artifact gate 를 검토한다.
 
 - [x] D213 io_uring Linux contract hang diagnostics 구현 계획을 작성했다.
   - 범위: `docs/superpowers/specs/2026-07-08-iouring-contract-hang-diagnostics-design.md`,

@@ -55,7 +55,11 @@ jobs:
             --no-build \
             --no-restore \
             --logger "trx;LogFileName=iouring-tests.trx" \
-            --results-directory "$IOURING_CONTRACT_ROOT"
+            --results-directory "$IOURING_CONTRACT_ROOT" \
+            --blame-hang \
+            --blame-hang-timeout 2m \
+            --blame-hang-dump-type none \
+            --diag "$IOURING_CONTRACT_ROOT/vstest-diag.log"
           exit_code=$?
           echo "IOURING_TEST_EXIT=$exit_code" >> "$GITHUB_ENV"
           exit 0
@@ -72,6 +76,8 @@ jobs:
             echo "- Test command: dotnet test tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj --no-build --no-restore"
             echo "- Test exit code: ${IOURING_TEST_EXIT:-not-run}"
             echo "- TRX: iouring-tests.trx"
+            echo "- VSTest diag: vstest-diag.log"
+            echo "- Hang diagnostics: blame-hang timeout 2m, dump none"
             echo
             echo "Capability unavailable is not a workflow failure. Inspect the TRX output from IoUringCapabilityEvidenceTests to determine whether TCP loopback tests used the real io_uring syscall path."
           } > "$IOURING_CONTRACT_ROOT/summary.md"

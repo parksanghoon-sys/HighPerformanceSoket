@@ -238,6 +238,15 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   계획은 `docs/superpowers/plans/2026-07-08-iouring-contract-hang-diagnostics.md`에 있고,
   workflow static contract/변경, full local verification, remote contract gate review 의 3개 task 로 나뉜다.
   다음 실행 지점은 Task 1 workflow hang diagnostics contract 다.
+- D215 기준 workflow hang diagnostics contract 와 full local verification 을 완료했다.
+  `iouring-linux-contract.yml`의 test step 은 `--blame-hang`, `--blame-hang-timeout 2m`,
+  `--blame-hang-dump-type none`, `--diag "$IOURING_CONTRACT_ROOT/vstest-diag.log"`를 사용한다.
+  artifact summary 는 `vstest-diag.log`와 hang diagnostics 설정을 명시한다.
+  Red는 static contract test 가 `--blame-hang` 부재로 실패하는 것으로 확인했고,
+  Green 이후 `Hps.Benchmarks.Tests` 116개, `Hps.Transport.IoUring.Tests` 73개,
+  solution build 경고 0/오류 0, solution tests 전체 통과, `git diff --check` 통과를 확인했다.
+  다음 실행 지점은 push 이후 원격 `iouring-linux-contract.yml`을 실행해 artifact 에
+  `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`, `vstest-diag.log`가 남는지 검토하는 것이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
