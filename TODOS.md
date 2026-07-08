@@ -9,15 +9,14 @@
 
 ## Current TODOs
 
-- [ ] D212 rollback 이후 원격 Linux contract gate 를 재실행해 baseline green 복귀를 확인한다.
-  - 입력: rollback 커밋 head SHA, GitHub Actions `iouring-linux-contract.yml`,
-    artifact `summary.md`, `iouring-tests.trx`.
-  - 할 일: TCP payload path rollback 이후 `Hps.Transport.IoUring.Tests`가 Linux capability available 환경에서
-    timeout 없이 완료되는지 확인한다.
-  - 확인할 것: workflow/job success, test exit code 0, TRX failed 0,
-    `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer` Passed,
-    fixed-send lease native evidence Passed, socket fixed-write evidence Passed.
-  - 제외: rollback gate 전 fixed-write production 재시도, zero-copy send, registration cache, UDP fixed-buffer send, default backend promotion 판단.
+- [ ] D212 rollback green evidence 이후 io_uring 후속 후보를 재평가한다.
+  - 입력: D210 failed attempt, D211 rollback decision, D212 remote gate evidence,
+    `IoUringFixedSendLease`, `IoUringRegisteredBufferSet`, `IoUringTransport` send path.
+  - 할 일: fixed-write production 재시도를 계속할지, registration lifetime 설계를 먼저 작성할지,
+    또는 다른 io_uring backend gap 으로 전환할지 판단한다.
+  - 확인할 것: active queue 에서 per-send `RegisterBuffers`/`UnregisterBuffers`를 쓰는 방식은 D211에서 hang을 만들었으므로
+    동일 패턴으로 재시도하지 않는다.
+  - 제외: 재평가 없이 바로 production fixed-write 재연결, zero-copy send, default backend promotion.
 
 ## Deferred Backlog
 
@@ -51,6 +50,21 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D211 rollback 이후 원격 Linux contract gate 를 재실행해 baseline green 복귀를 확인했다.
+  - 범위: GitHub Actions run `28908440081`,
+    artifact `iouring-linux-contract-2026-07-08-github-28908440081-1`, D212 상태/결정 문서.
+  - 결과: workflow/job conclusion success, summary test exit code 0.
+  - evidence: head SHA 는 `a20acf2791ae6c3194ed90ce160b7b46e49d0544`이다.
+  - evidence: TRX counters 는 total 73, executed 73, passed 73, failed 0, notExecuted 0이다.
+  - evidence: `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`는 Passed 다.
+  - evidence: `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`는 Passed 다.
+  - evidence: `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`는 Passed 다.
+  - evidence: capability stdout 은 `io_uring capability status: Available`이고,
+    socket fixed-write stdout 은 `fixed socket write completion result: 2`다.
+  - 의미: D211 rollback 으로 baseline 은 green 복귀했다.
+    D210 direct production fixed-write 연결은 실패한 접근으로 유지하고, 동일 방식 재시도는 하지 않는다.
+  - 다음: D212 evidence 기준으로 io_uring 후속 후보를 재평가한다.
 
 - [x] D211 TCP payload fixed-write helper 의 원격 Linux contract gate 를 검토하고 production path 를 rollback 했다.
   - 범위: GitHub Actions run `28907016232`, artifact `iouring-linux-contract-2026-07-07-github-28907016232-1`,

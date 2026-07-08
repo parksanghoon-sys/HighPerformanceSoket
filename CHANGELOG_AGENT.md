@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-08 (Codex - D212 rollback remote gate)
+
+### 작업 단위
+- D211 rollback 이후 원격 Linux contract gate 가 green 으로 복귀했는지 확인했다.
+
+### 확인 내용
+- 사용자 push 이후 `iouring-linux-contract.yml` run `28908440081`을 실행했다.
+- head SHA 는 `a20acf2791ae6c3194ed90ce160b7b46e49d0544`이다.
+- workflow/job conclusion 은 success 다.
+- artifact `iouring-linux-contract-2026-07-08-github-28908440081-1`를 내려받았다.
+- summary test exit code 는 0이다.
+- TRX counters 는 total 73, executed 73, passed 73, failed 0, notExecuted 0이다.
+- `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`는 Passed 다.
+- `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`는 Passed 다.
+- `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`는 Passed 다.
+- capability stdout 은 `io_uring capability status: Available`이고,
+  socket fixed-write stdout 은 `fixed socket write completion result: 2`다.
+
+### 결과
+- D211 rollback 으로 원격 Linux contract baseline 은 green 으로 복귀했다.
+- D210 direct production payload `WRITE_FIXED` 연결은 failed attempt 로 남긴다.
+- 같은 per-send registration + active send pump fixed-write 패턴을 바로 재시도하지 않는다.
+- 다음 실행 지점은 D212 evidence 기준 후속 후보 재평가다.
+
 ## 2026-07-08 (Codex - D211 remote fixed payload gate failure)
 
 ### 작업 단위

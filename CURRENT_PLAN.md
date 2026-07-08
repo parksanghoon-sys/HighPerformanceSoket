@@ -224,6 +224,12 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   TCP payload production path 는 기존 `SendArrayAsync`/`TrySubmitSend`로 rollback 했다.
   `IoUringFixedSendLease.CreateForSendPump(...)` ownership boundary 는 유지한다.
   다음 실행 지점은 rollback 커밋 push 이후 원격 Linux contract gate 가 다시 green 으로 돌아오는지 확인하는 것이다.
+- D212 기준 D211 rollback 커밋 `a20acf2791ae6c3194ed90ce160b7b46e49d0544`은 원격
+  `iouring-linux-contract.yml` run `28908440081`에서 success 로 완료됐다.
+  artifact `iouring-linux-contract-2026-07-08-github-28908440081-1`의 summary test exit code 는 0이고,
+  TRX counters 는 total/executed/passed 73, failed 0이다.
+  TCP loopback, fixed-send lease native evidence, socket fixed-write evidence 는 모두 Passed 다.
+  다음 실행 지점은 D212 evidence 기준으로 io_uring 후속 후보를 재평가하는 것이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
