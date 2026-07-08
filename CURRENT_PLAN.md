@@ -247,6 +247,14 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   solution build 경고 0/오류 0, solution tests 전체 통과, `git diff --check` 통과를 확인했다.
   다음 실행 지점은 push 이후 원격 `iouring-linux-contract.yml`을 실행해 artifact 에
   `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`, `vstest-diag.log`가 남는지 검토하는 것이다.
+- D216 기준 D215 hang diagnostics workflow 는 원격 `iouring-linux-contract.yml` run `28916879277`에서 통과했다.
+  head SHA 는 `df1cdf55d49b0f9ff21313efa9bcd20560e23e5e`이고,
+  artifact `iouring-linux-contract-2026-07-08-github-28916879277-1`에는
+  `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`, `vstest-diag.log`와 host/datacollector diag log 가 포함됐다.
+  summary test exit code 는 0이고 TRX counters 는 total/executed/passed 73, failed 0, notExecuted 0이다.
+  TCP loopback, fixed-send lease native evidence, socket fixed-write evidence 는 모두 Passed 다.
+  stdout 은 `io_uring capability status: Available`, `fixed socket write completion result: 2`를 포함한다.
+  다음 실행 지점은 D216 evidence 기준으로 io_uring 후속 후보를 재평가하는 것이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

@@ -9,12 +9,12 @@
 
 ## Current TODOs
 
-- [ ] D216 remote `iouring-linux-contract.yml` hang diagnostics artifact gate 를 검토한다.
-  - 입력: `docs/superpowers/plans/2026-07-08-iouring-contract-hang-diagnostics.md`,
-    `.github/workflows/iouring-linux-contract.yml`.
-  - 할 일: push 된 head 에서 workflow 를 실행하고, artifact 의 `summary.md`, `iouring-tests.trx`,
-    `vstest-diag.log` 존재와 summary diagnostics line 을 확인한다.
-  - 확인할 것: 정상 green run 에서도 diag artifact 가 남고, TRX counters failed 0을 유지해야 한다.
+- [ ] D217 D216 evidence 기준으로 io_uring 후속 후보를 재평가한다.
+  - 입력: D216 remote gate evidence, D211 rollback decision, D215 hang diagnostics workflow,
+    `IoUringFixedSendLease`, `IoUringRegisteredBufferSet`, `IoUringTransport` send path.
+  - 할 일: fixed-write production 재시도, registration lifetime/cache, zero-copy send, benchmark/default promotion 중
+    지금 열어도 되는 최소 후속 단위를 실제 code/state 와 대조해 설계한다.
+  - 확인할 것: D216은 관측성 gate 이며 production fixed-write 재연결 근거로 자동 확장하지 않는다.
   - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
 
 ## Deferred Backlog
@@ -49,6 +49,23 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D216 remote `iouring-linux-contract.yml` hang diagnostics artifact gate 를 검토했다.
+  - 범위: GitHub Actions run `28916879277`,
+    artifact `iouring-linux-contract-2026-07-08-github-28916879277-1`.
+  - 결과: workflow/job conclusion success, summary test exit code 0.
+  - evidence: head SHA 는 `df1cdf55d49b0f9ff21313efa9bcd20560e23e5e`이다.
+  - evidence: artifact 는 `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`,
+    `vstest-diag.log`, host/datacollector diag log 를 포함한다.
+  - evidence: summary 는 `VSTest diag: vstest-diag.log`와
+    `Hang diagnostics: blame-hang timeout 2m, dump none`을 포함한다.
+  - evidence: TRX counters 는 total 73, executed 73, passed 73, failed 0, notExecuted 0이다.
+  - evidence: `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`는 Passed 다.
+  - evidence: `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`는 Passed 다.
+  - evidence: `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`는 Passed 다.
+  - evidence: stdout 은 `io_uring capability status: Available`,
+    `fixed socket write completion result: 2`를 포함한다.
+  - 다음: D216 evidence 기준으로 io_uring 후속 후보를 재평가한다.
 
 - [x] D215 io_uring Linux contract hang diagnostics local 구현과 full verification 을 완료했다.
   - 범위: `.github/workflows/iouring-linux-contract.yml`,

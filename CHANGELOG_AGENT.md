@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-08 (Codex - D216 contract hang diagnostics remote gate)
+
+### 작업 단위
+- D215 hang diagnostics workflow 의 원격 Linux contract gate 를 검토했다.
+
+### 확인 내용
+- 사용자 push 이후 `iouring-linux-contract.yml` run `28916879277`을 실행했다.
+- head SHA 는 `df1cdf55d49b0f9ff21313efa9bcd20560e23e5e`이다.
+- workflow/job conclusion 은 success 다.
+- artifact `iouring-linux-contract-2026-07-08-github-28916879277-1`를 내려받았다.
+- artifact 는 `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`, `vstest-diag.log`,
+  host/datacollector diag log 를 포함한다.
+- summary 는 test exit code 0, `VSTest diag: vstest-diag.log`,
+  `Hang diagnostics: blame-hang timeout 2m, dump none`을 기록했다.
+- TRX counters 는 total 73, executed 73, passed 73, failed 0, notExecuted 0이다.
+- `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`는 Passed 다.
+- `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`는 Passed 다.
+- `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`는 Passed 다.
+- stdout 은 `io_uring capability status: Available`, `fixed socket write completion result: 2`를 포함한다.
+
+### 결과
+- D215 workflow hang diagnostics contract 는 원격 Linux runner 에서 artifact evidence 를 남기며 통과했다.
+- 이 gate 는 관측성 보강을 닫는 것이며, fixed-write production 재연결, registration cache,
+  zero-copy send, default backend promotion 의 직접 근거로 확장하지 않는다.
+- 다음 실행 지점은 D216 evidence 기준으로 io_uring 후속 후보를 재평가하는 것이다.
+
 ## 2026-07-08 (Codex - D215 contract hang diagnostics)
 
 ### 작업 단위
