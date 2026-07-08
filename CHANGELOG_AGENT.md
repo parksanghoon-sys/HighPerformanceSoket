@@ -5,6 +5,36 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-08 (Codex - D211 remote fixed payload gate failure)
+
+### 작업 단위
+- D210 TCP payload fixed-write helper 의 원격 Linux contract gate 를 실행하고, timeout failure 에 대응했다.
+
+### 확인 내용
+- 사용자 push 이후 `iouring-linux-contract.yml` run `28907016232`를 실행했다.
+- head SHA 는 `e7417c680d28ca7c4a8fafe90ee7db1ac014be36`이다.
+- Restore, Build, dotnet info capture 단계는 성공했다.
+- `Run io_uring tests` 단계는 20분 동안 완료되지 않아 `cancelled`가 됐다.
+- artifact `iouring-linux-contract-2026-07-07-github-28907016232-1`는 `summary.md`와 `dotnet-info.txt`만 포함했고,
+  test exit code 는 `not-run`이다. TRX 는 test 단계가 완료되지 않아 남지 않았다.
+- job cleanup 은 orphan `dotnet` process 여러 개를 종료했다.
+
+### 변경 내용
+- `IoUringTransport.SendInFlightAsync` payload path 를 기존 `SendArrayAsync(...)`/`TrySubmitSend(...)`로 rollback 했다.
+- `SendFixedPayloadAsync(...)` helper 와 해당 shape test 를 제거했다.
+- `IoUringFixedSendLease.CreateForSendPump(...)` ownership boundary 와 tests 는 유지했다.
+- D211 결정 문서에 D210 direct production 연결 실패와 rollback 이유를 기록했다.
+
+### 검증
+- Remote Red: `iouring-linux-contract.yml` run `28907016232` timeout/cancelled.
+- Local rollback validation 은 focused io_uring tests, solution build/test, `git diff --check`로 수행한다.
+
+### 결과
+- broken production payload fixed-write path 는 유지하지 않는다.
+- 다음 실행 지점은 rollback 커밋 push 이후 원격 Linux contract gate green 복귀 확인이다.
+- 이후 fixed-write production 재시도는 active queue 에서 per-send registration 을 쓰지 않고,
+  queue/transport lifetime registration 또는 별도 isolated registration/completion boundary 를 먼저 설계해야 한다.
+
 ## 2026-07-08 (Codex - D210 TCP payload fixed-write helper)
 
 ### 작업 단위

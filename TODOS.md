@@ -9,16 +9,15 @@
 
 ## Current TODOs
 
-- [ ] D211 TCP payload fixed-write helper 의 원격 Linux contract gate 를 검토한다.
-  - 입력: `docs/superpowers/plans/2026-07-08-iouring-tcp-payload-fixed-write-integration.md`,
-    GitHub Actions `iouring-linux-contract.yml`, pushed head SHA,
+- [ ] D212 rollback 이후 원격 Linux contract gate 를 재실행해 baseline green 복귀를 확인한다.
+  - 입력: rollback 커밋 head SHA, GitHub Actions `iouring-linux-contract.yml`,
     artifact `summary.md`, `iouring-tests.trx`.
-  - 할 일: `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`,
-    `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`,
-    `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`가 모두 Passed 인지 확인한다.
+  - 할 일: TCP payload path rollback 이후 `Hps.Transport.IoUring.Tests`가 Linux capability available 환경에서
+    timeout 없이 완료되는지 확인한다.
   - 확인할 것: workflow/job success, test exit code 0, TRX failed 0,
-    capability `Available`, fixed socket write completion result 2.
-  - 제외: remote gate 전 zero-copy send, registration cache, UDP fixed-buffer send, default backend promotion 판단.
+    `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer` Passed,
+    fixed-send lease native evidence Passed, socket fixed-write evidence Passed.
+  - 제외: rollback gate 전 fixed-write production 재시도, zero-copy send, registration cache, UDP fixed-buffer send, default backend promotion 판단.
 
 ## Deferred Backlog
 
@@ -52,6 +51,20 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D211 TCP payload fixed-write helper 의 원격 Linux contract gate 를 검토하고 production path 를 rollback 했다.
+  - 범위: GitHub Actions run `28907016232`, artifact `iouring-linux-contract-2026-07-07-github-28907016232-1`,
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`, `tests/Hps.Transport.IoUring.Tests/IoUringSendPumpShapeTests.cs`,
+    D211 상태/결정 문서.
+  - 결과: workflow 는 `master` head `e7417c680d28ca7c4a8fafe90ee7db1ac014be36`에서 실행됐다.
+    Restore/Build 는 성공했지만 `Run io_uring tests` 단계가 20분 동안 끝나지 않아 cancelled 됐다.
+  - evidence: artifact summary 의 test exit code 는 `not-run`이고, job cleanup 은 orphan `dotnet` process 를 종료했다.
+    test 단계가 완료되지 않아 TRX 는 artifact 에 남지 않았다.
+  - 조치: `SendInFlightAsync` payload 구간을 기존 `SendArrayAsync`/`TrySubmitSend` path 로 되돌렸다.
+    `SendFixedPayloadAsync` shape test 와 helper 는 제거했다.
+  - 유지: `IoUringFixedSendLease.CreateForSendPump(...)`와 ownership tests 는 유지한다.
+    후속 설계에서 active queue registration lifetime 문제를 다룬다.
+  - 다음: rollback 커밋 push 이후 원격 `iouring-linux-contract.yml`이 다시 green 으로 돌아오는지 확인한다.
 
 - [x] D208 Task 2 TCP payload fixed-write helper 를 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringTransport.cs`,
