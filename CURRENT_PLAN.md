@@ -230,6 +230,10 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   TRX counters 는 total/executed/passed 73, failed 0이다.
   TCP loopback, fixed-send lease native evidence, socket fixed-write evidence 는 모두 Passed 다.
   다음 실행 지점은 D212 evidence 기준으로 io_uring 후속 후보를 재평가하는 것이다.
+- D213 기준 D212 이후 다음 단위는 fixed-write production 재시도가 아니라
+  `iouring-linux-contract.yml` hang diagnostics 보강으로 정했다.
+  설계는 `docs/superpowers/specs/2026-07-08-iouring-contract-hang-diagnostics-design.md`에 있다.
+  다음 실행 지점은 D213 구현 계획 작성이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

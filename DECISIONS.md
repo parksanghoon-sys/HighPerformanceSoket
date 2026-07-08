@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D213 — D212 이후 다음 단위는 fixed-write production 재시도가 아니라 io_uring Linux contract hang diagnostics gate 다.
 - D212 — D211 rollback 이후 원격 Linux contract gate 는 green 으로 복귀했으며 fixed-write production 재시도는 registration lifetime 설계 전까지 보류한다.
 - D211 — D210 TCP payload `WRITE_FIXED` production 연결은 원격 Linux contract 에서 hang 을 만들었으므로 rollback 하고 registration lifetime 설계로 되돌린다.
 - D210 — io_uring TCP send pump payload `WRITE_FIXED` 직접 연결 시도는 원격 Linux contract 에서 timeout/cancelled 로 실패했다.

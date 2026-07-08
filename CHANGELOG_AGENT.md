@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-08 (Codex - D213 post-D212 next scope)
+
+### 작업 단위
+- D212 rollback green evidence 이후 io_uring 후속 후보를 재평가했다.
+
+### 확인 내용
+- D210 direct production fixed-write 연결은 run `28907016232`에서 20분 timeout/cancelled 로 실패했고 TRX가 남지 않았다.
+- D211 rollback 후 run `28908440081`은 success 로 복귀했다.
+- 현재 production TCP payload path 는 다시 `TrySubmitSend` baseline 이다.
+- `IoUringFixedSendLease.CreateForSendPump(...)` ownership boundary 는 유지되어 있지만,
+  active queue 에서 per-send `RegisterBuffers`/`UnregisterBuffers`를 직접 붙인 D210 방식은 재시도하지 않는다.
+- `dotnet test --help` 기준 `--blame-hang-timeout`, `--blame-hang-dump-type none`, `--diag` 옵션을 사용할 수 있다.
+
+### 변경 내용
+- 다음 단위를 `iouring-linux-contract.yml` hang diagnostics 보강으로 정했다.
+- 설계 문서 `docs/superpowers/specs/2026-07-08-iouring-contract-hang-diagnostics-design.md`를 추가했다.
+- D213 결정/현재 TODO/완료 이력을 상태 문서에 반영했다.
+
+### 검증
+- 문서 전용 변경이므로 placeholder scan 과 `git diff --check`로 검증한다.
+
+### 결과
+- 다음 실행 지점은 D213 구현 계획 작성이다.
+- fixed-write production 재시도, registration cache, zero-copy send, default backend promotion 은 계속 보류한다.
+
 ## 2026-07-08 (Codex - D212 rollback remote gate)
 
 ### 작업 단위

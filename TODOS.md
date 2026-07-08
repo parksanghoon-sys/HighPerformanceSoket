@@ -9,14 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D212 rollback green evidence 이후 io_uring 후속 후보를 재평가한다.
-  - 입력: D210 failed attempt, D211 rollback decision, D212 remote gate evidence,
-    `IoUringFixedSendLease`, `IoUringRegisteredBufferSet`, `IoUringTransport` send path.
-  - 할 일: fixed-write production 재시도를 계속할지, registration lifetime 설계를 먼저 작성할지,
-    또는 다른 io_uring backend gap 으로 전환할지 판단한다.
-  - 확인할 것: active queue 에서 per-send `RegisterBuffers`/`UnregisterBuffers`를 쓰는 방식은 D211에서 hang을 만들었으므로
-    동일 패턴으로 재시도하지 않는다.
-  - 제외: 재평가 없이 바로 production fixed-write 재연결, zero-copy send, default backend promotion.
+- [ ] D213 io_uring Linux contract hang diagnostics 구현 계획을 작성한다.
+  - 입력: `docs/superpowers/specs/2026-07-08-iouring-contract-hang-diagnostics-design.md`,
+    `.github/workflows/iouring-linux-contract.yml`, D211/D212 evidence.
+  - 할 일: workflow static contract test, blame-hang/diag workflow 변경,
+    remote artifact 검토를 TDD task 로 쪼갠다.
+  - 확인할 것: production code 변경 없이 remote test hang 을 2분 단위 실패와 artifact evidence 로 수렴시킨다.
+  - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
 
 ## Deferred Backlog
 
@@ -50,6 +49,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D212 rollback green evidence 이후 io_uring 후속 후보를 재평가했다.
+  - 범위: D210 failed attempt, D211 rollback decision, D212 remote gate evidence,
+    `IoUringFixedSendLease`, `IoUringRegisteredBufferSet`, `IoUringTransport` send path,
+    `iouring-linux-contract.yml`.
+  - 결과: 바로 fixed-write production 재시도나 registration lifetime 구현으로 가지 않는다.
+  - 결정: 다음 단위는 `iouring-linux-contract.yml` hang diagnostics 보강이다.
+    D211처럼 TRX 없이 20분 timeout 으로 끝나는 상황을 줄이기 위해 `dotnet test` blame-hang/diag artifact 를 먼저 추가한다.
+  - 산출물: `docs/superpowers/specs/2026-07-08-iouring-contract-hang-diagnostics-design.md`.
+  - 다음: D213 구현 계획을 작성한다.
 
 - [x] D211 rollback 이후 원격 Linux contract gate 를 재실행해 baseline green 복귀를 확인했다.
   - 범위: GitHub Actions run `28908440081`,
