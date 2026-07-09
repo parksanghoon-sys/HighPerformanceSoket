@@ -9,6 +9,52 @@ namespace Hps.Protocol.Tests
 {
     public sealed class TcpFrameAssemblerTests
     {
+        // source constructor shape 테스트: io_uring registered payload pool 을 assembler 에 주입하려면
+        // concrete PinnedBlockMemoryPool 이 아닌 IRefCountedBufferSource 생성자 경계가 먼저 필요하다.
+        // 아직 생성자가 없을 때도 컴파일 실패가 아니라 assertion failure 로 Red 를 확인하기 위해 reflection 을 사용한다.
+        [Fact]
+        public void TcpFrameAssembler_WhenInspected_ExposesSourceConstructorShape()
+        {
+            Type? sourceType = typeof(RefCountedBuffer).Assembly.GetType("Hps.Buffers.IRefCountedBufferSource");
+
+            Assert.NotNull(sourceType);
+            Assert.NotNull(typeof(TcpFrameAssembler).GetConstructor(new Type[] { sourceType!, typeof(int) }));
+        }
+
+        // source injection 테스트: io_uring registered payload pool 을 TCP assembler 에 주입하려면
+        // assembler 가 concrete pool 이 아니라 IRefCountedBufferSource 에서 payload block 을 대여해야 한다.
+        [Fact]
+        public void TryReadFrame_WhenSourceConstructorIsUsed_RentsPayloadFromInjectedSource()
+        {
+            CountingBufferSource source = new CountingBufferSource(16);
+            TcpFrameAssembler assembler = new TcpFrameAssembler(source, 8);
+            RefCountedBuffer? frame;
+            int consumed;
+
+            TcpFrameReadStatus status = assembler.TryReadFrame(CreateWireFrame(new byte[] { 1, 2, 3 }), out consumed, out frame);
+
+            Assert.Equal(TcpFrameReadStatus.FrameReady, status);
+            Assert.Equal(1, source.RentCount);
+            AssertFramePayload(source.Pool, frame, new byte[] { 1, 2, 3 });
+        }
+
+        // 기존 생성자 호환성 테스트: SAEA/RIO/baseline 경로는 계속 PinnedBlockMemoryPool 생성자를 사용하므로
+        // source 생성자를 추가해도 기존 생성자 behavior 와 대여 수 0 계약이 유지되어야 한다.
+        [Fact]
+        public void TryReadFrame_WhenPoolConstructorIsUsed_StillReturnsPoolBackedFrame()
+        {
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+            TcpFrameAssembler assembler = new TcpFrameAssembler(pool, 8);
+            RefCountedBuffer? frame;
+            int consumed;
+
+            TcpFrameReadStatus status = assembler.TryReadFrame(CreateWireFrame(new byte[] { 7, 8 }), out consumed, out frame);
+
+            Assert.Equal(TcpFrameReadStatus.FrameReady, status);
+            AssertFramePayload(pool, frame, new byte[] { 7, 8 });
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         // TCP stream 조립 테스트: header 와 payload 가 여러 receive chunk 로 쪼개져도
         // assembler 는 payload 를 RefCountedBuffer 로 누적 복사하고 완성 시 caller 에 소유권을 넘겨야 한다.
         [Fact]
@@ -403,6 +449,29 @@ namespace Hps.Protocol.Tests
                 return random.Next(16, 65);
 
             return random.Next(2, 17);
+        }
+
+        private sealed class CountingBufferSource : IRefCountedBufferSource
+        {
+            internal CountingBufferSource(int blockSize)
+            {
+                Pool = new PinnedBlockMemoryPool(blockSize);
+            }
+
+            internal PinnedBlockMemoryPool Pool { get; private set; }
+
+            public int BlockSize
+            {
+                get { return Pool.BlockSize; }
+            }
+
+            internal int RentCount { get; private set; }
+
+            public RefCountedBuffer RentCounted()
+            {
+                RentCount++;
+                return Pool.RentCounted();
+            }
         }
     }
 }

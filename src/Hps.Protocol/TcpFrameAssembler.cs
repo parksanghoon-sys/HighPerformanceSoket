@@ -11,7 +11,7 @@ namespace Hps.Protocol
     {
         private const int HeaderLength = 4;
 
-        private readonly PinnedBlockMemoryPool _pool;
+        private readonly IRefCountedBufferSource _source;
         private readonly int _maxPayloadLength;
         private readonly byte[] _header;
         private int _headerBytesRead;
@@ -24,15 +24,26 @@ namespace Hps.Protocol
         /// frame payload 를 저장할 풀과 최대 payload 길이를 지정한다.
         /// </summary>
         public TcpFrameAssembler(PinnedBlockMemoryPool pool, int maxPayloadLength)
+            : this((IRefCountedBufferSource)pool, maxPayloadLength)
         {
-            if (pool == null)
-                throw new ArgumentNullException(nameof(pool));
+        }
+
+        /// <summary>
+        /// frame payload 를 대여할 source 와 최대 payload 길이를 지정한다.
+        ///
+        /// source 계약을 사용하면 기본 pinned pool 뿐 아니라 io_uring registered payload pool 처럼
+        /// backend native resource 에 묶인 source 도 같은 조립 상태머신에 주입할 수 있다.
+        /// </summary>
+        public TcpFrameAssembler(IRefCountedBufferSource source, int maxPayloadLength)
+        {
+            if (source == null)
+                throw new ArgumentNullException(nameof(source));
             if (maxPayloadLength < 0)
                 throw new ArgumentOutOfRangeException(nameof(maxPayloadLength));
-            if (maxPayloadLength > pool.BlockSize)
-                throw new ArgumentOutOfRangeException(nameof(maxPayloadLength), "최대 payload 길이는 풀 블록 크기를 넘을 수 없다.");
+            if (maxPayloadLength > source.BlockSize)
+                throw new ArgumentOutOfRangeException(nameof(maxPayloadLength), "최대 payload 길이는 source 블록 크기를 넘을 수 없다.");
 
-            _pool = pool;
+            _source = source;
             _maxPayloadLength = maxPayloadLength;
             _header = new byte[HeaderLength];
             _expectedPayloadLength = -1;
@@ -113,7 +124,7 @@ namespace Hps.Protocol
 
             _expectedPayloadLength = payloadLength;
             _payloadBytesRead = 0;
-            _payload = _pool.RentCounted();
+            _payload = _source.RentCounted();
             return TcpFrameReadStatus.NeedMoreData;
         }
 
