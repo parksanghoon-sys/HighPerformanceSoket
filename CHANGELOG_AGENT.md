@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-09 (Codex - D226 registered payload pool design)
+
+### 작업 단위
+- D225에서 도출한 queue-scoped registered payload block source 를 구체 설계했다.
+
+### 확인 내용
+- production TCP publish payload 는 `TcpFrameAssembler`가 `PinnedBlockMemoryPool.RentCounted()`로 대여한
+  `RefCountedBuffer`에 1회 복사한 뒤 broker fan-out 에서 공유한다.
+- `RefCountedBuffer`는 현재 concrete `PinnedBlockMemoryPool` owner 로만 반환되므로,
+  io_uring registered slot 을 안전하게 회수하려면 반환 owner 경계가 필요하다.
+- `IoUringFixedSendBufferRegistry`는 backing `byte[]` identity 에서 fixed index 를 찾을 수 있지만,
+  future publish payload block 목록을 스스로 만들지는 않는다.
+- UDP receive path 는 endpoint receive slot 과 직접 결합되어 있어 첫 registered payload pool 범위에서 제외해야 한다.
+
+### 변경 내용
+- `docs/superpowers/specs/2026-07-09-iouring-registered-payload-pool-design.md`를 추가했다.
+- 설계는 `IRefCountedBufferOwner`, `IRefCountedBufferSource`,
+  internal `IoUringRegisteredPayloadBlockPool`, TCP assembler source injection,
+  payload miss fallback, UDP 제외 범위를 제안한다.
+- `TODOS.md`는 D226 완료와 D227 사용자 설계 검토 지점으로 갱신했다.
+
+### 결과
+- 다음 실행 지점은 사용자가 D226 설계를 검토하는 것이다.
+- 검토 전 production TCP payload `WRITE_FIXED` default 연결 구현은 제외한다.
+
 ## 2026-07-09 (Codex - D225 post-D224 next scope)
 
 ### 작업 단위

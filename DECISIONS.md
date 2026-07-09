@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D226 — production TCP fixed-write 연결 전, TCP-first registered payload pool 설계로 owner/source 경계를 먼저 둔다.
 - D225 — D224 이후 바로 production fixed-write default 연결로 가지 않고 queue-scoped registered payload block source 를 먼저 설계한다.
 - D224 — fixed send registry lifetime remote gate 는 통과했지만 production TCP payload `WRITE_FIXED` default 연결 근거로 확대하지 않는다.
 - D222 — fixed registered payload helper shape 는 추가하지만 production TCP payload send path 는 baseline `SendArrayAsync`를 유지한다.
