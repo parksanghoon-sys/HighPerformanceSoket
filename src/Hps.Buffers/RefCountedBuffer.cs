@@ -9,29 +9,34 @@ namespace Hps.Buffers
     /// 생성 시 참조계수는 1이며, 이 최초 참조는 publish 작업이 보유하는 가드 ref 로 사용한다.
     /// 각 구독자 송신 큐에 넣기 전 <see cref="AddRef"/> 로 참조를 늘리고, 송신 완료나 enqueue 실패 시
     /// <see cref="Release"/> 로 줄인다. 마지막 Release 가 0에 도달하면 내부 블록은 원래
-    /// <see cref="PinnedBlockMemoryPool"/> 로 정확히 한 번 반환된다.
+    /// <see cref="IRefCountedBufferOwner"/> 로 정확히 한 번 반환된다.
     ///
     /// 동시성: AddRef/Release 는 여러 송신 완료 경로에서 동시에 호출될 수 있으므로 Interlocked 기반이다.
     /// 0에 도달한 뒤 AddRef 하는 것은 반환된 블록을 되살리는 use-after-free 이므로 계약 위반으로 거부한다.
     /// </summary>
     public sealed class RefCountedBuffer
     {
-        private readonly PinnedBlockMemoryPool _pool;
+        private readonly IRefCountedBufferOwner _owner;
         private byte[]? _block;
         private int _length;
         private int _refCount;
         private int _returned;
 
-        internal RefCountedBuffer(PinnedBlockMemoryPool pool, byte[] block)
+        /// <summary>
+        /// owner 가 소유한 block 을 참조계수 버퍼로 감싼다.
+        /// </summary>
+        /// <param name="owner">마지막 Release 때 block 을 돌려받을 owner.</param>
+        /// <param name="block">owner 의 BlockSize 와 같은 길이의 backing block.</param>
+        public RefCountedBuffer(IRefCountedBufferOwner owner, byte[] block)
         {
-            if (pool == null)
-                throw new ArgumentNullException(nameof(pool));
+            if (owner == null)
+                throw new ArgumentNullException(nameof(owner));
             if (block == null)
                 throw new ArgumentNullException(nameof(block));
-            if (block.Length != pool.BlockSize)
-                throw new ArgumentException("버퍼 블록 길이가 풀 BlockSize 와 일치해야 한다.", nameof(block));
+            if (block.Length != owner.BlockSize)
+                throw new ArgumentException("버퍼 블록 길이가 owner BlockSize 와 일치해야 한다.", nameof(block));
 
-            _pool = pool;
+            _owner = owner;
             _block = block;
             _refCount = 1;
         }
@@ -175,7 +180,7 @@ namespace Hps.Buffers
                 throw new InvalidOperationException("반환할 버퍼 블록이 없다.");
 
             PublishLength(0);
-            _pool.Return(block);
+            _owner.Return(block);
         }
     }
 }

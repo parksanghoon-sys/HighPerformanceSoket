@@ -15,7 +15,7 @@ namespace Hps.Buffers
     /// 동시성: 여러 스레드가 동시에 Rent/Return 할 수 있다. 풀 내부 캐시는 <see cref="ConcurrentQueue{T}"/>
     /// 로 공유하고, 대여 카운트는 Interlocked/Volatile 로 갱신한다.
     /// </summary>
-    public sealed class PinnedBlockMemoryPool
+    public sealed class PinnedBlockMemoryPool : IRefCountedBufferOwner, IRefCountedBufferSource
     {
         private readonly ConcurrentQueue<byte[]> _available;
         private int _rentedCount;

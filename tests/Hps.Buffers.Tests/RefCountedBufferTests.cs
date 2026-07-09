@@ -8,6 +8,55 @@ namespace Hps.Buffers.Tests
 {
     public sealed class RefCountedBufferTests
     {
+        // owner/source abstraction shape 테스트: registered payload pool 같은 다른 owner 가 RefCountedBuffer 를
+        // 만들 수 있으려면 Buffers assembly 에 owner/source 계약과 public owner constructor 가 먼저 있어야 한다.
+        // 새 타입을 직접 참조하지 않고 reflection 으로 확인해 Red 가 컴파일 실패가 아니라 assertion failure 로 드러나게 한다.
+        [Fact]
+        public void RefCountedBuffer_WhenInspected_ExposesOwnerAndSourceAbstractionShape()
+        {
+            Type assemblyMarker = typeof(RefCountedBuffer);
+            Type? ownerType = assemblyMarker.Assembly.GetType("Hps.Buffers.IRefCountedBufferOwner");
+            Type? sourceType = assemblyMarker.Assembly.GetType("Hps.Buffers.IRefCountedBufferSource");
+
+            Assert.NotNull(ownerType);
+            Assert.NotNull(sourceType);
+            Assert.NotNull(typeof(RefCountedBuffer).GetConstructor(new Type[] { ownerType!, typeof(byte[]) }));
+            Assert.True(ownerType!.IsAssignableFrom(typeof(PinnedBlockMemoryPool)));
+            Assert.True(sourceType!.IsAssignableFrom(typeof(PinnedBlockMemoryPool)));
+        }
+
+        // owner abstraction 동작 테스트: RefCountedBuffer 가 concrete pool 이 아니라 owner interface 로
+        // 마지막 반환을 수행해야 io_uring registered slot owner 도 같은 Release 계약을 재사용할 수 있다.
+        [Fact]
+        public void Release_WhenConstructedWithOwnerInterface_ReturnsBlockToOwnerExactlyOnce()
+        {
+            TestBufferOwner owner = new TestBufferOwner(16);
+            byte[] block = new byte[16];
+            RefCountedBuffer buffer = new RefCountedBuffer(owner, block);
+
+            buffer.AddRef();
+            buffer.Release();
+            Assert.Equal(0, owner.ReturnCount);
+
+            buffer.Release();
+            Assert.Equal(1, owner.ReturnCount);
+            Assert.Same(block, owner.ReturnedBlock);
+        }
+
+        // source abstraction 동작 테스트: 기존 pinned pool 도 source 로 동작해야
+        // protocol assembler 의 기존 경로와 새 source 주입 경로가 같은 counted buffer 계약을 공유한다.
+        [Fact]
+        public void PinnedBlockMemoryPool_WhenUsedAsBufferSource_RentsCountedBuffer()
+        {
+            IRefCountedBufferSource source = new PinnedBlockMemoryPool(32);
+
+            RefCountedBuffer buffer = source.RentCounted();
+
+            Assert.Equal(32, source.BlockSize);
+            Assert.Equal(32, buffer.Memory.Length);
+            buffer.Release();
+        }
+
         // 최소 수명 계약 테스트: counted buffer 는 pinned pool 에서 블록을 하나 대여하고,
         // 마지막 Release 에서 그 블록을 정확히 반환해야 한다. Length 는 유효 payload 길이만 표시하고
         // Span/Memory 는 TCP 복사 대상 및 UDP 직접 recv 대상이 될 수 있도록 전체 블록을 노출해야 한다.
@@ -213,6 +262,26 @@ namespace Hps.Buffers.Tests
                 Assert.True(
                     Task.WaitAll(tasks, TimeSpan.FromSeconds(10)),
                     "동시 Release 작업이 시간 안에 모두 끝나야 한다.");
+            }
+        }
+
+        private sealed class TestBufferOwner : IRefCountedBufferOwner
+        {
+            internal TestBufferOwner(int blockSize)
+            {
+                BlockSize = blockSize;
+            }
+
+            public int BlockSize { get; private set; }
+
+            internal int ReturnCount { get; private set; }
+
+            internal byte[]? ReturnedBlock { get; private set; }
+
+            public void Return(byte[] block)
+            {
+                ReturnCount++;
+                ReturnedBlock = block;
             }
         }
     }
