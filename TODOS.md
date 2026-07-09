@@ -9,13 +9,15 @@
 
 ## Current TODOs
 
-- [ ] D224 push 이후 `iouring-linux-contract.yml` 원격 artifact gate 를 검토한다.
+- [ ] D225 D224 evidence 기준으로 io_uring 후속 후보를 재평가한다.
   - 입력: `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`,
     `docs/superpowers/plans/2026-07-09-iouring-fixed-send-registration-lifetime.md`,
-    `iouring-linux-contract.yml`, D219~D223 local commits.
-  - 할 일: 사용자가 push 한 뒤 원격 `iouring-linux-contract.yml` artifact 에서
-    registry/native evidence, TCP loopback baseline green, TRX counters failed 0, summary/diag artifact 존재 여부를 기록한다.
-  - 확인할 것: D222 helper 는 default production path 에 연결되지 않았으므로 remote gate 의미를 fixed-write production success 로 확대하지 않는다.
+    D224 remote artifact evidence, `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `src/Hps.Transport.IoUring/IoUringTcpConnectionResource.cs`,
+    `src/Hps.Transport.IoUring/IoUringFixedSendBufferRegistry.cs`.
+  - 할 일: fixed send registry lifetime gate 이후 다음 단위가 production opt-in 연결인지,
+    추가 lifetime/rollback evidence 인지, 또는 remote diagnostics 보강인지 실제 코드와 risk 기준으로 재평가한다.
+  - 확인할 것: D224는 helper shape/registry lifetime gate 이며 default TCP payload `WRITE_FIXED` production success 가 아니다.
   - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
 
 ## Deferred Backlog
@@ -50,6 +52,21 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D224 fixed send registry lifetime 원격 Linux contract gate 를 검토했다.
+  - 범위: GitHub Actions run `28994187530`,
+    artifact `iouring-linux-contract-2026-07-09-github-28994187530-1`, root 상태/결정 문서.
+  - 결과: workflow/job conclusion success, summary test exit code 0.
+  - evidence: head SHA 는 `ca65087bceda353bb725a8a362e32d6e5fec4874`이다.
+  - evidence: artifact 는 `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`,
+    `vstest-diag.log`, host/datacollector diag log 를 포함한다.
+  - evidence: TRX counters 는 total 80, executed 80, passed 80, failed 0, notExecuted 0이다.
+  - evidence: `Registry_WhenLinuxCapabilityAvailable_RegistersPayloadBlockAndReturnsFixedSlot`는 Passed 다.
+  - evidence: `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`는 Passed 다.
+  - evidence: `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`는 Passed 다.
+  - evidence: `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`는 Passed 다.
+  - evidence: stdout 은 `io_uring capability status: Available`, `fixed socket write completion result: 2`를 포함한다.
+  - 다음: D224 evidence 기준으로 io_uring 후속 후보를 재평가한다.
 
 - [x] D223 Task 5 local verification 을 완료했고 remote gate 는 push 이후 검토로 남겼다.
   - 범위: D219~D222 local commits, solution build/test, root 상태 문서.

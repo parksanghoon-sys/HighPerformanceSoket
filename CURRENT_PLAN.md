@@ -292,6 +292,15 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   `dotnet build HighPerformanceSocket.slnx -v minimal` 단독 재실행은 경고 0/오류 0이다.
   처음 build/test를 병렬 실행했을 때는 obj/bin 파일 잠금으로 `CS2012`가 발생했으나, 코드 실패가 아니라 동시 build 경합이었다.
   다음 실행 지점은 push 이후 `iouring-linux-contract.yml` 원격 artifact gate 검토다.
+- D224 기준 fixed send registry lifetime 원격 Linux contract gate 를 통과했다.
+  run `28994187530`은 head SHA `ca65087bceda353bb725a8a362e32d6e5fec4874`에서 success 로 완료됐다.
+  artifact `iouring-linux-contract-2026-07-09-github-28994187530-1`는 `summary.md`, `iouring-tests.trx`,
+  `vstest-diag.log`, host/datacollector diag log 를 포함한다.
+  TRX counters 는 total/executed/passed 80, failed 0, notExecuted 0이다.
+  `Registry_WhenLinuxCapabilityAvailable_RegistersPayloadBlockAndReturnsFixedSlot`와
+  `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`가 capability `Available` 상태에서 통과했다.
+  이 gate 는 registry lifetime/helper shape 검증이며 production fixed-write 재연결 성공 근거로 확대하지 않는다.
+  다음 실행 지점은 D224 evidence 기준 후속 후보 재평가다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

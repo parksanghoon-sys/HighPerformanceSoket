@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-09 (Codex - D224 fixed send registry remote gate)
+
+### 작업 단위
+- D219~D223 fixed send registry lifetime 변경의 원격 Linux contract gate 를 검토했다.
+
+### 확인 내용
+- 사용자 push 이후 `iouring-linux-contract.yml` run `28994187530`을 workflow_dispatch 로 실행했다.
+- head SHA 는 `ca65087bceda353bb725a8a362e32d6e5fec4874`이다.
+- workflow/job conclusion 은 success 다.
+- artifact `iouring-linux-contract-2026-07-09-github-28994187530-1`를 내려받아 확인했다.
+- artifact 는 `summary.md`, `dotnet-info.txt`, `iouring-tests.trx`,
+  `vstest-diag.log`, host/datacollector diag log 를 포함한다.
+- summary 는 test exit code 0, `VSTest diag: vstest-diag.log`,
+  `Hang diagnostics: blame-hang timeout 2m, dump none`을 기록했다.
+- TRX counters 는 total 80, executed 80, passed 80, failed 0, notExecuted 0이다.
+- `Registry_WhenLinuxCapabilityAvailable_RegistersPayloadBlockAndReturnsFixedSlot`는 Passed 다.
+- `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`는 Passed 다.
+- `Lease_WhenLinuxCapabilityAvailable_WritesRegisteredPayloadSliceToSocketPair`는 Passed 다.
+- `WriteFixed_WhenLinuxCapabilityAvailable_WritesRegisteredBufferSliceToSocketPair`는 Passed 다.
+- stdout 은 `io_uring capability status: Available`, `fixed socket write completion result: 2`를 포함한다.
+
+### 결과
+- fixed send registry lifetime/helper shape gate 는 원격 Linux runner 에서 통과했다.
+- 이 gate 는 production TCP payload `WRITE_FIXED` default 연결 성공 근거가 아니다.
+- 다음 실행 지점은 D224 evidence 기준으로 io_uring 후속 후보를 재평가하는 것이다.
+
 ## 2026-07-09 (Codex - D223 fixed send registry local verification)
 
 ### 작업 단위

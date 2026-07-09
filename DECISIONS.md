@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D224 — fixed send registry lifetime remote gate 는 통과했지만 production TCP payload `WRITE_FIXED` default 연결 근거로 확대하지 않는다.
 - D222 — fixed registered payload helper shape 는 추가하지만 production TCP payload send path 는 baseline `SendArrayAsync`를 유지한다.
 - D217 — D216 이후 다음 단위는 production fixed-write 재시도가 아니라 TCP connection-scoped fixed send registration lifetime owner 다.
 - D216 — D215 hang diagnostics workflow 는 원격 Linux contract gate 를 통과했으며 artifact 에 VSTest diag evidence 를 남긴다.
