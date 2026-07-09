@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-09 (Codex - D223 fixed send registry local verification)
+
+### 작업 단위
+- D219~D222 fixed send registration lifetime local verification 을 완료했다.
+
+### 확인 내용
+- 첫 full verification 시도에서 build와 test를 병렬 실행해 obj/bin 파일 잠금이 발생했다.
+  이때 `CS2012`와 `MSB3026`이 보였지만, 코드 실패가 아니라 concurrent build 경합이었다.
+- 이후 build와 test를 분리해 재실행했다.
+
+### 검증
+- `dotnet test HighPerformanceSocket.slnx --no-build -v minimal` 통과, 전체 466개.
+- `dotnet build HighPerformanceSocket.slnx -v minimal` 단독 재실행 경고 0/오류 0.
+- `git diff --check` whitespace 오류 없음.
+
+### 결과
+- D219~D222 local verification 은 완료됐다.
+- 다음 실행 지점은 push 이후 원격 `iouring-linux-contract.yml` artifact gate 검토다.
+- D222 helper 는 default production path 에 연결되지 않았으므로, 다음 remote gate 결과를 fixed-write production success 로 해석하지 않는다.
+
 ## 2026-07-09 (Codex - D222 opt-in fixed send helper shape)
 
 ### 작업 단위

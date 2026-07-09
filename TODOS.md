@@ -9,12 +9,12 @@
 
 ## Current TODOs
 
-- [ ] D223 Task 5 full local verification 과 원격 contract gate 문서화를 진행한다.
+- [ ] D224 push 이후 `iouring-linux-contract.yml` 원격 artifact gate 를 검토한다.
   - 입력: `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`,
     `docs/superpowers/plans/2026-07-09-iouring-fixed-send-registration-lifetime.md`,
-    `iouring-linux-contract.yml`, D219~D222 local commits.
-  - 할 일: solution build/test 와 relevant focused tests 를 다시 확인하고,
-    push 이후 원격 `iouring-linux-contract.yml` artifact 에서 registry/native evidence와 TCP loopback baseline green 여부를 기록한다.
+    `iouring-linux-contract.yml`, D219~D223 local commits.
+  - 할 일: 사용자가 push 한 뒤 원격 `iouring-linux-contract.yml` artifact 에서
+    registry/native evidence, TCP loopback baseline green, TRX counters failed 0, summary/diag artifact 존재 여부를 기록한다.
   - 확인할 것: D222 helper 는 default production path 에 연결되지 않았으므로 remote gate 의미를 fixed-write production success 로 확대하지 않는다.
   - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
 
@@ -50,6 +50,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D223 Task 5 local verification 을 완료했고 remote gate 는 push 이후 검토로 남겼다.
+  - 범위: D219~D222 local commits, solution build/test, root 상태 문서.
+  - 결과: full local verification 은 통과했다.
+  - 검증: `dotnet test HighPerformanceSocket.slnx --no-build -v minimal` 전체 466개 통과,
+    `dotnet build HighPerformanceSocket.slnx -v minimal` 단독 재실행 경고 0/오류 0,
+    `git diff --check` 통과.
+  - 비고: 첫 full test 시도는 build/test 병렬 실행으로 obj/bin 파일 잠금 `CS2012`가 발생했으나,
+    단독 build 와 `--no-build` test 재실행으로 코드 실패가 아님을 확인했다.
+  - 다음: push 이후 `iouring-linux-contract.yml` 원격 artifact gate 를 검토한다.
 
 - [x] D222 Task 4 opt-in fixed lookup/write helper shape 를 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringTransport.cs`,
