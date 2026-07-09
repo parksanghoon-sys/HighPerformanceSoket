@@ -5,6 +5,26 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-09 (Codex - D225 post-D224 next scope)
+
+### 작업 단위
+- D224 evidence 기준으로 io_uring fixed send 후속 후보를 재평가했다.
+
+### 확인 내용
+- D224는 registry lifetime/helper shape gate 이며 production TCP payload `WRITE_FIXED` default 연결 성공 근거가 아니다.
+- `BrokerPublisher`는 publish 시점에 동적으로 대여된 `RefCountedBuffer`를 구독자별 `TransportSendBuffer`로 넘긴다.
+- `PinnedBlockMemoryPool`은 lazy allocation/cache 구조이며, connection resource 생성 시점에 미래 payload block 목록을 제공하지 않는다.
+- 현재 `IoUringFixedSendBufferRegistry.Create(...)`는 이미 존재하는 send buffer 목록을 기준으로 fixed table 을 만든다.
+
+### 변경 내용
+- 후속 범위 설계 문서 `docs/superpowers/specs/2026-07-09-iouring-post-d224-next-scope-design.md`를 추가했다.
+- 권장 방향을 queue-scoped registered payload block source 별도 설계로 정리했다.
+- `TODOS.md`에 P1_SOON deferred backlog 로 registered payload block source 설계를 self-contained 하게 남겼다.
+
+### 결과
+- 다음 실행 지점은 사용자가 D225 설계 방향을 검토하는 것이다.
+- 검토 전 production TCP payload `WRITE_FIXED` default 연결 구현은 제외한다.
+
 ## 2026-07-09 (Codex - D224 fixed send registry remote gate)
 
 ### 작업 단위

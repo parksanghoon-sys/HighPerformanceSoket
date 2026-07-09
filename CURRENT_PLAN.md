@@ -301,6 +301,14 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`가 capability `Available` 상태에서 통과했다.
   이 gate 는 registry lifetime/helper shape 검증이며 production fixed-write 재연결 성공 근거로 확대하지 않는다.
   다음 실행 지점은 D224 evidence 기준 후속 후보 재평가다.
+- D225 기준 D224 이후 후속 후보를 재평가했다.
+  production fan-out payload `RefCountedBuffer`는 publish 시점에 동적으로 대여되므로,
+  현재 connection resource 가 생성될 때 fixed table 에 등록할 payload block 목록을 알 수 없다.
+  따라서 바로 `SendInFlightAsync(...)`를 fixed-write default path 로 바꾸면 대부분 registry miss 가 나거나,
+  D210 계열 per-send registration churn 으로 되돌아갈 위험이 있다.
+  권장 방향은 queue-scoped registered payload block source 를 별도 설계로 승격하는 것이다.
+  설계 문서는 `docs/superpowers/specs/2026-07-09-iouring-post-d224-next-scope-design.md`에 있다.
+  다음 실행 지점은 사용자가 D225 설계 방향을 검토하는 것이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

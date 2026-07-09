@@ -9,18 +9,35 @@
 
 ## Current TODOs
 
-- [ ] D225 D224 evidence 기준으로 io_uring 후속 후보를 재평가한다.
+- [ ] D226 사용자가 D225 후속 범위 설계를 검토한다.
+  - 입력: `docs/superpowers/specs/2026-07-09-iouring-post-d224-next-scope-design.md`.
+  - 할 일: D225 권장안인 queue-scoped registered payload block source 설계 승격 방향을 검토한다.
+  - 확인할 것: 이 선택은 payload ownership, TCP publish 1회 복사, UDP zero-copy 원칙, fixed table capacity 에 영향을 준다.
+  - 제외: 검토 전 production TCP payload `WRITE_FIXED` default 연결 구현.
+
+## Deferred Backlog
+
+- [ ] `P1_SOON` queue-scoped registered payload block source 를 설계한다.
   - 입력: `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`,
     `docs/superpowers/plans/2026-07-09-iouring-fixed-send-registration-lifetime.md`,
     D224 remote artifact evidence, `src/Hps.Transport.IoUring/IoUringTransport.cs`,
     `src/Hps.Transport.IoUring/IoUringTcpConnectionResource.cs`,
     `src/Hps.Transport.IoUring/IoUringFixedSendBufferRegistry.cs`.
-  - 할 일: fixed send registry lifetime gate 이후 다음 단위가 production opt-in 연결인지,
-    추가 lifetime/rollback evidence 인지, 또는 remote diagnostics 보강인지 실제 코드와 risk 기준으로 재평가한다.
-  - 확인할 것: D224는 helper shape/registry lifetime gate 이며 default TCP payload `WRITE_FIXED` production success 가 아니다.
-  - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
-
-## Deferred Backlog
+  - 무엇이 남았는지: production fan-out payload block 을 fixed table 에 안정적으로 등록할 source/lifetime model 이 없다.
+  - 왜 defer 되었는지: D225 재평가 결과, 현재 connection resource 생성 시점에는 미래 publish payload block 을 알 수 없고,
+    바로 default fixed-write path 로 바꾸면 registry miss 또는 D210 계열 per-send registration churn 위험이 있다.
+  - objective: queue/resource lifetime 에 묶인 registered payload block source 를 설계해,
+    send hot path 가 native register/unregister 없이 fixed index lookup 만 수행할 수 있게 한다.
+  - relevant context: D210, D217, D222, D224,
+    `docs/superpowers/specs/2026-07-09-iouring-post-d224-next-scope-design.md`.
+  - 관련 파일/범위: `PinnedBlockMemoryPool`, `RefCountedBuffer`, TCP frame assembler publish copy boundary,
+    UDP datagram receive ownership, `BrokerPublisher`, `IoUringFixedSendBufferRegistry`, `IoUringTransport.SendInFlightAsync`.
+  - 현재 상태 또는 이미 시도한 접근: fixed send registry lifetime owner/helper shape 는 구현됐고 remote Linux gate 를 통과했다.
+    기본 TCP payload send path 는 아직 baseline `SendArrayAsync`다.
+  - known blockers 또는 open questions: registered pool 소유 계층, TCP publish 1회 복사 흡수 여부,
+    UDP zero-copy 원칙과의 충돌, fixed table capacity 정책, registry miss fallback 정책.
+  - 가장 자연스러운 next step: 사용자가 D225 설계를 검토한 뒤
+    `docs/superpowers/specs/2026-07-09-iouring-registered-payload-pool-design.md`를 작성한다.
 
 - [ ] `P2_LATER` RIO full IPv6 지원은 default promotion scope 가 다시 열릴 때 별도 설계로 판단한다.
   - 무엇이 남았는지: RIO backend 는 D122 기준 TCP/UDP 모두 현재 IPv4 `IPEndPoint` 전용이다.
@@ -52,6 +69,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D225 D224 evidence 기준으로 io_uring 후속 후보를 재평가했다.
+  - 범위: D224 remote artifact evidence, fixed send registry/resource/helper code,
+    `PinnedBlockMemoryPool`, `RefCountedBuffer`, Broker publish fan-out 경계.
+  - 결과: 바로 production TCP payload `WRITE_FIXED` default 연결로 가지 않는다.
+    현재 connection resource 생성 시점에는 미래 fan-out payload block 을 알 수 없으므로,
+    fixed table 에 안정적으로 올릴 queue-scoped registered payload block source 설계가 먼저 필요하다.
+  - 산출물: `docs/superpowers/specs/2026-07-09-iouring-post-d224-next-scope-design.md`.
+  - 다음: 사용자가 D225 설계 방향을 검토한다.
 
 - [x] D224 fixed send registry lifetime 원격 Linux contract gate 를 검토했다.
   - 범위: GitHub Actions run `28994187530`,
