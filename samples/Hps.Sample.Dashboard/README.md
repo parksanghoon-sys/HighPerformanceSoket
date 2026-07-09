@@ -20,3 +20,6 @@ dotnet run --project samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj
 
 `io_uring` fixed-buffer evidence 는 Windows WPF 앱에서 직접 실행하지 않는다.
 Linux native path 는 원격 `iouring-linux-contract.yml` artifact gate 로 확인한다.
+
+전체 Interface Server 사용 흐름, CLI 샘플, 직접 host embedding, TCP/UDP wire protocol 은
+`docs/examples/interface-server-usage.md`를 본다.

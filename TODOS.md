@@ -9,6 +9,14 @@
 
 ## Current TODOs
 
+- [ ] D228 사용자가 Interface Server 사용 가이드를 검토한다.
+  - 입력: `docs/examples/interface-server-usage.md`.
+  - 할 일: 실제 실행 명령, TCP/UDP wire protocol, 직접 `BrokerServer` embedding 예제,
+    stable identity / UDP lease sweep 선택 기능 설명이 현재 사용 의도와 맞는지 검토한다.
+  - 확인할 것: 이 문서는 현재 구현된 public 사용 경로만 설명하며,
+    아직 설계 단계인 production TCP payload `WRITE_FIXED` / io_uring registered payload pool 을 사용 옵션처럼 노출하지 않는다.
+  - 제외: 검토 전 추가 샘플 CLI, UDP 전용 CLI, production fixed-write 구현.
+
 - [ ] D227 사용자가 D226 registered payload pool 설계를 검토한다.
   - 입력: `docs/superpowers/specs/2026-07-09-iouring-registered-payload-pool-design.md`.
   - 할 일: TCP-first queue-scoped registered payload pool, `RefCountedBuffer` owner/source 경계,
@@ -69,6 +77,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D227 Interface Server 실제 사용 가이드를 작성했다.
+  - 범위: 현재 구현된 sample CLI/WPF, `BrokerServer` embedding, TCP/UDP command protocol,
+    stable subscriber identity, UDP lease sweep, 현재 제한.
+  - 결과: 사용자가 broker server 를 실행하고 subscriber/publisher 를 붙이는 절차와
+    애플리케이션 코드에서 `BrokerServer`를 직접 호스팅하는 예제를 문서화했다.
+  - 산출물: `docs/examples/interface-server-usage.md`.
+  - 비고: 아직 설계 단계인 io_uring registered payload pool / production TCP payload `WRITE_FIXED`는
+    일반 사용 옵션으로 노출하지 않는다고 명시했다.
 
 - [x] D226 queue-scoped registered payload pool 설계를 작성했다.
   - 범위: D225 후속 범위 설계, `PinnedBlockMemoryPool`, `RefCountedBuffer`,

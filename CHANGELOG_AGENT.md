@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-09 (Codex - D227 Interface Server usage guide)
+
+### 작업 단위
+- 실제 사용자가 Interface Server 를 어떻게 실행하고 연동하는지 문서화했다.
+
+### 확인 내용
+- 현재 public 사용 경로는 `Hps.Sample.BrokerServer`, `Hps.Sample.Subscriber`,
+  `Hps.Sample.Publisher`, WPF dashboard, 직접 `BrokerServer` embedding 이다.
+- TCP client command 는 length-prefixed frame 으로 보내고, TCP subscriber outbound 도 length-prefixed payload frame 이다.
+- UDP client command 는 datagram payload 로 보내고, UDP subscriber outbound 는 publish payload datagram 이다.
+- stable subscriber identity 와 UDP lease sweep 은 `BrokerServerOptions` 선택 기능이다.
+- production TCP payload `WRITE_FIXED` / io_uring registered payload pool 은 아직 설계 단계이므로 사용자 옵션으로 설명하면 안 된다.
+
+### 변경 내용
+- `docs/examples/interface-server-usage.md`를 추가했다.
+- `samples/Hps.Sample.Dashboard/README.md`에서 전체 사용 가이드로 연결했다.
+- `TODOS.md`에 D227 완료와 D228 사용 가이드 검토 지점을 반영했다.
+
+### 결과
+- 사용자는 샘플 broker server, TCP subscriber/publisher, WPF dashboard, 직접 host embedding 중 하나로 현재 구현을 확인할 수 있다.
+- 다음 검토 지점은 사용 가이드가 실제 사용 의도와 맞는지 확인하는 것이다.
+
 ## 2026-07-09 (Codex - D226 registered payload pool design)
 
 ### 작업 단위
