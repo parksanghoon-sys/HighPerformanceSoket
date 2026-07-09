@@ -9,14 +9,14 @@
 
 ## Current TODOs
 
-- [ ] D221 Task 3 TCP connection resource ownership 을 구현한다.
+- [ ] D222 Task 4 opt-in fixed lookup/write helper shape 를 구현한다.
   - 입력: `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`,
     `docs/superpowers/plans/2026-07-09-iouring-fixed-send-registration-lifetime.md`,
-    `src/Hps.Transport.IoUring/IoUringTcpConnectionResource.cs`,
-    `tests/Hps.Transport.IoUring.Tests/IoUringTcpConnectionResourceTests.cs`.
-  - 할 일: TCP connection resource 가 optional fixed send registry owner 를 소유하고,
-    resource dispose 때 registry 를 socket/context/block 과 함께 정리하는 ownership shape 를 테스트/구현한다.
-  - 확인할 것: production TCP payload path 는 아직 변경하지 않고, resource lifetime 에 owner 를 보관하는 경계만 만든다.
+    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringSendPumpShapeTests.cs`.
+  - 할 일: send path 기본 동작은 `SendArrayAsync` baseline 으로 유지하면서,
+    optional registry lookup/write helper shape 를 reflection/static tests 로 고정한다.
+  - 확인할 것: helper 는 아직 default production payload path 에 연결하지 않고, D210처럼 즉시 `WRITE_FIXED` 재연결하지 않는다.
   - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
 
 ## Deferred Backlog
@@ -51,6 +51,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D221 Task 3 TCP connection resource ownership 을 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringTcpConnectionResource.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringTcpConnectionResourceTests.cs`, root 상태 문서.
+  - Red: resource ownership reflection test 가 `FixedSendBufferRegistry` property 부재로 `Assert.NotNull() Failure`를 냈다.
+  - 결과: TCP connection resource 는 optional fixed send registry owner 를 내부 property 로 보관하고,
+    resource dispose 때 registry 를 함께 dispose 한다.
+  - 검증: focused resource tests 1개 통과, `Hps.Transport.IoUring.Tests` 79개 통과, `git diff --check` 통과.
+  - 다음: Task 4 opt-in fixed lookup/write helper shape 를 구현한다.
 
 - [x] D220 Task 2 native registration factory 와 rollback contract 를 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringFixedSendBufferRegistry.cs`,

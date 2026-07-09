@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-09 (Codex - D221 fixed send registry resource ownership)
+
+### 작업 단위
+- D218 Task 3 TCP connection resource ownership shape 를 구현했다.
+
+### 변경 내용
+- `IoUringTcpConnectionResource`에 internal `FixedSendBufferRegistry` owner property 를 추가했다.
+- 테스트 seam `SetFixedSendBufferRegistryForTests(...)`를 추가했다.
+- resource dispose 때 optional registry owner 를 함께 dispose 하도록 연결했다.
+- production TCP payload send path 는 변경하지 않았다.
+
+### 검증
+- Red: `ResourceContract_WhenInspected_OwnsFixedSendRegistryInternally`가 `FixedSendBufferRegistry` property 부재로
+  `Assert.NotNull() Failure`를 냈다.
+- Focused: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --filter FullyQualifiedName~IoUringTcpConnectionResourceTests -v minimal`
+  통과, 1개.
+- Relevant: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal`
+  통과, 79개.
+- `git diff --check` whitespace 오류 없음.
+
+### 결과
+- 다음 실행 지점은 D222 Task 4 opt-in fixed lookup/write helper shape 다.
+- fixed-write production 재연결, registration cache, zero-copy send, default backend promotion 은 계속 제외한다.
+
 ## 2026-07-09 (Codex - D220 fixed send registry native factory)
 
 ### 작업 단위

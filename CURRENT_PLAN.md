@@ -277,6 +277,11 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   `IoUringRegisteredBufferSet.Register(...)` owner 를 만들고, pure registry lookup owner 에 연결한다.
   Windows/local 은 capability guard 로 native body 를 skip 하며, production TCP payload path 는 계속 baseline send 를 유지한다.
   다음 실행 지점은 Task 3 TCP connection resource ownership 이다.
+- D221 기준 TCP connection resource ownership shape 를 추가했다.
+  `IoUringTcpConnectionResource`는 optional `FixedSendBufferRegistry` owner 를 내부 property 로 보관하고,
+  resource dispose 때 registry owner 를 함께 정리한다.
+  production TCP payload path 는 아직 registry 를 사용하지 않는다.
+  다음 실행 지점은 Task 4 opt-in fixed lookup/write helper shape 다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

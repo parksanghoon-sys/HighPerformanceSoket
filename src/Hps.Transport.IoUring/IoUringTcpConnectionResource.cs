@@ -21,6 +21,7 @@ namespace Hps.Transport
         private byte[]? _lengthPrefixBlock;
         private IoUringOperationContext? _receiveContext;
         private IoUringOperationContext? _sendContext;
+        private IoUringFixedSendBufferRegistry? _fixedSendBufferRegistry;
         private int _disposed;
 
         internal IoUringTcpConnectionResource(
@@ -121,9 +122,26 @@ namespace Hps.Transport
             }
         }
 
+        internal IoUringFixedSendBufferRegistry? FixedSendBufferRegistry
+        {
+            get { return _fixedSendBufferRegistry; }
+        }
+
         internal bool IsDisposed
         {
             get { return Volatile.Read(ref _disposed) != 0; }
+        }
+
+        internal void SetFixedSendBufferRegistryForTests(IoUringFixedSendBufferRegistry registry)
+        {
+            if (registry == null)
+                throw new ArgumentNullException(nameof(registry));
+
+            // Task 3에서는 production send path에 아직 연결하지 않고 owner 수명 경계만 고정한다.
+            // 테스트 seam은 기존 owner를 교체할 때 이전 owner를 즉시 정리해 중복 fixed table owner를 남기지 않는다.
+            IoUringFixedSendBufferRegistry? previous = Interlocked.Exchange(ref _fixedSendBufferRegistry, registry);
+            if (previous != null)
+                previous.Dispose();
         }
 
         public void Dispose()
@@ -152,6 +170,10 @@ namespace Hps.Transport
             _lengthPrefixBlock = null;
             if (lengthPrefixBlock != null)
                 LengthPrefixPool.Return(lengthPrefixBlock);
+
+            IoUringFixedSendBufferRegistry? fixedSendBufferRegistry = Interlocked.Exchange(ref _fixedSendBufferRegistry, null);
+            if (fixedSendBufferRegistry != null)
+                fixedSendBufferRegistry.Dispose();
 
             GC.KeepAlive(CompletionLoop);
         }
