@@ -9,12 +9,14 @@
 
 ## Current TODOs
 
-- [ ] D217 D216 evidence 기준으로 io_uring 후속 후보를 재평가한다.
-  - 입력: D216 remote gate evidence, D211 rollback decision, D215 hang diagnostics workflow,
-    `IoUringFixedSendLease`, `IoUringRegisteredBufferSet`, `IoUringTransport` send path.
-  - 할 일: fixed-write production 재시도, registration lifetime/cache, zero-copy send, benchmark/default promotion 중
-    지금 열어도 되는 최소 후속 단위를 실제 code/state 와 대조해 설계한다.
-  - 확인할 것: D216은 관측성 gate 이며 production fixed-write 재연결 근거로 자동 확장하지 않는다.
+- [ ] D218 TCP connection-scoped fixed send registration lifetime 구현 계획을 작성한다.
+  - 입력: `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`,
+    `IoUringFixedSendLease`, `IoUringRegisteredBufferSet`, `IoUringTcpConnectionResource`,
+    `IoUringTransport.SendInFlightAsync`.
+  - 할 일: pure registry, lifetime guard, resource wiring, opt-in fixed lookup/write shape,
+    remote contract gate 문서화 task 로 TDD 구현 계획을 쪼갠다.
+  - 확인할 것: production TCP payload path 를 바로 `WRITE_FIXED`로 재연결하지 않고,
+    per-send register/unregister churn 제거와 dispose ordering 을 먼저 검증하게 한다.
   - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
 
 ## Deferred Backlog
@@ -49,6 +51,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D217 D216 evidence 기준으로 io_uring 후속 후보를 재평가했다.
+  - 범위: D216 remote gate evidence, D211 rollback decision, D215 hang diagnostics workflow,
+    `IoUringFixedSendLease`, `IoUringRegisteredBufferSet`, `IoUringTransport.SendInFlightAsync`,
+    `IoUringTcpConnectionResource`.
+  - 결과: 바로 production fixed-write path 를 재연결하지 않는다.
+  - 결정: 다음 단위는 TCP connection-scoped fixed send registration lifetime owner 다.
+    send hot path 에서 `RegisterBuffers`/`UnregisterBuffers`를 반복하지 않고,
+    connection/resource lifetime 에 묶인 bounded owner 와 fallback 정책을 먼저 설계한다.
+  - 산출물: `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`.
+  - 검증: 실제 io_uring send/registration code 와 `rg` 대조, placeholder scan, `git diff --check`로 수행한다.
+  - 다음: D217 설계를 TDD 구현 계획으로 쪼갠다.
 
 - [x] D216 remote `iouring-linux-contract.yml` hang diagnostics artifact gate 를 검토했다.
   - 범위: GitHub Actions run `28916879277`,

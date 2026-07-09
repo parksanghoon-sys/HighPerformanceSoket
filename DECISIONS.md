@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D217 — D216 이후 다음 단위는 production fixed-write 재시도가 아니라 TCP connection-scoped fixed send registration lifetime owner 다.
 - D216 — D215 hang diagnostics workflow 는 원격 Linux contract gate 를 통과했으며 artifact 에 VSTest diag evidence 를 남긴다.
 - D213 — D212 이후 다음 단위는 fixed-write production 재시도가 아니라 io_uring Linux contract hang diagnostics gate 다.
 - D212 — D211 rollback 이후 원격 Linux contract gate 는 green 으로 복귀했으며 fixed-write production 재시도는 registration lifetime 설계 전까지 보류한다.

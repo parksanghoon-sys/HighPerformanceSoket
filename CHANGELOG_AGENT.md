@@ -5,6 +5,35 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-09 (Codex - D217 fixed send registration lifetime design)
+
+### 작업 단위
+- D216 evidence 기준으로 io_uring 후속 후보를 재평가하고 다음 설계 단위를 확정했다.
+
+### 확인 내용
+- D216은 hang diagnostics 관측성 gate 이며 production fixed-write 재연결 근거가 아니다.
+- 현재 production TCP payload path 는 `IoUringTransport.SendInFlightAsync`에서 `SendArrayAsync` baseline 을 유지한다.
+- `IoUringFixedSendLease.CreateForSendPump(...)`는 send pump 전용 extra ref 는 잡지만,
+  registration factory 는 여전히 per-send `IoUringRegisteredBufferSet.Register(...)`를 호출할 수 있는 shape 다.
+- `IoUringRegisteredBufferSet.Dispose()`는 queue 전체 fixed buffer table 을 unregister 한다.
+- 따라서 이 shape 를 그대로 production pump 에 다시 붙이면 D210의 active send 중 registration churn 실패 패턴을 반복할 수 있다.
+
+### 변경 내용
+- 설계 문서 `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`를 추가했다.
+- D217 결정으로 다음 단위를 TCP connection-scoped fixed send registration lifetime owner 로 정했다.
+- 상태 문서의 current TODO 를 D218 구현 계획 작성으로 갱신했다.
+
+### 검증
+- `rg`로 실제 `SendInFlightAsync`, `CreateForSendPump`, `IoUringRegisteredBufferSet`,
+  `IoUringTcpConnectionResource` 경계를 대조했다.
+- placeholder/self-review scan 을 수행했다.
+- `git diff --check`로 문서 변경 whitespace 를 확인한다.
+
+### 결과
+- 다음 실행 지점은 D217 설계를 pure registry, lifetime guard, resource wiring,
+  opt-in shape, remote gate task 로 나누는 구현 계획 작성이다.
+- production fixed-write 재연결, zero-copy send, UDP fixed-buffer send, default backend promotion 은 계속 제외한다.
+
 ## 2026-07-08 (Codex - D216 contract hang diagnostics remote gate)
 
 ### 작업 단위
