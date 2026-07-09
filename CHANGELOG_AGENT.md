@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-09 (Codex - D220 fixed send registry native factory)
+
+### 작업 단위
+- D218 Task 2 native registration factory 와 Linux capability-gated evidence test 를 구현했다.
+
+### 변경 내용
+- `IoUringFixedSendBufferRegistry.Create(IoUringQueue, TransportSendBuffer[], int)` factory 를 추가했다.
+- factory 는 unique backing `byte[]`만 선택해 `IoUringRegisteredBufferSet.Register(...)`에 넘긴다.
+- 생성된 native registration owner 는 기존 pure registry owner 에 연결된다.
+- Linux capability available 환경에서는 queue-level fixed table 등록 후 payload slice lookup 을 확인하는 evidence test 를 추가했다.
+- production TCP payload send path 는 변경하지 않았다.
+
+### 검증
+- Red: `RegistryFactory_WhenInspected_ExposesQueueBasedCreateMethod`가 `Create(...)` method 부재로
+  `Assert.NotNull() Failure`를 냈다.
+- Green: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --filter FullyQualifiedName~RegistryFactory_WhenInspected_ExposesQueueBasedCreateMethod -v minimal`
+  통과, 1개.
+- Focused: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --filter FullyQualifiedName~IoUringFixedSendBufferRegistryTests -v minimal`
+  통과, 5개.
+- Relevant: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal`
+  통과, 78개.
+- `git diff --check` whitespace 오류 없음.
+
+### 결과
+- 다음 실행 지점은 D221 Task 3 TCP connection resource ownership 이다.
+- fixed-write production 재연결, registration cache, zero-copy send, default backend promotion 은 계속 제외한다.
+
 ## 2026-07-09 (Codex - D219 fixed send buffer registry)
 
 ### 작업 단위

@@ -272,6 +272,11 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   capacity 초과 항목은 evict 하지 않고 miss 로 남겨 기존 `SendArrayAsync` fallback 이 가능하게 했다.
   production TCP payload path 와 native `RegisterBuffers` 호출 경로는 아직 변경하지 않았다.
   다음 실행 지점은 Task 2 native registration factory 와 rollback contract 다.
+- D220 기준 native registration factory 와 Linux capability-gated evidence test 를 추가했다.
+  `IoUringFixedSendBufferRegistry.Create(IoUringQueue, TransportSendBuffer[], int)`는 unique backing array 를 선택해
+  `IoUringRegisteredBufferSet.Register(...)` owner 를 만들고, pure registry lookup owner 에 연결한다.
+  Windows/local 은 capability guard 로 native body 를 skip 하며, production TCP payload path 는 계속 baseline send 를 유지한다.
+  다음 실행 지점은 Task 3 TCP connection resource ownership 이다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

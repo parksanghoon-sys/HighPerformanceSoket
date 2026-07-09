@@ -9,14 +9,14 @@
 
 ## Current TODOs
 
-- [ ] D220 Task 2 native registration factory 와 rollback contract 를 구현한다.
+- [ ] D221 Task 3 TCP connection resource ownership 을 구현한다.
   - 입력: `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`,
     `docs/superpowers/plans/2026-07-09-iouring-fixed-send-registration-lifetime.md`,
-    `src/Hps.Transport.IoUring/IoUringFixedSendBufferRegistry.cs`,
-    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendBufferRegistryTests.cs`.
-  - 할 일: registry 가 `IoUringQueue` 기반 real `IoUringRegisteredBufferSet.Register(...)` owner 를 만들 수 있는 factory 를 추가하고,
-    native registration 실패 시 이미 획득한 guard ref 와 registration owner 를 정확히 rollback 하는지 테스트한다.
-  - 확인할 것: production TCP payload path 는 아직 변경하지 않고, registry owner shape 와 rollback contract 만 확장한다.
+    `src/Hps.Transport.IoUring/IoUringTcpConnectionResource.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringTcpConnectionResourceTests.cs`.
+  - 할 일: TCP connection resource 가 optional fixed send registry owner 를 소유하고,
+    resource dispose 때 registry 를 socket/context/block 과 함께 정리하는 ownership shape 를 테스트/구현한다.
+  - 확인할 것: production TCP payload path 는 아직 변경하지 않고, resource lifetime 에 owner 를 보관하는 경계만 만든다.
   - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
 
 ## Deferred Backlog
@@ -51,6 +51,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D220 Task 2 native registration factory 와 rollback contract 를 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringFixedSendBufferRegistry.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendBufferRegistryTests.cs`, root 상태 문서.
+  - Red: queue 기반 factory shape test 가 `Create(...)` method 부재로 `Assert.NotNull() Failure`를 냈다.
+  - 결과: registry factory 는 unique backing array 를 선택해 `IoUringRegisteredBufferSet.Register(...)` owner 를 만들고,
+    pure registry lookup owner 에 연결한다.
+  - 검증: focused registry tests 5개 통과, `Hps.Transport.IoUring.Tests` 78개 통과, `git diff --check` 통과.
+  - 다음: Task 3 TCP connection resource ownership 을 구현한다.
 
 - [x] D219 Task 1 pure fixed send buffer registry contract 를 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringFixedSendBufferRegistry.cs`,

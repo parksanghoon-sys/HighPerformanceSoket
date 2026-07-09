@@ -72,6 +72,24 @@ namespace Hps.Transport
             }
         }
 
+        internal static IoUringFixedSendBufferRegistry Create(
+            IoUringQueue queue,
+            TransportSendBuffer[] sendBuffers,
+            int maxRegisteredBufferCount)
+        {
+            if (queue == null)
+                throw new ArgumentNullException(nameof(queue));
+            if (sendBuffers == null)
+                throw new ArgumentNullException(nameof(sendBuffers));
+            if (maxRegisteredBufferCount <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxRegisteredBufferCount), "fixed send registry capacity는 1 이상이어야 합니다.");
+
+            byte[][] arrays = SelectUniqueArrays(sendBuffers, maxRegisteredBufferCount);
+            IoUringRegisteredBufferSet registration = IoUringRegisteredBufferSet.Register(queue, arrays);
+
+            return CreateForRegisteredBuffers(registration, sendBuffers, maxRegisteredBufferCount);
+        }
+
         internal static IoUringFixedSendBufferRegistry CreateForRegisteredBuffers(
             IIoUringFixedBufferRegistration registration,
             TransportSendBuffer[] sendBuffers,
@@ -174,6 +192,31 @@ namespace Hps.Transport
                 throw new InvalidOperationException("io_uring fixed send registry는 pinned byte[] 기반 RefCountedBuffer만 지원합니다.");
 
             return segment;
+        }
+
+        private static byte[][] SelectUniqueArrays(TransportSendBuffer[] sendBuffers, int maxRegisteredBufferCount)
+        {
+            Dictionary<byte[], byte[]> selected = new Dictionary<byte[], byte[]>(ReferenceEqualityComparer<byte[]>.Instance);
+            List<byte[]> arrays = new List<byte[]>();
+
+            for (int index = 0; index < sendBuffers.Length && arrays.Count < maxRegisteredBufferCount; index++)
+            {
+                ArraySegment<byte> segment = GetPayloadSegment(sendBuffers[index]);
+                byte[] array = segment.Array!;
+
+                // native fixed table은 backing array 단위로 등록된다.
+                // 같은 block의 여러 slice가 있어도 kernel table에는 같은 배열을 한 번만 올린다.
+                if (selected.ContainsKey(array))
+                    continue;
+
+                selected.Add(array, array);
+                arrays.Add(array);
+            }
+
+            if (arrays.Count == 0)
+                throw new ArgumentException("fixed send registry에 등록할 payload block이 없습니다.", nameof(sendBuffers));
+
+            return arrays.ToArray();
         }
 
         private sealed class ReferenceEqualityComparer<T> : IEqualityComparer<T>

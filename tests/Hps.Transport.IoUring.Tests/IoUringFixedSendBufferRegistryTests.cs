@@ -98,6 +98,56 @@ namespace Hps.Transport.IoUring.Tests
             Assert.Equal(0, pool.RentedCount);
         }
 
+        [Fact]
+        public void RegistryFactory_WhenInspected_ExposesQueueBasedCreateMethod()
+        {
+            // production resource wiring이 raw RegisterBuffers를 직접 호출하지 않도록,
+            // queue 기반 native registration factory shape를 registry owner 쪽에 고정한다.
+            MethodInfo? method = typeof(IoUringFixedSendBufferRegistry).GetMethod(
+                "Create",
+                BindingFlags.Static | BindingFlags.NonPublic,
+                null,
+                new Type[] { typeof(IoUringQueue), typeof(TransportSendBuffer[]), typeof(int) },
+                null);
+
+            Assert.NotNull(method);
+        }
+
+        [Fact]
+        public void Registry_WhenLinuxCapabilityAvailable_RegistersPayloadBlockAndReturnsFixedSlot()
+        {
+            // Linux native path에서 registry owner가 queue-level fixed table에 payload block을 등록하고,
+            // 이후 같은 block의 slice를 fixed buffer index로 조회할 수 있는지 검증한다.
+            IoUringCapabilityStatus status = IoUringCapabilityProbe.GetStatus();
+            if (status != IoUringCapabilityStatus.Available)
+                return;
+
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(4);
+            RefCountedBuffer buffer = pool.RentCounted();
+            buffer.Memory.Span[0] = 10;
+            buffer.Memory.Span[1] = 20;
+            buffer.Memory.Span[2] = 30;
+            buffer.Memory.Span[3] = 40;
+            buffer.SetLength(4);
+
+            using (IoUringQueue queue = IoUringQueue.CreateForProbe(4))
+            using (IoUringFixedSendBufferRegistry registry = IoUringFixedSendBufferRegistry.Create(
+                queue,
+                new TransportSendBuffer[] { new TransportSendBuffer(buffer, 0, 4) },
+                1))
+            {
+                IoUringFixedSendBufferSlot slot;
+                Assert.True(registry.TryGetSlot(new TransportSendBuffer(buffer, 1, 2), out slot));
+                Assert.Equal(0, slot.BufferIndex);
+                Assert.Equal(1, slot.PayloadOffset);
+                Assert.Equal(2, slot.PayloadLength);
+                Assert.NotNull(slot.RegisteredArray);
+            }
+
+            buffer.Release();
+            Assert.Equal(0, pool.RentedCount);
+        }
+
         private sealed class CountingRegistration : IIoUringFixedBufferRegistration
         {
             public CountingRegistration(int registeredBufferCount)
