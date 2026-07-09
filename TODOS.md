@@ -9,6 +9,14 @@
 
 ## Current TODOs
 
+- [ ] D230 사용자가 D229 registered payload pool 구현 계획을 검토하고 실행 방식을 선택한다.
+  - 입력: `docs/superpowers/plans/2026-07-09-iouring-registered-payload-pool.md`.
+  - 할 일: plan 의 Task 1~7 순서, backend-neutral payload source provider seam,
+    transport-owned registered payload pool lookup 방식, assertion-Red TDD 규칙이 타당한지 검토한다.
+  - 확인할 것: implementation 은 owner/source abstraction 부터 시작해야 하며,
+    production TCP payload `WRITE_FIXED` 성공 주장은 Linux remote artifact 전까지 하지 않는다.
+  - 제외: plan 검토 전 registered payload pool 코드 구현.
+
 - [ ] D228 사용자가 Interface Server 사용 가이드를 검토한다.
   - 입력: `docs/examples/interface-server-usage.md`.
   - 할 일: 실제 실행 명령, TCP/UDP wire protocol, 직접 `BrokerServer` embedding 예제,
@@ -77,6 +85,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D229 registered payload pool 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/specs/2026-07-09-iouring-registered-payload-pool-design.md`,
+    Buffers owner/source abstraction, TCP assembler source injection,
+    io_uring registered payload pool, backend-neutral server source provider seam,
+    fixed payload send helper 연결, local/remote verification.
+  - 결과: 구현을 7개 task 로 분리했다.
+    Task 1 Buffers owner/source, Task 2 Protocol source injection, Task 3 pure pool,
+    Task 4 native/composite source, Task 5 Server provider seam,
+    Task 6 fixed send opt-in, Task 7 full/local remote gate.
+  - 산출물: `docs/superpowers/plans/2026-07-09-iouring-registered-payload-pool.md`.
+  - 비고: 새 타입 Red 는 컴파일 실패가 아니라 reflection shape assertion failure 로 시작하도록 계획에 명시했다.
 
 - [x] D227 Interface Server 실제 사용 가이드를 작성했다.
   - 범위: 현재 구현된 sample CLI/WPF, `BrokerServer` embedding, TCP/UDP command protocol,

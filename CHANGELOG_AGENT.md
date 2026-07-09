@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-09 (Codex - D229 registered payload pool implementation plan)
+
+### 작업 단위
+- D226 registered payload pool 설계를 구현 가능한 TDD 계획으로 쪼갰다.
+
+### 확인 내용
+- `TcpFrameAssembler`는 source injection 으로 바꿀 수 있지만, 실제 `BrokerServer`는 현재 receive handler 를 직접 만든다.
+- 따라서 io_uring source 를 쓰려면 `BrokerServer`가 `IoUringTransport` concrete type 을 알면 안 되고,
+  transport 계층의 backend-neutral provider seam 이 필요하다.
+- registered payload pool 은 connection resource 가 아니라 transport/source lifetime 에 묶고,
+  send helper 는 transport-owned pool 목록에서 backing array fixed index 를 조회하는 편이 더 단순하다.
+- 프로젝트 Red 규칙에 따라 새 타입/생성자 부재는 compile failure 가 아니라 reflection shape assertion failure 로 시작해야 한다.
+
+### 변경 내용
+- `docs/superpowers/plans/2026-07-09-iouring-registered-payload-pool.md`를 추가했다.
+- plan 은 Task 1 Buffers owner/source, Task 2 Protocol source injection, Task 3 pure pool,
+  Task 4 native/composite source, Task 5 Server provider seam, Task 6 fixed send opt-in,
+  Task 7 local/remote gate 로 나뉜다.
+- `TODOS.md`에 D229 완료와 D230 plan 검토/실행 방식 선택 지점을 반영했다.
+
+### 결과
+- 다음 실행 지점은 사용자가 D229 구현 계획을 검토하고 실행 방식을 선택하는 것이다.
+- 구현 전까지 production TCP payload `WRITE_FIXED` 성공 주장은 하지 않는다.
+
 ## 2026-07-09 (Codex - D227 Interface Server usage guide)
 
 ### 작업 단위
