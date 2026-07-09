@@ -9,14 +9,14 @@
 
 ## Current TODOs
 
-- [ ] D218 TCP connection-scoped fixed send registration lifetime 구현 계획을 작성한다.
+- [ ] D219 Task 1 pure fixed send buffer registry contract 를 구현한다.
   - 입력: `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`,
-    `IoUringFixedSendLease`, `IoUringRegisteredBufferSet`, `IoUringTcpConnectionResource`,
-    `IoUringTransport.SendInFlightAsync`.
-  - 할 일: pure registry, lifetime guard, resource wiring, opt-in fixed lookup/write shape,
-    remote contract gate 문서화 task 로 TDD 구현 계획을 쪼갠다.
-  - 확인할 것: production TCP payload path 를 바로 `WRITE_FIXED`로 재연결하지 않고,
-    per-send register/unregister churn 제거와 dispose ordering 을 먼저 검증하게 한다.
+    `docs/superpowers/plans/2026-07-09-iouring-fixed-send-registration-lifetime.md`,
+    `src/Hps.Transport.IoUring/IoUringFixedSendBufferRegistry.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendBufferRegistryTests.cs`.
+  - 할 일: registry shape/lookup/capacity miss tests 를 Red/Green 으로 추가하고,
+    registered `RefCountedBuffer` guard ref 를 owner dispose 까지 유지하는 pure registry 를 구현한다.
+  - 확인할 것: native `RegisterBuffers`는 아직 직접 호출하지 않고, production TCP payload path 도 변경하지 않는다.
   - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
 
 ## Deferred Backlog
@@ -51,6 +51,15 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D218 TCP connection-scoped fixed send registration lifetime 구현 계획을 작성했다.
+  - 범위: `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`,
+    `src/Hps.Transport.IoUring`, `tests/Hps.Transport.IoUring.Tests`, root 상태 문서.
+  - 결과: 계획을 pure registry, native factory/rollback, TCP resource ownership,
+    opt-in helper shape, full local/remote gate documentation 의 5개 task 로 분리했다.
+  - 산출물: `docs/superpowers/plans/2026-07-09-iouring-fixed-send-registration-lifetime.md`.
+  - 검증: 계획 self-review 로 spec coverage, placeholder, type consistency 를 확인하고 `git diff --check`를 수행한다.
+  - 다음: Task 1 pure fixed send buffer registry contract 를 Red/Green 으로 구현한다.
 
 - [x] D217 D216 evidence 기준으로 io_uring 후속 후보를 재평가했다.
   - 범위: D216 remote gate evidence, D211 rollback decision, D215 hang diagnostics workflow,

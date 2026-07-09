@@ -261,6 +261,11 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   D210 실패 패턴을 반복하지 않으려면 connection/queue lifetime owner 가 먼저 필요하다.
   설계는 `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`에 있다.
   다음 실행 지점은 D217 설계를 구현 가능한 TDD 계획으로 쪼개는 것이다.
+- D218 기준 D217 설계를 구현 가능한 TDD 계획으로 쪼갰다.
+  계획은 `docs/superpowers/plans/2026-07-09-iouring-fixed-send-registration-lifetime.md`에 있고,
+  pure registry, native factory/rollback, TCP resource ownership, opt-in helper shape,
+  full local/remote gate documentation 의 5개 task 로 나뉜다.
+  다음 실행 지점은 Task 1 pure fixed send buffer registry contract 다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

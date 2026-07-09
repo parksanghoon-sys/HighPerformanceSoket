@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-09 (Codex - D218 fixed send registration lifetime plan)
+
+### 작업 단위
+- D217 설계를 TDD 구현 계획으로 쪼갰다.
+
+### 변경 내용
+- 구현 계획 `docs/superpowers/plans/2026-07-09-iouring-fixed-send-registration-lifetime.md`를 추가했다.
+- 계획은 Task 1 pure registry, Task 2 native factory/rollback, Task 3 TCP resource ownership,
+  Task 4 opt-in helper shape, Task 5 full local/remote gate documentation 으로 구성했다.
+- 상태 문서의 current TODO 를 Task 1 pure fixed send buffer registry contract 구현으로 갱신했다.
+
+### 검증
+- 계획은 실제 `IoUringTcpConnectionResource`, `IoUringRegisteredBufferSet`,
+  `IoUringFixedSendLease`, `IoUringTransport.SendInFlightAsync` 시그니처를 기준으로 작성했다.
+- plan self-review 로 spec coverage, placeholder scan, type consistency 를 확인한다.
+- `git diff --check`로 문서 변경 whitespace 를 확인한다.
+
+### 결과
+- 다음 실행 지점은 D219 Task 1 pure fixed send buffer registry contract 구현이다.
+- production TCP payload `WRITE_FIXED` 재연결, UDP fixed-buffer send, zero-copy send,
+  default backend promotion 은 계속 제외한다.
+
 ## 2026-07-09 (Codex - D217 fixed send registration lifetime design)
 
 ### 작업 단위
