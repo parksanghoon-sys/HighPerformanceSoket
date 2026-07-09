@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-09 (Codex - D222 opt-in fixed send helper shape)
+
+### 작업 단위
+- D218 Task 4 opt-in fixed lookup/write helper shape 를 구현했다.
+
+### 변경 내용
+- `IoUringTransport.SendFixedRegisteredPayloadAsync(...)` private helper 를 추가했다.
+- helper 는 `IoUringTcpConnectionResource.FixedSendBufferRegistry`가 있고,
+  `TryGetSlot(...)` lookup 이 성공할 때만 `TrySubmitWriteFixed(...)`를 사용할 수 있는 opt-in 경계를 제공한다.
+- 기본 `SendInFlightAsync(...)` payload path 는 계속 `SendArrayAsync(...)` baseline 을 사용한다.
+- D222 결정을 `DECISIONS.md`와 `docs/agent-state/decisions/2026-07.md`에 기록했다.
+
+### 검증
+- Red: `SendPump_WhenInspected_ExposesOptInFixedRegisteredPayloadHelper`가 helper 부재로 `Assert.NotNull() Failure`를 냈다.
+- Focused: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --filter FullyQualifiedName~IoUringSendPumpShapeTests -v minimal`
+  통과, 3개.
+- Relevant: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal`
+  통과, 80개.
+- Build: `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0.
+- `git diff --check` whitespace 오류 없음.
+
+### 결과
+- 다음 실행 지점은 D223 full local verification 과 원격 `iouring-linux-contract.yml` gate 문서화다.
+- fixed-write production 재연결, registration cache, zero-copy send, default backend promotion 은 계속 제외한다.
+
 ## 2026-07-09 (Codex - D221 fixed send registry resource ownership)
 
 ### 작업 단위

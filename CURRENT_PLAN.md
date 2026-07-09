@@ -282,6 +282,11 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   resource dispose 때 registry owner 를 함께 정리한다.
   production TCP payload path 는 아직 registry 를 사용하지 않는다.
   다음 실행 지점은 Task 4 opt-in fixed lookup/write helper shape 다.
+- D222 기준 opt-in fixed registered payload helper shape 를 추가했다.
+  `IoUringTransport.SendFixedRegisteredPayloadAsync(...)`는 registry lookup 성공 시 `TrySubmitWriteFixed(...)`를 사용할 수 있는
+  private helper 이지만, 기본 `SendInFlightAsync(...)`는 계속 `SendArrayAsync(...)` baseline path 를 사용한다.
+  D222는 production TCP payload `WRITE_FIXED` 재연결 결정이 아니다.
+  다음 실행 지점은 Task 5 full local verification 과 원격 contract gate 문서화다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.

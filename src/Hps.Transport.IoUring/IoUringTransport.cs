@@ -717,6 +717,52 @@ namespace Hps.Transport
             await SendArrayAsync(resource, connection, segment.Array, segment.Offset, segment.Count).ConfigureAwait(false);
         }
 
+        private async Task<bool> SendFixedRegisteredPayloadAsync(
+            IoUringTcpConnectionResource resource,
+            TransportConnection connection,
+            TransportSendBuffer sendBuffer)
+        {
+            IoUringFixedSendBufferRegistry? registry = resource.FixedSendBufferRegistry;
+            if (registry == null)
+                return false;
+
+            IoUringFixedSendBufferSlot slot;
+            if (!registry.TryGetSlot(sendBuffer, out slot))
+                return false;
+
+            int currentOffset = slot.PayloadOffset;
+            int remaining = slot.PayloadLength;
+
+            while (remaining != 0)
+            {
+                if (connection.IsClosed || resource.IsDisposed)
+                    throw new ObjectDisposedException(nameof(TransportConnection));
+
+                IoUringOperationContext context = resource.SendContext;
+                context.Reset(context.Token, IoUringOperationKind.Send);
+                ValueTask<IoUringCompletion> wait = context.WaitAsync();
+
+                bool submitted = resource.Queue.TrySubmitWriteFixed(
+                    resource.SocketFileDescriptor,
+                    slot.RegisteredArray,
+                    currentOffset,
+                    remaining,
+                    slot.BufferIndex,
+                    context.Token);
+                if (!submitted)
+                    throw new SocketException((int)SocketError.NoBufferSpaceAvailable);
+
+                IoUringCompletion completion = await wait.ConfigureAwait(false);
+                if (completion.Result <= 0 || completion.Result > remaining)
+                    throw new SocketException((int)SocketError.ConnectionReset);
+
+                currentOffset += completion.Result;
+                remaining -= completion.Result;
+            }
+
+            return true;
+        }
+
         private static async Task SendArrayAsync(
             IoUringTcpConnectionResource resource,
             TransportConnection connection,

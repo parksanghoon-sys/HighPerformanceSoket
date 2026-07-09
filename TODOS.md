@@ -9,14 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D222 Task 4 opt-in fixed lookup/write helper shape 를 구현한다.
+- [ ] D223 Task 5 full local verification 과 원격 contract gate 문서화를 진행한다.
   - 입력: `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`,
     `docs/superpowers/plans/2026-07-09-iouring-fixed-send-registration-lifetime.md`,
-    `src/Hps.Transport.IoUring/IoUringTransport.cs`,
-    `tests/Hps.Transport.IoUring.Tests/IoUringSendPumpShapeTests.cs`.
-  - 할 일: send path 기본 동작은 `SendArrayAsync` baseline 으로 유지하면서,
-    optional registry lookup/write helper shape 를 reflection/static tests 로 고정한다.
-  - 확인할 것: helper 는 아직 default production payload path 에 연결하지 않고, D210처럼 즉시 `WRITE_FIXED` 재연결하지 않는다.
+    `iouring-linux-contract.yml`, D219~D222 local commits.
+  - 할 일: solution build/test 와 relevant focused tests 를 다시 확인하고,
+    push 이후 원격 `iouring-linux-contract.yml` artifact 에서 registry/native evidence와 TCP loopback baseline green 여부를 기록한다.
+  - 확인할 것: D222 helper 는 default production path 에 연결되지 않았으므로 remote gate 의미를 fixed-write production success 로 확대하지 않는다.
   - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
 
 ## Deferred Backlog
@@ -51,6 +50,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D222 Task 4 opt-in fixed lookup/write helper shape 를 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringTransport.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringSendPumpShapeTests.cs`,
+    `DECISIONS.md`, `docs/agent-state/decisions/2026-07.md`, root 상태 문서.
+  - Red: send pump shape test 가 `SendFixedRegisteredPayloadAsync` helper 부재로 `Assert.NotNull() Failure`를 냈다.
+  - 결과: registry lookup 기반 `TrySubmitWriteFixed(...)` private helper shape 를 추가했지만,
+    기본 `SendInFlightAsync(...)` payload path 는 `SendArrayAsync(...)` baseline 으로 유지했다.
+  - 검증: focused send pump shape tests 3개 통과, `Hps.Transport.IoUring.Tests` 80개 통과,
+    solution build 경고 0/오류 0, `git diff --check` 통과.
+  - 다음: Task 5 full local verification 과 원격 contract gate 문서화를 진행한다.
 
 - [x] D221 Task 3 TCP connection resource ownership 을 구현했다.
   - 범위: `src/Hps.Transport.IoUring/IoUringTcpConnectionResource.cs`,

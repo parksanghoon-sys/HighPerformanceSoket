@@ -39,6 +39,20 @@ namespace Hps.Transport.IoUring.Tests
             }
         }
 
+        // D210처럼 production path를 바로 fixed write로 바꾸지 않고,
+        // registered buffer lookup 기반 WRITE_FIXED helper shape만 먼저 고정한다.
+        [Fact]
+        public void SendPump_WhenInspected_ExposesOptInFixedRegisteredPayloadHelper()
+        {
+            Type transportType = typeof(IoUringTransport);
+
+            MethodInfo? helper = transportType.GetMethod(
+                "SendFixedRegisteredPayloadAsync",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(helper);
+        }
+
         private static void TrackConnectionSendPumpTask(IoUringTransport transport, Task task)
         {
             MethodInfo? method = typeof(IoUringTransport).GetMethod(
