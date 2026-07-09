@@ -9,14 +9,14 @@
 
 ## Current TODOs
 
-- [ ] D219 Task 1 pure fixed send buffer registry contract 를 구현한다.
+- [ ] D220 Task 2 native registration factory 와 rollback contract 를 구현한다.
   - 입력: `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`,
     `docs/superpowers/plans/2026-07-09-iouring-fixed-send-registration-lifetime.md`,
     `src/Hps.Transport.IoUring/IoUringFixedSendBufferRegistry.cs`,
     `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendBufferRegistryTests.cs`.
-  - 할 일: registry shape/lookup/capacity miss tests 를 Red/Green 으로 추가하고,
-    registered `RefCountedBuffer` guard ref 를 owner dispose 까지 유지하는 pure registry 를 구현한다.
-  - 확인할 것: native `RegisterBuffers`는 아직 직접 호출하지 않고, production TCP payload path 도 변경하지 않는다.
+  - 할 일: registry 가 `IoUringQueue` 기반 real `IoUringRegisteredBufferSet.Register(...)` owner 를 만들 수 있는 factory 를 추가하고,
+    native registration 실패 시 이미 획득한 guard ref 와 registration owner 를 정확히 rollback 하는지 테스트한다.
+  - 확인할 것: production TCP payload path 는 아직 변경하지 않고, registry owner shape 와 rollback contract 만 확장한다.
   - 제외: fixed-write production 재연결, registration cache, zero-copy send, default backend promotion.
 
 ## Deferred Backlog
@@ -51,6 +51,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D219 Task 1 pure fixed send buffer registry contract 를 구현했다.
+  - 범위: `src/Hps.Transport.IoUring/IoUringFixedSendBufferRegistry.cs`,
+    `tests/Hps.Transport.IoUring.Tests/IoUringFixedSendBufferRegistryTests.cs`, root 상태 문서.
+  - Red: reflection shape test 가 registry type/property 부재로 `Assert.NotNull() Failure`를 냈고,
+    behavior tests 는 lookup miss 로 `Assert.True() Failure`를 냈다.
+  - 결과: registry 는 backing `byte[]` reference identity 로 registered slot 을 조회하고,
+    owner dispose 까지 `RefCountedBuffer` guard ref 를 유지한 뒤 registration owner 와 함께 정리한다.
+  - 검증: focused registry tests 3개 통과, `Hps.Transport.IoUring.Tests` 76개 통과.
+  - 다음: Task 2 native registration factory 와 rollback contract 를 구현한다.
 
 - [x] D218 TCP connection-scoped fixed send registration lifetime 구현 계획을 작성했다.
   - 범위: `docs/superpowers/specs/2026-07-09-iouring-fixed-send-registration-lifetime-design.md`,

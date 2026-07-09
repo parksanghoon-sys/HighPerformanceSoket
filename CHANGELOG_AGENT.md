@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-09 (Codex - D219 fixed send buffer registry)
+
+### 작업 단위
+- D218 Task 1 pure fixed send buffer registry contract 를 구현했다.
+
+### 변경 내용
+- `IoUringFixedSendBufferSlot`과 `IoUringFixedSendBufferRegistry`를 추가했다.
+- registry 는 registered payload backing `byte[]` reference identity 를 fixed buffer index 로 조회한다.
+- registry owner 는 등록된 `RefCountedBuffer`마다 guard ref 를 하나 유지하고, dispose 때 registration owner 와 guard ref 를 정리한다.
+- capacity 를 초과한 send buffer 는 기존 slot 을 evict 하지 않고 miss 로 남긴다.
+- production TCP payload send path 와 native `RegisterBuffers` 연결은 변경하지 않았다.
+
+### 검증
+- Red: `RegistryContract_WhenInspected_ExposesFixedSendLookupSurface`가 registry type 부재로 `Assert.NotNull() Failure`를 냈다.
+- Red: slot metadata reflection 확장 후 property 부재로 `Assert.NotNull() Failure`를 냈다.
+- Red: behavior tests 는 skeleton 의 lookup miss 때문에 `Assert.True() Failure`를 냈다.
+- Green: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj --filter FullyQualifiedName~IoUringFixedSendBufferRegistryTests -v minimal`
+  통과, 3개.
+- Relevant: `dotnet test tests\Hps.Transport.IoUring.Tests\Hps.Transport.IoUring.Tests.csproj -v minimal`
+  통과, 76개.
+
+### 결과
+- 다음 실행 지점은 D220 Task 2 native registration factory 와 rollback contract 다.
+- fixed-write production 재연결, registration cache, zero-copy send, default backend promotion 은 계속 제외한다.
+
 ## 2026-07-09 (Codex - D218 fixed send registration lifetime plan)
 
 ### 작업 단위

@@ -266,6 +266,12 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   pure registry, native factory/rollback, TCP resource ownership, opt-in helper shape,
   full local/remote gate documentation 의 5개 task 로 나뉜다.
   다음 실행 지점은 Task 1 pure fixed send buffer registry contract 다.
+- D219 기준 pure fixed send buffer registry contract 를 구현했다.
+  `IoUringFixedSendBufferRegistry`는 registered backing `byte[]` identity 를 fixed buffer index 로 조회하고,
+  registry owner dispose 까지 registered `RefCountedBuffer` guard ref 를 유지한다.
+  capacity 초과 항목은 evict 하지 않고 miss 로 남겨 기존 `SendArrayAsync` fallback 이 가능하게 했다.
+  production TCP payload path 와 native `RegisterBuffers` 호출 경로는 아직 변경하지 않았다.
+  다음 실행 지점은 Task 2 native registration factory 와 rollback contract 다.
 - `--baseline-suite`로 closed-loop/open-loop raw JSON artifact 를 반복 수집할 수 있다.
 - `--summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]`로 summary JSON과 사람이 읽는 Markdown 보조 artifact 를 생성할 수 있다.
 - 2026-06-18 baseline root, `session-02`, `session-03`에는 `summary.json`과 `summary.md`가 모두 생성되어 있다.
