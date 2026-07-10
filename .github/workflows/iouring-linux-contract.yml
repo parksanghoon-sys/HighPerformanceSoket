@@ -37,11 +37,17 @@ jobs:
             echo "IOURING_ARTIFACT_NAME=$artifact_name"
           } >> "$GITHUB_ENV"
 
-      - name: Restore
+      - name: Restore io_uring tests
         run: dotnet restore tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj
 
-      - name: Build
+      - name: Restore sample broker
+        run: dotnet restore samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj
+
+      - name: Build io_uring tests
         run: dotnet build tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj --no-restore
+
+      - name: Build sample broker
+        run: dotnet build samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj --no-restore
 
       - name: Capture dotnet info
         shell: bash

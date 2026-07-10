@@ -160,17 +160,19 @@ namespace Hps.Benchmarks.Tests
             Assert.DoesNotContain("udp_root=\"${bench_root}/udp\"", workflow);
         }
 
-        // Linux contract workflow는 io_uring backend의 native syscall 계약만 검증한다.
-        // WPF Windows TFM sample이 solution에 포함되어도 Linux runner restore가 깨지지 않도록
-        // restore/build 범위를 io_uring test project로 고정한다.
+        // Linux contract workflow는 native tests와 실제 sample composition을 함께 빌드하되 solution/WPF로 범위를 넓히면 안 된다.
+        // runtime test는 기존 io_uring test project에만 남겨 장기 실행 broker process 없이 backend 계약을 검증한다.
         [Fact]
-        public void IoUringLinuxContractWorkflow_WhenRunOnLinux_RestoresAndBuildsOnlyIoUringTestProject()
+        public void IoUringLinuxContractWorkflow_WhenRunOnLinux_RestoresAndBuildsOnlyExplicitLinuxSafeProjects()
         {
             string workflow = ReadIoUringLinuxContractWorkflow();
 
             Assert.Contains("dotnet restore tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj", workflow);
+            Assert.Contains("dotnet restore samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj", workflow);
             Assert.Contains("dotnet build tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj --no-restore", workflow);
+            Assert.Contains("dotnet build samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj --no-restore", workflow);
             Assert.Contains("dotnet test tests/Hps.Transport.IoUring.Tests/Hps.Transport.IoUring.Tests.csproj", workflow);
+            Assert.DoesNotContain("dotnet test samples/Hps.Sample.BrokerServer/Hps.Sample.BrokerServer.csproj", workflow);
             Assert.DoesNotContain("dotnet restore HighPerformanceSocket.slnx", workflow);
             Assert.DoesNotContain("dotnet build HighPerformanceSocket.slnx", workflow);
             Assert.DoesNotContain("EnableWindowsTargeting", workflow);
