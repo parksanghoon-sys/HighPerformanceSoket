@@ -3,11 +3,9 @@ using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using Hps.Broker;
 using Hps.Buffers;
 using Hps.Server;
 using Hps.Transport;
@@ -128,7 +126,10 @@ namespace Hps.Benchmarks
                         subscriber,
                         boundEndPoint,
                         Encoding.ASCII.GetBytes("SUBSCRIBE " + BenchmarkTargets.DefaultTopic)).ConfigureAwait(false);
-                    await WaitForSubscriberCountAsync(server, BenchmarkTargets.DefaultTopic, 1).ConfigureAwait(false);
+                    await server.WaitForSubscriberCountAsync(
+                        BenchmarkTargets.DefaultTopic,
+                        1,
+                        TimeSpan.FromSeconds(ReceiveTimeoutSeconds)).ConfigureAwait(false);
 
                     pacingClock.Start();
                     if (openLoop)
@@ -444,38 +445,6 @@ namespace Hps.Benchmarks
 
             Buffer.BlockCopy(receiveBuffer, 0, payload, 0, payload.Length);
             return payload;
-        }
-
-        private static async Task WaitForSubscriberCountAsync(BrokerServer server, string topic, int expected)
-        {
-            SubscriptionTable subscriptions = ReadSubscriptionTable(server);
-            DateTime deadline = DateTime.UtcNow.AddSeconds(ReceiveTimeoutSeconds);
-
-            while (DateTime.UtcNow < deadline)
-            {
-                if (subscriptions.CountSubscribers(topic) == expected)
-                    return;
-
-                await Task.Delay(10).ConfigureAwait(false);
-            }
-
-            throw new TimeoutException("UDP loopback subscriber 등록 대기가 초과됐습니다.");
-        }
-
-        private static SubscriptionTable ReadSubscriptionTable(BrokerServer server)
-        {
-            // UDP command 에도 ack 가 없으므로 smoke runner 는 TCP runner 와 같은 white-box 경계로
-            // subscription table 반영 완료를 확인한 뒤 publish 를 시작한다.
-            FieldInfo? field = typeof(BrokerServer).GetField("_subscriptions", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (field == null)
-                throw new InvalidOperationException("BrokerServer subscription table 필드를 찾을 수 없습니다.");
-
-            object? value = field.GetValue(server);
-            SubscriptionTable? subscriptions = value as SubscriptionTable;
-            if (subscriptions == null)
-                throw new InvalidOperationException("BrokerServer subscription table 타입이 예상과 다릅니다.");
-
-            return subscriptions;
         }
 
         private static async Task WaitForRentedCountAsync(PinnedBlockMemoryPool pool, int expected)

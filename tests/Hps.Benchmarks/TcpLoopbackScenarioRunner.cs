@@ -3,11 +3,9 @@ using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using Hps.Broker;
 using Hps.Buffers;
 using Hps.Server;
 using Hps.Transport;
@@ -105,7 +103,10 @@ namespace Hps.Benchmarks
                     publisher = CreateConnectedTcpClient(boundEndPoint);
 
                     await SendFrameAsync(subscriber, Encoding.ASCII.GetBytes("SUBSCRIBE " + BenchmarkTargets.DefaultTopic)).ConfigureAwait(false);
-                    await WaitForSubscriberCountAsync(server, BenchmarkTargets.DefaultTopic, 1).ConfigureAwait(false);
+                    await server.WaitForSubscriberCountAsync(
+                        BenchmarkTargets.DefaultTopic,
+                        1,
+                        TimeSpan.FromSeconds(ReceiveTimeoutSeconds)).ConfigureAwait(false);
 
                     pacingClock.Start();
                     if (openLoop)
@@ -457,38 +458,6 @@ namespace Hps.Benchmarks
             }
 
             return buffer;
-        }
-
-        private static async Task WaitForSubscriberCountAsync(BrokerServer server, string topic, int expected)
-        {
-            SubscriptionTable subscriptions = ReadSubscriptionTable(server);
-            DateTime deadline = DateTime.UtcNow.AddSeconds(ReceiveTimeoutSeconds);
-
-            while (DateTime.UtcNow < deadline)
-            {
-                if (subscriptions.CountSubscribers(topic) == expected)
-                    return;
-
-                await Task.Delay(10).ConfigureAwait(false);
-            }
-
-            throw new TimeoutException("loopback subscriber 등록 대기가 초과됐다.");
-        }
-
-        private static SubscriptionTable ReadSubscriptionTable(BrokerServer server)
-        {
-            // 현재 wire protocol 에는 SUBSCRIBE ack 가 없다. 부하 runner 에서 publish 시작 race 를 피하기 위해
-            // 통합 테스트와 같은 white-box 경계로 구독 등록 완료만 확인한다.
-            FieldInfo? field = typeof(BrokerServer).GetField("_subscriptions", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (field == null)
-                throw new InvalidOperationException("BrokerServer subscription table 필드를 찾을 수 없다.");
-
-            object? value = field.GetValue(server);
-            SubscriptionTable? subscriptions = value as SubscriptionTable;
-            if (subscriptions == null)
-                throw new InvalidOperationException("BrokerServer subscription table 타입이 예상과 다르다.");
-
-            return subscriptions;
         }
 
         private static async Task WaitForRentedCountAsync(PinnedBlockMemoryPool pool, int expected)

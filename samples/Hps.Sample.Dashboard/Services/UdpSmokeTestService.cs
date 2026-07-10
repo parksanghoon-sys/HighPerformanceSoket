@@ -1,7 +1,6 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Hps.Buffers;
@@ -38,7 +37,10 @@ namespace Hps.Sample.Dashboard.Services
                     publisher = CreateBoundUdpSocket();
 
                     await SendDatagramAsync(subscriber, serverEndPoint, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic)).ConfigureAwait(false);
-                    await WaitForSubscriberCountAsync(server, Topic, 1).ConfigureAwait(false);
+                    await server.WaitForSubscriberCountAsync(
+                        Topic,
+                        1,
+                        TimeSpan.FromSeconds(ReceiveTimeoutSeconds)).ConfigureAwait(false);
 
                     await SendDatagramAsync(publisher, serverEndPoint, CreatePublishCommand(Topic, expectedPayload)).ConfigureAwait(false);
 
@@ -148,41 +150,6 @@ namespace Hps.Sample.Dashboard.Services
             byte[] payload = new byte[result.ReceivedBytes];
             Buffer.BlockCopy(receiveBuffer, 0, payload, 0, payload.Length);
             return payload;
-        }
-
-        private static async Task WaitForSubscriberCountAsync(BrokerServer server, string topic, int expected)
-        {
-            object subscriptions = ReadSubscriptionTable(server);
-            MethodInfo? countSubscribers = subscriptions.GetType().GetMethod("CountSubscribers", new Type[] { typeof(string) });
-            if (countSubscribers == null)
-                throw new InvalidOperationException("BrokerServer subscription table의 CountSubscribers 메서드를 찾을 수 없다.");
-
-            DateTime deadline = DateTime.UtcNow.AddSeconds(ReceiveTimeoutSeconds);
-
-            while (DateTime.UtcNow < deadline)
-            {
-                int count = (int)countSubscribers.Invoke(subscriptions, new object[] { topic })!;
-                if (count == expected)
-                    return;
-
-                await Task.Delay(10).ConfigureAwait(false);
-            }
-
-            throw new TimeoutException("UDP smoke subscriber 등록 대기가 초과됐다.");
-        }
-
-        private static object ReadSubscriptionTable(BrokerServer server)
-        {
-            // UDP command에도 SUBSCRIBE ack가 없으므로 white-box subscription count로 publish race를 제거한다.
-            FieldInfo? field = typeof(BrokerServer).GetField("_subscriptions", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (field == null)
-                throw new InvalidOperationException("BrokerServer subscription table 필드를 찾을 수 없다.");
-
-            object? value = field.GetValue(server);
-            if (value == null)
-                throw new InvalidOperationException("BrokerServer subscription table이 null이다.");
-
-            return value;
         }
 
         private static async Task WaitForRentedCountAsync(PinnedBlockMemoryPool pool, int expected)

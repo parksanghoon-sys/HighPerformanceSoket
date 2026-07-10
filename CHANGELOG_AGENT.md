@@ -2,13 +2,14 @@
 
 ## Recent Work
 
-### 2026-07-10 - D238 subscription readiness seam 설계
+### 2026-07-10 - D238 subscription readiness seam 구현
 
-- Dashboard와 Benchmark TCP/UDP 네 reflection 호출과 실제 handler/table mutation 시점을 대조했다.
-- 단일 `BrokerServer.WaitForSubscriberCountAsync` method를 권장안으로 확정했다.
-- wire ACK, PUBLISH probe, event/snapshot, 새 project/friend assembly는 제외했다.
-- Benchmark의 `Hps.Broker` 직접 참조가 readiness reflection에만 쓰임을 확인해 구현 범위에 reference 제거를 포함했다.
-- 설계 문서와 상태/결정 문서만 변경했으며 production code와 tests는 변경하지 않았다.
+- `BrokerServer.WaitForSubscriberCountAsync` 하나로 transient aggregate count readiness를 제공한다.
+- public shape Red 1건과 입력/timeout/cancellation behavior Red 6건을 확인한 뒤 최소 10ms polling으로 Green을 만들었다.
+- 독립 리뷰의 deadline 초과 성공 finding을 별도 Red로 재현하고 남은 시간 대기와 deadline 우선 판정으로 수정했다.
+- Dashboard와 Benchmark TCP/UDP 네 reflection helper를 제거하고 Benchmark의 Broker 직접 project reference를 제거했다.
+- Server 37/37, Dashboard 13/13, Benchmark 116/116, solution 519/519를 통과했고 build는 경고 0/오류 0이다.
+- wire ACK, event/snapshot, endpoint별 readiness와 publish hot path는 변경하지 않았다.
 
 ### 2026-07-10 - Sample Broker selector surface 단순화
 

@@ -2,7 +2,6 @@ using System;
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Hps.Buffers;
@@ -39,7 +38,10 @@ namespace Hps.Sample.Dashboard.Services
                     publisher = CreateConnectedTcpClient(serverEndPoint);
 
                     await SendFrameAsync(subscriber, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic)).ConfigureAwait(false);
-                    await WaitForSubscriberCountAsync(server, Topic, 1).ConfigureAwait(false);
+                    await server.WaitForSubscriberCountAsync(
+                        Topic,
+                        1,
+                        TimeSpan.FromSeconds(ReceiveTimeoutSeconds)).ConfigureAwait(false);
 
                     await SendFrameAsync(publisher, CreatePublishCommand(Topic, expectedPayload)).ConfigureAwait(false);
 
@@ -177,41 +179,6 @@ namespace Hps.Sample.Dashboard.Services
             }
 
             return buffer;
-        }
-
-        private static async Task WaitForSubscriberCountAsync(BrokerServer server, string topic, int expected)
-        {
-            object subscriptions = ReadSubscriptionTable(server);
-            MethodInfo? countSubscribers = subscriptions.GetType().GetMethod("CountSubscribers", new Type[] { typeof(string) });
-            if (countSubscribers == null)
-                throw new InvalidOperationException("BrokerServer subscription table의 CountSubscribers 메서드를 찾을 수 없다.");
-
-            DateTime deadline = DateTime.UtcNow.AddSeconds(ReceiveTimeoutSeconds);
-
-            while (DateTime.UtcNow < deadline)
-            {
-                int count = (int)countSubscribers.Invoke(subscriptions, new object[] { topic })!;
-                if (count == expected)
-                    return;
-
-                await Task.Delay(10).ConfigureAwait(false);
-            }
-
-            throw new TimeoutException("TCP smoke subscriber 등록 대기가 초과됐다.");
-        }
-
-        private static object ReadSubscriptionTable(BrokerServer server)
-        {
-            // TCP wire protocol에는 SUBSCRIBE ack가 없으므로 샘플 smoke도 통합 테스트와 같은 white-box 경계로 race를 제거한다.
-            FieldInfo? field = typeof(BrokerServer).GetField("_subscriptions", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (field == null)
-                throw new InvalidOperationException("BrokerServer subscription table 필드를 찾을 수 없다.");
-
-            object? value = field.GetValue(server);
-            if (value == null)
-                throw new InvalidOperationException("BrokerServer subscription table이 null이다.");
-
-            return value;
         }
 
         private static async Task WaitForRentedCountAsync(PinnedBlockMemoryPool pool, int expected)

@@ -22,16 +22,16 @@
 - Sample Broker selector의 사용되지 않는 4/5-argument overload와 전용 fallback helper를 제거했다.
 - selector 정책 테스트는 실제 7-argument production entry를 직접 사용하며 public `Select`는 하나만 남았다.
 - D237 legacy overload test 제안은 overload 제거로 종료됐다.
-- D238로 cross-module subscription reflection을 단일 `BrokerServer.WaitForSubscriberCountAsync` seam으로 교체하는 방향을 확정했다.
+- D238로 cross-module subscription reflection을 단일 `BrokerServer.WaitForSubscriberCountAsync` seam으로 교체했다.
+- Dashboard/Benchmark 네 호출부의 reflection/polling을 제거했고 Benchmark의 불필요한 Broker 직접 참조도 제거했다.
 
 ## 다음 단일 작업 단위
 
-### D238 written design 사용자 검토
+### D238 구현 review stop
 
-- 검토 문서: `docs/superpowers/specs/2026-07-10-subscription-readiness-seam-design.md`
-- 핵심 계약: `BrokerServer.WaitForSubscriberCountAsync(topic, minimumCount, timeout, cancellationToken)` 하나만 추가한다.
-- wire ACK, behavior probe, event/snapshot, 새 project와 friend assembly는 추가하지 않는다.
-- implementation은 사용자 문서 검토 뒤 하나의 TDD 단위로 진행한다.
+- 구현과 로컬 검증은 완료됐다. 다음 기능을 시작하지 않고 현재 diff/commit의 사용자 또는 Claude 검토를 받는다.
+- 검토 기준: transient aggregate count 의미, timeout/cancellation 계약, reflection 제거 범위, Benchmark 의존성 축소.
+- 설계: `docs/superpowers/specs/2026-07-10-subscription-readiness-seam-design.md`.
 
 ## 최신 검증 기준선
 
@@ -41,8 +41,9 @@
   `registered payload fixed send path: hit` 확인.
 - selector 단순화: 구조 Red가 public `Select` 3개를 검출했고, Green 후 selector tests 13/13,
   Sample Broker tests 25/25, solution build 경고 0/오류 0, solution tests 510/510이다.
-- D238 설계 검증: 네 reflection 호출, TCP/UDP handler mutation 시점, D068 경계,
-  Benchmark의 `Hps.Broker` reference 용도를 실제 코드와 대조했다. production code/test는 변경하지 않았다.
+- D238 TDD: 최초 public/behavior Red에 더해 review에서 deadline 초과 성공 Red를 재현했고 focused API tests 9/9을 통과했다.
+- D238 회귀: Server 37/37, Dashboard 13/13, Benchmark 116/116, solution tests 519/519 통과.
+- D238 build: solution build 경고 0/오류 0, 네 cross-module reflection match 0, Benchmark Broker 직접 참조 0.
 
 ## 다음 후보
 
@@ -56,7 +57,7 @@
 - end-to-end zero-copy 주장
 - latency warning의 hard gate 전환
 - benchmark report 기능 추가
-- readiness 계약 선택 전 protocol/server 동시 구현
+- readiness seam을 wire ACK 또는 범용 diagnostics model로 확장
 
 ## Archive
 

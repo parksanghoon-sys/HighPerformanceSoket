@@ -32,6 +32,143 @@ namespace Hps.Server.Tests
             Assert.True(typeof(IDisposable).IsAssignableFrom(serverType));
         }
 
+        // in-process readiness 소비자는 BrokerServer private field를 반사하지 않고 하나의 public wait 계약을 사용해야 한다.
+        [Fact]
+        public void BrokerServerContract_WhenInspected_ExposesSubscriberCountWaitApi()
+        {
+            MethodInfo? method = typeof(BrokerServer).GetMethod(
+                "WaitForSubscriberCountAsync",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                new Type[] { typeof(string), typeof(int), typeof(TimeSpan), typeof(CancellationToken) },
+                null);
+
+            Assert.NotNull(method);
+            Assert.Equal(typeof(Task), method!.ReturnType);
+        }
+
+        // subscriber가 목표 수에 도달하지 않으면 무한 대기하지 않고 지정 timeout으로 종료해야 한다.
+        [Fact]
+        public async Task WaitForSubscriberCountAsync_WhenMinimumIsNotReached_ThrowsTimeout()
+        {
+            FakeTransport transport = new FakeTransport();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+            using (BrokerServer server = new BrokerServer(transport, pool, 64))
+            {
+                await Assert.ThrowsAsync<TimeoutException>(
+                    delegate { return server.WaitForSubscriberCountAsync("alpha", 1, TimeSpan.FromMilliseconds(25)); });
+            }
+        }
+
+        // deadline 뒤에 관측된 구독은 readiness 성공이 아니므로 마지막 polling 지연이 timeout을 넘겨도 수락하면 안 된다.
+        [Fact]
+        public async Task WaitForSubscriberCountAsync_WhenSubscriberArrivesAfterDeadline_ThrowsTimeout()
+        {
+            using (BrokerServer server = new BrokerServer(new FakeTransport(), new PinnedBlockMemoryPool(64), 64))
+            {
+                SubscriptionTable subscriptions = ReadSubscriptionTable(server);
+                FakeConnection subscriber = new FakeConnection();
+                Task registrationTask = Task.Run(
+                    async delegate
+                    {
+                        await Task.Delay(5);
+                        subscriptions.Subscribe("alpha", subscriber);
+                    });
+
+                await Assert.ThrowsAsync<TimeoutException>(
+                    delegate { return server.WaitForSubscriberCountAsync("alpha", 1, TimeSpan.FromMilliseconds(1)); });
+                await registrationTask;
+            }
+        }
+
+        // host shutdown은 readiness polling을 즉시 취소할 수 있어야 timeout까지 불필요하게 기다리지 않는다.
+        [Fact]
+        public async Task WaitForSubscriberCountAsync_WhenCancellationIsRequested_ThrowsCancellation()
+        {
+            FakeTransport transport = new FakeTransport();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+            using (BrokerServer server = new BrokerServer(transport, pool, 64))
+            using (CancellationTokenSource cancellation = new CancellationTokenSource())
+            {
+                cancellation.Cancel();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                    delegate
+                    {
+                        return server.WaitForSubscriberCountAsync(
+                            "alpha",
+                            1,
+                            TimeSpan.FromSeconds(5),
+                            cancellation.Token);
+                    });
+            }
+        }
+
+        // polling이 시작된 뒤에도 cancellation은 다음 timeout까지 기다리지 않고 현재 지연을 중단해야 한다.
+        [Fact]
+        public async Task WaitForSubscriberCountAsync_WhenCancellationIsRequestedDuringWait_ThrowsCancellation()
+        {
+            using (BrokerServer server = new BrokerServer(new FakeTransport(), new PinnedBlockMemoryPool(64), 64))
+            using (CancellationTokenSource cancellation = new CancellationTokenSource())
+            {
+                cancellation.CancelAfter(25);
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                    delegate
+                    {
+                        return server.WaitForSubscriberCountAsync(
+                            "alpha",
+                            1,
+                            TimeSpan.FromSeconds(5),
+                            cancellation.Token);
+                    });
+            }
+        }
+
+        // 음수 minimum은 polling 의미가 없으므로 호출자 계약 오류로 즉시 거부해야 한다.
+        [Fact]
+        public async Task WaitForSubscriberCountAsync_WhenMinimumIsNegative_Throws()
+        {
+            using (BrokerServer server = new BrokerServer(new FakeTransport(), new PinnedBlockMemoryPool(64), 64))
+            {
+                await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+                    delegate { return server.WaitForSubscriberCountAsync("alpha", -1, TimeSpan.FromSeconds(5)); });
+            }
+        }
+
+        // 0 이하 timeout은 실제 대기 경계를 정의하지 못하므로 polling을 시작하기 전에 거부해야 한다.
+        [Fact]
+        public async Task WaitForSubscriberCountAsync_WhenTimeoutIsNotPositive_Throws()
+        {
+            using (BrokerServer server = new BrokerServer(new FakeTransport(), new PinnedBlockMemoryPool(64), 64))
+            {
+                await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+                    delegate { return server.WaitForSubscriberCountAsync("alpha", 1, TimeSpan.Zero); });
+                await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+                    delegate { return server.WaitForSubscriberCountAsync("alpha", 1, TimeSpan.FromMilliseconds(-2)); });
+            }
+        }
+
+        // readiness wrapper도 기존 SubscriptionTable의 null topic 계약을 완화하면 안 된다.
+        [Fact]
+        public async Task WaitForSubscriberCountAsync_WhenTopicIsNull_Throws()
+        {
+            using (BrokerServer server = new BrokerServer(new FakeTransport(), new PinnedBlockMemoryPool(64), 64))
+            {
+                await Assert.ThrowsAsync<ArgumentNullException>(
+                    delegate { return server.WaitForSubscriberCountAsync(null!, 1, TimeSpan.FromSeconds(5)); });
+            }
+        }
+
+        // readiness wrapper도 기존 SubscriptionTable의 empty topic 계약을 완화하면 안 된다.
+        [Fact]
+        public async Task WaitForSubscriberCountAsync_WhenTopicIsEmpty_Throws()
+        {
+            using (BrokerServer server = new BrokerServer(new FakeTransport(), new PinnedBlockMemoryPool(64), 64))
+            {
+                await Assert.ThrowsAsync<ArgumentException>(
+                    delegate { return server.WaitForSubscriberCountAsync(string.Empty, 1, TimeSpan.FromSeconds(5)); });
+            }
+        }
+
         // UDP host wiring 계약 테스트: BrokerUdpDatagramHandler 는 이미 Broker 계층에 존재하므로,
         // 서버 계층은 Transport 에 datagram handler 를 등록하고 UDP endpoint 를 bind 하는 별도 진입점을 제공해야 한다.
         [Fact]
@@ -348,7 +485,7 @@ namespace Hps.Server.Tests
                     publisher = CreateConnectedTcpClient(boundEndPoint);
 
                     await SendFrameAsync(subscriber, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
-                    await WaitForSubscriberCountAsync(server, Topic, 1);
+                    await server.WaitForSubscriberCountAsync(Topic, 1, TimeSpan.FromSeconds(5));
 
                     await SendFrameAsync(publisher, CreatePublishCommand(Topic, expectedPayload));
 
@@ -397,7 +534,7 @@ namespace Hps.Server.Tests
 
                     await SendFrameAsync(oldSubscriber, Encoding.ASCII.GetBytes("REGISTER device-a"));
                     await SendFrameAsync(oldSubscriber, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
-                    await WaitForSubscriberCountAsync(server, Topic, 1);
+                    await server.WaitForSubscriberCountAsync(Topic, 1, TimeSpan.FromSeconds(5));
 
                     await SendFrameAsync(newSubscriber, Encoding.ASCII.GetBytes("REGISTER device-a"));
                     await WaitForSocketClosedAsync(oldSubscriber);
@@ -445,7 +582,7 @@ namespace Hps.Server.Tests
 
                     await SendFrameAsync(subscriberOne, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
                     await SendFrameAsync(subscriberTwo, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
-                    await WaitForSubscriberCountAsync(server, Topic, 2);
+                    await server.WaitForSubscriberCountAsync(Topic, 2, TimeSpan.FromSeconds(5));
 
                     await SendFrameAsync(publisher, CreatePublishCommand(Topic, expectedPayload));
 
@@ -492,7 +629,7 @@ namespace Hps.Server.Tests
                     publisher = CreateConnectedTcpClient(boundEndPoint);
 
                     await SendFrameAsync(subscriber, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
-                    await WaitForSubscriberCountAsync(server, Topic, 1);
+                    await server.WaitForSubscriberCountAsync(Topic, 1, TimeSpan.FromSeconds(5));
 
                     await SendFrameAsync(publisher, CreatePublishCommand(Topic, firstPayload));
                     await SendFrameAsync(publisher, CreatePublishCommand(Topic, secondPayload));
@@ -539,7 +676,7 @@ namespace Hps.Server.Tests
                     publisher = CreateConnectedTcpClient(boundEndPoint);
 
                     await SendFrameAsync(stalledSubscriber, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
-                    await WaitForSubscriberCountAsync(server, Topic, 1);
+                    await server.WaitForSubscriberCountAsync(Topic, 1, TimeSpan.FromSeconds(5));
 
                     TransportDiagnosticsSnapshot diagnostics = await PublishUntilTcpDropAsync(
                         publisher,
@@ -588,7 +725,7 @@ namespace Hps.Server.Tests
                     publisher = CreateBoundUdpSocket();
 
                     await SendUdpDatagramAsync(subscriber, serverEndPoint, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
-                    await WaitForSubscriberCountAsync(server, Topic, 1);
+                    await server.WaitForSubscriberCountAsync(Topic, 1, TimeSpan.FromSeconds(5));
 
                     await SendUdpDatagramAsync(publisher, serverEndPoint, CreatePublishCommand(Topic, expectedPayload));
 
@@ -636,10 +773,10 @@ namespace Hps.Server.Tests
 
                     await SendUdpDatagramAsync(oldSubscriber, serverEndPoint, Encoding.ASCII.GetBytes("REGISTER device-a"));
                     await SendUdpDatagramAsync(oldSubscriber, serverEndPoint, Encoding.ASCII.GetBytes("SUBSCRIBE " + Topic));
-                    await WaitForSubscriberCountAsync(server, Topic, 1);
+                    await server.WaitForSubscriberCountAsync(Topic, 1, TimeSpan.FromSeconds(5));
 
                     await SendUdpDatagramAsync(newSubscriber, serverEndPoint, Encoding.ASCII.GetBytes("REGISTER device-a"));
-                    await WaitForSubscriberCountAsync(server, Topic, 1);
+                    await server.WaitForSubscriberCountAsync(Topic, 1, TimeSpan.FromSeconds(5));
 
                     await SendUdpDatagramAsync(publisher, serverEndPoint, CreatePublishCommand(Topic, expectedPayload));
 
@@ -900,22 +1037,6 @@ namespace Hps.Server.Tests
             bytes.CopyTo(frame.Span);
             frame.SetLength(bytes.Length);
             return frame;
-        }
-
-        private static async Task WaitForSubscriberCountAsync(BrokerServer server, string topic, int expected)
-        {
-            SubscriptionTable subscriptions = ReadSubscriptionTable(server);
-            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
-
-            while (DateTime.UtcNow < deadline)
-            {
-                if (subscriptions.CountSubscribers(topic) == expected)
-                    return;
-
-                await Task.Delay(10);
-            }
-
-            Assert.Equal(expected, subscriptions.CountSubscribers(topic));
         }
 
         private static SubscriptionTable ReadSubscriptionTable(BrokerServer server)

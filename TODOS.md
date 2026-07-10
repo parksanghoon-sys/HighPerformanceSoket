@@ -2,12 +2,11 @@
 
 ## Current TODOs
 
-- [ ] `P1_NOW` D238 written design을 사용자 검토한 뒤 implementation 진입 여부를 확정한다.
+- [ ] `P1_NOW` D238 구현 review stop을 진행한다.
   - 설계: `docs/superpowers/specs/2026-07-10-subscription-readiness-seam-design.md`.
-  - 결정: 단일 `BrokerServer.WaitForSubscriberCountAsync` method로 네 cross-module reflection/polling을 교체한다.
-  - 구현 범위: Server API/tests, Dashboard TCP/UDP, Benchmark TCP/UDP, 불필요한 Benchmark→Broker reference 제거.
-  - blocker: written design 사용자 검토 전에는 production/test 구현을 시작하지 않는다.
-  - 다음 단계: 승인되면 reflection shape Red부터 하나의 coherent TDD 단위로 구현한다.
+  - 구현: public wait method 하나, 네 reflection helper 제거, Benchmark→Broker 직접 reference 제거.
+  - 검증: Server 37/37, Dashboard 13/13, Benchmark 116/116, solution 519/519, build 경고 0/오류 0.
+  - 다음 단계: 사용자 또는 Claude 검토 전에는 다음 benchmark 구조 단위를 시작하지 않는다.
 
 ## Deferred Backlog
 
@@ -41,6 +40,12 @@
 
 ## Completed
 
+- [x] 2026-07-10 D238 subscription readiness seam을 구현했다.
+  - public shape와 입력/timeout/cancellation assertion Red를 확인하고 최소 10ms polling 계약으로 Green을 만들었다.
+  - Dashboard/Benchmark TCP/UDP 네 호출부의 private reflection/polling을 제거했다.
+  - Benchmark의 사용되지 않는 `Hps.Broker` project reference를 제거했다.
+  - 독립 리뷰의 deadline 초과 성공 finding을 회귀 Red로 재현해 수정하고 대기 중 취소/음수 timeout 계약도 보강했다.
+  - solution build 경고 0/오류 0, solution tests 519/519이다.
 - [x] 2026-07-10 D238 subscription readiness seam 방향과 구현 경계를 설계했다.
   - wire ACK는 UDP reliability 범위를 열고 behavior probe는 측정을 오염시켜 제외했다.
   - 새 type/event/snapshot 없이 `BrokerServer` public wait method 하나로 수렴했다.

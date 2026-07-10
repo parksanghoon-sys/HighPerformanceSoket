@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,6 +18,8 @@ namespace Hps.Server
     /// </summary>
     public sealed class BrokerServer : IDisposable
     {
+        private const int SubscriberCountPollIntervalMilliseconds = 10;
+
         private readonly object _gate;
         private readonly ITransport _transport;
         private readonly PinnedBlockMemoryPool _pool;
@@ -100,6 +103,71 @@ namespace Hps.Server
         /// 현재 UDP endpoint 가 실제로 bind 된 endpoint 이다. 아직 시작하지 않았으면 <c>null</c> 이다.
         /// </summary>
         public EndPoint? UdpLocalEndPoint { get; private set; }
+
+        /// <summary>
+        /// in-process host orchestration에서 지정 topic의 현재 구독자 수가 최소값에 도달할 때까지 기다린다.
+        ///
+        /// 이 완료는 일시적인 aggregate count 관측이며 wire SUBSCRIBE ACK, 특정 endpoint의 구독 유지,
+        /// 이후 publish 전달을 보장하지 않는다. publish hot path가 아닌 smoke/benchmark setup 경계에서 사용한다.
+        /// </summary>
+        /// <param name="topic">현재 구독자 수를 관측할 topic이다.</param>
+        /// <param name="minimumCount">완료에 필요한 최소 구독자 수다.</param>
+        /// <param name="timeout">조건을 관측할 수 있는 최대 시간이다.</param>
+        /// <param name="cancellationToken">대기 중단을 요청하는 cancellation token이다.</param>
+        /// <returns>최소 구독자 수를 제한 시간 안에 관측하면 완료되는 task다.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="topic"/>이 <c>null</c>이다.</exception>
+        /// <exception cref="ArgumentException"><paramref name="topic"/>이 비어 있다.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// <paramref name="minimumCount"/>가 음수이거나 <paramref name="timeout"/>이 0 이하이다.
+        /// </exception>
+        /// <exception cref="TimeoutException">제한 시간 안에 최소 구독자 수를 관측하지 못했다.</exception>
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/>이 취소됐다.</exception>
+        public Task WaitForSubscriberCountAsync(
+            string topic,
+            int minimumCount,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            if (minimumCount < 0)
+                throw new ArgumentOutOfRangeException(nameof(minimumCount));
+            if (timeout <= TimeSpan.Zero)
+                throw new ArgumentOutOfRangeException(nameof(timeout));
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_subscriptions.CountSubscribers(topic) >= minimumCount)
+                return Task.CompletedTask;
+
+            return WaitForSubscriberCountCoreAsync(topic, minimumCount, timeout, cancellationToken);
+        }
+
+        private async Task WaitForSubscriberCountCoreAsync(
+            string topic,
+            int minimumCount,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            long startedAt = Stopwatch.GetTimestamp();
+            TimeSpan pollInterval = TimeSpan.FromMilliseconds(SubscriberCountPollIntervalMilliseconds);
+
+            while (true)
+            {
+                TimeSpan remaining = timeout - Stopwatch.GetElapsedTime(startedAt);
+                if (remaining <= TimeSpan.Zero)
+                    break;
+
+                // 마지막 poll은 남은 제한 시간만 기다리고, 깨어난 뒤 deadline을 먼저 판정한다.
+                // 그래야 scheduler 지연 중 deadline 뒤에 등록된 구독자를 성공으로 잘못 수락하지 않는다.
+                TimeSpan delay = remaining < pollInterval ? remaining : pollInterval;
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+
+                if (Stopwatch.GetElapsedTime(startedAt) >= timeout)
+                    break;
+                if (_subscriptions.CountSubscribers(topic) >= minimumCount)
+                    return;
+            }
+
+            throw new TimeoutException("Broker subscriber count가 제한 시간 안에 목표 값에 도달하지 않았다.");
+        }
 
         /// <summary>
         /// TCP broker 수신 대기를 시작한다.

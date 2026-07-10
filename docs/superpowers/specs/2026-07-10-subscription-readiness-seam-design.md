@@ -1,6 +1,6 @@
 # Subscription Readiness Seam 설계
 
-- 상태: 사용자 방향 승인, 구현 전 문서 검토 대기
+- 상태: 구현 및 로컬 검증 완료, review stop
 - 관련 결정: D068, D238
 
 ## 목표
