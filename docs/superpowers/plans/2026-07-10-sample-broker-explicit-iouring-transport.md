@@ -2,6 +2,10 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **2026-07-10 selector surface 갱신:** 이 계획의 4/5-argument overload source-compatibility 단계는
+> 후속 단순화에서 superseded됐다. 현재 production과 tests는 7-argument public `Select` 하나를 직접 사용한다.
+> 아래 legacy overload 관련 단계는 당시 TDD 이력이며 다시 구현할 요구사항이 아니다.
+
 **Goal:** Linux 사용자가 `Hps.Sample.BrokerServer`에서 `--transport iouring`을 명시해 io_uring TCP broker를 실행할 수 있게 한다.
 
 **Architecture:** 기존 sample parser와 delegate 기반 selector를 확장한다. explicit io_uring은 capability가 `Available`일 때만 `IoUringTransport`를 만들고 그 외에는 exit code 1로 fail-closed 처리하며, 기존 `saea`, `rio`, `auto`와 `TransportFactory.CreateDefault()` 의미는 유지한다. Linux contract workflow는 solution/WPF 대신 io_uring tests와 sample broker 두 Linux-safe project만 명시적으로 restore/build한다.

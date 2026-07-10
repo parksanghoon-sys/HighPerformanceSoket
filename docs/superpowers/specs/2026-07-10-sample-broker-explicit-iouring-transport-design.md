@@ -1,5 +1,10 @@
 # Sample Broker Explicit io_uring Transport 설계
 
+> **2026-07-10 selector surface 갱신:** 이 문서의 4/5-argument overload source-compatibility 유지 결정은
+> 저장소 내부 runtime 호출 부재와 sample executable 경계를 재검토한 뒤 superseded됐다.
+> 현재 `SampleTransportSelector`는 Program과 tests가 함께 사용하는 7-argument public `Select` 하나만 제공한다.
+> `saea`, `rio`, `auto`, `iouring`, explicit fail-closed, address-family 정책은 그대로 유지한다.
+
 ## 목적
 
 D231에서 `IoUringTransport`의 Linux native registered payload registration과 TCP `WRITE_FIXED` hit가 확인됐다.
@@ -156,9 +161,9 @@ public static SampleTransportSelection Select(
     Func<ITransport> createIoUring)
 ```
 
-기존 4-argument/5-argument overload는 source compatibility를 위해 유지하고 full overload로 위임한다.
-기존 overload는 io_uring status delegate를 `UnsupportedOperatingSystem`으로, factory를 호출 시 계약 오류를 내는 guard로 제공한다.
-따라서 기존 overload에 `IoUring` mode를 직접 전달해도 factory를 호출하지 않고 명시 실패로 수렴한다.
+~~기존 4-argument/5-argument overload는 source compatibility를 위해 유지하고 full overload로 위임한다.~~
+이 하위 결정은 2026-07-10 superseded됐다. sample은 executable이고 저장소 내부 runtime은 full entry만 사용하므로,
+사용되지 않는 compatibility overload와 전용 guard를 제거해 public 선택 경로를 하나로 유지한다.
 
 ### 분기 순서
 

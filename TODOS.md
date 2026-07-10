@@ -2,22 +2,15 @@
 
 ## Current TODOs
 
-- [ ] `P1_NOW` Sample Broker transport selector의 public surface를 단순화한다.
-  - 남은 일: production에서 사용하는 full selector entry와 테스트에 필요한 seam을 구분하고, 불필요한 4/5-argument overload 제거 가능성을 확인한다.
-  - 목적: executable sample에 불필요한 source compatibility layer를 유지하지 않고 선택 정책을 한 경로에서 읽을 수 있게 한다.
-  - 범위: `SampleTransportSelector.cs`, `Program.cs`, `SampleTransportSelectorTests.cs`.
-  - 현재 상태: runtime은 full overload를 사용하며 D235/D236 local/remote gate를 통과했다. D237은 legacy overload를 더 고정하는 test-only 제안이라 보류했다.
-  - blocker/open question: repo 외부에서 sample helper를 직접 참조하는 지원 계약이 있는지 여부. 저장소 내부 참조만으로는 그런 계약이 보이지 않는다.
-  - 다음 단계: 호출 그래프와 test surface를 확인한 뒤, 제거가 안전하면 reflection shape Red부터 별도 TDD 단위로 진행한다.
-
-## Deferred Backlog
-
-- [ ] `P1_SOON` 구독 준비 상태의 private reflection 의존을 하나의 명시적 계약으로 교체한다.
+- [ ] `P1_NOW` 구독 준비 상태의 private reflection 의존을 하나의 명시적 계약으로 교체할 방향을 확정한다.
   - 남은 일: Dashboard TCP/UDP smoke와 Benchmark TCP/UDP runner 네 곳이 `BrokerServer._subscriptions`를 reflection으로 읽는다.
   - 이유: wire protocol에 SUBSCRIBE ACK가 없어 publish race를 피하려고 생긴 중복 우회다.
   - 목적: 제품 동작이면 protocol ACK, 테스트 전용이면 단일 internal diagnostics seam 중 하나로 수렴한다.
   - 범위: Dashboard smoke services, TCP/UDP loopback runners, Broker/Protocol tests.
-  - 다음 단계: 제품 readiness 요구인지 test orchestration 요구인지 먼저 결정하고 한 계약만 설계한다.
+  - blocker/open question: 외부 client가 subscribe 완료를 알아야 하는지, 내부 loopback orchestration만 동기화하면 되는지 아직 결정되지 않았다.
+  - 다음 단계: 네 호출 경로와 command processing boundary를 대조하고 두 대안의 wire/API 비용을 비교한다.
+
+## Deferred Backlog
 
 - [ ] `P2_LATER` benchmark 실행과 artifact/history 분석 책임을 분리한다.
   - 남은 일: `tests/Hps.Benchmarks`가 부하 실행, CLI parsing, baseline summary/history/envelope 생성까지 함께 소유한다.
@@ -49,6 +42,10 @@
 
 ## Completed
 
+- [x] 2026-07-10 Sample Broker selector를 public `Select` 하나로 단순화했다.
+  - 구조 테스트 Red가 기존 4/5/7-argument overload 3개를 검출했다.
+  - 4/5-argument overload, 전용 fallback helper, legacy overload test를 제거했다.
+  - selector tests 13/13, Sample Broker tests 25/25, solution build 경고 0/오류 0, solution tests 510/510이다.
 - [x] 2026-07-10 루트 상태 문서를 현재 진입점 중심으로 압축하고 전체 원문 스냅샷을 보존했다.
 - [x] D236 explicit sample io_uring 원격 Linux gate를 완료했다.
 - [x] D235 sample broker explicit `--transport iouring` local implementation gate를 완료했다.

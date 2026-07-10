@@ -13,47 +13,6 @@ namespace Hps.Sample.BrokerServer
         public const int RuntimeFailureExitCode = 1;
 
         /// <summary>
-        /// 기존 호출 경로와 tests의 source compatibility를 위해 IPv4 listen endpoint를 전제로 transport를 선택한다.
-        /// io_uring mode는 구성되지 않은 factory를 호출하지 않고 Linux 전용 capability failure를 반환하며, 실제 host는 address family를 받는 overload를 사용한다.
-        /// </summary>
-        public static SampleTransportSelection Select(
-            SampleTransportMode mode,
-            Func<RioCapabilityStatus> getRioStatus,
-            Func<ITransport> createSaea,
-            Func<ITransport> createRio)
-        {
-            return Select(
-                mode,
-                AddressFamily.InterNetwork,
-                getRioStatus,
-                GetUnsupportedIoUringStatus,
-                createSaea,
-                createRio,
-                ThrowIoUringFactoryNotConfigured);
-        }
-
-        /// <summary>
-        /// 기존 host 호출의 source compatibility를 유지하면서 listen address family와 RIO capability를 고려해 concrete transport를 선택한다.
-        /// io_uring mode는 구성되지 않은 factory를 호출하지 않고 Linux 전용 capability failure를 반환하며, RIO와 auto의 IPv4 guard 및 fallback 계약은 유지한다.
-        /// </summary>
-        public static SampleTransportSelection Select(
-            SampleTransportMode mode,
-            AddressFamily listenAddressFamily,
-            Func<RioCapabilityStatus> getRioStatus,
-            Func<ITransport> createSaea,
-            Func<ITransport> createRio)
-        {
-            return Select(
-                mode,
-                listenAddressFamily,
-                getRioStatus,
-                GetUnsupportedIoUringStatus,
-                createSaea,
-                createRio,
-                ThrowIoUringFactoryNotConfigured);
-        }
-
-        /// <summary>
         /// 명시 mode와 listen address family, 각 backend capability probe 및 factory를 기준으로 concrete transport를 선택한다.
         /// Saea는 두 capability probe를 모두 건너뛰고, explicit io_uring은 RIO probe를 건너뛰며 available일 때만 io_uring factory를 호출한다.
         /// explicit io_uring capability failure는 SAEA fallback 없이 runtime failure를 반환하고, RIO와 auto의 기존 IPv4 guard 및 fallback 정책은 그대로 유지한다.
@@ -142,16 +101,6 @@ namespace Hps.Sample.BrokerServer
                 createSaea(),
                 "SaeaTransport",
                 "RIO unavailable; falling back to SaeaTransport. status=" + rioStatus);
-        }
-
-        private static IoUringCapabilityStatus GetUnsupportedIoUringStatus()
-        {
-            return IoUringCapabilityStatus.UnsupportedOperatingSystem;
-        }
-
-        private static ITransport ThrowIoUringFactoryNotConfigured()
-        {
-            throw new InvalidOperationException("이 selector overload에는 io_uring factory가 구성되지 않았습니다.");
         }
     }
 }

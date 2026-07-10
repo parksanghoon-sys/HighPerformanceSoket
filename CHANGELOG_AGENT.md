@@ -2,6 +2,14 @@
 
 ## Recent Work
 
+### 2026-07-10 - Sample Broker selector surface 단순화
+
+- 구조 테스트 Red에서 public `Select` 3개를 검출한 뒤 사용되지 않는 4/5-argument overload를 제거했다.
+- production selector는 실제 Program이 사용하는 7-argument entry 하나만 남겼다.
+- 테스트 helper는 reflection invocation과 legacy overload 대신 production entry를 직접 호출한다.
+- selector tests 13/13, Sample Broker tests 25/25, solution build 경고 0/오류 0, solution tests 510/510이다.
+- 독립 리뷰의 문서 정합성 finding을 반영해 D233/D234 compatibility 하위 결정을 superseded 처리하고 stale test comment를 갱신했다.
+
 ### 2026-07-10 - 상태 문서 압축 및 실행 우선순위 정리
 
 - 압축 전 루트 상태 문서 4개를 SHA-256과 함께 `docs/agent-state/snapshots/2026-07-10-pre-compaction/`에 보존했다.

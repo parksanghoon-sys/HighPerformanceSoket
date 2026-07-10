@@ -13,12 +13,25 @@ namespace Hps.Sample.BrokerServer.Tests
 {
     public sealed class SampleTransportSelectorTests
     {
+        // sample executable의 transport 선택 진입점은 실제 host가 사용하는 public method 하나여야 한다.
+        // 사용되지 않는 compatibility overload를 남기면 새 backend마다 위임 분기와 회귀 테스트가 중복된다.
+        [Fact]
+        public void Selector_WhenInspected_ExposesSingleSelectEntryPoint()
+        {
+            MethodInfo[] selectMethods = typeof(BrokerSample.SampleTransportSelector)
+                .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .Where(method => method.Name == "Select")
+                .ToArray();
+
+            Assert.Single(selectMethods);
+        }
+
         // saea mode는 RIO와 io_uring capability probe를 모두 건너뛰고 SAEA factory만 호출해야 한다.
         [Fact]
         public void Select_WhenModeIsSaea_ReturnsSaeaTransport()
         {
             SelectorCallCounts calls = new SelectorCallCounts();
-            BrokerSample.SampleTransportSelection selection = SelectFull(
+            BrokerSample.SampleTransportSelection selection = SelectWithCapabilities(
                 BrokerSample.SampleTransportMode.Saea,
                 RioCapabilityStatus.Available,
                 IoUringCapabilityStatus.Available,
@@ -40,7 +53,7 @@ namespace Hps.Sample.BrokerServer.Tests
         public void Select_WhenModeIsIoUringAndAvailable_ReturnsIoUringTransport()
         {
             SelectorCallCounts calls = new SelectorCallCounts();
-            BrokerSample.SampleTransportSelection selection = SelectFull(
+            BrokerSample.SampleTransportSelection selection = SelectWithCapabilities(
                 BrokerSample.SampleTransportMode.IoUring,
                 RioCapabilityStatus.Available,
                 IoUringCapabilityStatus.Available,
@@ -61,7 +74,7 @@ namespace Hps.Sample.BrokerServer.Tests
         public void Select_WhenModeIsIoUringAndOperatingSystemIsUnsupported_ReturnsFailure()
         {
             SelectorCallCounts calls = new SelectorCallCounts();
-            BrokerSample.SampleTransportSelection selection = SelectFull(
+            BrokerSample.SampleTransportSelection selection = SelectWithCapabilities(
                 BrokerSample.SampleTransportMode.IoUring,
                 RioCapabilityStatus.Available,
                 IoUringCapabilityStatus.UnsupportedOperatingSystem,
@@ -83,7 +96,7 @@ namespace Hps.Sample.BrokerServer.Tests
         public void Select_WhenModeIsIoUringAndCapabilityIsUnavailable_ReturnsFailure()
         {
             SelectorCallCounts calls = new SelectorCallCounts();
-            BrokerSample.SampleTransportSelection selection = SelectFull(
+            BrokerSample.SampleTransportSelection selection = SelectWithCapabilities(
                 BrokerSample.SampleTransportMode.IoUring,
                 RioCapabilityStatus.Available,
                 IoUringCapabilityStatus.Unavailable,
@@ -105,7 +118,7 @@ namespace Hps.Sample.BrokerServer.Tests
         public void Select_WhenModeIsIoUringAndListenAddressIsIpv6_ReturnsIoUringTransport()
         {
             SelectorCallCounts calls = new SelectorCallCounts();
-            BrokerSample.SampleTransportSelection selection = SelectFull(
+            BrokerSample.SampleTransportSelection selection = SelectWithCapabilities(
                 BrokerSample.SampleTransportMode.IoUring,
                 RioCapabilityStatus.Available,
                 IoUringCapabilityStatus.Available,
@@ -115,37 +128,6 @@ namespace Hps.Sample.BrokerServer.Tests
             Assert.True(selection.Succeeded);
             Assert.Equal("IoUringTransport", selection.SelectedBackendName);
             Assert.Equal(1, calls.IoUringFactoryCount);
-        }
-
-        // 기존 overload는 source compatibility를 유지하되 새 mode를 받으면 준비되지 않은 factory를 호출하지 않고 명시 실패해야 한다.
-        [Fact]
-        public void Select_WhenLegacyOverloadReceivesIoUring_ReturnsFailure()
-        {
-            SelectorCallCounts calls = new SelectorCallCounts();
-            BrokerSample.SampleTransportSelection selection = BrokerSample.SampleTransportSelector.Select(
-                BrokerSample.SampleTransportMode.IoUring,
-                delegate
-                {
-                    calls.RioProbeCount++;
-                    return RioCapabilityStatus.Available;
-                },
-                delegate
-                {
-                    calls.SaeaFactoryCount++;
-                    return new FakeTransport("SaeaTransport");
-                },
-                delegate
-                {
-                    calls.RioFactoryCount++;
-                    return new FakeTransport("RioTransport");
-                });
-
-            Assert.False(selection.Succeeded);
-            Assert.Equal(1, selection.ExitCode);
-            Assert.Contains("Linux", selection.ErrorMessage!);
-            Assert.Equal(0, calls.RioProbeCount);
-            Assert.Equal(0, calls.SaeaFactoryCount);
-            Assert.Equal(0, calls.RioFactoryCount);
         }
 
         // explicit rio 는 available 일 때만 RIO backend 를 선택한다.
@@ -236,10 +218,12 @@ namespace Hps.Sample.BrokerServer.Tests
 
         private static BrokerSample.SampleTransportSelection Select(BrokerSample.SampleTransportMode mode, RioCapabilityStatus status)
         {
-            Func<RioCapabilityStatus> probe = delegate { return status; };
-            Func<ITransport> createSaea = delegate { return new FakeTransport("SaeaTransport"); };
-            Func<ITransport> createRio = delegate { return new FakeTransport("RioTransport"); };
-            return BrokerSample.SampleTransportSelector.Select(mode, probe, createSaea, createRio);
+            return SelectWithCapabilities(
+                mode,
+                status,
+                IoUringCapabilityStatus.Unavailable,
+                AddressFamily.InterNetwork,
+                new SelectorCallCounts());
         }
 
         private static BrokerSample.SampleTransportSelection SelectWithAddressFamily(
@@ -247,24 +231,21 @@ namespace Hps.Sample.BrokerServer.Tests
             RioCapabilityStatus status,
             AddressFamily listenAddressFamily)
         {
-            Func<RioCapabilityStatus> probe = delegate { return status; };
-            Func<ITransport> createSaea = delegate { return new FakeTransport("SaeaTransport"); };
-            Func<ITransport> createRio = delegate { return new FakeTransport("RioTransport"); };
-            return BrokerSample.SampleTransportSelector.Select(mode, listenAddressFamily, probe, createSaea, createRio);
+            return SelectWithCapabilities(
+                mode,
+                status,
+                IoUringCapabilityStatus.Unavailable,
+                listenAddressFamily,
+                new SelectorCallCounts());
         }
 
-        private static BrokerSample.SampleTransportSelection SelectFull(
+        private static BrokerSample.SampleTransportSelection SelectWithCapabilities(
             BrokerSample.SampleTransportMode mode,
             RioCapabilityStatus rioStatus,
             IoUringCapabilityStatus ioUringStatus,
             AddressFamily listenAddressFamily,
             SelectorCallCounts calls)
         {
-            MethodInfo? selectMethod = typeof(BrokerSample.SampleTransportSelector)
-                .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .SingleOrDefault(method => method.Name == "Select" && method.GetParameters().Length == 7);
-            Assert.NotNull(selectMethod);
-
             Func<RioCapabilityStatus> getRioStatus = delegate
             {
                 calls.RioProbeCount++;
@@ -291,18 +272,14 @@ namespace Hps.Sample.BrokerServer.Tests
                 return new FakeTransport("IoUringTransport");
             };
 
-            return (BrokerSample.SampleTransportSelection)selectMethod!.Invoke(
-                null,
-                new object[]
-                {
-                    mode,
-                    listenAddressFamily,
-                    getRioStatus,
-                    getIoUringStatus,
-                    createSaea,
-                    createRio,
-                    createIoUring
-                })!;
+            return BrokerSample.SampleTransportSelector.Select(
+                mode,
+                listenAddressFamily,
+                getRioStatus,
+                getIoUringStatus,
+                createSaea,
+                createRio,
+                createIoUring);
         }
 
         private sealed class SelectorCallCounts

@@ -29,7 +29,9 @@
 
 ## Current Scope Boundary
 
-- D237 legacy selector overload test는 구현하지 않는다. 먼저 overload 자체가 필요한지 검토한다.
+- D233/D234의 4/5-argument selector source-compatibility 하위 결정은 저장소 내부 호출 부재를 확인한 뒤 superseded됐다.
+- D237 legacy selector overload test 제안은 해당 overload 제거로 종료됐다.
+- Sample Broker transport 선택은 public `Select` 하나를 사용하며 tests도 같은 production entry를 직접 호출한다.
 - native backend의 resource owner 분리는 유지한다. 현재 과엔지니어링 정리 대상은 상태 문서, sample compatibility layer,
   private reflection readiness, benchmark/report 책임 혼합이다.
 

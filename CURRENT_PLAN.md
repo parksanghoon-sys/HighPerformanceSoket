@@ -19,20 +19,23 @@
 
 - 2026-07-10 상태 문서 압축 전 원문을 `docs/agent-state/snapshots/2026-07-10-pre-compaction/`에 보존했다.
 - `CURRENT_PLAN.md`, `TODOS.md`, `CHANGELOG_AGENT.md`, `DECISIONS.md`는 현재 진입점만 남기도록 압축했다.
-- D237 legacy selector overload test는 현재 동작 결함이 아니며, 불필요한 public overload를 더 고정할 수 있어 실행 목록에서 내렸다.
+- Sample Broker selector의 사용되지 않는 4/5-argument overload와 전용 fallback helper를 제거했다.
+- selector 정책 테스트는 실제 7-argument production entry를 직접 사용하며 public `Select`는 하나만 남았다.
+- D237 legacy overload test 제안은 overload 제거로 종료됐다.
 
 ## 다음 단일 작업 단위
 
-### Sample Broker selector surface 단순화
+### 구독 준비 상태의 private reflection 제거 방향 확정
 
-- 목적: executable sample의 source compatibility를 public library처럼 보호하는 비용을 제거한다.
+- 목적: Dashboard와 Benchmark의 TCP/UDP 네 경로가 `BrokerServer._subscriptions`를 직접 읽는 중복 우회를 제거한다.
 - 확인 범위:
-  - `samples/Hps.Sample.BrokerServer/SampleTransportSelector.cs`
-  - `samples/Hps.Sample.BrokerServer/Program.cs`
-  - `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`
-- 먼저 실제 호출과 테스트 참조를 확인해 production entry 하나와 필요한 test seam 하나로 줄일 수 있는지 판단한다.
-- 제거 가능한 4/5-argument overload가 확인되면 별도 TDD 구현 단위로 전환한다.
-- public 동작인 `saea`, `rio`, `auto`, `iouring` 선택 결과와 explicit fail-closed 의미는 바꾸지 않는다.
+  - `samples/Hps.Sample.Dashboard/Services/TcpSmokeTestService.cs`
+  - `samples/Hps.Sample.Dashboard/Services/UdpSmokeTestService.cs`
+  - `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`
+  - `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`
+- 먼저 readiness가 실제 client-visible protocol 요구인지 test orchestration 요구인지 구분한다.
+- 제품 요구면 SUBSCRIBE ACK, 내부 검증 요구면 단일 internal diagnostics seam 중 하나만 선택한다.
+- 설계 선택 전에는 protocol과 server에 병렬 readiness API를 추가하지 않는다.
 
 ## 최신 검증 기준선
 
@@ -40,12 +43,13 @@
 - D236 remote gate: io_uring TRX total/executed/passed 88, 실패/오류/timeout 0.
 - native evidence: capability `Available`, registered payload registration과 TCP send loopback 통과,
   `registered payload fixed send path: hit` 확인.
+- selector 단순화: 구조 Red가 public `Select` 3개를 검출했고, Green 후 selector tests 13/13,
+  Sample Broker tests 25/25, solution build 경고 0/오류 0, solution tests 510/510이다.
 
 ## 다음 후보
 
-1. 네 곳의 private `_subscriptions` reflection readiness 확인을 하나의 명시적 계약으로 교체한다.
-2. benchmark 실행과 artifact/history 분석 책임을 별도 도구 경계로 분리할지 설계한다.
-3. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
+1. benchmark 실행과 artifact/history 분석 책임을 별도 도구 경계로 분리할지 설계한다.
+2. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
 
 ## 이번 범위 밖
 
@@ -54,6 +58,7 @@
 - end-to-end zero-copy 주장
 - latency warning의 hard gate 전환
 - benchmark report 기능 추가
+- readiness 계약 선택 전 protocol/server 동시 구현
 
 ## Archive
 
