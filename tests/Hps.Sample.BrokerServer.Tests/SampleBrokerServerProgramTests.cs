@@ -17,7 +17,7 @@ namespace Hps.Sample.BrokerServer.Tests
                 new[] { "127.0.0.1", "5000", "65536", "--transport" });
 
             Assert.Equal(2, result.Item1);
-            Assert.Contains("--transport <saea|rio|auto>", result.Item2);
+            Assert.Contains("--transport <saea|rio|iouring|auto>", result.Item2);
         }
 
         // unknown transport 는 fallback 하지 않고 usage error 로 끝난다.
@@ -28,7 +28,7 @@ namespace Hps.Sample.BrokerServer.Tests
                 new[] { "127.0.0.1", "5000", "65536", "--transport", "fast" });
 
             Assert.Equal(2, result.Item1);
-            Assert.Contains("--transport <saea|rio|auto>", result.Item2);
+            Assert.Contains("--transport <saea|rio|iouring|auto>", result.Item2);
         }
 
         private static async Task<Tuple<int, string>> InvokeMainWithCapturedErrorAsync(string[] args)

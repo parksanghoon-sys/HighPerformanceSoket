@@ -39,8 +39,10 @@ namespace Hps.Sample.BrokerServer
                 parsedCommandLine.TransportMode,
                 address.AddressFamily,
                 RioCapabilityProbe.GetStatus,
+                IoUringCapabilityProbe.GetStatus,
                 delegate { return new SaeaTransport(); },
-                delegate { return new RioTransport(); });
+                delegate { return new RioTransport(); },
+                delegate { return new IoUringTransport(); });
 
             if (!selection.Succeeded)
             {
@@ -124,9 +126,10 @@ namespace Hps.Sample.BrokerServer
 
         private static void PrintUsage()
         {
-            Console.Error.WriteLine("사용법: Hps.Sample.BrokerServer <host> <port> <max-frame-bytes> [--transport <saea|rio|auto>]");
+            Console.Error.WriteLine("사용법: Hps.Sample.BrokerServer <host> <port> <max-frame-bytes> [--transport <saea|rio|iouring|auto>]");
             Console.Error.WriteLine("예시: Hps.Sample.BrokerServer 127.0.0.1 5000 65536");
             Console.Error.WriteLine("예시: Hps.Sample.BrokerServer 127.0.0.1 5000 65536 --transport auto");
+            Console.Error.WriteLine("예시: Hps.Sample.BrokerServer 127.0.0.1 5000 65536 --transport iouring");
         }
     }
 }
