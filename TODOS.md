@@ -9,15 +9,27 @@
 
 ## Current TODOs
 
-- [ ] D228 사용자가 Interface Server 사용 가이드를 검토한다.
-  - 입력: `docs/examples/interface-server-usage.md`.
-  - 할 일: 실제 실행 명령, TCP/UDP wire protocol, 직접 `BrokerServer` embedding 예제,
-    stable identity / UDP lease sweep 선택 기능 설명이 현재 사용 의도와 맞는지 검토한다.
-  - 확인할 것: 이 문서는 현재 구현된 public 사용 경로만 설명하며,
-    아직 설계 단계인 production TCP payload `WRITE_FIXED` / io_uring registered payload pool 을 사용 옵션처럼 노출하지 않는다.
-  - 제외: 검토 전 추가 샘플 CLI, UDP 전용 CLI, production fixed-write 구현.
+현재 사용자 우선순위 선택 전에 바로 실행할 항목은 없다.
 
 ## Deferred Backlog
+
+- [ ] `P1_SOON` D233 io_uring opt-in을 sample broker CLI에 노출할지 다음 설계 우선순위로 결정한다.
+  - 무엇이 남았는지: `IoUringTransport`는 public opt-in이고 D231에서 native TCP registered payload hit가 확인됐지만,
+    `Hps.Sample.BrokerServer`의 `--transport` 값은 아직 `saea|rio|auto`만 지원한다.
+  - 왜 defer 되었는지: explicit `iouring` mode만 추가하는 사용성 작업과 registered payload 성능 benchmark 중
+    어느 쪽을 먼저 할지는 제품 사용성 대 성능 증거의 우선순위 선택이다.
+  - objective: 사용자가 Linux에서 sample broker로 io_uring 경로를 직접 실행할 수 있게 할지,
+    또는 먼저 benchmark로 fixed payload 경로의 효과를 정량화할지 결정한다.
+  - relevant context: D231, D232, `docs/examples/interface-server-usage.md`,
+    `samples/Hps.Sample.BrokerServer/SampleTransportSelector.cs`, `PLAN.md` Phase 6.
+  - 관련 파일/범위: sample broker parser/mode/selector/program/project와 tests,
+    또는 `tests/Hps.Benchmarks` io_uring TCP benchmark path.
+  - 현재 상태: direct embedding은 `IoUringCapabilityProbe` + `IoUringTransport`로 가능하고,
+    sample `auto`는 RIO/SAEA 선택 의미를 유지한다.
+  - known blockers/open questions: explicit mode만 추가할지, Linux에서 `auto` 의미도 바꿀지,
+    CLI 사용성보다 benchmark evidence를 먼저 모을지.
+  - 가장 자연스러운 next step: 사용자가 우선순위를 선택한다.
+    권장안은 default/`auto` 의미를 유지하면서 explicit `--transport iouring` 설계를 먼저 작성하는 것이다.
 
 - [ ] `P2_LATER` RIO full IPv6 지원은 default promotion scope 가 다시 열릴 때 별도 설계로 판단한다.
   - 무엇이 남았는지: RIO backend 는 D122 기준 TCP/UDP 모두 현재 IPv4 `IPEndPoint` 전용이다.
@@ -49,6 +61,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D232 Interface Server 사용 가이드를 현재 구현과 교차검증하고 보정했다.
+  - 범위: `docs/examples/interface-server-usage.md`, sample broker/publisher/subscriber,
+    `BrokerServer`, TCP/UDP command decoder/handler, stable identity, UDP lease sweep,
+    `IoUringTransport` public opt-in 경계.
+  - 수정: source project reference와 Linux io_uring capability probe/direct injection 예제를 추가하고,
+    registered payload/`WRITE_FIXED`를 아직 설계 단계라고 하던 stale 문구를 D231 상태로 갱신했다.
+  - 검증: sample broker/publisher/subscriber build 경고 0/오류 0,
+    loopback TCP `SUBSCRIBE alpha` -> `PUBLISH alpha hello interface server` fan-out 직접 확인.
+  - 검증: Sample Broker 17개, Server 28개, Protocol 45개, Dashboard 13개,
+    io_uring capability/TCP/UDP focused 17개 테스트가 각각 통과했다.
+  - 비고: io_uring은 direct opt-in으로 설명하며 sample/default backend 승격이나 zero-copy 달성으로 표현하지 않는다.
 
 - [x] D231 registered payload pool 원격 Linux contract gate 를 완료했다.
   - 범위: GitHub Actions run `29060060124`, head SHA `9b75c735b9ec677ec5769c94015873ac64132e37`,
@@ -93,8 +117,8 @@
   - 결과: 사용자가 broker server 를 실행하고 subscriber/publisher 를 붙이는 절차와
     애플리케이션 코드에서 `BrokerServer`를 직접 호스팅하는 예제를 문서화했다.
   - 산출물: `docs/examples/interface-server-usage.md`.
-  - 비고: 아직 설계 단계인 io_uring registered payload pool / production TCP payload `WRITE_FIXED`는
-    일반 사용 옵션으로 노출하지 않는다고 명시했다.
+  - 비고: D231 이전 작성 시점에는 io_uring registered payload pool / production TCP payload `WRITE_FIXED`를
+    일반 사용 옵션으로 노출하지 않았고, D232에서 direct opt-in 기준으로 현재화했다.
 
 - [x] D226 queue-scoped registered payload pool 설계를 작성했다.
   - 범위: D225 후속 범위 설계, `PinnedBlockMemoryPool`, `RefCountedBuffer`,

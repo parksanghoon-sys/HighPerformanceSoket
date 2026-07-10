@@ -9,8 +9,10 @@
 - WPF dashboard 로 TCP/UDP smoke 와 transport diagnostics 를 확인한다.
 - 애플리케이션 코드에서 `BrokerServer`를 직접 만들고 `StartTcpAsync` / `StartUdpAsync`로 endpoint 를 연다.
 
-`io_uring` registered payload pool 과 production TCP payload `WRITE_FIXED` 연결은 아직 설계 단계다.
-따라서 애플리케이션 사용자는 지금 별도 `io_uring` fixed-write 옵션을 켜지 않는다.
+`io_uring` registered payload pool 과 TCP payload `WRITE_FIXED` 경로는 구현됐고,
+Linux 원격 계약 테스트에서 실제 fixed payload hit까지 확인됐다.
+이 경로는 별도 fixed-write 옵션이 아니라 `BrokerServer`에 `IoUringTransport`를 주입하면 내부적으로 선택된다.
+다만 기본 transport와 sample broker CLI는 아직 SAEA/RIO만 선택하므로, Linux에서 사용하려면 아래 opt-in 경로를 명시적으로 사용한다.
 
 ## 1. 빠른 실행: TCP broker + subscriber + publisher
 
@@ -89,6 +91,18 @@ dotnet run --project samples\Hps.Sample.Dashboard\Hps.Sample.Dashboard.csproj
 
 외부 source 시스템과 같은 process 안에 Interface Server 를 붙일 때는 `BrokerServer`를 직접 만든다.
 
+현재 repository source project를 직접 참조하는 host라면 project 위치에 맞춰 다음 참조를 추가한다.
+
+```xml
+<ItemGroup>
+  <ProjectReference Include="..\..\src\Hps.Buffers\Hps.Buffers.csproj" />
+  <ProjectReference Include="..\..\src\Hps.Server\Hps.Server.csproj" />
+  <ProjectReference Include="..\..\src\Hps.Transport\Hps.Transport.csproj" />
+</ItemGroup>
+```
+
+아래 기본 예제는 크로스플랫폼 기준선인 `SaeaTransport`로 TCP와 UDP endpoint를 함께 연다.
+
 ```csharp
 using System;
 using System.Net;
@@ -133,6 +147,47 @@ namespace MyInterfaceServerHost
 - broker 가 받을 TCP/UDP endpoint 를 연다.
 - 외부 시스템은 TCP frame 또는 UDP datagram 으로 `SUBSCRIBE` / `PUBLISH` command 를 보낸다.
 - 서버 종료 시 `StopAsync` 또는 `Dispose` 경로를 지나 listener, endpoint, send queue, buffer ref 를 정리한다.
+
+### 3-1. Linux io_uring을 명시적으로 사용
+
+Linux에서 `io_uring` backend를 직접 사용하려면 host project에 다음 참조도 추가한다.
+
+```xml
+<ProjectReference Include="..\..\src\Hps.Transport.IoUring\Hps.Transport.IoUring.csproj" />
+```
+
+그다음 transport 생성 부분을 capability probe 기반으로 선택한다.
+
+```csharp
+ITransport transport;
+IoUringCapabilityStatus status = IoUringCapabilityProbe.GetStatus();
+
+if (status == IoUringCapabilityStatus.Available)
+    transport = new IoUringTransport();
+else
+    transport = new SaeaTransport();
+
+using (transport)
+{
+    PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(maxPayloadBytes);
+
+    using (BrokerServer server = new BrokerServer(transport, pool, maxPayloadBytes))
+    {
+        await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 5000)).ConfigureAwait(false);
+        await server.StartUdpAsync(new IPEndPoint(IPAddress.Loopback, 5001)).ConfigureAwait(false);
+
+        Console.ReadLine();
+        await server.StopAsync().ConfigureAwait(false);
+    }
+}
+```
+
+`IoUringTransport`를 주입한 TCP host는 `BrokerServer`의 backend-neutral payload source provider 경계를 통해
+registered payload block을 우선 사용한다. registered slot이 가득 찬 경우에는 기존 pinned pool로 fallback하며,
+send 시 registered block hit이면 `WRITE_FIXED`를 먼저 시도한다.
+
+`TransportFactory.CreateDefault()`는 여전히 `SaeaTransport`를 반환한다.
+따라서 `io_uring` 사용 여부와 capability unavailable 시 fallback 정책은 host 조립 계층에서 명시적으로 결정해야 한다.
 
 ## 4. TCP wire protocol
 
@@ -271,6 +326,8 @@ BrokerServerOptions options =
 
 - TLS, 인증, persistence, replay, clustering 은 아직 제공하지 않는다.
 - UDP 신뢰성, 순서 보장, 혼잡 제어는 범위 밖이다.
-- Linux `io_uring` backend 는 contract/benchmark evidence 를 쌓는 중이며, 일반 sample host default 로 승격하지 않았다.
-- production TCP payload `WRITE_FIXED` 경로는 아직 설계/구현 중이다.
-  현재 애플리케이션 사용자는 SAEA 기준선 또는 명시적 RIO sample selector 를 사용한다.
+- Linux `io_uring` backend 는 TCP/UDP opt-in public transport로 사용할 수 있지만,
+  일반 sample broker CLI나 `TransportFactory.CreateDefault()`의 기본 backend로 승격하지 않았다.
+- io_uring TCP registered payload의 `WRITE_FIXED` hit는 Linux 계약 테스트로 확인됐지만,
+  TCP receive chunk에서 owned publish payload block으로 옮기는 1회 복사는 유지된다.
+  따라서 이 결과를 end-to-end zero-copy 달성이나 latency hard gate 통과로 해석하지 않는다.

@@ -12,8 +12,9 @@ namespace Hps.Transport
     /// <summary>
     /// Linux io_uring 기반 opt-in transport root다.
     ///
-    /// Phase 6의 TCP-first 단계에서는 listen/connect/accept control plane은 .NET Socket을 사용하고,
-    /// accepted/connected socket의 data plane을 후속 task에서 io_uring SQE/CQE pump로 연결한다.
+    /// listen/connect/accept control plane은 .NET Socket을 사용하고, accepted/connected socket의
+    /// receive/send data plane은 io_uring SQE/CQE pump로 처리한다. TCP frame payload는 queue에 등록된
+    /// block source를 우선 사용하며, registered hit이면 WRITE_FIXED를 먼저 시도하고 miss이면 기준 send로 fallback한다.
     /// 기본 backend 승격은 하지 않으며, unsupported OS에서는 명시적 NotSupportedException으로 수렴한다.
     /// </summary>
     public sealed class IoUringTransport : TransportBase, ITransportEndpointDiagnostics, ITransportPayloadBufferSourceProvider

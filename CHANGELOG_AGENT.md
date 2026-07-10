@@ -5,6 +5,33 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-10 (Codex - D232 Interface Server usage guide cross-verification)
+
+### 작업 단위
+- D228 사용 가이드를 실제 public API, sample CLI, protocol handler와 실행 결과에 대조했다.
+
+### 발견 및 수정
+- guide가 io_uring registered payload pool과 TCP `WRITE_FIXED`를 아직 설계 단계라고 설명하는 stale 상태를 확인했다.
+- `docs/examples/interface-server-usage.md`에 source project reference와
+  `IoUringCapabilityProbe` 기반 direct `IoUringTransport` 주입 예제를 추가했다.
+- io_uring fixed payload 경로는 별도 사용자 toggle이 아니라 transport provider 내부 경로이며,
+  registered slot miss는 pinned pool fallback이라는 점을 명시했다.
+- sample broker CLI와 `TransportFactory.CreateDefault()`는 여전히 io_uring을 자동 선택하지 않으며,
+  zero-copy/default promotion/latency hard gate 근거가 아니라는 경계를 유지했다.
+- `IoUringTransport` public XML summary의 오래된 “data plane 후속 task” 설명을 현재 receive/send pump 상태로 갱신했다.
+
+### 검증
+- sample broker, publisher, subscriber project build: 각각 경고 0, 오류 0.
+- 실제 loopback smoke: broker `127.0.0.1:50214`, subscriber `alpha`,
+  publisher payload `hello interface server` fan-out 확인.
+- Sample Broker tests 17개, Server tests 28개, Protocol tests 45개,
+  Dashboard tests 13개, io_uring capability/TCP/UDP focused tests 17개 통과.
+
+### 다음
+- current executable TODO는 비었다.
+- D233으로 explicit sample `--transport iouring` 사용성 설계와 registered payload benchmark 중
+  다음 우선순위를 사용자 선택 지점으로 남겼다.
+
 ## 2026-07-10 (Codex - D231 registered payload pool remote Linux gate)
 
 ### 작업 단위

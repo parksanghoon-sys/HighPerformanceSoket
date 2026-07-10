@@ -317,8 +317,8 @@ Phase 6 — Linux io_uring backend boundary 및 native wrapper 설계.
   사용 가이드는 `docs/examples/interface-server-usage.md`에 있으며,
   샘플 broker server 실행, TCP subscriber/publisher, WPF dashboard, 직접 `BrokerServer` embedding,
   TCP/UDP wire protocol, stable identity, UDP lease sweep, 현재 제한을 다룬다.
-  production TCP payload `WRITE_FIXED` / io_uring registered payload pool 은 아직 설계 단계이므로
-  사용자 옵션으로 설명하지 않는다.
+  D231 이후 io_uring registered payload pool / TCP `WRITE_FIXED`는 direct `IoUringTransport` opt-in 경로로 설명하되,
+  별도 fixed-write option이나 sample/default backend 승격으로 표현하지 않는다.
   다음 실행 지점은 사용자가 사용 가이드를 검토하는 것이다.
 - D229 기준 D226 registered payload pool 설계를 구현 가능한 TDD 계획으로 쪼갰다.
   구현 계획은 `docs/superpowers/plans/2026-07-09-iouring-registered-payload-pool.md`에 있다.
@@ -2208,8 +2208,13 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   stdout 에 `registered payload fixed send path: hit`가 남았다.
   이 evidence 는 production TCP publish payload 가 registered block hit 때 `WRITE_FIXED` 경로를 실제 사용했음을 증명하지만,
   zero-copy 달성, default backend promotion, latency hard gate 근거로 확대하지 않는다.
-- 다음 실행 지점: 사용자가 `docs/examples/interface-server-usage.md`의 실행 명령, wire protocol,
-  embedding 예제와 선택 기능 설명을 검토한다(D228).
+- D232 기준 `docs/examples/interface-server-usage.md`를 실제 코드와 실행 경로에 대조했다.
+  sample broker/subscriber/publisher TCP fan-out을 loopback에서 직접 재현했고,
+  CLI/Server/Protocol/Dashboard 및 io_uring public opt-in 관련 focused tests가 통과했다.
+  가이드에는 source project reference, `IoUringCapabilityProbe` 기반 direct transport 주입,
+  registered hit/fallback 동작과 zero-copy/default 승격 제외 범위를 반영했다.
+- 다음 실행 지점: sample broker에 명시적 `--transport iouring`을 추가하는 사용성 단위와
+  registered payload 경로의 성능 benchmark 단위 중 무엇을 먼저 설계할지 사용자가 우선순위를 정한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
