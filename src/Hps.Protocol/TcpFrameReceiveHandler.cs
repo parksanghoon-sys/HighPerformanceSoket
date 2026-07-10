@@ -16,7 +16,7 @@ namespace Hps.Protocol
     public sealed class TcpFrameReceiveHandler : ITransportReceiveHandler
     {
         private readonly object _gate;
-        private readonly PinnedBlockMemoryPool _pool;
+        private readonly IRefCountedBufferSource _source;
         private readonly int _maxPayloadLength;
         private readonly ITcpFrameHandler _frameHandler;
         private readonly Dictionary<IConnection, TcpFrameAssembler> _assemblers;
@@ -29,18 +29,29 @@ namespace Hps.Protocol
         /// 이 제한이 있어야 frame 하나가 `RefCountedBuffer` 하나에 들어가고, D009/D010의 소유권 단위가 유지된다.
         /// </summary>
         public TcpFrameReceiveHandler(PinnedBlockMemoryPool pool, int maxPayloadLength, ITcpFrameHandler frameHandler)
+            : this((IRefCountedBufferSource)pool, maxPayloadLength, frameHandler)
         {
-            if (pool == null)
-                throw new ArgumentNullException(nameof(pool));
+        }
+
+        /// <summary>
+        /// frame payload source, 최대 payload 길이, 완성 frame 수신자를 지정한다.
+        ///
+        /// source 계약을 사용하면 기본 pinned pool 뿐 아니라 transport backend 가 제공하는 registered payload source 도
+        /// 같은 receive handler 경로에서 사용할 수 있다.
+        /// </summary>
+        public TcpFrameReceiveHandler(IRefCountedBufferSource source, int maxPayloadLength, ITcpFrameHandler frameHandler)
+        {
+            if (source == null)
+                throw new ArgumentNullException(nameof(source));
             if (frameHandler == null)
                 throw new ArgumentNullException(nameof(frameHandler));
             if (maxPayloadLength < 0)
                 throw new ArgumentOutOfRangeException(nameof(maxPayloadLength));
-            if (maxPayloadLength > pool.BlockSize)
-                throw new ArgumentOutOfRangeException(nameof(maxPayloadLength), "최대 payload 길이는 풀 블록 크기를 넘을 수 없다.");
+            if (maxPayloadLength > source.BlockSize)
+                throw new ArgumentOutOfRangeException(nameof(maxPayloadLength), "최대 payload 길이는 source 블록 크기를 넘을 수 없다.");
 
             _gate = new object();
-            _pool = pool;
+            _source = source;
             _maxPayloadLength = maxPayloadLength;
             _frameHandler = frameHandler;
             _assemblers = new Dictionary<IConnection, TcpFrameAssembler>();
@@ -107,7 +118,7 @@ namespace Hps.Protocol
                 if (_assemblers.TryGetValue(connection, out assembler))
                     return assembler;
 
-                assembler = new TcpFrameAssembler(_pool, _maxPayloadLength);
+                assembler = new TcpFrameAssembler(_source, _maxPayloadLength);
                 _assemblers.Add(connection, assembler);
                 return assembler;
             }

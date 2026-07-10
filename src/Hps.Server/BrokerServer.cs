@@ -27,7 +27,6 @@ namespace Hps.Server
         private readonly BrokerPublisher _publisher;
         private readonly BrokerTcpFrameHandler _brokerFrameHandler;
         private readonly BrokerUdpDatagramHandler _brokerDatagramHandler;
-        private readonly TcpFrameReceiveHandler _receiveHandler;
         private IConnectionListener? _tcpListener;
         private IUdpEndpoint? _udpEndpoint;
         private ITimer? _udpLeaseSweepTimer;
@@ -90,7 +89,6 @@ namespace Hps.Server
                 CreateUdpLeaseOptions(_options),
                 _options.TimeProvider,
                 _subscriberRegistry);
-            _receiveHandler = new TcpFrameReceiveHandler(_pool, _maxPayloadLength, _brokerFrameHandler);
         }
 
         /// <summary>
@@ -130,10 +128,10 @@ namespace Hps.Server
 
             try
             {
-                _transport.SetReceiveHandler(_receiveHandler);
                 if (shouldStartTransport)
                     await _transport.StartAsync(cancellationToken).ConfigureAwait(false);
 
+                _transport.SetReceiveHandler(CreateTcpReceiveHandler());
                 listener = await _transport.ListenTcpAsync(localEndPoint, cancellationToken).ConfigureAwait(false);
                 acceptLoopCancellation = new CancellationTokenSource();
                 acceptLoopTask = Task.Run(() => AcceptLoopAsync(listener, acceptLoopCancellation.Token));
@@ -373,6 +371,16 @@ namespace Hps.Server
                 return UdpLeaseOptions.Disabled;
 
             return UdpLeaseOptions.CreateEnabled(options.UdpLeaseIdleTimeout, options.UdpLeaseSweepInterval);
+        }
+
+        private TcpFrameReceiveHandler CreateTcpReceiveHandler()
+        {
+            IRefCountedBufferSource source = _pool;
+            ITransportPayloadBufferSourceProvider? provider = _transport as ITransportPayloadBufferSourceProvider;
+            if (provider != null)
+                source = provider.CreateTcpPayloadBufferSource(_pool);
+
+            return new TcpFrameReceiveHandler(source, _maxPayloadLength, _brokerFrameHandler);
         }
 
         private ITimer? CreateUdpLeaseSweepTimer()

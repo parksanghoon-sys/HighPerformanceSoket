@@ -44,6 +44,22 @@ namespace Hps.Server.Tests
             Assert.Equal(typeof(ValueTask), GetPublicMethod(serverType, "StartUdpAsync").ReturnType);
         }
 
+        // transport payload source provider shape 테스트: Server 가 IoUringTransport concrete type 을 알면 backend 경계가 깨진다.
+        // transport 가 optional provider 계약을 구현하고 Server 는 그 계약만 보도록 먼저 public seam 을 고정한다.
+        [Fact]
+        public void TransportPayloadBufferSourceProvider_WhenInspected_ExposesTcpPayloadSourceContract()
+        {
+            Type? providerType = Type.GetType("Hps.Transport.ITransportPayloadBufferSourceProvider, Hps.Transport", throwOnError: false);
+
+            Assert.NotNull(providerType);
+            Assert.NotNull(providerType!.GetMethod(
+                "CreateTcpPayloadBufferSource",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                new Type[] { typeof(PinnedBlockMemoryPool) },
+                null));
+        }
+
         // 서버 wiring 테스트: Server 계층은 Protocol/Broker 를 우회한 별도 흐름을 만들지 않고,
         // Transport 에 TcpFrameReceiveHandler 를 등록한 뒤 listen 과 accept 대기를 시작해야 실제 TCP command 가 들어올 수 있다.
         [Fact]
@@ -63,6 +79,24 @@ namespace Hps.Server.Tests
                 Assert.Same(transport.Listener!.LocalEndPoint, server.LocalEndPoint);
                 await transport.Listener.WaitForAcceptCallAsync();
             }
+        }
+
+        // transport payload source provider 테스트: Server 가 IoUringTransport concrete type 을 몰라도
+        // transport 의 optional provider 계약을 통해 TCP receive handler source 를 받아 사용해야 한다.
+        [Fact]
+        public async Task StartTcpAsync_WhenTransportProvidesPayloadSource_UsesProvidedSourceForTcpFrames()
+        {
+            ProviderTransport transport = new ProviderTransport();
+            PinnedBlockMemoryPool fallbackPool = new PinnedBlockMemoryPool(16);
+
+            using (BrokerServer server = new BrokerServer(transport, fallbackPool, 8))
+            {
+                await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                await transport.Listener!.WaitForAcceptCallAsync();
+            }
+
+            Assert.Equal(1, transport.SourceRequestCount);
+            Assert.Same(fallbackPool, transport.FallbackPool);
         }
 
         // UDP wiring 테스트: Server 는 Transport 에 BrokerUdpDatagramHandler 를 등록하고 UDP endpoint 를 bind 해야
@@ -1018,7 +1052,7 @@ namespace Hps.Server.Tests
             }
         }
 
-        private sealed class FakeTransport : ITransport
+        private class FakeTransport : ITransport
         {
             internal int SetReceiveHandlerCallCount { get; private set; }
 
@@ -1095,6 +1129,20 @@ namespace Hps.Server.Tests
 
             public void Dispose()
             {
+            }
+        }
+
+        private sealed class ProviderTransport : FakeTransport, ITransportPayloadBufferSourceProvider
+        {
+            internal int SourceRequestCount { get; private set; }
+
+            internal PinnedBlockMemoryPool? FallbackPool { get; private set; }
+
+            public IRefCountedBufferSource CreateTcpPayloadBufferSource(PinnedBlockMemoryPool fallbackPool)
+            {
+                SourceRequestCount++;
+                FallbackPool = fallbackPool;
+                return fallbackPool;
             }
         }
 
