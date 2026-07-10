@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-10 (Codex - D231 registered payload pool remote Linux gate)
+
+### 작업 단위
+- D230 registered payload pool 구현을 원격 Linux `io_uring` 계약 artifact 로 검증했다.
+
+### 검증 내용
+- `gh workflow run iouring-linux-contract.yml --ref master`로 run `29060060124`를 실행했다.
+- workflow/job conclusion 은 success 이고 head SHA 는 `9b75c735b9ec677ec5769c94015873ac64132e37`이다.
+- artifact `iouring-linux-contract-2026-07-10-github-29060060124-1`를 내려받아
+  `summary.md`, `iouring-tests.trx`, `vstest-diag.log`, host/datacollector log 를 확인했다.
+- summary test exit code 는 0이고 TRX counters 는 total/executed/passed 88,
+  failed/error/timeout/aborted/notExecuted 0이다.
+- Linux capability 는 `Available`이었고
+  `Create_WhenLinuxCapabilityAvailable_RegistersAllPayloadBlocks`와
+  `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`가 Passed 다.
+- TRX stdout 에 `registered payload fixed send path: hit`가 남아
+  production TCP publish payload의 registered pool hit가 실제 `WRITE_FIXED` 경로를 사용했음을 확인했다.
+
+### 범위 판단
+- 이 gate 는 registered payload pool native registration과 TCP fixed payload send hit를 닫는다.
+- TCP receive에서 owned payload block으로 옮기는 1회 복사는 계속 존재하므로 zero-copy 달성으로 표현하지 않는다.
+- default backend promotion과 latency hard gate는 별도 evidence/결정 없이는 열지 않는다.
+- 다음 실행 지점은 D228 Interface Server 사용 가이드 사용자 검토다.
+
 ## 2026-07-10 (Codex - D230 registered payload pool local gate)
 
 ### 작업 단위

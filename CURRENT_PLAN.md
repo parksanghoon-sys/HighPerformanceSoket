@@ -2200,10 +2200,16 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   로컬 검증은 solution build 경고 0/오류 0, solution tests 502개 통과, `git diff --check` 통과다.
   Windows/local 에서는 Linux native fixed payload hit 를 직접 증명하지 못하므로,
   production TCP payload `WRITE_FIXED` 성공 주장은 push 이후 `iouring-linux-contract.yml` artifact 에서 확인한다.
-- 다음 실행 지점: 사용자 push 이후 `iouring-linux-contract.yml`을 실행하고 artifact/TRX/stdout 에서
-  `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`, registered payload native registration,
-  `registered payload fixed send path: hit` evidence 를 검토한다.
-  remote gate 전까지 zero-copy send, default backend promotion, latency hard gate 는 열지 않는다.
+- D231 기준 D230 구현은 원격 `iouring-linux-contract.yml` run `29060060124`에서 Linux native gate 를 통과했다.
+  workflow/job conclusion 은 success 이고 head SHA 는 `9b75c735b9ec677ec5769c94015873ac64132e37`이다.
+  artifact `iouring-linux-contract-2026-07-10-github-29060060124-1`의 TRX counters 는
+  total/executed/passed 88, failed/error/timeout/aborted/notExecuted 0이다.
+  capability 는 `Available`이었고 registered payload native registration test 와 TCP send loopback test 가 통과했으며,
+  stdout 에 `registered payload fixed send path: hit`가 남았다.
+  이 evidence 는 production TCP publish payload 가 registered block hit 때 `WRITE_FIXED` 경로를 실제 사용했음을 증명하지만,
+  zero-copy 달성, default backend promotion, latency hard gate 근거로 확대하지 않는다.
+- 다음 실행 지점: 사용자가 `docs/examples/interface-server-usage.md`의 실행 명령, wire protocol,
+  embedding 예제와 선택 기능 설명을 검토한다(D228).
 
 ## 이번 작업에서 건드리지 않는 범위
 

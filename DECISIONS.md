@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D231 — registered payload pool remote Linux gate 는 production TCP payload의 native `WRITE_FIXED` hit를 확인했지만 zero-copy/default promotion 근거는 아니다.
 - D230 — registered payload pool local gate 는 통과했지만 Linux native fixed payload hit 는 remote artifact 로 확인한다.
 - D229 — registered payload pool 구현은 `BrokerServer` concrete backend 의존 없이 transport payload source provider seam 으로 연결한다.
 - D226 — production TCP fixed-write 연결 전, TCP-first registered payload pool 설계로 owner/source 경계를 먼저 둔다.

@@ -9,14 +9,6 @@
 
 ## Current TODOs
 
-- [ ] D231 사용자 push 이후 `iouring-linux-contract.yml` remote artifact gate 를 검토한다.
-  - 입력: 이번 local commits, `tests/Hps.Transport.IoUring.Tests`, `.github/workflows/iouring-linux-contract.yml`.
-  - 할 일: workflow/job conclusion, `iouring-tests.trx`, summary/stdout evidence 를 확인한다.
-  - 확인할 것: Linux capability `Available` 상태에서 registered payload native registration test 와
-    `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`가 통과하고,
-    stdout 에 `registered payload fixed send path: hit`가 남는지 검토한다.
-  - 제외: remote gate 전 zero-copy send 주장, default backend promotion, latency hard gate 승격.
-
 - [ ] D228 사용자가 Interface Server 사용 가이드를 검토한다.
   - 입력: `docs/examples/interface-server-usage.md`.
   - 할 일: 실제 실행 명령, TCP/UDP wire protocol, 직접 `BrokerServer` embedding 예제,
@@ -57,6 +49,18 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D231 registered payload pool 원격 Linux contract gate 를 완료했다.
+  - 범위: GitHub Actions run `29060060124`, head SHA `9b75c735b9ec677ec5769c94015873ac64132e37`,
+    artifact `iouring-linux-contract-2026-07-10-github-29060060124-1`.
+  - 결과: workflow/job conclusion success, summary test exit code 0.
+  - evidence: TRX counters total/executed/passed 88, failed/error/timeout/aborted/notExecuted 0.
+  - evidence: `IoUringRegisteredPayloadBlockPoolTests.Create_WhenLinuxCapabilityAvailable_RegistersAllPayloadBlocks` Passed.
+  - evidence: `IoUringTransportTcpTests.TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer` Passed.
+  - evidence: stdout 에 `io_uring capability status: Available`과
+    `registered payload fixed send path: hit`가 남았다.
+  - 비고: production TCP registered payload hit의 실제 `WRITE_FIXED` 사용은 확인했지만,
+    zero-copy 달성, default backend promotion, latency hard gate 승격 근거는 아니다.
 
 - [x] D230 registered payload pool local implementation gate 를 완료했다.
   - 범위: `RefCountedBuffer` owner/source abstraction, `TcpFrameAssembler`/`TcpFrameReceiveHandler` source injection,
