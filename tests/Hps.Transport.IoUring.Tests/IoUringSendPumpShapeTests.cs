@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -51,6 +52,61 @@ namespace Hps.Transport.IoUring.Tests
                 BindingFlags.Instance | BindingFlags.NonPublic);
 
             Assert.NotNull(helper);
+        }
+
+        // fixed payload helper 연결 테스트: helper shape 만 있고 SendInFlightAsync 가 호출하지 않으면
+        // registered payload pool hit 이 production send path 에 반영되지 않는다.
+        [Fact]
+        public void SendInFlightAsync_WhenInspected_CallsFixedRegisteredPayloadHelperBeforeBaselinePayloadSend()
+        {
+            MethodInfo? sendMethod = typeof(IoUringTransport).GetMethod(
+                "SendInFlightAsync",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            MethodInfo? helperMethod = typeof(IoUringTransport).GetMethod(
+                "SendFixedRegisteredPayloadAsync",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(sendMethod);
+            Assert.NotNull(helperMethod);
+
+            Assert.True(ContainsCall(sendMethod!, helperMethod!), "SendInFlightAsync 가 fixed registered payload helper 를 호출해야 합니다.");
+        }
+
+        private static bool ContainsCall(MethodInfo caller, MethodInfo callee)
+        {
+            MethodInfo inspectedCaller = ResolveAsyncMoveNext(caller);
+            MethodBody? body = inspectedCaller.GetMethodBody();
+            Assert.NotNull(body);
+
+            byte[]? il = body!.GetILAsByteArray();
+            Assert.NotNull(il);
+
+            int expectedToken = callee.MetadataToken;
+            for (int index = 0; index <= il!.Length - 5; index++)
+            {
+                byte opCode = il[index];
+                if (opCode != 0x28 && opCode != 0x6F)
+                    continue;
+
+                int token = BitConverter.ToInt32(il, index + 1);
+                if (token == expectedToken)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static MethodInfo ResolveAsyncMoveNext(MethodInfo method)
+        {
+            AsyncStateMachineAttribute? attribute = method.GetCustomAttribute<AsyncStateMachineAttribute>();
+            if (attribute == null)
+                return method;
+
+            MethodInfo? moveNext = attribute.StateMachineType.GetMethod(
+                "MoveNext",
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            Assert.NotNull(moveNext);
+            return moveNext!;
         }
 
         private static void TrackConnectionSendPumpTask(IoUringTransport transport, Task task)

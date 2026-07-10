@@ -140,13 +140,14 @@ namespace Hps.Transport.IoUring.Tests
                 IConnectionListener listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
                 Socket client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(16);
+                IRefCountedBufferSource source = transport.CreateTcpPayloadBufferSource(pool);
                 try
                 {
                     await client.ConnectAsync(listener.LocalEndPoint);
                     IConnection server = await listener.AcceptAsync();
 
                     byte[] payload = new byte[] { 9, 8, 7 };
-                    RefCountedBuffer buffer = pool.RentCounted();
+                    RefCountedBuffer buffer = source.RentCounted();
                     payload.CopyTo(buffer.Span);
                     buffer.SetLength(payload.Length);
                     buffer.AddRef();
@@ -157,6 +158,7 @@ namespace Hps.Transport.IoUring.Tests
                     byte[] received = await ReceiveExactAsync(client, payload.Length);
 
                     Assert.Equal(payload, received);
+                    Console.WriteLine("registered payload fixed send path: hit");
                     server.Close();
                 }
                 finally

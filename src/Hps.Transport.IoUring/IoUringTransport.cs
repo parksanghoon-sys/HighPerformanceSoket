@@ -16,16 +16,18 @@ namespace Hps.Transport
     /// accepted/connected socket의 data plane을 후속 task에서 io_uring SQE/CQE pump로 연결한다.
     /// 기본 backend 승격은 하지 않으며, unsupported OS에서는 명시적 NotSupportedException으로 수렴한다.
     /// </summary>
-    public sealed class IoUringTransport : TransportBase, ITransportEndpointDiagnostics
+    public sealed class IoUringTransport : TransportBase, ITransportEndpointDiagnostics, ITransportPayloadBufferSourceProvider
     {
         private const int ListenBacklog = 512;
         private const uint QueueEntries = 64;
+        private const int RegisteredPayloadSlotCount = 16;
 
         private readonly object _gate;
         private readonly List<IoUringConnectionListener> _listeners;
         private readonly List<TransportConnection> _connections;
         private readonly List<IoUringUdpEndpoint> _udpEndpoints;
         private readonly List<Task> _connectionSendPumpTasks;
+        private readonly List<IoUringRegisteredPayloadBlockPool> _registeredPayloadPools;
         private IoUringQueue? _queue;
         private IoUringOperationRegistry? _operationRegistry;
         private IoUringCompletionLoop? _completionLoop;
@@ -45,6 +47,7 @@ namespace Hps.Transport
             _connections = new List<TransportConnection>();
             _udpEndpoints = new List<IoUringUdpEndpoint>();
             _connectionSendPumpTasks = new List<Task>();
+            _registeredPayloadPools = new List<IoUringRegisteredPayloadBlockPool>();
         }
 
         /// <inheritdoc />
@@ -86,6 +89,30 @@ namespace Hps.Transport
             await WaitForConnectionSendPumpTasksAsync(snapshot.ConnectionSendPumpTasks).ConfigureAwait(false);
             await WaitForTcpInFlightSendsToDrainAsync(snapshot.Connections).ConfigureAwait(false);
             snapshot.DisposeNativeOwners();
+        }
+
+        /// <inheritdoc />
+        public IRefCountedBufferSource CreateTcpPayloadBufferSource(PinnedBlockMemoryPool fallbackPool)
+        {
+            if (fallbackPool == null)
+                throw new ArgumentNullException(nameof(fallbackPool));
+
+            lock (_gate)
+            {
+                if (_queue == null || _stopped)
+                    return fallbackPool;
+
+                // payload pool 은 queue fixed buffer table 에 등록되므로 queue dispose/StopCore 와 경합하면 안 된다.
+                // StartTcpAsync 의 handler 구성 시 한 번 호출되는 경로라 native registration 을 gate 안에서 처리해
+                // 등록된 table 과 transport root 의 수명 경계를 명확히 맞춘다.
+                IoUringRegisteredPayloadBlockPool registeredPool = IoUringRegisteredPayloadBlockPool.Create(
+                    _queue,
+                    fallbackPool.BlockSize,
+                    RegisteredPayloadSlotCount);
+                _registeredPayloadPools.Add(registeredPool);
+
+                return new IoUringCompositePayloadBufferSource(registeredPool, fallbackPool);
+            }
         }
 
         /// <inheritdoc />
@@ -710,6 +737,9 @@ namespace Hps.Transport
             if (sendBuffer.Length == 0)
                 return;
 
+            if (await SendFixedRegisteredPayloadAsync(resource, connection, sendBuffer).ConfigureAwait(false))
+                return;
+
             ArraySegment<byte> segment = GetRefCountedBlockSegment(sendBuffer.Buffer, sendBuffer.Offset, sendBuffer.Length);
             if (segment.Array == null)
                 throw new InvalidOperationException("io_uring TCP send는 pinned byte[] 기반 RefCountedBuffer만 지원합니다.");
@@ -722,6 +752,24 @@ namespace Hps.Transport
             TransportConnection connection,
             TransportSendBuffer sendBuffer)
         {
+            Memory<byte> payloadMemory = sendBuffer.Buffer.Memory.Slice(sendBuffer.Offset, sendBuffer.Length);
+            ArraySegment<byte> payloadSegment = GetRefCountedBlockSegment(sendBuffer.Buffer, sendBuffer.Offset, sendBuffer.Length);
+            if (payloadSegment.Array == null)
+                throw new InvalidOperationException("io_uring TCP send??pinned byte[] 湲곕컲 RefCountedBuffer留?吏?먰빀?덈떎.");
+
+            int registeredPayloadIndex;
+            if (TryGetRegisteredPayloadIndex(payloadMemory, out registeredPayloadIndex))
+            {
+                await SendFixedAsync(
+                    resource,
+                    connection,
+                    payloadSegment.Array,
+                    payloadSegment.Offset,
+                    payloadSegment.Count,
+                    registeredPayloadIndex).ConfigureAwait(false);
+                return true;
+            }
+
             IoUringFixedSendBufferRegistry? registry = resource.FixedSendBufferRegistry;
             if (registry == null)
                 return false;
@@ -730,9 +778,26 @@ namespace Hps.Transport
             if (!registry.TryGetSlot(sendBuffer, out slot))
                 return false;
 
-            int currentOffset = slot.PayloadOffset;
-            int remaining = slot.PayloadLength;
+            await SendFixedAsync(
+                resource,
+                connection,
+                slot.RegisteredArray,
+                slot.PayloadOffset,
+                slot.PayloadLength,
+                slot.BufferIndex).ConfigureAwait(false);
+            return true;
+        }
 
+        private static async Task SendFixedAsync(
+            IoUringTcpConnectionResource resource,
+            TransportConnection connection,
+            byte[] registeredArray,
+            int payloadOffset,
+            int payloadLength,
+            int bufferIndex)
+        {
+            int currentOffset = payloadOffset;
+            int remaining = payloadLength;
             while (remaining != 0)
             {
                 if (connection.IsClosed || resource.IsDisposed)
@@ -744,10 +809,10 @@ namespace Hps.Transport
 
                 bool submitted = resource.Queue.TrySubmitWriteFixed(
                     resource.SocketFileDescriptor,
-                    slot.RegisteredArray,
+                    registeredArray,
                     currentOffset,
                     remaining,
-                    slot.BufferIndex,
+                    bufferIndex,
                     context.Token);
                 if (!submitted)
                     throw new SocketException((int)SocketError.NoBufferSpaceAvailable);
@@ -759,8 +824,24 @@ namespace Hps.Transport
                 currentOffset += completion.Result;
                 remaining -= completion.Result;
             }
+        }
 
-            return true;
+        private bool TryGetRegisteredPayloadIndex(Memory<byte> memory, out int bufferIndex)
+        {
+            IoUringRegisteredPayloadBlockPool[] pools;
+            lock (_gate)
+            {
+                pools = _registeredPayloadPools.ToArray();
+            }
+
+            for (int index = 0; index < pools.Length; index++)
+            {
+                if (pools[index].TryGetBufferIndex(memory, out bufferIndex))
+                    return true;
+            }
+
+            bufferIndex = -1;
+            return false;
         }
 
         private static async Task SendArrayAsync(
@@ -830,6 +911,7 @@ namespace Hps.Transport
             TransportConnection[] connections;
             IoUringUdpEndpoint[] udpEndpoints;
             Task[] connectionSendPumpTasks;
+            IoUringRegisteredPayloadBlockPool[] registeredPayloadPools;
             IoUringCompletionLoop? completionLoop;
             IoUringQueue? queue;
 
@@ -842,10 +924,12 @@ namespace Hps.Transport
                 connections = _connections.ToArray();
                 udpEndpoints = _udpEndpoints.ToArray();
                 connectionSendPumpTasks = _connectionSendPumpTasks.ToArray();
+                registeredPayloadPools = _registeredPayloadPools.ToArray();
                 _listeners.Clear();
                 _connections.Clear();
                 _udpEndpoints.Clear();
                 _connectionSendPumpTasks.Clear();
+                _registeredPayloadPools.Clear();
 
                 completionLoop = _completionLoop;
                 queue = _queue;
@@ -868,7 +952,7 @@ namespace Hps.Transport
             for (int index = 0; index < udpEndpoints.Length; index++)
                 udpEndpoints[index].Dispose();
 
-            return new IoUringStopSnapshot(connections, connectionSendPumpTasks, completionLoop, queue);
+            return new IoUringStopSnapshot(connections, connectionSendPumpTasks, registeredPayloadPools, completionLoop, queue);
         }
 
         private static async Task WaitForConnectionSendPumpTasksAsync(Task[] sendPumpTasks)
@@ -885,17 +969,20 @@ namespace Hps.Transport
 
         private readonly struct IoUringStopSnapshot
         {
+            private readonly IoUringRegisteredPayloadBlockPool[] _registeredPayloadPools;
             private readonly IoUringCompletionLoop? _completionLoop;
             private readonly IoUringQueue? _queue;
 
             internal IoUringStopSnapshot(
                 TransportConnection[] connections,
                 Task[] connectionSendPumpTasks,
+                IoUringRegisteredPayloadBlockPool[] registeredPayloadPools,
                 IoUringCompletionLoop? completionLoop,
                 IoUringQueue? queue)
             {
                 Connections = connections;
                 ConnectionSendPumpTasks = connectionSendPumpTasks;
+                _registeredPayloadPools = registeredPayloadPools;
                 _completionLoop = completionLoop;
                 _queue = queue;
             }
@@ -906,6 +993,9 @@ namespace Hps.Transport
 
             internal void DisposeNativeOwners()
             {
+                for (int index = 0; index < _registeredPayloadPools.Length; index++)
+                    _registeredPayloadPools[index].Dispose();
+
                 _completionLoop?.Dispose();
                 _queue?.Dispose();
             }
