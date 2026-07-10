@@ -9,33 +9,31 @@
 
 ## Current TODOs
 
-- [ ] D236 사용자 push 이후 `iouring-linux-contract.yml`의 explicit sample io_uring 원격 gate를 검토한다.
-  - 입력: D235 local gate가 포함한 `e05306e`, `fcf9806`, `05e3480`, `2887aee`와 state-document commit.
-  - objective: Linux runner가 io_uring tests와 sample broker를 Linux-safe project 범위에서 restore/build하고,
-    artifact/TRX가 native contract 결과를 남기는지 확인한다.
-  - 확인: workflow/job conclusion, sample broker restore/build step, artifact `summary.md`, `iouring-tests.trx`,
-    `vstest-diag.log`, TRX failed/error/timeout/aborted/notExecuted count를 직접 확인한다.
-  - 경계: Windows local exit 1 fail-closed smoke는 Linux native sample 실행 성공 증거가 아니다.
-  - next step: push 후 workflow를 실행하고 artifact/TRX를 읽은 뒤에만 D236 완료 여부를 기록한다.
+- [ ] D237 5-argument selector overload의 explicit `IoUring` fail-closed contract를 test-only로 보강한다.
+  - 범위: `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs` 한 파일만 수정한다.
+  - Red: address-family overload에 `IoUring`과 counting delegates를 전달하고 정의된 failure result를 기대해
+    현재 direct coverage 부재를 assertion failure로 확인한다.
+  - Green: production 변경 없이 기존 overload delegation이 RIO probe와 SAEA/RIO factory를 호출하지 않고
+    exit code 1로 실패함을 검증한다.
+  - 검증/커밋: selector focused tests와 full Sample Broker tests를 통과시킨 뒤 test-only 커밋으로 분리한다.
+  - 제외: workflow exact command allow-list 보강은 별도 deferred test 단위로 유지한다.
 
 ## Deferred Backlog
 
-- [ ] `P3_NICE` explicit sample io_uring selector/workflow contract test를 더 엄격하게 고정한다.
-  - 무엇이 남았는지: 5-argument `SampleTransportSelector.Select`에 `IoUring`을 직접 전달하는 회귀 test와,
-    Linux workflow의 모든 `dotnet restore/build/test` command를 exact allow-list로 비교하는 test가 없다.
+- [ ] `P3_NICE` explicit sample io_uring Linux workflow command contract를 더 엄격하게 고정한다.
+  - 무엇이 남았는지: Linux workflow의 모든 `dotnet restore/build/test` command를
+    exact allow-list로 비교하는 test가 없다.
   - 왜 defer 되었는지: final whole-branch review는 현재 4/5-argument delegation과 workflow가 정확하다고 확인했고
-    두 항목을 현재 기능 결함이 아닌 future scope-regression 방지용 Minor test-hardening으로 분류했다.
-  - objective: legacy overload 두 경로의 explicit fail-closed 계약과 Linux workflow의 허용 command 집합을
-    이후 변경에서도 우회할 수 없도록 정적 contract를 강화한다.
-  - relevant context: D233~D235,
+    이 항목을 현재 기능 결함이 아닌 future scope-regression 방지용 Minor test-hardening으로 분류했다.
+  - objective: Linux workflow의 허용 command 집합을 이후 변경에서도 우회할 수 없도록 정적 contract를 강화한다.
+  - relevant context: D233~D236,
     `docs/superpowers/plans/2026-07-10-sample-broker-explicit-iouring-transport.md`,
     final review range `d85d98e..17c3ef8`.
-  - 관련 파일/범위: `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`,
-    `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`.
+  - 관련 파일/범위: `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`.
   - 현재 상태: explicit io_uring parser/selector/Program/workflow 구현은 local build 경고 0/오류 0,
     solution tests 510/510과 final review merge-ready 판정을 통과했다.
   - known blockers/open questions: 없음. 현재 D236 remote Linux artifact gate를 막지 않는다.
-  - 가장 자연스러운 next step: D236 완료 후 test-only 단위로 두 contract를 assertion Red부터 추가한다.
+  - 가장 자연스러운 next step: D237 selector test-only 단위가 끝난 뒤 별도 assertion Red로 추가한다.
 
 - [ ] `P2_LATER` RIO full IPv6 지원은 default promotion scope 가 다시 열릴 때 별도 설계로 판단한다.
   - 무엇이 남았는지: RIO backend 는 D122 기준 TCP/UDP 모두 현재 IPv4 `IPEndPoint` 전용이다.
@@ -67,6 +65,17 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D236 explicit sample io_uring 원격 Linux artifact gate를 완료했다.
+  - run/head: `29064353799`, `2b610aa701e4f4ab34cf0f9af1b6a4bbec846b6d`.
+  - workflow: io_uring tests와 sample broker restore/build, job conclusion 모두 success.
+  - sample build: `Hps.Sample.BrokerServer` Linux build 경고 0, 오류 0.
+  - artifact: `iouring-linux-contract-2026-07-10-github-29064353799-1`, summary test exit code 0.
+  - TRX: total/executed/passed 88, failed/error/timeout/aborted/notExecuted 0.
+  - native evidence: capability `Available`, registered payload registration과 TCP send loopback Passed,
+    stdout `registered payload fixed send path: hit`.
+  - diagnostics: `vstest-diag.log`가 test run completed, process exit code 0으로 끝났다.
+  - 경계: sample project composition/build와 backend runtime contract 증거이며 장기 sample process smoke나 성능/default 승격 근거는 아니다.
 
 - [x] D235 sample broker explicit `--transport iouring` local implementation gate와 상태 문서 정리를 완료했다.
   - 구현 커밋: parser `e05306e`, selector `fcf9806`, Program `05e3480`, Linux workflow `2887aee`.

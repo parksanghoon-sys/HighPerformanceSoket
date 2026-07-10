@@ -2229,9 +2229,17 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - D235 local gate: Sample Broker tests 25/25, workflow contract tests 8/8,
   TCP broker loopback 1/1, solution build 경고 0/오류 0, solution tests 510/510,
   `git diff --check` exit 0이다.
-- 다음 실행 지점: 사용자 push 이후 D236으로 `iouring-linux-contract.yml`을 실행하고,
-  sample broker Linux restore/build step, workflow conclusion, artifact `summary.md`, TRX counters,
-  `vstest-diag.log`를 직접 검토한다. 이 gate 전에는 Linux native sample 실행 성공으로 확대하지 않는다.
+- D236 원격 검토 결과: `iouring-linux-contract.yml` run `29064353799`는 head SHA
+  `2b610aa701e4f4ab34cf0f9af1b6a4bbec846b6d`에서 workflow/job success로 완료됐다.
+  io_uring tests와 sample broker restore/build step이 모두 성공했고 sample broker build는 경고 0/오류 0이다.
+  artifact `iouring-linux-contract-2026-07-10-github-29064353799-1`의 summary exit code는 0,
+  TRX는 total/executed/passed 88, failed/error/timeout/aborted/notExecuted 0이다.
+  capability `Available`, registered payload native registration test, TCP send loopback,
+  `registered payload fixed send path: hit`가 유지됐고 `vstest-diag.log`는 exit code 0으로 완료됐다.
+- D236은 Linux sample project composition/build와 선택 backend의 native runtime contract를 닫는다.
+  장기 실행 sample process smoke, default/auto 승격, end-to-end zero-copy, 성능 우위 증거는 아니다.
+- 다음 실행 지점: D237 test-only 단위로 5-argument selector overload에 explicit `IoUring`을 전달해
+  fail-closed와 RIO/SAEA callback 비호출을 직접 고정한다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-10 (Codex - D236 explicit sample io_uring remote Linux gate)
+
+### 작업 단위
+- 사용자가 push한 `master`와 local HEAD가 `2b610aa701e4f4ab34cf0f9af1b6a4bbec846b6d`로 일치함을 확인했다.
+- `iouring-linux-contract.yml` run `29064353799`를 실행하고 workflow metadata, job steps, artifact를 직접 검토했다.
+
+### Workflow 및 sample build
+- workflow/job conclusion은 success이고 io_uring tests와 sample broker restore/build step이 모두 성공했다.
+- Linux sample broker build는 `Hps.Sample.BrokerServer.dll`을 생성했고 경고 0, 오류 0이다.
+
+### Artifact 및 native evidence
+- artifact: `iouring-linux-contract-2026-07-10-github-29064353799-1`.
+- `summary.md` test exit code 0, TRX total/executed/passed 88, failed/error/timeout/aborted/notExecuted 0이다.
+- capability `Available`, registered payload pool native registration test와 TCP send loopback test가 Passed다.
+- TRX stdout에 `registered payload fixed send path: hit`가 남았다.
+- `vstest-diag.log`는 test run completed와 executor exit code 0으로 끝났다.
+
+### 판단 및 다음
+- D236은 explicit sample의 Linux project composition/build와 선택 backend native runtime contract를 닫는다.
+- sample process 장기 실행, default/auto 승격, end-to-end zero-copy, 성능 우위 근거로 확대하지 않는다.
+- 다음 실행 지점은 D237 5-argument selector overload direct `IoUring` test-only 보강이다.
+
 ## 2026-07-10 (Codex - D235 sample broker explicit io_uring local gate)
 
 ### 작업 단위

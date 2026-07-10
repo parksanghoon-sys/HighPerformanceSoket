@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D236 — explicit sample io_uring remote gate는 Linux project build와 backend native contract를 수락하지만 sample process/default/성능 증거는 아니다.
 - D235 — explicit sample io_uring local gate를 통과했지만 default/auto 의미는 유지하고 Linux native sample 증거는 D236 원격 artifact gate로 남긴다.
 - D234 — explicit sample io_uring 구현은 parser, selector, Program, Linux workflow 순서의 assertion Red와 독립 커밋으로 진행한다.
 - D233 — sample broker는 explicit `--transport iouring`만 추가하고 기존 `auto`/library default 의미는 유지한다.
