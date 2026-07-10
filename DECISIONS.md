@@ -25,6 +25,7 @@
 ## Active Workflow Decisions
 
 - D013 - 한 cycle은 하나의 coherent work unit과 review stop으로 제한하고 unrelated change를 같은 commit에 섞지 않는다.
+- D239 - Benchmark 실행과 reporting은 raw report JSON 논리 경계를 유지하고 실제 trigger 전에는 project를 분리하지 않는다.
 - 원격 workflow의 green 결과는 artifact/TRX와 failure counter를 직접 확인한 뒤에만 evidence로 수락한다.
 - 검증 결과나 작은 test-hardening마다 새 decision ID를 만들지 않는다. 구조, 계약, 목표를 바꾸는 선택만 decision으로 남긴다.
 
@@ -34,7 +35,7 @@
 - D237 legacy selector overload test 제안은 해당 overload 제거로 종료됐다.
 - Sample Broker transport 선택은 public `Select` 하나를 사용하며 tests도 같은 production entry를 직접 호출한다.
 - native backend의 resource owner 분리는 유지한다. 현재 과엔지니어링 정리 대상은 상태 문서, sample compatibility layer,
-  private reflection readiness, benchmark/report 책임 혼합이다.
+  private reflection readiness였으며 모두 정리했다. benchmark/report는 D239 논리 경계를 유지하고 물리 분리는 보류한다.
 
 ## Archive
 

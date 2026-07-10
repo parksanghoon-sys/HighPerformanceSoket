@@ -24,14 +24,17 @@
 - D237 legacy overload test 제안은 overload 제거로 종료됐다.
 - D238로 cross-module subscription reflection을 단일 `BrokerServer.WaitForSubscriberCountAsync` seam으로 교체했다.
 - Dashboard/Benchmark 네 호출부의 reflection/polling을 제거했고 Benchmark의 불필요한 Broker 직접 참조도 제거했다.
+- D238 구현 review stop은 사용자 진행 승인으로 닫았다.
+- D239에서 benchmark 실행/reporting 책임을 조사했고 현재는 project를 나누지 않는 것으로 결정했다.
 
 ## 다음 단일 작업 단위
 
-### D238 구현 review stop
+### D239 written design 사용자 검토
 
-- 구현과 로컬 검증은 완료됐다. 다음 기능을 시작하지 않고 현재 diff/commit의 사용자 또는 Claude 검토를 받는다.
-- 검토 기준: transient aggregate count 의미, timeout/cancellation 계약, reflection 제거 범위, Benchmark 의존성 축소.
-- 설계: `docs/superpowers/specs/2026-07-10-subscription-readiness-seam-design.md`.
+- 설계: `docs/superpowers/specs/2026-07-10-benchmark-execution-reporting-boundary-design.md`.
+- 권장안: 하나의 executable/test project를 유지하고 raw report JSON을 실행/reporting 논리 경계로 고정한다.
+- 새 reporting project, namespace/folder 이동, parser/workflow 변경은 하지 않는다.
+- 사용자 문서 검토 전에는 implementation plan이나 구조 이동을 시작하지 않는다.
 
 ## 최신 검증 기준선
 
@@ -44,10 +47,12 @@
 - D238 TDD: 최초 public/behavior Red에 더해 review에서 deadline 초과 성공 Red를 재현했고 focused API tests 9/9을 통과했다.
 - D238 회귀: Server 37/37, Dashboard 13/13, Benchmark 116/116, solution tests 519/519 통과.
 - D238 build: solution build 경고 0/오류 0, 네 cross-module reflection match 0, Benchmark Broker 직접 참조 0.
+- D239 구조 확인: Benchmark 파일 48개 중 reporting 계열 32개, runtime/BenchmarkDotNet 직접 의존 5개,
+  reporting workflow 호출 9개, 외부 production 소비자 0이다.
 
 ## 다음 후보
 
-1. benchmark 실행과 artifact/history 분석 책임을 별도 도구 경계로 분리할지 설계한다.
+1. target 배포 환경에서 4096 bytes x 100 Hz 성능 증거를 새로 요구할 때 해당 backend baseline을 갱신한다.
 2. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
 
 ## 이번 범위 밖
@@ -58,6 +63,7 @@
 - latency warning의 hard gate 전환
 - benchmark report 기능 추가
 - readiness seam을 wire ACK 또는 범용 diagnostics model로 확장
+- 근거 없는 Benchmark/reporting project 분리
 
 ## Archive
 

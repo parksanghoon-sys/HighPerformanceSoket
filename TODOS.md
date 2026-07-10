@@ -2,20 +2,13 @@
 
 ## Current TODOs
 
-- [ ] `P1_NOW` D238 구현 review stop을 진행한다.
-  - 설계: `docs/superpowers/specs/2026-07-10-subscription-readiness-seam-design.md`.
-  - 구현: public wait method 하나, 네 reflection helper 제거, Benchmark→Broker 직접 reference 제거.
-  - 검증: Server 37/37, Dashboard 13/13, Benchmark 116/116, solution 519/519, build 경고 0/오류 0.
-  - 다음 단계: 사용자 또는 Claude 검토 전에는 다음 benchmark 구조 단위를 시작하지 않는다.
+- [ ] `P1_NOW` D239 written design을 사용자 검토한다.
+  - 설계: `docs/superpowers/specs/2026-07-10-benchmark-execution-reporting-boundary-design.md`.
+  - 결정: single executable/test project를 유지하고 raw report JSON을 논리 경계로 사용한다.
+  - 제외: 새 report project, 대량 파일 이동, parser/workflow 변경.
+  - 다음 단계: 설계 승인 뒤에도 물리 분리 trigger가 없으면 구현 계획 없이 이 항목을 닫는다.
 
 ## Deferred Backlog
-
-- [ ] `P2_LATER` benchmark 실행과 artifact/history 분석 책임을 분리한다.
-  - 남은 일: `tests/Hps.Benchmarks`가 부하 실행, CLI parsing, baseline summary/history/envelope 생성까지 함께 소유한다.
-  - 이유: 현재 workflow가 기능을 사용하고 있어 즉시 삭제할 수 없으며, 이번 상태 문서 정리와 독립된 구조 변경이다.
-  - 목적: transport 성능 측정과 보고서 가공의 변경 이유 및 의존성을 분리한다.
-  - 범위: `tests/Hps.Benchmarks`, `tests/Hps.Benchmarks.Tests`, benchmark workflows와 baseline docs.
-  - 다음 단계: 기존 command/파일 계약을 목록화하고 project 분리와 폴더/entry point 분리의 비용을 비교한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
   - 남은 일: RIO TCP/UDP는 IPv4 전용이고 sample `auto`는 non-IPv4에서 SAEA fallback을 사용한다.
@@ -40,6 +33,11 @@
 
 ## Completed
 
+- [x] 2026-07-10 D239 benchmark 실행/reporting 책임 경계를 설계했다.
+  - 48개 파일, reporting 계열 32개, runtime/BenchmarkDotNet 직접 의존 5개, workflow reporting 호출 9개를 대조했다.
+  - raw report JSON 경계가 이미 존재하고 외부 소비자가 없어 현재 물리 분리는 과엔지니어링으로 판단했다.
+  - 독립 소비자, 의존성 충돌, 반복 회귀, workflow 비용 중 실제 trigger가 생길 때만 다시 설계한다.
+- [x] 2026-07-10 D238 구현 review stop을 사용자 진행 승인으로 닫았다.
 - [x] 2026-07-10 D238 subscription readiness seam을 구현했다.
   - public shape와 입력/timeout/cancellation assertion Red를 확인하고 최소 10ms polling 계약으로 Green을 만들었다.
   - Dashboard/Benchmark TCP/UDP 네 호출부의 private reflection/polling을 제거했다.

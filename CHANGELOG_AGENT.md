@@ -2,6 +2,14 @@
 
 ## Recent Work
 
+### 2026-07-10 - D239 Benchmark 실행/reporting 경계 설계
+
+- `Hps.Benchmarks` 48개 파일과 tests/workflow/문서 소비를 실제 코드 기준으로 분류했다.
+- reporting 계열은 32개지만 production 외부 소비자는 없고 workflow는 단일 executable을 안정적으로 사용한다.
+- 별도 library는 연결만 늘리고 별도 executable은 parser/test/workflow 이관 비용이 커 현재는 채택하지 않았다.
+- raw report JSON을 실행과 reporting의 논리 경계로 고정하고 물리 분리 trigger 네 가지를 명시했다.
+- 문서 전용 단위이며 production code, tests, workflow, 기존 `.claude/review` 파일은 변경하지 않았다.
+
 ### 2026-07-10 - D238 subscription readiness seam 구현
 
 - `BrokerServer.WaitForSubscriberCountAsync` 하나로 transient aggregate count readiness를 제공한다.
