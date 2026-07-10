@@ -2,13 +2,23 @@
 
 ## Current TODOs
 
-- [ ] `P1_NOW` 현재 checkout SAEA TCP/UDP gate 결과를 검토한다.
-  - profile: Release, SAEA, 4096 bytes, 100 Hz, 30초, closed/open-loop 각 1회.
-  - 결과: TCP/UDP 모두 hard pass, warning 0, drop/payload error/pool rented 0.
-  - TCP reference: 9개 summary와 envelope-compatible true, signal 0.
-  - 다음 단계: 사용자 검토 뒤 target OS에 맞춰 explicit RIO 또는 io_uring gate 중 하나만 선택한다.
+- [ ] `P1_NOW` 현재 checkout explicit RIO TCP/UDP gate 결과를 검토한다.
+  - profile: Release, RIO, IPv4 loopback, 4096 bytes, 100 Hz, 30초, closed/open-loop 각 1회.
+  - 결과: TCP/UDP smoke와 baseline 모두 hard pass, warning 0, drop/payload error/pool rented 0.
+  - 제한: RIO repository reference가 없어 성능 우위/default 승격 근거가 아닌 현재 checkout gate다.
+  - 다음 단계: 사용자 검토 뒤 UDP HWM summary 결함을 별도 TDD 단위로 진행한다.
 
 ## Deferred Backlog
+
+- [ ] `P1_SOON` UDP pending-send HWM을 baseline summary/history/envelope에 반영한다.
+  - 남은 일: raw UDP report에는 `udp-pending-send-queue-high-watermark`가 있으나 `BaselineSummaryGenerator`는
+    `TcpPendingSendQueueHighWatermark`만 집계해 UDP summary의 legacy `tcp-hwm-*` 값과 warning이 0이 된다.
+  - 이유: RIO gate 중 발견했지만 production/test 수정은 현재 measurement 단위와 분리해야 한다.
+  - 목적: active protocol의 send queue HWM이 summary/history/envelope와 soft warning에 보존되게 한다.
+  - 범위: `BaselineSummaryGenerator.cs`, 관련 summary tests, 필요 시 writer/envelope tests와 상태 문서.
+  - 현재 상태: fresh raw 기준 SAEA UDP HWM은 load/open-loop 1/3, RIO UDP HWM은 1/2지만 summary는 0/0이다.
+  - 호환성: JSON `tcp-hwm-*` field와 기존 warning code는 유지하고 TCP/UDP HWM의 max를 집계값으로 쓰는 최소안을 우선 검토한다.
+  - 다음 단계: UDP HWM만 존재하는 report가 기존 summary HWM/warning에 반영되지 않는 assertion Red부터 작성한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
   - 남은 일: RIO TCP/UDP는 IPv4 전용이고 sample `auto`는 non-IPv4에서 SAEA fallback을 사용한다.
@@ -33,9 +43,15 @@
 
 ## Completed
 
+- [x] 2026-07-10 현재 checkout explicit RIO TCP/UDP 4096B x 100Hz gate를 실행했다.
+  - TCP load/open-loop: 99.8/100.0 Hz, p99 874.1/1024.8 us, HWM 1/2.
+  - UDP load/open-loop: 99.9/100.0 Hz, p99 818.5/1229.7 us, UDP HWM 1/2.
+  - TCP/UDP smoke와 baseline 모두 sent/received 일치, drop 0, payload error 0, pool rented 0이다.
+  - sandbox package root 문제를 사용자 NuGet cache restore로 복구하고 Release build 경고 0/오류 0을 확인했다.
+  - raw artifact는 임시 경로에만 두고 repository baseline으로 채택하지 않았다.
 - [x] 2026-07-10 현재 checkout Release SAEA TCP/UDP 4096B x 100Hz gate를 실행했다.
   - TCP load/open-loop: 99.9/100.0 Hz, p99 455.0/675.1 us, HWM 1/2.
-  - UDP load/open-loop: 99.8/100.0 Hz, p99 734.8/1023.6 us, HWM 0/0.
+  - UDP load/open-loop: 99.8/100.0 Hz, p99 734.8/1023.6 us, UDP HWM 1/3.
   - 모든 run에서 sent/received 일치, drop 0, payload error 0, pool rented 0이다.
   - TCP는 explicit runner identity 재측정 후 repository reference envelope signal 0을 확인했다.
   - raw artifact는 임시 경로에만 두고 repository baseline으로 채택하지 않았다.

@@ -2,11 +2,22 @@
 
 ## Recent Work
 
+### 2026-07-10 - 현재 checkout explicit RIO TCP/UDP gate
+
+- Release RIO TCP/UDP smoke와 4096 bytes x 100 Hz x 30초 closed/open-loop를 임시 경로에서 실행했다.
+- TCP load/open-loop는 99.8/100.0 Hz, p99 874.1/1024.8 us, HWM 1/2다.
+- UDP load/open-loop는 99.9/100.0 Hz, p99 818.5/1229.7 us, UDP HWM 1/2다.
+- 모든 run이 hard pass, warning 0, drop/payload error/pool rented 0이다.
+- sandbox restore가 package root를 `CodexSandboxOffline`로 기록해 후속 build가 실패한 원인을 확인했다.
+- `NUGET_PACKAGES=C:\Users\ADMIN\.nuget\packages`, `NuGetAudit=false`로 restore 후 Release build 경고 0/오류 0과 smoke를 재확인했다.
+- UDP raw HWM을 summary가 무시하는 reporting 결함은 별도 `P1_SOON` TDD 단위로 분리했다.
+- RIO reference가 없어 SAEA 대비 우위/default 승격은 주장하지 않고 raw artifact도 repository에 채택하지 않았다.
+
 ### 2026-07-10 - 현재 checkout Release SAEA TCP/UDP gate
 
 - 임시 디렉터리에서 4096 bytes x 100 Hz x 30초 closed/open-loop를 TCP/UDP 각 1회 실행했다.
 - TCP load/open-loop는 99.9/100.0 Hz, p99 455.0/675.1 us, HWM 1/2다.
-- UDP load/open-loop는 99.8/100.0 Hz, p99 734.8/1023.6 us, HWM 0/0이다.
+- UDP load/open-loop는 99.8/100.0 Hz, p99 734.8/1023.6 us, UDP HWM 1/3이다.
 - 모든 run이 hard pass, warning 0, drop/payload error/pool rented 0이다.
 - 첫 TCP run은 runner-id 미지정으로 reference와 비교 불가였고 raw를 수정하지 않은 채 identity를 지정해 재측정했다.
 - 재측정 TCP는 reference summary 9개와 envelope-compatible true, signal 0이다.

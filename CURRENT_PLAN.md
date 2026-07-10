@@ -28,15 +28,17 @@
 - D239에서 benchmark 실행/reporting 책임을 조사했고 현재는 project를 나누지 않는 것으로 결정했다.
 - D239 written design은 사용자 승인으로 구현 계획 없이 닫았다.
 - 현재 checkout의 Release SAEA TCP/UDP 4096B x 100Hz gate를 임시 artifact로 다시 실행해 hard pass를 확인했다.
+- SAEA gate review stop은 사용자 진행 승인으로 닫았다.
+- 현재 checkout의 explicit RIO TCP/UDP gate도 같은 profile로 실행해 hard pass를 확인했다.
 
 ## 다음 단일 작업 단위
 
-### 현재 checkout SAEA gate review stop
+### 현재 checkout explicit RIO gate review stop
 
-- Release SAEA TCP/UDP closed-loop와 open-loop가 모두 delivery/drop/leak hard gate를 통과했다.
-- TCP는 `local-win-x64-01` reference summary 9개와 envelope-compatible true, signal 0이다.
-- UDP는 현재 같은 runner의 repository reference가 없어 hard gate와 latency 관측만 기록했다.
-- 임시 raw artifact는 repository baseline으로 자동 채택하지 않는다. 다음 backend gate는 사용자 검토 뒤 선택한다.
+- Release RIO TCP/UDP smoke와 closed/open-loop가 모두 delivery/drop/leak hard gate를 통과했다.
+- 같은 runner/profile의 repository RIO reference가 없어 hard gate와 latency/HWM만 기록했다.
+- 단일 표본을 SAEA 대비 성능 우위, default 승격 또는 IPv6 지원 근거로 사용하지 않는다.
+- 임시 raw artifact는 repository baseline으로 자동 채택하지 않는다.
 
 ## 최신 검증 기준선
 
@@ -54,11 +56,17 @@
 - fresh SAEA TCP: load/open-loop actual 99.9/100.0 Hz, p50 141.9/150.7 us, p99 455.0/675.1 us,
   send queue HWM 1/2, drop/payload error/pool rented 0, envelope signal 0.
 - fresh SAEA UDP: load/open-loop actual 99.8/100.0 Hz, p50 128.7/152.2 us, p99 734.8/1023.6 us,
-  HWM 0/0, drop/payload error/pool rented 0.
+  UDP send queue HWM 1/3, drop/payload error/pool rented 0.
+- fresh RIO TCP: load/open-loop actual 99.8/100.0 Hz, p50 156.4/165.7 us, p99 874.1/1024.8 us,
+  send queue HWM 1/2, drop/payload error/pool rented 0.
+- fresh RIO UDP: load/open-loop actual 99.9/100.0 Hz, p50 134.6/142.5 us, p99 818.5/1229.7 us,
+  UDP send queue HWM 1/2, drop/payload error/pool rented 0.
+- sandbox restore가 잘못된 package root를 기록해 후속 build가 실패했으나, 사용자 NuGet cache를 명시해
+  restore한 뒤 Release build 경고 0/오류 0과 재빌드 binary TCP/UDP RIO smoke를 확인했다.
 
 ## 다음 후보
 
-1. Windows가 target이면 현재 checkout의 explicit RIO TCP/UDP gate를 같은 profile로 실행한다.
+1. `BaselineSummaryGenerator`가 UDP raw HWM을 summary/history/envelope에 반영하지 않는 결함을 TDD로 수정한다.
 2. Linux가 target이면 다음 push 뒤 explicit io_uring remote gate를 갱신한다.
 3. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
 
