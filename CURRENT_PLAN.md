@@ -2222,8 +2222,16 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   `docs/superpowers/plans/2026-07-10-sample-broker-explicit-iouring-transport.md`에 작성했다.
   parser, selector, Program wiring, Linux workflow를 각각 assertion Red와 독립 커밋으로 진행하고,
   local gate 뒤 사용자 push를 전제로 remote Linux artifact를 확인한다.
-- 다음 실행 지점: D235 Task 1 parser contract를 `superpowers:executing-plans` 또는
-  `superpowers:subagent-driven-development`로 실행한다. 첫 Red는 enum symbol을 직접 참조하지 않는 문자열 assertion이다.
+- D235 기준 D234의 parser, selector, Program, Linux workflow 구현을 각각
+  `e05306e`, `fcf9806`, `05e3480`, `2887aee` 독립 커밋으로 완료했다.
+  각 Task는 compile failure가 아닌 assertion Red를 확인한 뒤 Green으로 진행했고,
+  Windows explicit `--transport iouring` smoke는 exit code 1과 Linux 전용 오류로 fail-closed를 확인했다.
+- D235 local gate: Sample Broker tests 25/25, workflow contract tests 8/8,
+  TCP broker loopback 1/1, solution build 경고 0/오류 0, solution tests 510/510,
+  `git diff --check` exit 0이다.
+- 다음 실행 지점: 사용자 push 이후 D236으로 `iouring-linux-contract.yml`을 실행하고,
+  sample broker Linux restore/build step, workflow conclusion, artifact `summary.md`, TRX counters,
+  `vstest-diag.log`를 직접 검토한다. 이 gate 전에는 Linux native sample 실행 성공으로 확대하지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

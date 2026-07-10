@@ -5,6 +5,31 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-10 (Codex - D235 sample broker explicit io_uring local gate)
+
+### 작업 단위
+- D234 구현 계획의 parser, selector, Program, Linux workflow 네 Task 커밋을 local gate로 다시 검증하고,
+  D236 원격 gate 진입점으로 상태 문서를 정리했다.
+- 구현 커밋은 `e05306e`, `fcf9806`, `05e3480`, `2887aee`이며 이번 작업은 상태 문서만 변경한다.
+
+### Red/Green 및 Windows smoke
+- parser는 `iouring` parser assertion Red 1건 뒤 8/8 Green, selector는 overload/fail-closed assertion Red 7건 뒤 14/14 Green이다.
+- Program은 usage/source composition assertion Red 3건 뒤 Sample Broker 25/25 Green이며,
+  workflow는 sample broker path assertion Red 1건 뒤 workflow contract 8/8 Green이다.
+- Windows에서 `--transport iouring`을 완전한 positional argument와 함께 실행해 exit code 1,
+  `io_uring transport는 Linux에서만 사용할 수 있습니다. status=UnsupportedOperatingSystem`을 확인했다.
+
+### Local gate
+- Sample Broker tests 25/25, workflow contract tests 8/8, TCP broker loopback 1/1이 통과했다.
+- `dotnet build HighPerformanceSocket.slnx -v minimal`: 경고 0, 오류 0.
+- `dotnet test HighPerformanceSocket.slnx --no-build -v minimal`: 실패 0, 통과 510.
+- `git diff --check`: exit 0.
+
+### 다음
+- 사용자 push 이후 D236 `iouring-linux-contract.yml` artifact/TRX를 직접 검토한다.
+  sample broker Linux restore/build step과 native io_uring test evidence가 모두 확인되기 전에는
+  Linux sample 실행 성공이나 default/auto 승격으로 해석하지 않는다.
+
 ## 2026-07-10 (Codex - D234 sample broker explicit io_uring implementation plan)
 
 ### 작업 단위

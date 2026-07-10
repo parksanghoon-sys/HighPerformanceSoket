@@ -9,13 +9,14 @@
 
 ## Current TODOs
 
-- [ ] D235 sample broker explicit `--transport iouring` 구현 계획의 Task 1을 실행한다.
-  - 입력: `docs/superpowers/plans/2026-07-10-sample-broker-explicit-iouring-transport.md`.
-  - 범위: `SampleTransportMode`, command parser, parser tests만 수정한다.
-  - Red: `iouring` parse 결과를 문자열 `IoUring`으로 비교해 compile failure 없이 assertion failure를 확인한다.
-  - Green: enum numeric value를 보존한 마지막 member와 case-insensitive parser token, 오류 문자열을 추가한다.
-  - 검증/커밋: parser tests 8개 통과 후 `feat(sample): parse explicit io_uring transport`로 분리한다.
-  - 제외: selector, Program, workflow 변경은 각 후속 Task 전에는 시작하지 않는다.
+- [ ] D236 사용자 push 이후 `iouring-linux-contract.yml`의 explicit sample io_uring 원격 gate를 검토한다.
+  - 입력: D235 local gate가 포함한 `e05306e`, `fcf9806`, `05e3480`, `2887aee`와 state-document commit.
+  - objective: Linux runner가 io_uring tests와 sample broker를 Linux-safe project 범위에서 restore/build하고,
+    artifact/TRX가 native contract 결과를 남기는지 확인한다.
+  - 확인: workflow/job conclusion, sample broker restore/build step, artifact `summary.md`, `iouring-tests.trx`,
+    `vstest-diag.log`, TRX failed/error/timeout/aborted/notExecuted count를 직접 확인한다.
+  - 경계: Windows local exit 1 fail-closed smoke는 Linux native sample 실행 성공 증거가 아니다.
+  - next step: push 후 workflow를 실행하고 artifact/TRX를 읽은 뒤에만 D236 완료 여부를 기록한다.
 
 ## Deferred Backlog
 
@@ -49,6 +50,16 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D235 sample broker explicit `--transport iouring` local implementation gate와 상태 문서 정리를 완료했다.
+  - 구현 커밋: parser `e05306e`, selector `fcf9806`, Program `05e3480`, Linux workflow `2887aee`.
+  - TDD: parser Red 1건 뒤 8/8 Green, selector Red 7건 뒤 14/14 Green,
+    Program Red 3건 뒤 Sample Broker 25/25 Green, workflow Red 1건 뒤 8/8 Green을 확인했다.
+  - local gate: Sample Broker 25/25, workflow contract 8/8, TCP broker loopback 1/1,
+    solution build 경고 0/오류 0, solution tests 510/510, `git diff --check` exit 0.
+  - Windows smoke: explicit `iouring`은 exit code 1과
+    `io_uring transport는 Linux에서만 사용할 수 있습니다. status=UnsupportedOperatingSystem`으로 fail-closed다.
+  - 다음: 사용자 push 이후 D236 remote Linux workflow artifact/TRX 검토를 수행한다.
 
 - [x] D234 D233 승인 내용을 sample broker explicit io_uring 구현 계획으로 구체화했다.
   - 산출물: `docs/superpowers/plans/2026-07-10-sample-broker-explicit-iouring-transport.md`.
