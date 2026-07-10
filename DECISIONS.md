@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D234 — explicit sample io_uring 구현은 parser, selector, Program, Linux workflow 순서의 assertion Red와 독립 커밋으로 진행한다.
 - D233 — sample broker는 explicit `--transport iouring`만 추가하고 기존 `auto`/library default 의미는 유지한다.
 - D232 — Interface Server 사용 가이드는 io_uring을 direct transport opt-in으로 설명하고 sample/default 승격 및 zero-copy 주장과 분리한다.
 - D231 — registered payload pool remote Linux gate 는 production TCP payload의 native `WRITE_FIXED` hit를 확인했지만 zero-copy/default promotion 근거는 아니다.

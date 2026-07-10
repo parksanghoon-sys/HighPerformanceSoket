@@ -9,12 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D234 사용자가 explicit sample `--transport iouring` 설계를 검토한다.
-  - 입력: `docs/superpowers/specs/2026-07-10-sample-broker-explicit-iouring-transport-design.md`.
-  - 확인할 것: explicit unavailable fail-closed, 기존 `auto`/default 불변,
-    selector overload 호환성, Linux-safe 두 project build gate, TDD 순서.
-  - 승인 후 다음: `superpowers:writing-plans`로 구현 계획을 작성한다.
-  - 제외: 설계 승인 전 production code, tests, workflow 구현 변경.
+- [ ] D235 sample broker explicit `--transport iouring` 구현 계획의 Task 1을 실행한다.
+  - 입력: `docs/superpowers/plans/2026-07-10-sample-broker-explicit-iouring-transport.md`.
+  - 범위: `SampleTransportMode`, command parser, parser tests만 수정한다.
+  - Red: `iouring` parse 결과를 문자열 `IoUring`으로 비교해 compile failure 없이 assertion failure를 확인한다.
+  - Green: enum numeric value를 보존한 마지막 member와 case-insensitive parser token, 오류 문자열을 추가한다.
+  - 검증/커밋: parser tests 8개 통과 후 `feat(sample): parse explicit io_uring transport`로 분리한다.
+  - 제외: selector, Program, workflow 변경은 각 후속 Task 전에는 시작하지 않는다.
 
 ## Deferred Backlog
 
@@ -48,6 +49,14 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D234 D233 승인 내용을 sample broker explicit io_uring 구현 계획으로 구체화했다.
+  - 산출물: `docs/superpowers/plans/2026-07-10-sample-broker-explicit-iouring-transport.md`.
+  - 구조: parser, selector, Program wiring, Linux workflow 네 구현 커밋과 local/remote gate.
+  - TDD: parser 문자열 assertion, selector reflection overload assertion,
+    Program usage/source composition assertion, workflow path assertion 순서다.
+  - 호환성: 기존 selector overload, `auto`, `TransportFactory.CreateDefault()`, TCP-only sample 범위를 유지한다.
+  - 다음: D235 Task 1 parser contract부터 실행한다.
 
 - [x] D233 sample broker explicit `--transport iouring` 설계를 작성했다.
   - 범위: sample transport mode/parser/selector/Program/project,

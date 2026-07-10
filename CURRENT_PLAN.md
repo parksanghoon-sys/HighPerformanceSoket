@@ -2218,7 +2218,12 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   기존 `auto`의 RIO/SAEA 의미와 `TransportFactory.CreateDefault()`는 변경하지 않는다.
   Linux workflow는 solution/WPF가 아니라 io_uring tests와 sample broker 두 Linux-safe project만 명시적으로 build한다.
   설계 문서는 `docs/superpowers/specs/2026-07-10-sample-broker-explicit-iouring-transport-design.md`에 있다.
-- 다음 실행 지점: 사용자가 D233 설계 문서를 검토한다. 승인 전에는 implementation plan이나 코드를 작성하지 않는다.
+- D234 기준 사용자가 D233 설계를 승인했고, 구현 계획을
+  `docs/superpowers/plans/2026-07-10-sample-broker-explicit-iouring-transport.md`에 작성했다.
+  parser, selector, Program wiring, Linux workflow를 각각 assertion Red와 독립 커밋으로 진행하고,
+  local gate 뒤 사용자 push를 전제로 remote Linux artifact를 확인한다.
+- 다음 실행 지점: D235 Task 1 parser contract를 `superpowers:executing-plans` 또는
+  `superpowers:subagent-driven-development`로 실행한다. 첫 Red는 enum symbol을 직접 참조하지 않는 문자열 assertion이다.
 
 ## 이번 작업에서 건드리지 않는 범위
 

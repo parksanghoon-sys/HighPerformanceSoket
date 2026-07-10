@@ -5,6 +5,28 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-10 (Codex - D234 sample broker explicit io_uring implementation plan)
+
+### 작업 단위
+- 사용자가 D233 설계를 승인한 뒤 실제 parser/selector/Program/workflow 구조와 tests를 다시 대조했다.
+- 구현 계획을 `docs/superpowers/plans/2026-07-10-sample-broker-explicit-iouring-transport.md`에 작성했다.
+
+### 구현 순서
+- Task 1: compile-safe 문자열 assertion Red로 parser/enum을 확장한다.
+- Task 2: reflection overload assertion Red로 full selector와 explicit fail-closed 정책을 추가한다.
+- Task 3: Program usage/source composition Red로 실제 probe/factory를 연결한다.
+- Task 4: workflow path Red로 io_uring tests와 sample broker 두 Linux-safe project를 build한다.
+- Task 5~6: local full gate와 사용자 push 이후 remote artifact/TRX gate를 수행한다.
+
+### 자체 검토
+- 계획은 6개 Task, 32개 실행 단계이며 설계 요구사항 21개를 대조했다.
+- Markdown code fence 104개가 균형을 이루고 미정 표식은 없다.
+- Task 사이 PowerShell 변수 수명처럼 별도 shell에서 깨질 수 있는 명령을 독립 실행 가능하게 보정했다.
+- production code, tests, workflow는 이 문서 작업에서 변경하지 않았다.
+
+### 다음
+- D235 Task 1 parser contract 구현이 다음 실행 지점이다.
+
 ## 2026-07-10 (Codex - D233 sample broker explicit io_uring design)
 
 ### 작업 단위
