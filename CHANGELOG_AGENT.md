@@ -5,6 +5,32 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-10 (Codex - D230 registered payload pool local gate)
+
+### 작업 단위
+- D229 registered payload pool 구현 계획의 Task 1~7 local gate 를 실행했다.
+
+### 변경 내용
+- `RefCountedBuffer` 반환 owner 를 `IRefCountedBufferOwner`로 일반화하고,
+  counted buffer source 계약 `IRefCountedBufferSource`를 추가했다.
+- `TcpFrameAssembler`와 `TcpFrameReceiveHandler`가 concrete pool 대신 source 계약을 받을 수 있게 했다.
+- `IoUringRegisteredPayloadBlockPool`과 `IoUringCompositePayloadBufferSource`를 추가했다.
+- `ITransportPayloadBufferSourceProvider` seam 을 추가하고 `BrokerServer.StartTcpAsync`가 transport provider source 를 사용하게 했다.
+- `IoUringTransport`가 provider 를 구현하고, registered payload pool hit 시 `WRITE_FIXED` helper 를 먼저 시도한다.
+
+### 검증
+- Red: 새 타입/생성자는 compile failure 가 아니라 reflection shape assertion failure 로 확인했다.
+- Focused/relevant: Buffers, Protocol, Server, io_uring focused/project tests 를 각 task 별로 통과시켰다.
+- Full: `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0.
+- Full: `dotnet test HighPerformanceSocket.slnx --no-build -v minimal` 전체 502개 통과.
+- `git diff --check` whitespace 오류 없음.
+
+### 결과
+- local gate 는 통과했다.
+- Linux native fixed payload hit 는 local Windows 에서 증명하지 못했으므로,
+  push 이후 `iouring-linux-contract.yml` artifact 에서 `registered payload fixed send path: hit` evidence 를 확인해야 한다.
+- zero-copy send 주장, default backend promotion, latency hard gate 는 계속 보류한다.
+
 ## 2026-07-09 (Codex - D229 registered payload pool implementation plan)
 
 ### 작업 단위

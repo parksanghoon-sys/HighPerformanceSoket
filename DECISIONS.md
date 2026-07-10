@@ -7,6 +7,7 @@
 
 ## Active Decision Index
 
+- D230 — registered payload pool local gate 는 통과했지만 Linux native fixed payload hit 는 remote artifact 로 확인한다.
 - D229 — registered payload pool 구현은 `BrokerServer` concrete backend 의존 없이 transport payload source provider seam 으로 연결한다.
 - D226 — production TCP fixed-write 연결 전, TCP-first registered payload pool 설계로 owner/source 경계를 먼저 둔다.
 - D225 — D224 이후 바로 production fixed-write default 연결로 가지 않고 queue-scoped registered payload block source 를 먼저 설계한다.

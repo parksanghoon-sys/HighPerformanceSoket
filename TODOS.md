@@ -9,13 +9,13 @@
 
 ## Current TODOs
 
-- [ ] D230 사용자가 D229 registered payload pool 구현 계획을 검토하고 실행 방식을 선택한다.
-  - 입력: `docs/superpowers/plans/2026-07-09-iouring-registered-payload-pool.md`.
-  - 할 일: plan 의 Task 1~7 순서, backend-neutral payload source provider seam,
-    transport-owned registered payload pool lookup 방식, assertion-Red TDD 규칙이 타당한지 검토한다.
-  - 확인할 것: implementation 은 owner/source abstraction 부터 시작해야 하며,
-    production TCP payload `WRITE_FIXED` 성공 주장은 Linux remote artifact 전까지 하지 않는다.
-  - 제외: plan 검토 전 registered payload pool 코드 구현.
+- [ ] D231 사용자 push 이후 `iouring-linux-contract.yml` remote artifact gate 를 검토한다.
+  - 입력: 이번 local commits, `tests/Hps.Transport.IoUring.Tests`, `.github/workflows/iouring-linux-contract.yml`.
+  - 할 일: workflow/job conclusion, `iouring-tests.trx`, summary/stdout evidence 를 확인한다.
+  - 확인할 것: Linux capability `Available` 상태에서 registered payload native registration test 와
+    `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`가 통과하고,
+    stdout 에 `registered payload fixed send path: hit`가 남는지 검토한다.
+  - 제외: remote gate 전 zero-copy send 주장, default backend promotion, latency hard gate 승격.
 
 - [ ] D228 사용자가 Interface Server 사용 가이드를 검토한다.
   - 입력: `docs/examples/interface-server-usage.md`.
@@ -25,35 +25,7 @@
     아직 설계 단계인 production TCP payload `WRITE_FIXED` / io_uring registered payload pool 을 사용 옵션처럼 노출하지 않는다.
   - 제외: 검토 전 추가 샘플 CLI, UDP 전용 CLI, production fixed-write 구현.
 
-- [ ] D227 사용자가 D226 registered payload pool 설계를 검토한다.
-  - 입력: `docs/superpowers/specs/2026-07-09-iouring-registered-payload-pool-design.md`.
-  - 할 일: TCP-first queue-scoped registered payload pool, `RefCountedBuffer` owner/source 경계,
-    fallback 정책, UDP 제외 범위를 검토한다.
-  - 확인할 것: 설계가 publish payload ownership, TCP 1회 복사 흡수, fixed table lifetime,
-    send hot path registration 제거 목표와 맞는지 확인한다.
-  - 제외: 검토 전 production TCP payload `WRITE_FIXED` default 연결 구현.
-
 ## Deferred Backlog
-
-- [ ] `P1_SOON` D226 registered payload pool 설계 승인 뒤 구현 계획을 작성한다.
-  - 입력: `docs/superpowers/specs/2026-07-09-iouring-registered-payload-pool-design.md`,
-    `src/Hps.Buffers/PinnedBlockMemoryPool.cs`, `src/Hps.Buffers/RefCountedBuffer.cs`,
-    `src/Hps.Protocol/TcpFrameAssembler.cs`, `src/Hps.Transport.IoUring/IoUringTransport.cs`,
-    `src/Hps.Transport.IoUring/IoUringFixedSendBufferRegistry.cs`.
-  - 무엇이 남았는지: 설계는 작성됐지만, TDD 구현 순서와 커밋 단위가 아직 계획 문서로 쪼개지지 않았다.
-  - 왜 defer 되었는지: owner/source abstraction 은 `Hps.Buffers`, `Hps.Protocol`, `Hps.Transport.IoUring`을 가로지르므로
-    사용자 설계 검토 없이 바로 구현으로 들어가면 범위가 커질 수 있다.
-  - objective: owner abstraction, source abstraction, registered payload pool pure contract,
-    TCP assembler integration, io_uring send opt-in integration 을 Red-Green 가능한 task 로 분해한다.
-  - relevant context: D210, D217, D222, D224, D225, D226.
-  - 관련 파일/범위: `PinnedBlockMemoryPool`, `RefCountedBuffer`, `TcpFrameAssembler`,
-    `TcpFrameReceiveHandler`, `IoUringFixedSendBufferRegistry`, `IoUringTransport.SendInFlightAsync`.
-  - 현재 상태 또는 이미 시도한 접근: fixed send registry lifetime owner/helper shape 는 구현됐고 remote Linux gate 를 통과했다.
-    registered payload pool 은 아직 설계 문서 상태이며, 기본 TCP payload send path 는 baseline `SendArrayAsync`다.
-  - known blockers 또는 open questions: 사용자 검토에서 owner/source interface 위치, fallback 정책,
-    slot count 16 vs 32, UDP 제외 범위에 대한 조정이 필요할 수 있다.
-  - 가장 자연스러운 next step: D226 설계 승인 후
-    `docs/superpowers/plans/2026-07-09-iouring-registered-payload-pool.md` 구현 계획을 작성한다.
 
 - [ ] `P2_LATER` RIO full IPv6 지원은 default promotion scope 가 다시 열릴 때 별도 설계로 판단한다.
   - 무엇이 남았는지: RIO backend 는 D122 기준 TCP/UDP 모두 현재 IPv4 `IPEndPoint` 전용이다.
@@ -85,6 +57,19 @@
 ## Completed
 
 최근 완료 항목만 유지한다. 전체 완료 이력은 `docs/agent-state/backlog/completed-history-2026-06-18.md`를 본다.
+
+- [x] D230 registered payload pool local implementation gate 를 완료했다.
+  - 범위: `RefCountedBuffer` owner/source abstraction, `TcpFrameAssembler`/`TcpFrameReceiveHandler` source injection,
+    `IoUringRegisteredPayloadBlockPool`, `IoUringCompositePayloadBufferSource`,
+    `ITransportPayloadBufferSourceProvider`, `IoUringTransport` registered payload fixed-send opt-in.
+  - 결과: TCP publish payload 를 io_uring queue lifetime registered source 에서 대여할 수 있는 경로와,
+    send helper 가 registered backing array fixed index 를 찾아 `WRITE_FIXED`를 먼저 시도하는 경로를 연결했다.
+  - 검증: Red 는 reflection shape assertion failure 로 시작했고,
+    focused/relevant tests 통과 후 full `dotnet build HighPerformanceSocket.slnx -v minimal` 경고 0/오류 0,
+    `dotnet test HighPerformanceSocket.slnx --no-build -v minimal` 전체 502개 통과,
+    `git diff --check` 통과.
+  - 비고: Linux native fixed payload hit 는 local Windows 에서 직접 증명하지 못했으므로
+    push 이후 `iouring-linux-contract.yml` artifact gate 로 남긴다.
 
 - [x] D229 registered payload pool 구현 계획을 작성했다.
   - 범위: `docs/superpowers/specs/2026-07-09-iouring-registered-payload-pool-design.md`,

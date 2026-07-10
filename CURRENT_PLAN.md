@@ -2193,9 +2193,17 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   TCP protocol root history 는 session-count 4, hard-passed true, warning-count 24, comparison-compatible true 이고,
   UDP protocol root history 는 session-count 7, hard-passed true, warning-count 13, comparison-compatible true 다.
   최신 session 기준 envelope smoke 는 TCP/UDP 모두 `envelope-compatible=true`, `envelope-signal-count=0`으로 통과했다.
-- 다음 실행 지점: D229 registered payload pool 구현 계획을 사용자가 검토하고 실행 방식을 선택한다.
-  검토 전 production TCP payload `WRITE_FIXED` default 연결, zero-copy send, default promotion,
-  latency hard gate 는 아직 자동으로 열지 않는다.
+- D230 기준 D229 registered payload pool 구현 계획의 Task 1~7 local gate 를 완료했다.
+  `RefCountedBuffer` owner/source abstraction, TCP assembler source injection,
+  io_uring registered payload pool/composite source, backend-neutral server provider seam,
+  registered payload fixed-send opt-in 연결이 구현됐다.
+  로컬 검증은 solution build 경고 0/오류 0, solution tests 502개 통과, `git diff --check` 통과다.
+  Windows/local 에서는 Linux native fixed payload hit 를 직접 증명하지 못하므로,
+  production TCP payload `WRITE_FIXED` 성공 주장은 push 이후 `iouring-linux-contract.yml` artifact 에서 확인한다.
+- 다음 실행 지점: 사용자 push 이후 `iouring-linux-contract.yml`을 실행하고 artifact/TRX/stdout 에서
+  `TcpLoopback_WhenIoUringAvailable_SendsQueuedPayloadToPeer`, registered payload native registration,
+  `registered payload fixed send path: hit` evidence 를 검토한다.
+  remote gate 전까지 zero-copy send, default backend promotion, latency hard gate 는 열지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
@@ -2205,6 +2213,6 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
 - latency hard gate 또는 warning-as-failure 구현
 - `BaselineSummaryGenerator` threshold 상수 즉시 변경
 - CI artifact 자동 채택, pull_request trigger, schedule trigger
-- fixed registration, zero-copy send
+- zero-copy send
 - io_uring reference baseline 파일 자동 추가
 - stable identity 인증/권한 검증, persistence, payload replay
