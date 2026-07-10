@@ -5,6 +5,30 @@
 긴 변경 이력 원문은 `docs/agent-state/changelog/2026-06.md`에 보존했다.
 이 파일은 최근 작업 단위와 현재 진입점에 필요한 내용만 유지한다.
 
+## 2026-07-10 (Codex - D233 sample broker explicit io_uring design)
+
+### 작업 단위
+- D232 이후 다음 사용성 단위로 sample broker explicit `--transport iouring` 설계를 작성했다.
+
+### 설계 결정
+- 기존 `SampleTransportMode`, parser, selector delegate injection을 확장한다.
+- explicit io_uring unavailable은 SAEA fallback 없이 exit code 1로 실패한다.
+- 기존 `saea`, `rio`, `auto`와 `TransportFactory.CreateDefault()` 의미는 유지한다.
+- 기존 selector overload는 유지하고 io_uring probe/factory를 받는 full overload를 추가한다.
+- sample broker는 계속 TCP listener만 열며 UDP CLI는 추가하지 않는다.
+- Linux workflow는 solution/WPF를 제외하고 io_uring tests와 sample broker 두 project만 명시적으로 restore/build한다.
+
+### TDD 및 검증
+- compile failure를 Red로 쓰지 않도록 문자열 `iouring` parser assertion부터 시작한다.
+- selector available/unavailable, probe/factory call isolation, IPv6 composition, 기존 mode 회귀를 검증한다.
+- sample project reference/Program usage와 workflow path는 정적 contract test로 먼저 실패를 확인한다.
+- remote gate는 sample Linux build step success와 기존 io_uring native TRX evidence를 함께 확인한다.
+
+### 산출물 및 다음
+- 설계: `docs/superpowers/specs/2026-07-10-sample-broker-explicit-iouring-transport-design.md`.
+- 다음 실행 지점은 D234 사용자 설계 검토다.
+- 승인 전 implementation plan과 production code는 작성하지 않는다.
+
 ## 2026-07-10 (Codex - D232 Interface Server usage guide cross-verification)
 
 ### 작업 단위

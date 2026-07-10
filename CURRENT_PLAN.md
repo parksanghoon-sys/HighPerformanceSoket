@@ -2213,8 +2213,12 @@ io_uring UDP receive-side bounded slot window 를 먼저 열었다.
   CLI/Server/Protocol/Dashboard 및 io_uring public opt-in 관련 focused tests가 통과했다.
   가이드에는 source project reference, `IoUringCapabilityProbe` 기반 direct transport 주입,
   registered hit/fallback 동작과 zero-copy/default 승격 제외 범위를 반영했다.
-- 다음 실행 지점: sample broker에 명시적 `--transport iouring`을 추가하는 사용성 단위와
-  registered payload 경로의 성능 benchmark 단위 중 무엇을 먼저 설계할지 사용자가 우선순위를 정한다.
+- D233 기준 sample broker에 명시적 `--transport iouring`을 추가하는 방향을 선택하고 설계를 작성했다.
+  기존 parser/selector delegate injection을 확장하고, explicit unavailable은 exit code 1 fail-closed로 처리한다.
+  기존 `auto`의 RIO/SAEA 의미와 `TransportFactory.CreateDefault()`는 변경하지 않는다.
+  Linux workflow는 solution/WPF가 아니라 io_uring tests와 sample broker 두 Linux-safe project만 명시적으로 build한다.
+  설계 문서는 `docs/superpowers/specs/2026-07-10-sample-broker-explicit-iouring-transport-design.md`에 있다.
+- 다음 실행 지점: 사용자가 D233 설계 문서를 검토한다. 승인 전에는 implementation plan이나 코드를 작성하지 않는다.
 
 ## 이번 작업에서 건드리지 않는 범위
 
