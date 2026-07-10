@@ -1,6 +1,8 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Hps.Transport;
@@ -11,15 +13,139 @@ namespace Hps.Sample.BrokerServer.Tests
 {
     public sealed class SampleTransportSelectorTests
     {
-        // saea mode 는 capability probe 없이 SAEA factory 만 호출해야 한다.
+        // saea mode는 RIO와 io_uring capability probe를 모두 건너뛰고 SAEA factory만 호출해야 한다.
         [Fact]
         public void Select_WhenModeIsSaea_ReturnsSaeaTransport()
         {
-            BrokerSample.SampleTransportSelection selection = Select(BrokerSample.SampleTransportMode.Saea, RioCapabilityStatus.Available);
+            SelectorCallCounts calls = new SelectorCallCounts();
+            BrokerSample.SampleTransportSelection selection = SelectFull(
+                BrokerSample.SampleTransportMode.Saea,
+                RioCapabilityStatus.Available,
+                IoUringCapabilityStatus.Available,
+                AddressFamily.InterNetwork,
+                calls);
 
             Assert.True(selection.Succeeded);
             Assert.Equal("SaeaTransport", selection.SelectedBackendName);
-            Assert.Null(selection.ErrorMessage);
+            Assert.Equal(0, calls.RioProbeCount);
+            Assert.Equal(0, calls.IoUringProbeCount);
+            Assert.Equal(1, calls.SaeaFactoryCount);
+            Assert.Equal(0, calls.RioFactoryCount);
+            Assert.Equal(0, calls.IoUringFactoryCount);
+        }
+
+        // explicit io_uring은 capability가 available일 때만 io_uring factory를 호출해야 한다.
+        // 선택하지 않은 RIO/SAEA 경로가 평가되면 platform probe와 backend identity가 섞인다.
+        [Fact]
+        public void Select_WhenModeIsIoUringAndAvailable_ReturnsIoUringTransport()
+        {
+            SelectorCallCounts calls = new SelectorCallCounts();
+            BrokerSample.SampleTransportSelection selection = SelectFull(
+                BrokerSample.SampleTransportMode.IoUring,
+                RioCapabilityStatus.Available,
+                IoUringCapabilityStatus.Available,
+                AddressFamily.InterNetwork,
+                calls);
+
+            Assert.True(selection.Succeeded);
+            Assert.Equal("IoUringTransport", selection.SelectedBackendName);
+            Assert.Equal(0, calls.RioProbeCount);
+            Assert.Equal(1, calls.IoUringProbeCount);
+            Assert.Equal(0, calls.SaeaFactoryCount);
+            Assert.Equal(0, calls.RioFactoryCount);
+            Assert.Equal(1, calls.IoUringFactoryCount);
+        }
+
+        // non-Linux에서 explicit io_uring을 요청하면 SAEA fallback 없이 Linux 전용 오류와 exit code 1을 반환해야 한다.
+        [Fact]
+        public void Select_WhenModeIsIoUringAndOperatingSystemIsUnsupported_ReturnsFailure()
+        {
+            SelectorCallCounts calls = new SelectorCallCounts();
+            BrokerSample.SampleTransportSelection selection = SelectFull(
+                BrokerSample.SampleTransportMode.IoUring,
+                RioCapabilityStatus.Available,
+                IoUringCapabilityStatus.UnsupportedOperatingSystem,
+                AddressFamily.InterNetwork,
+                calls);
+
+            Assert.False(selection.Succeeded);
+            Assert.Equal(1, selection.ExitCode);
+            Assert.Contains("Linux", selection.ErrorMessage!);
+            Assert.Equal(0, calls.RioProbeCount);
+            Assert.Equal(1, calls.IoUringProbeCount);
+            Assert.Equal(0, calls.SaeaFactoryCount);
+            Assert.Equal(0, calls.RioFactoryCount);
+            Assert.Equal(0, calls.IoUringFactoryCount);
+        }
+
+        // Linux에서 kernel capability가 unavailable이면 explicit 요청은 backend identity를 숨기지 않고 실패해야 한다.
+        [Fact]
+        public void Select_WhenModeIsIoUringAndCapabilityIsUnavailable_ReturnsFailure()
+        {
+            SelectorCallCounts calls = new SelectorCallCounts();
+            BrokerSample.SampleTransportSelection selection = SelectFull(
+                BrokerSample.SampleTransportMode.IoUring,
+                RioCapabilityStatus.Available,
+                IoUringCapabilityStatus.Unavailable,
+                AddressFamily.InterNetwork,
+                calls);
+
+            Assert.False(selection.Succeeded);
+            Assert.Equal(1, selection.ExitCode);
+            Assert.Contains("status=Unavailable", selection.ErrorMessage!);
+            Assert.Equal(0, calls.RioProbeCount);
+            Assert.Equal(1, calls.IoUringProbeCount);
+            Assert.Equal(0, calls.SaeaFactoryCount);
+            Assert.Equal(0, calls.RioFactoryCount);
+            Assert.Equal(0, calls.IoUringFactoryCount);
+        }
+
+        // io_uring TCP는 IPEndPoint의 IPv6 family를 사용할 수 있으므로 RIO의 IPv4-only guard를 재사용하면 안 된다.
+        [Fact]
+        public void Select_WhenModeIsIoUringAndListenAddressIsIpv6_ReturnsIoUringTransport()
+        {
+            SelectorCallCounts calls = new SelectorCallCounts();
+            BrokerSample.SampleTransportSelection selection = SelectFull(
+                BrokerSample.SampleTransportMode.IoUring,
+                RioCapabilityStatus.Available,
+                IoUringCapabilityStatus.Available,
+                AddressFamily.InterNetworkV6,
+                calls);
+
+            Assert.True(selection.Succeeded);
+            Assert.Equal("IoUringTransport", selection.SelectedBackendName);
+            Assert.Equal(1, calls.IoUringFactoryCount);
+        }
+
+        // 기존 overload는 source compatibility를 유지하되 새 mode를 받으면 준비되지 않은 factory를 호출하지 않고 명시 실패해야 한다.
+        [Fact]
+        public void Select_WhenLegacyOverloadReceivesIoUring_ReturnsFailure()
+        {
+            SelectorCallCounts calls = new SelectorCallCounts();
+            BrokerSample.SampleTransportSelection selection = BrokerSample.SampleTransportSelector.Select(
+                BrokerSample.SampleTransportMode.IoUring,
+                delegate
+                {
+                    calls.RioProbeCount++;
+                    return RioCapabilityStatus.Available;
+                },
+                delegate
+                {
+                    calls.SaeaFactoryCount++;
+                    return new FakeTransport("SaeaTransport");
+                },
+                delegate
+                {
+                    calls.RioFactoryCount++;
+                    return new FakeTransport("RioTransport");
+                });
+
+            Assert.False(selection.Succeeded);
+            Assert.Equal(1, selection.ExitCode);
+            Assert.Contains("Linux", selection.ErrorMessage!);
+            Assert.Equal(0, calls.RioProbeCount);
+            Assert.Equal(0, calls.SaeaFactoryCount);
+            Assert.Equal(0, calls.RioFactoryCount);
         }
 
         // explicit rio 는 available 일 때만 RIO backend 를 선택한다.
@@ -125,6 +251,67 @@ namespace Hps.Sample.BrokerServer.Tests
             Func<ITransport> createSaea = delegate { return new FakeTransport("SaeaTransport"); };
             Func<ITransport> createRio = delegate { return new FakeTransport("RioTransport"); };
             return BrokerSample.SampleTransportSelector.Select(mode, listenAddressFamily, probe, createSaea, createRio);
+        }
+
+        private static BrokerSample.SampleTransportSelection SelectFull(
+            BrokerSample.SampleTransportMode mode,
+            RioCapabilityStatus rioStatus,
+            IoUringCapabilityStatus ioUringStatus,
+            AddressFamily listenAddressFamily,
+            SelectorCallCounts calls)
+        {
+            MethodInfo? selectMethod = typeof(BrokerSample.SampleTransportSelector)
+                .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .SingleOrDefault(method => method.Name == "Select" && method.GetParameters().Length == 7);
+            Assert.NotNull(selectMethod);
+
+            Func<RioCapabilityStatus> getRioStatus = delegate
+            {
+                calls.RioProbeCount++;
+                return rioStatus;
+            };
+            Func<IoUringCapabilityStatus> getIoUringStatus = delegate
+            {
+                calls.IoUringProbeCount++;
+                return ioUringStatus;
+            };
+            Func<ITransport> createSaea = delegate
+            {
+                calls.SaeaFactoryCount++;
+                return new FakeTransport("SaeaTransport");
+            };
+            Func<ITransport> createRio = delegate
+            {
+                calls.RioFactoryCount++;
+                return new FakeTransport("RioTransport");
+            };
+            Func<ITransport> createIoUring = delegate
+            {
+                calls.IoUringFactoryCount++;
+                return new FakeTransport("IoUringTransport");
+            };
+
+            return (BrokerSample.SampleTransportSelection)selectMethod!.Invoke(
+                null,
+                new object[]
+                {
+                    mode,
+                    listenAddressFamily,
+                    getRioStatus,
+                    getIoUringStatus,
+                    createSaea,
+                    createRio,
+                    createIoUring
+                })!;
+        }
+
+        private sealed class SelectorCallCounts
+        {
+            public int RioProbeCount;
+            public int IoUringProbeCount;
+            public int SaeaFactoryCount;
+            public int RioFactoryCount;
+            public int IoUringFactoryCount;
         }
 
         private sealed class FakeTransport : TransportBase

@@ -5,16 +5,16 @@ using Hps.Transport;
 namespace Hps.Sample.BrokerServer
 {
     /// <summary>
-    /// sample host composition 경계에서 concrete transport 를 선택한다.
-    /// capability probe 와 factory 를 주입받아 tests 가 실제 OS/RIO availability 에 묶이지 않게 한다.
+    /// sample host composition 경계에서 concrete transport를 선택한다.
+    /// capability probe와 factory를 주입받아 tests가 실제 OS/RIO/io_uring availability와 무관하게 선택 정책을 검증할 수 있게 한다.
     /// </summary>
     public static class SampleTransportSelector
     {
         public const int RuntimeFailureExitCode = 1;
 
         /// <summary>
-        /// 기존 호출 경로와 테스트 호환성을 위해 IPv4 listen endpoint 를 전제로 transport 를 선택한다.
-        /// 실제 host 는 parsed address family 를 아는 overload 를 호출해 RIO IPv4-only 제약을 먼저 반영한다.
+        /// 기존 호출 경로와 tests의 source compatibility를 위해 IPv4 listen endpoint를 전제로 transport를 선택한다.
+        /// io_uring mode는 구성되지 않은 factory를 호출하지 않고 Linux 전용 capability failure를 반환하며, 실제 host는 address family를 받는 overload를 사용한다.
         /// </summary>
         public static SampleTransportSelection Select(
             SampleTransportMode mode,
@@ -22,13 +22,19 @@ namespace Hps.Sample.BrokerServer
             Func<ITransport> createSaea,
             Func<ITransport> createRio)
         {
-            return Select(mode, AddressFamily.InterNetwork, getRioStatus, createSaea, createRio);
+            return Select(
+                mode,
+                AddressFamily.InterNetwork,
+                getRioStatus,
+                GetUnsupportedIoUringStatus,
+                createSaea,
+                createRio,
+                ThrowIoUringFactoryNotConfigured);
         }
 
         /// <summary>
-        /// sample host 의 listen address family 와 RIO capability 를 함께 고려해 concrete transport 를 선택한다.
-        /// RIO backend 는 현재 IPv4 전용이므로 auto mode 는 non-IPv4 endpoint 에서 SAEA 로 fallback 하고,
-        /// explicit rio mode 는 fallback 없이 runtime failure 를 반환한다.
+        /// 기존 host 호출의 source compatibility를 유지하면서 listen address family와 RIO capability를 고려해 concrete transport를 선택한다.
+        /// io_uring mode는 구성되지 않은 factory를 호출하지 않고 Linux 전용 capability failure를 반환하며, RIO와 auto의 IPv4 guard 및 fallback 계약은 유지한다.
         /// </summary>
         public static SampleTransportSelection Select(
             SampleTransportMode mode,
@@ -37,16 +43,45 @@ namespace Hps.Sample.BrokerServer
             Func<ITransport> createSaea,
             Func<ITransport> createRio)
         {
+            return Select(
+                mode,
+                listenAddressFamily,
+                getRioStatus,
+                GetUnsupportedIoUringStatus,
+                createSaea,
+                createRio,
+                ThrowIoUringFactoryNotConfigured);
+        }
+
+        /// <summary>
+        /// 명시 mode와 listen address family, 각 backend capability probe 및 factory를 기준으로 concrete transport를 선택한다.
+        /// Saea는 두 capability probe를 모두 건너뛰고, explicit io_uring은 RIO probe를 건너뛰며 available일 때만 io_uring factory를 호출한다.
+        /// explicit io_uring capability failure는 SAEA fallback 없이 runtime failure를 반환하고, RIO와 auto의 기존 IPv4 guard 및 fallback 정책은 그대로 유지한다.
+        /// </summary>
+        public static SampleTransportSelection Select(
+            SampleTransportMode mode,
+            AddressFamily listenAddressFamily,
+            Func<RioCapabilityStatus> getRioStatus,
+            Func<IoUringCapabilityStatus> getIoUringStatus,
+            Func<ITransport> createSaea,
+            Func<ITransport> createRio,
+            Func<ITransport> createIoUring)
+        {
             if (getRioStatus == null)
                 throw new ArgumentNullException(nameof(getRioStatus));
+            if (getIoUringStatus == null)
+                throw new ArgumentNullException(nameof(getIoUringStatus));
             if (createSaea == null)
                 throw new ArgumentNullException(nameof(createSaea));
             if (createRio == null)
                 throw new ArgumentNullException(nameof(createRio));
+            if (createIoUring == null)
+                throw new ArgumentNullException(nameof(createIoUring));
 
             if (mode != SampleTransportMode.Saea &&
                 mode != SampleTransportMode.Rio &&
-                mode != SampleTransportMode.Auto)
+                mode != SampleTransportMode.Auto &&
+                mode != SampleTransportMode.IoUring)
             {
                 throw new ArgumentOutOfRangeException(nameof(mode));
             }
@@ -54,41 +89,69 @@ namespace Hps.Sample.BrokerServer
             if (mode == SampleTransportMode.Saea)
                 return SampleTransportSelection.Success(createSaea(), "SaeaTransport", null);
 
+            if (mode == SampleTransportMode.IoUring)
+            {
+                IoUringCapabilityStatus ioUringStatus = getIoUringStatus();
+                if (ioUringStatus == IoUringCapabilityStatus.Available)
+                    return SampleTransportSelection.Success(createIoUring(), "IoUringTransport", null);
+
+                if (ioUringStatus == IoUringCapabilityStatus.UnsupportedOperatingSystem)
+                {
+                    return SampleTransportSelection.Failure(
+                        "io_uring transport는 Linux에서만 사용할 수 있습니다. status=" + ioUringStatus,
+                        RuntimeFailureExitCode);
+                }
+
+                return SampleTransportSelection.Failure(
+                    "io_uring transport를 사용할 수 없습니다. status=" + ioUringStatus,
+                    RuntimeFailureExitCode);
+            }
+
             bool rioCanListenOnAddressFamily = listenAddressFamily == AddressFamily.InterNetwork;
             if (!rioCanListenOnAddressFamily)
             {
                 if (mode == SampleTransportMode.Rio)
                 {
                     return SampleTransportSelection.Failure(
-                        "RIO transport는 현재 IPv4 listen endpoint 만 지원합니다. address-family=" + listenAddressFamily,
+                        "RIO transport는 현재 IPv4 listen endpoint만 지원합니다. address-family=" + listenAddressFamily,
                         RuntimeFailureExitCode);
                 }
 
                 return SampleTransportSelection.Success(
                     createSaea(),
                     "SaeaTransport",
-                    "RIO IPv4-only backend 는 IPv6/non-IPv4 listen endpoint 를 사용할 수 없어 SaeaTransport 로 fallback 합니다. address-family=" +
+                    "RIO IPv4-only backend는 IPv6/non-IPv4 listen endpoint를 사용할 수 없어 SaeaTransport로 fallback 합니다. address-family=" +
                     listenAddressFamily);
             }
 
-            RioCapabilityStatus status = getRioStatus();
+            RioCapabilityStatus rioStatus = getRioStatus();
             if (mode == SampleTransportMode.Rio)
             {
-                if (status == RioCapabilityStatus.Available)
+                if (rioStatus == RioCapabilityStatus.Available)
                     return SampleTransportSelection.Success(createRio(), "RioTransport", null);
 
                 return SampleTransportSelection.Failure(
-                    "RIO transport를 사용할 수 없습니다. status=" + status,
+                    "RIO transport를 사용할 수 없습니다. status=" + rioStatus,
                     RuntimeFailureExitCode);
             }
 
-            if (status == RioCapabilityStatus.Available)
+            if (rioStatus == RioCapabilityStatus.Available)
                 return SampleTransportSelection.Success(createRio(), "RioTransport", null);
 
             return SampleTransportSelection.Success(
                 createSaea(),
                 "SaeaTransport",
-                "RIO unavailable; falling back to SaeaTransport. status=" + status);
+                "RIO unavailable; falling back to SaeaTransport. status=" + rioStatus);
+        }
+
+        private static IoUringCapabilityStatus GetUnsupportedIoUringStatus()
+        {
+            return IoUringCapabilityStatus.UnsupportedOperatingSystem;
+        }
+
+        private static ITransport ThrowIoUringFactoryNotConfigured()
+        {
+            throw new InvalidOperationException("이 selector overload에는 io_uring factory가 구성되지 않았습니다.");
         }
     }
 }

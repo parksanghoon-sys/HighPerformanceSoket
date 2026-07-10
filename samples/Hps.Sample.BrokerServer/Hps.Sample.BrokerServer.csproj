@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\src\Hps.Buffers\Hps.Buffers.csproj" />
     <ProjectReference Include="..\..\src\Hps.Server\Hps.Server.csproj" />
     <ProjectReference Include="..\..\src\Hps.Transport\Hps.Transport.csproj" />
+    <ProjectReference Include="..\..\src\Hps.Transport.IoUring\Hps.Transport.IoUring.csproj" />
     <ProjectReference Include="..\..\src\Hps.Transport.Rio\Hps.Transport.Rio.csproj" />
   </ItemGroup>
 
