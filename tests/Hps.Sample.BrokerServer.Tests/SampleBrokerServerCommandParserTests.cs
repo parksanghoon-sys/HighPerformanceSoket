@@ -64,6 +64,24 @@ namespace Hps.Sample.BrokerServer.Tests
             Assert.Equal(BrokerSample.SampleTransportMode.Auto, commandLine!.TransportMode);
         }
 
+        // explicit io_uring 선택은 parser에서 보존되어야 하며 실제 OS capability 판단은 selector가 맡아야 한다.
+        [Fact]
+        public void TryParse_WhenTransportIoUringIsProvided_ReturnsIoUringMode()
+        {
+            BrokerSample.SampleBrokerServerCommandLine? commandLine;
+            string? errorMessage;
+
+            bool parsed = BrokerSample.SampleBrokerServerCommandParser.TryParse(
+                new[] { "loopback", "5000", "65536", "--transport", "IoUrInG" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.NotNull(commandLine);
+            Assert.Equal("IoUring", commandLine!.TransportMode.ToString());
+        }
+
         // option 값 누락은 broker 시작 전에 usage error 로 멈춰야 한다.
         [Fact]
         public void TryParse_WhenTransportValueIsMissing_ReturnsError()
@@ -77,7 +95,7 @@ namespace Hps.Sample.BrokerServer.Tests
                 out errorMessage);
 
             Assert.False(parsed);
-            Assert.Equal("--transport 옵션에는 saea, rio 또는 auto 값이 필요합니다.", errorMessage);
+            Assert.Equal("--transport 옵션에는 saea, rio, iouring 또는 auto 값이 필요합니다.", errorMessage);
         }
 
         // port 검증은 Program 이 broker 를 시작하기 전에 멈추는 입력 방어선이다.
@@ -127,7 +145,7 @@ namespace Hps.Sample.BrokerServer.Tests
                 out errorMessage);
 
             Assert.False(parsed);
-            Assert.Equal("--transport 옵션은 saea, rio 또는 auto 값만 사용할 수 있습니다.", errorMessage);
+            Assert.Equal("--transport 옵션은 saea, rio, iouring 또는 auto 값만 사용할 수 있습니다.", errorMessage);
         }
     }
 }

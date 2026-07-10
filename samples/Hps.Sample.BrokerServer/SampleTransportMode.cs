@@ -8,6 +8,7 @@ namespace Hps.Sample.BrokerServer
     {
         Saea,
         Rio,
-        Auto
+        Auto,
+        IoUring
     }
 }
