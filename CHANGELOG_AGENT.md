@@ -30,6 +30,11 @@
   sample broker Linux restore/build step과 native io_uring test evidence가 모두 확인되기 전에는
   Linux sample 실행 성공이나 default/auto 승격으로 해석하지 않는다.
 
+### Final review
+- whole-branch review range `d85d98e..17c3ef8`은 Critical/Important finding 없이 merge-ready 판정을 받았다.
+- 5-argument selector의 direct `IoUring` coverage와 workflow exact command allow-list는
+  현재 동작 결함이 아닌 Minor test-hardening으로 `TODOS.md` Deferred Backlog에 기록했다.
+
 ## 2026-07-10 (Codex - D234 sample broker explicit io_uring implementation plan)
 
 ### 작업 단위

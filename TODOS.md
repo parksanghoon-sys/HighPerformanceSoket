@@ -20,6 +20,23 @@
 
 ## Deferred Backlog
 
+- [ ] `P3_NICE` explicit sample io_uring selector/workflow contract test를 더 엄격하게 고정한다.
+  - 무엇이 남았는지: 5-argument `SampleTransportSelector.Select`에 `IoUring`을 직접 전달하는 회귀 test와,
+    Linux workflow의 모든 `dotnet restore/build/test` command를 exact allow-list로 비교하는 test가 없다.
+  - 왜 defer 되었는지: final whole-branch review는 현재 4/5-argument delegation과 workflow가 정확하다고 확인했고
+    두 항목을 현재 기능 결함이 아닌 future scope-regression 방지용 Minor test-hardening으로 분류했다.
+  - objective: legacy overload 두 경로의 explicit fail-closed 계약과 Linux workflow의 허용 command 집합을
+    이후 변경에서도 우회할 수 없도록 정적 contract를 강화한다.
+  - relevant context: D233~D235,
+    `docs/superpowers/plans/2026-07-10-sample-broker-explicit-iouring-transport.md`,
+    final review range `d85d98e..17c3ef8`.
+  - 관련 파일/범위: `tests/Hps.Sample.BrokerServer.Tests/SampleTransportSelectorTests.cs`,
+    `tests/Hps.Benchmarks.Tests/BenchmarkArtifactWorkflowTests.cs`.
+  - 현재 상태: explicit io_uring parser/selector/Program/workflow 구현은 local build 경고 0/오류 0,
+    solution tests 510/510과 final review merge-ready 판정을 통과했다.
+  - known blockers/open questions: 없음. 현재 D236 remote Linux artifact gate를 막지 않는다.
+  - 가장 자연스러운 next step: D236 완료 후 test-only 단위로 두 contract를 assertion Red부터 추가한다.
+
 - [ ] `P2_LATER` RIO full IPv6 지원은 default promotion scope 가 다시 열릴 때 별도 설계로 판단한다.
   - 무엇이 남았는지: RIO backend 는 D122 기준 TCP/UDP 모두 현재 IPv4 `IPEndPoint` 전용이다.
     sample broker host 의 `auto` mode 는 non-IPv4 listen endpoint 에서 SAEA fallback 을 제공하므로,
