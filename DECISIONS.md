@@ -8,6 +8,7 @@
 - D011 - close/dispose는 pending, in-flight, assembling buffer를 정확히 해제하고 이후 enqueue를 거부한다.
 - D012 - bounded drop-oldest의 evict/dequeue/close는 단일 락으로 직렬화하고 ref를 정확히 한 번 해제한다.
 - D053 - 최상위 제품 경계는 단순 broker가 아니라 endpoint-aware Interface Server다.
+- D238 - subscription readiness reflection은 wire ACK가 아니라 단일 in-process `BrokerServer` wait seam으로 교체한다.
 
 ## Active Transport Decisions
 

@@ -2,6 +2,14 @@
 
 ## Recent Work
 
+### 2026-07-10 - D238 subscription readiness seam 설계
+
+- Dashboard와 Benchmark TCP/UDP 네 reflection 호출과 실제 handler/table mutation 시점을 대조했다.
+- 단일 `BrokerServer.WaitForSubscriberCountAsync` method를 권장안으로 확정했다.
+- wire ACK, PUBLISH probe, event/snapshot, 새 project/friend assembly는 제외했다.
+- Benchmark의 `Hps.Broker` 직접 참조가 readiness reflection에만 쓰임을 확인해 구현 범위에 reference 제거를 포함했다.
+- 설계 문서와 상태/결정 문서만 변경했으며 production code와 tests는 변경하지 않았다.
+
 ### 2026-07-10 - Sample Broker selector surface 단순화
 
 - 구조 테스트 Red에서 public `Select` 3개를 검출한 뒤 사용되지 않는 4/5-argument overload를 제거했다.

@@ -2,13 +2,12 @@
 
 ## Current TODOs
 
-- [ ] `P1_NOW` 구독 준비 상태의 private reflection 의존을 하나의 명시적 계약으로 교체할 방향을 확정한다.
-  - 남은 일: Dashboard TCP/UDP smoke와 Benchmark TCP/UDP runner 네 곳이 `BrokerServer._subscriptions`를 reflection으로 읽는다.
-  - 이유: wire protocol에 SUBSCRIBE ACK가 없어 publish race를 피하려고 생긴 중복 우회다.
-  - 목적: 제품 동작이면 protocol ACK, 테스트 전용이면 단일 internal diagnostics seam 중 하나로 수렴한다.
-  - 범위: Dashboard smoke services, TCP/UDP loopback runners, Broker/Protocol tests.
-  - blocker/open question: 외부 client가 subscribe 완료를 알아야 하는지, 내부 loopback orchestration만 동기화하면 되는지 아직 결정되지 않았다.
-  - 다음 단계: 네 호출 경로와 command processing boundary를 대조하고 두 대안의 wire/API 비용을 비교한다.
+- [ ] `P1_NOW` D238 written design을 사용자 검토한 뒤 implementation 진입 여부를 확정한다.
+  - 설계: `docs/superpowers/specs/2026-07-10-subscription-readiness-seam-design.md`.
+  - 결정: 단일 `BrokerServer.WaitForSubscriberCountAsync` method로 네 cross-module reflection/polling을 교체한다.
+  - 구현 범위: Server API/tests, Dashboard TCP/UDP, Benchmark TCP/UDP, 불필요한 Benchmark→Broker reference 제거.
+  - blocker: written design 사용자 검토 전에는 production/test 구현을 시작하지 않는다.
+  - 다음 단계: 승인되면 reflection shape Red부터 하나의 coherent TDD 단위로 구현한다.
 
 ## Deferred Backlog
 
@@ -42,6 +41,9 @@
 
 ## Completed
 
+- [x] 2026-07-10 D238 subscription readiness seam 방향과 구현 경계를 설계했다.
+  - wire ACK는 UDP reliability 범위를 열고 behavior probe는 측정을 오염시켜 제외했다.
+  - 새 type/event/snapshot 없이 `BrokerServer` public wait method 하나로 수렴했다.
 - [x] 2026-07-10 Sample Broker selector를 public `Select` 하나로 단순화했다.
   - 구조 테스트 Red가 기존 4/5/7-argument overload 3개를 검출했다.
   - 4/5-argument overload, 전용 fallback helper, legacy overload test를 제거했다.

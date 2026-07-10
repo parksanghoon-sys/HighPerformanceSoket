@@ -22,20 +22,16 @@
 - Sample Broker selector의 사용되지 않는 4/5-argument overload와 전용 fallback helper를 제거했다.
 - selector 정책 테스트는 실제 7-argument production entry를 직접 사용하며 public `Select`는 하나만 남았다.
 - D237 legacy overload test 제안은 overload 제거로 종료됐다.
+- D238로 cross-module subscription reflection을 단일 `BrokerServer.WaitForSubscriberCountAsync` seam으로 교체하는 방향을 확정했다.
 
 ## 다음 단일 작업 단위
 
-### 구독 준비 상태의 private reflection 제거 방향 확정
+### D238 written design 사용자 검토
 
-- 목적: Dashboard와 Benchmark의 TCP/UDP 네 경로가 `BrokerServer._subscriptions`를 직접 읽는 중복 우회를 제거한다.
-- 확인 범위:
-  - `samples/Hps.Sample.Dashboard/Services/TcpSmokeTestService.cs`
-  - `samples/Hps.Sample.Dashboard/Services/UdpSmokeTestService.cs`
-  - `tests/Hps.Benchmarks/TcpLoopbackScenarioRunner.cs`
-  - `tests/Hps.Benchmarks/UdpLoopbackScenarioRunner.cs`
-- 먼저 readiness가 실제 client-visible protocol 요구인지 test orchestration 요구인지 구분한다.
-- 제품 요구면 SUBSCRIBE ACK, 내부 검증 요구면 단일 internal diagnostics seam 중 하나만 선택한다.
-- 설계 선택 전에는 protocol과 server에 병렬 readiness API를 추가하지 않는다.
+- 검토 문서: `docs/superpowers/specs/2026-07-10-subscription-readiness-seam-design.md`
+- 핵심 계약: `BrokerServer.WaitForSubscriberCountAsync(topic, minimumCount, timeout, cancellationToken)` 하나만 추가한다.
+- wire ACK, behavior probe, event/snapshot, 새 project와 friend assembly는 추가하지 않는다.
+- implementation은 사용자 문서 검토 뒤 하나의 TDD 단위로 진행한다.
 
 ## 최신 검증 기준선
 
@@ -45,6 +41,8 @@
   `registered payload fixed send path: hit` 확인.
 - selector 단순화: 구조 Red가 public `Select` 3개를 검출했고, Green 후 selector tests 13/13,
   Sample Broker tests 25/25, solution build 경고 0/오류 0, solution tests 510/510이다.
+- D238 설계 검증: 네 reflection 호출, TCP/UDP handler mutation 시점, D068 경계,
+  Benchmark의 `Hps.Broker` reference 용도를 실제 코드와 대조했다. production code/test는 변경하지 않았다.
 
 ## 다음 후보
 
