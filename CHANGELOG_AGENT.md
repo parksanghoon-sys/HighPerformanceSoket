@@ -2,6 +2,16 @@
 
 ## Recent Work
 
+### 2026-07-10 - 현재 checkout Release SAEA TCP/UDP gate
+
+- 임시 디렉터리에서 4096 bytes x 100 Hz x 30초 closed/open-loop를 TCP/UDP 각 1회 실행했다.
+- TCP load/open-loop는 99.9/100.0 Hz, p99 455.0/675.1 us, HWM 1/2다.
+- UDP load/open-loop는 99.8/100.0 Hz, p99 734.8/1023.6 us, HWM 0/0이다.
+- 모든 run이 hard pass, warning 0, drop/payload error/pool rented 0이다.
+- 첫 TCP run은 runner-id 미지정으로 reference와 비교 불가였고 raw를 수정하지 않은 채 identity를 지정해 재측정했다.
+- 재측정 TCP는 reference summary 9개와 envelope-compatible true, signal 0이다.
+- 임시 raw artifact는 repository baseline으로 자동 채택하지 않았다. production code와 tests는 변경하지 않았다.
+
 ### 2026-07-10 - D239 Benchmark 실행/reporting 경계 설계
 
 - `Hps.Benchmarks` 48개 파일과 tests/workflow/문서 소비를 실제 코드 기준으로 분류했다.

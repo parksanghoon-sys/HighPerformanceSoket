@@ -26,15 +26,17 @@
 - Dashboard/Benchmark 네 호출부의 reflection/polling을 제거했고 Benchmark의 불필요한 Broker 직접 참조도 제거했다.
 - D238 구현 review stop은 사용자 진행 승인으로 닫았다.
 - D239에서 benchmark 실행/reporting 책임을 조사했고 현재는 project를 나누지 않는 것으로 결정했다.
+- D239 written design은 사용자 승인으로 구현 계획 없이 닫았다.
+- 현재 checkout의 Release SAEA TCP/UDP 4096B x 100Hz gate를 임시 artifact로 다시 실행해 hard pass를 확인했다.
 
 ## 다음 단일 작업 단위
 
-### D239 written design 사용자 검토
+### 현재 checkout SAEA gate review stop
 
-- 설계: `docs/superpowers/specs/2026-07-10-benchmark-execution-reporting-boundary-design.md`.
-- 권장안: 하나의 executable/test project를 유지하고 raw report JSON을 실행/reporting 논리 경계로 고정한다.
-- 새 reporting project, namespace/folder 이동, parser/workflow 변경은 하지 않는다.
-- 사용자 문서 검토 전에는 implementation plan이나 구조 이동을 시작하지 않는다.
+- Release SAEA TCP/UDP closed-loop와 open-loop가 모두 delivery/drop/leak hard gate를 통과했다.
+- TCP는 `local-win-x64-01` reference summary 9개와 envelope-compatible true, signal 0이다.
+- UDP는 현재 같은 runner의 repository reference가 없어 hard gate와 latency 관측만 기록했다.
+- 임시 raw artifact는 repository baseline으로 자동 채택하지 않는다. 다음 backend gate는 사용자 검토 뒤 선택한다.
 
 ## 최신 검증 기준선
 
@@ -49,11 +51,16 @@
 - D238 build: solution build 경고 0/오류 0, 네 cross-module reflection match 0, Benchmark Broker 직접 참조 0.
 - D239 구조 확인: Benchmark 파일 48개 중 reporting 계열 32개, runtime/BenchmarkDotNet 직접 의존 5개,
   reporting workflow 호출 9개, 외부 production 소비자 0이다.
+- fresh SAEA TCP: load/open-loop actual 99.9/100.0 Hz, p50 141.9/150.7 us, p99 455.0/675.1 us,
+  send queue HWM 1/2, drop/payload error/pool rented 0, envelope signal 0.
+- fresh SAEA UDP: load/open-loop actual 99.8/100.0 Hz, p50 128.7/152.2 us, p99 734.8/1023.6 us,
+  HWM 0/0, drop/payload error/pool rented 0.
 
 ## 다음 후보
 
-1. target 배포 환경에서 4096 bytes x 100 Hz 성능 증거를 새로 요구할 때 해당 backend baseline을 갱신한다.
-2. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
+1. Windows가 target이면 현재 checkout의 explicit RIO TCP/UDP gate를 같은 profile로 실행한다.
+2. Linux가 target이면 다음 push 뒤 explicit io_uring remote gate를 갱신한다.
+3. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
 
 ## 이번 범위 밖
 

@@ -2,11 +2,11 @@
 
 ## Current TODOs
 
-- [ ] `P1_NOW` D239 written design을 사용자 검토한다.
-  - 설계: `docs/superpowers/specs/2026-07-10-benchmark-execution-reporting-boundary-design.md`.
-  - 결정: single executable/test project를 유지하고 raw report JSON을 논리 경계로 사용한다.
-  - 제외: 새 report project, 대량 파일 이동, parser/workflow 변경.
-  - 다음 단계: 설계 승인 뒤에도 물리 분리 trigger가 없으면 구현 계획 없이 이 항목을 닫는다.
+- [ ] `P1_NOW` 현재 checkout SAEA TCP/UDP gate 결과를 검토한다.
+  - profile: Release, SAEA, 4096 bytes, 100 Hz, 30초, closed/open-loop 각 1회.
+  - 결과: TCP/UDP 모두 hard pass, warning 0, drop/payload error/pool rented 0.
+  - TCP reference: 9개 summary와 envelope-compatible true, signal 0.
+  - 다음 단계: 사용자 검토 뒤 target OS에 맞춰 explicit RIO 또는 io_uring gate 중 하나만 선택한다.
 
 ## Deferred Backlog
 
@@ -33,10 +33,17 @@
 
 ## Completed
 
+- [x] 2026-07-10 현재 checkout Release SAEA TCP/UDP 4096B x 100Hz gate를 실행했다.
+  - TCP load/open-loop: 99.9/100.0 Hz, p99 455.0/675.1 us, HWM 1/2.
+  - UDP load/open-loop: 99.8/100.0 Hz, p99 734.8/1023.6 us, HWM 0/0.
+  - 모든 run에서 sent/received 일치, drop 0, payload error 0, pool rented 0이다.
+  - TCP는 explicit runner identity 재측정 후 repository reference envelope signal 0을 확인했다.
+  - raw artifact는 임시 경로에만 두고 repository baseline으로 채택하지 않았다.
 - [x] 2026-07-10 D239 benchmark 실행/reporting 책임 경계를 설계했다.
   - 48개 파일, reporting 계열 32개, runtime/BenchmarkDotNet 직접 의존 5개, workflow reporting 호출 9개를 대조했다.
   - raw report JSON 경계가 이미 존재하고 외부 소비자가 없어 현재 물리 분리는 과엔지니어링으로 판단했다.
   - 독립 소비자, 의존성 충돌, 반복 회귀, workflow 비용 중 실제 trigger가 생길 때만 다시 설계한다.
+  - 사용자 승인으로 implementation plan 없이 review stop을 닫았다.
 - [x] 2026-07-10 D238 구현 review stop을 사용자 진행 승인으로 닫았다.
 - [x] 2026-07-10 D238 subscription readiness seam을 구현했다.
   - public shape와 입력/timeout/cancellation assertion Red를 확인하고 최소 10ms polling 계약으로 Green을 만들었다.
