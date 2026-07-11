@@ -2,23 +2,13 @@
 
 ## Current TODOs
 
-- [ ] `P1_NOW` 현재 checkout explicit RIO TCP/UDP gate 결과를 검토한다.
-  - profile: Release, RIO, IPv4 loopback, 4096 bytes, 100 Hz, 30초, closed/open-loop 각 1회.
-  - 결과: TCP/UDP smoke와 baseline 모두 hard pass, warning 0, drop/payload error/pool rented 0.
-  - 제한: RIO repository reference가 없어 성능 우위/default 승격 근거가 아닌 현재 checkout gate다.
-  - 다음 단계: 사용자 검토 뒤 UDP HWM summary 결함을 별도 TDD 단위로 진행한다.
+- [ ] `P1_NOW` UDP HWM summary 수정 결과를 검토한다.
+  - 구현: summary/warning이 `max(TCP HWM, UDP HWM)`을 사용한다.
+  - 호환성: JSON `tcp-hwm-*`와 기존 warning code/metric은 유지한다.
+  - 검증: focused 2/2, Benchmark 118/118, solution 521/521, build 경고 0/오류 0.
+  - 다음 단계: 사용자 검토 뒤 push 가능 시 io_uring remote gate로 이동한다.
 
 ## Deferred Backlog
-
-- [ ] `P1_SOON` UDP pending-send HWM을 baseline summary/history/envelope에 반영한다.
-  - 남은 일: raw UDP report에는 `udp-pending-send-queue-high-watermark`가 있으나 `BaselineSummaryGenerator`는
-    `TcpPendingSendQueueHighWatermark`만 집계해 UDP summary의 legacy `tcp-hwm-*` 값과 warning이 0이 된다.
-  - 이유: RIO gate 중 발견했지만 production/test 수정은 현재 measurement 단위와 분리해야 한다.
-  - 목적: active protocol의 send queue HWM이 summary/history/envelope와 soft warning에 보존되게 한다.
-  - 범위: `BaselineSummaryGenerator.cs`, 관련 summary tests, 필요 시 writer/envelope tests와 상태 문서.
-  - 현재 상태: fresh raw 기준 SAEA UDP HWM은 load/open-loop 1/3, RIO UDP HWM은 1/2지만 summary는 0/0이다.
-  - 호환성: JSON `tcp-hwm-*` field와 기존 warning code는 유지하고 TCP/UDP HWM의 max를 집계값으로 쓰는 최소안을 우선 검토한다.
-  - 다음 단계: UDP HWM만 존재하는 report가 기존 summary HWM/warning에 반영되지 않는 assertion Red부터 작성한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
   - 남은 일: RIO TCP/UDP는 IPv4 전용이고 sample `auto`는 non-IPv4에서 SAEA fallback을 사용한다.
@@ -43,6 +33,14 @@
 
 ## Completed
 
+- [x] 2026-07-11 UDP pending-send HWM summary/warning 누락을 TDD로 수정했다.
+  - Red 1: UDP HWM 1/3 입력에서 summary min expected 1, actual 0으로 실패했다.
+  - Red 2: UDP HWM 8 입력에서 기존 HWM warning collection이 비어 실패했다.
+  - Green: summary와 warning이 TCP/UDP HWM의 max를 사용하며 legacy field/code/metric은 유지한다.
+  - focused 2/2, Benchmark 118/118, solution 521/521, build 경고 0/오류 0이다.
+  - 기존 SAEA UDP raw report CLI 재요약에서 load 1/1, open-loop 3/3을 확인했다.
+  - 독립 리뷰는 Critical/Important/Minor finding이 없었다.
+- [x] 2026-07-11 explicit RIO gate review stop을 사용자 진행 승인으로 닫았다.
 - [x] 2026-07-10 현재 checkout explicit RIO TCP/UDP 4096B x 100Hz gate를 실행했다.
   - TCP load/open-loop: 99.8/100.0 Hz, p99 874.1/1024.8 us, HWM 1/2.
   - UDP load/open-loop: 99.9/100.0 Hz, p99 818.5/1229.7 us, UDP HWM 1/2.

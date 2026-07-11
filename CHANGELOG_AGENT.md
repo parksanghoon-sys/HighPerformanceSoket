@@ -2,6 +2,15 @@
 
 ## Recent Work
 
+### 2026-07-11 - UDP pending-send HWM summary 수정
+
+- `BaselineSummaryGenerator`가 UDP HWM을 무시해 summary/history/envelope와 warning에서 0으로 보이던 결함을 수정했다.
+- summary min/max Red는 expected 1/actual 0, warning Red는 empty collection으로 실패함을 확인했다.
+- TCP/UDP pending-send HWM의 max를 공통 집계값으로 사용하되 JSON `tcp-hwm-*`와 기존 warning code/metric은 유지했다.
+- focused 2/2, Benchmark 118/118, solution 521/521, build 경고 0/오류 0이다.
+- 기존 SAEA UDP raw report CLI 재요약에서 load HWM 1/1, open-loop HWM 3/3을 확인했다.
+- 독립 리뷰는 finding이 없었고 mixed positive HWM 입력의 residual risk는 `Math.Max`의 명시성 때문에 낮다고 판단했다.
+
 ### 2026-07-10 - 현재 checkout explicit RIO TCP/UDP gate
 
 - Release RIO TCP/UDP smoke와 4096 bytes x 100 Hz x 30초 closed/open-loop를 임시 경로에서 실행했다.

@@ -40,6 +40,44 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal(3, summary.OpenLoop.TcpHighWatermarkMax);
         }
 
+        // UDP baseline도 legacy JSON의 tcp-hwm-* 필드를 계속 사용하지만 값은 active protocol의 send queue HWM이어야 한다.
+        // raw UDP HWM을 무시하면 실제 queue 적체가 summary/history/envelope에서 0으로 사라지므로 min/max 집계를 고정한다.
+        [Fact]
+        public void Generate_WhenOnlyUdpHwmExists_AggregatesLegacySummaryHwm()
+        {
+            BaselineReport[] reports =
+            {
+                CreateReport("udp/open-loop-01.json", "open-loop", 140.0, 800.0, 1.0, 100.0, 0, 0, 3000, udpHwm: 1),
+                CreateReport("udp/open-loop-02.json", "open-loop", 150.0, 900.0, 1.0, 100.0, 0, 0, 3000, udpHwm: 3)
+            };
+
+            BaselineSummary summary = BaselineSummaryGenerator.Generate("udp", reports);
+
+            Assert.NotNull(summary.OpenLoop);
+            Assert.Equal(1, summary.OpenLoop!.TcpHighWatermarkMin);
+            Assert.Equal(3, summary.OpenLoop.TcpHighWatermarkMax);
+        }
+
+        // warning code와 metric 이름은 기존 artifact 호환성을 유지하되 판단값은 UDP send queue HWM도 포함해야 한다.
+        // 그렇지 않으면 UDP queue가 threshold에 도달해도 warning이 누락되어 부하 적체 신호를 잃는다.
+        [Fact]
+        public void Generate_WhenUdpHwmReachesThreshold_EmitsLegacyHwmWarning()
+        {
+            BaselineReport[] reports =
+            {
+                CreateReport("udp/open-loop-01.json", "open-loop", 150.0, 900.0, 1.0, 100.0, 0, 0, 3000, udpHwm: 8)
+            };
+
+            BaselineSummary summary = BaselineSummaryGenerator.Generate("udp", reports);
+
+            Assert.Contains(
+                summary.Warnings,
+                warning => warning.Code == "open-loop-tcp-hwm-high"
+                    && warning.Metric == "tcp-pending-send-queue-high-watermark"
+                    && warning.Value == 8
+                    && warning.SourcePath == "udp/open-loop-01.json");
+        }
+
         // sent/received/drop/pool 조건 중 하나라도 깨지면 latency 와 무관하게 hard failure 로 집계한다.
         // summary command 의 exit code 는 이 hardPassed 값을 통해 Program wiring 에서 결정된다.
         [Fact]
@@ -201,7 +239,8 @@ namespace Hps.Benchmarks.Tests
             BenchmarkRunIdentity? identity = null,
             int payloadBytes = 4096,
             double targetRateHz = 100.0,
-            int targetDurationSeconds = 30)
+            int targetDurationSeconds = 30,
+            int udpHwm = 0)
         {
             return new BaselineReport(
                 sourcePath,
@@ -221,7 +260,7 @@ namespace Hps.Benchmarks.Tests
                 p99,
                 growth,
                 tcpHwm,
-                0,
+                udpHwm,
                 identity);
         }
 

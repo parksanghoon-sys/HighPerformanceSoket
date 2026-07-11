@@ -279,6 +279,8 @@ namespace Hps.Benchmarks
                 if (!string.Equals(report.ResultName, kind, StringComparison.OrdinalIgnoreCase))
                     continue;
 
+                int sendQueueHighWatermark = GetSendQueueHighWatermark(report);
+
                 if (!hasAny)
                 {
                     p50Min = report.P50LatencyMicroseconds;
@@ -289,8 +291,8 @@ namespace Hps.Benchmarks
                     growthMax = report.P99LatencyGrowthRatio;
                     rateMin = report.ActualRateHz;
                     rateMax = report.ActualRateHz;
-                    tcpHwmMin = report.TcpPendingSendQueueHighWatermark;
-                    tcpHwmMax = report.TcpPendingSendQueueHighWatermark;
+                    tcpHwmMin = sendQueueHighWatermark;
+                    tcpHwmMax = sendQueueHighWatermark;
                     poolRentedMax = report.PoolRented;
                     hasAny = true;
                 }
@@ -304,8 +306,8 @@ namespace Hps.Benchmarks
                     growthMax = Math.Max(growthMax, report.P99LatencyGrowthRatio);
                     rateMin = Math.Min(rateMin, report.ActualRateHz);
                     rateMax = Math.Max(rateMax, report.ActualRateHz);
-                    tcpHwmMin = Math.Min(tcpHwmMin, report.TcpPendingSendQueueHighWatermark);
-                    tcpHwmMax = Math.Max(tcpHwmMax, report.TcpPendingSendQueueHighWatermark);
+                    tcpHwmMin = Math.Min(tcpHwmMin, sendQueueHighWatermark);
+                    tcpHwmMax = Math.Max(tcpHwmMax, sendQueueHighWatermark);
                     poolRentedMax = Math.Max(poolRentedMax, report.PoolRented);
                 }
 
@@ -339,6 +341,15 @@ namespace Hps.Benchmarks
                 poolRentedMax);
         }
 
+        // summary JSON의 tcp-hwm-* 이름은 기존 artifact 호환성을 위해 유지한다.
+        // 실제 값은 protocol과 무관하게 활성 send queue의 HWM을 보존하도록 두 진단값 중 큰 값을 사용한다.
+        private static int GetSendQueueHighWatermark(BaselineReport report)
+        {
+            return Math.Max(
+                report.TcpPendingSendQueueHighWatermark,
+                report.UdpPendingSendQueueHighWatermark);
+        }
+
         // 입력 list 는 summary 생성 중에 새로 만든 임시 collection 이므로 정렬로 직접 바꿔도 caller 상태를 오염시키지 않는다.
         private static double CalculateMedian(List<double> values)
         {
@@ -358,6 +369,7 @@ namespace Hps.Benchmarks
             bool openLoop = string.Equals(report.ResultName, "open-loop", StringComparison.OrdinalIgnoreCase);
             double p99Threshold = openLoop ? OpenLoopP99WarningThreshold : LoadP99WarningThreshold;
             int hwmThreshold = openLoop ? OpenLoopTcpHighWatermarkWarningThreshold : LoadTcpHighWatermarkWarningThreshold;
+            int sendQueueHighWatermark = GetSendQueueHighWatermark(report);
             string kind = openLoop ? "open-loop" : "load";
 
             if (report.P99LatencyMicroseconds > p99Threshold)
@@ -393,13 +405,13 @@ namespace Hps.Benchmarks
                     report.SourcePath));
             }
 
-            if (report.TcpPendingSendQueueHighWatermark >= hwmThreshold)
+            if (sendQueueHighWatermark >= hwmThreshold)
             {
                 warnings.Add(new BaselineWarning(
                     kind + "-tcp-hwm-high",
                     kind,
                     "tcp-pending-send-queue-high-watermark",
-                    report.TcpPendingSendQueueHighWatermark,
+                    sendQueueHighWatermark,
                     hwmThreshold,
                     report.SourcePath));
             }

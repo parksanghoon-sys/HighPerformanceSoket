@@ -30,15 +30,17 @@
 - 현재 checkout의 Release SAEA TCP/UDP 4096B x 100Hz gate를 임시 artifact로 다시 실행해 hard pass를 확인했다.
 - SAEA gate review stop은 사용자 진행 승인으로 닫았다.
 - 현재 checkout의 explicit RIO TCP/UDP gate도 같은 profile로 실행해 hard pass를 확인했다.
+- RIO gate review stop은 사용자 진행 승인으로 닫았다.
+- UDP raw pending-send HWM을 legacy summary/history/envelope HWM과 warning에 반영하도록 수정했다.
 
 ## 다음 단일 작업 단위
 
-### 현재 checkout explicit RIO gate review stop
+### UDP HWM summary 수정 review stop
 
-- Release RIO TCP/UDP smoke와 closed/open-loop가 모두 delivery/drop/leak hard gate를 통과했다.
-- 같은 runner/profile의 repository RIO reference가 없어 hard gate와 latency/HWM만 기록했다.
-- 단일 표본을 SAEA 대비 성능 우위, default 승격 또는 IPv6 지원 근거로 사용하지 않는다.
-- 임시 raw artifact는 repository baseline으로 자동 채택하지 않는다.
+- `BaselineSummaryGenerator`는 TCP/UDP pending-send HWM 중 큰 값을 protocol-neutral 집계값으로 사용한다.
+- JSON `tcp-hwm-*` field와 기존 `*-tcp-hwm-high` warning code/metric은 호환성을 유지한다.
+- 기존 SAEA UDP raw report 재요약에서 load HWM 1, open-loop HWM 3이 summary에 보존됐다.
+- 다음 기능은 사용자 검토 전까지 시작하지 않는다.
 
 ## 최신 검증 기준선
 
@@ -63,12 +65,14 @@
   UDP send queue HWM 1/2, drop/payload error/pool rented 0.
 - sandbox restore가 잘못된 package root를 기록해 후속 build가 실패했으나, 사용자 NuGet cache를 명시해
   restore한 뒤 Release build 경고 0/오류 0과 재빌드 binary TCP/UDP RIO smoke를 확인했다.
+- UDP HWM TDD: summary min/max Red는 expected 1/actual 0, warning Red는 empty collection으로 실패했다.
+- UDP HWM Green: focused 2/2, Benchmark 118/118, solution 521/521, build 경고 0/오류 0.
+- CLI integration: 기존 SAEA UDP raw report 재요약이 load HWM 1/1, open-loop HWM 3/3을 출력했다.
 
 ## 다음 후보
 
-1. `BaselineSummaryGenerator`가 UDP raw HWM을 summary/history/envelope에 반영하지 않는 결함을 TDD로 수정한다.
-2. Linux가 target이면 다음 push 뒤 explicit io_uring remote gate를 갱신한다.
-3. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
+1. push 가능 시 현재 local 9커밋을 원격에 반영하고 explicit io_uring remote gate를 갱신한다.
+2. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
 
 ## 이번 범위 밖
 
