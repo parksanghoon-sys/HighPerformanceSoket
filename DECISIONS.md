@@ -15,7 +15,7 @@
 - D119 - `TransportFactory.CreateDefault()`는 deterministic SAEA 기본값을 유지한다.
 - D120 - RIO/io_uring 선택은 base factory가 아니라 host composition 책임이다.
 - D122 - RIO는 현재 IPv4 전용이며 non-IPv4 sample `auto`는 SAEA로 fallback한다.
-- D240 - RIO UDP D118 단발 통과는 반복 안정성 근거가 아니며 bounded receive window를 다시 검증한다.
+- D240 - RIO UDP 반복 안정성은 fixed depth 4 bounded window를 Red와 3회 gate로 다시 검증한다.
 - D211 - 검증되지 않은 production fixed-write 직접 연결은 원격 hang 때문에 rollback됐다.
 - D217 - fixed send registration은 connection lifetime과 in-flight ref를 명시적으로 소유한다.
 - D229 - registered payload source는 `BrokerServer`가 concrete backend를 알지 않도록 provider seam으로 노출한다.

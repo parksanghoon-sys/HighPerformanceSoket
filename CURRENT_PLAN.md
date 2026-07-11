@@ -39,14 +39,14 @@
 
 ## 다음 단일 작업 단위
 
-### RIO UDP 반복 open-loop delivery 실패 review stop
+### RIO UDP depth 4 hardening written design review stop
 
-- RIO TCP는 load/open-loop 각 3회 모두 sent/received 3000/3000, drop/payload error/pool rented 0으로 hard pass했다.
-- RIO UDP load 3회도 3000/3000으로 통과했지만 open-loop는 2996/2997/2999 수신으로 3회 모두 hard fail했다.
-- UDP open-loop의 send queue HWM은 2, transport drop과 payload error는 0이므로 send queue overflow 증거는 없다.
-- 같은 binary와 환경의 SAEA UDP open-loop는 3000/3000, 99.9 Hz로 통과했다.
-- 기존 RIO UDP focused tests 18/18은 통과해 현재 bounded-window 테스트가 30초 지속 부하 변동성을 포착하지 못하는 공백을 확인했다.
-- 다음 구현은 사용자 검토 전까지 시작하지 않는다.
+- `docs/superpowers/specs/2026-07-11-rio-udp-repeat-stability-hardening-design.md`에 D240 보강 설계를 작성했다.
+- public 설정이나 새 abstraction 없이 내부 fixed receive depth를 2에서 4로 검증한다.
+- blocked handler 중 current 1개와 posted slot 4개, close 후 pool 0을 Red로 먼저 고정한다.
+- 구현 수락 gate는 RIO UDP load/open-loop 각 3회 모두 3000/3000과 drop/payload error/pool rented 0이다.
+- 한 번이라도 delivery hard fail이면 depth 8로 확대하지 않고 변경을 되돌린 뒤 누락 위치 diagnostics 설계로 돌아간다.
+- 구현 계획과 production 변경은 written spec 사용자 검토 전까지 시작하지 않는다.
 
 ## 최신 검증 기준선
 
@@ -84,10 +84,10 @@
 
 ## 다음 후보
 
-1. RIO UDP bounded receive window 안정화 설계를 별도 review 단위로 작성한다. 우선 후보는 depth 4 Red,
-   close/drain ownership 회귀, 반복 open-loop gate이며 상수만 먼저 바꾸지 않는다.
-2. push 가능 시 현재 local 커밋을 원격에 반영하고 explicit io_uring remote gate를 갱신한다.
-3. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
+1. written spec 검토 승인 뒤 depth 4 hardening 구현 계획을 별도 문서 단위로 작성한다.
+2. 구현은 Red 2개, 내부 상수 최소 변경, focused/full tests, UDP `--runs 3` gate 순서로만 진행한다.
+3. push 가능 시 현재 local 커밋을 원격에 반영하고 explicit io_uring remote gate를 갱신한다.
+4. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
 
 ## 이번 범위 밖
 

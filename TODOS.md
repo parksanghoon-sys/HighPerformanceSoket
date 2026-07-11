@@ -2,12 +2,12 @@
 
 ## Current TODOs
 
-- [ ] `P0_NOW` RIO UDP 반복 open-loop delivery 실패와 다음 hardening 단위를 검토한다.
-  - 증거: 4096B x 100 Hz x 30초 open-loop 3회가 received 2996/2997/2999로 모두 hard fail했다.
-  - 대조: 같은 환경의 SAEA UDP open-loop는 3000/3000으로 통과했고 RIO TCP 6개 report와 UDP load 3개 report도 통과했다.
-  - 현재 상태: RIO UDP focused tests 18/18은 통과하므로 기존 depth 2 blocked-handler 테스트에는 지속 부하 검증 공백이 있다.
-  - 다음 단계: 사용자 검토 뒤 depth 4 bounded window, close/drain ownership, 반복 gate를 포함한 최소 설계를 먼저 작성한다.
-  - 제한: 검증 Red 없이 `ReceiveWindowSize`만 변경하거나 RIO를 default로 승격하지 않는다.
+- [ ] `P0_NOW` RIO UDP depth 4 hardening written spec을 검토한다.
+  - 문서: `docs/superpowers/specs/2026-07-11-rio-udp-repeat-stability-hardening-design.md`.
+  - 선택: 새 API 없이 내부 fixed depth 4를 blocked-handler와 close owner Red로 먼저 검증한다.
+  - 수락 gate: UDP load/open-loop 각 3회 모두 3000/3000, drop/payload error/pool rented 0.
+  - 실패 정책: 한 번이라도 hard fail이면 depth 8로 확대하지 않고 변경을 되돌린 뒤 diagnostics 설계로 돌아간다.
+  - 다음 단계: written spec 사용자 승인 뒤 구현 계획을 별도 문서 단위로 작성한다.
 
 ## Deferred Backlog
 
@@ -34,6 +34,10 @@
 
 ## Completed
 
+- [x] 2026-07-11 RIO UDP 반복 안정성 hardening 방향을 fixed depth 4 written spec으로 정리했다.
+  - 기존 slot owner와 request-context mapping을 재사용하고 production 변경을 내부 상수 1개로 제한했다.
+  - receive registration reuse와 configurable/adaptive depth는 소유권 충돌과 과도한 범위 때문에 제외했다.
+  - Red, close/drain, 반복 gate, 실패 시 rollback/diagnostics 전환 조건을 handoff-ready하게 명시했다.
 - [x] 2026-07-11 현재 checkout의 explicit RIO TCP/UDP gate를 protocol별 3회 반복하고 실패 범위를 조사했다.
   - TCP load/open-loop 6개 report는 모두 3000/3000, drop/payload error/pool rented 0으로 hard pass했다.
   - UDP load 3회는 3000/3000이지만 open-loop 3회는 2996/2997/2999 수신으로 hard fail했다.

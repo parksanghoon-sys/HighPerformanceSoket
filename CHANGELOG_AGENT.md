@@ -2,6 +2,15 @@
 
 ## Recent Work
 
+### 2026-07-11 - RIO UDP depth 4 반복 안정성 hardening 설계
+
+- D240 이후 다음 변경을 public 설정 없는 internal fixed receive depth 4 검증으로 제한했다.
+- 기존 slot owner, request-context mapping, 직렬 handler dispatch를 재사용해 production 변경은 우선 상수 1개만 허용한다.
+- blocked handler burst와 close 중 `ReceivePool.RentedCount` 5→0을 Red/Green 계약으로 정했다.
+- 구현 수락은 UDP load/open-loop 각 3회 3000/3000과 drop/payload error/pool rented 0으로 제한했다.
+- gate 실패 시 depth 8로 확대하지 않고 변경을 되돌린 뒤 누락 위치 diagnostics 설계로 돌아가도록 했다.
+- receive registration reuse, adaptive depth, default promotion, 새 diagnostics API는 범위 밖이다.
+
 ### 2026-07-11 - RIO TCP/UDP 3회 반복 안정성 gate
 
 - 현재 checkout에서 RIO TCP/UDP 4096B x 100 Hz x 30초 load/open-loop를 protocol별 3회 반복했다.
