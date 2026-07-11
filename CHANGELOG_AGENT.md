@@ -2,6 +2,16 @@
 
 ## Recent Work
 
+### 2026-07-11 - RIO TCP/UDP 3회 반복 안정성 gate
+
+- 현재 checkout에서 RIO TCP/UDP 4096B x 100 Hz x 30초 load/open-loop를 protocol별 3회 반복했다.
+- TCP 6개 report와 UDP load 3개 report는 sent/received 3000/3000, drop/payload error/pool rented 0으로 hard pass했다.
+- UDP open-loop는 received 2996/2997/2999로 3회 모두 hard fail했고 send queue HWM은 2였다.
+- 같은 환경의 SAEA UDP open-loop는 3000/3000, 99.9 Hz로 통과해 RIO receive-side로 조사 범위를 좁혔다.
+- 기존 RIO UDP focused tests 18/18은 통과해 depth 2 계약 테스트와 지속 open-loop 부하 사이의 검증 공백을 확인했다.
+- D240으로 D118의 단발 통과를 반복 안정성 근거로 확대하지 않고, 다음 단위를 bounded window hardening 설계로 제한했다.
+- raw artifact는 임시 경로에만 두었고 production code와 tests는 변경하지 않았다.
+
 ### 2026-07-11 - UDP pending-send HWM summary 수정
 
 - `BaselineSummaryGenerator`가 UDP HWM을 무시해 summary/history/envelope와 warning에서 0으로 보이던 결함을 수정했다.

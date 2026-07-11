@@ -32,15 +32,21 @@
 - 현재 checkout의 explicit RIO TCP/UDP gate도 같은 profile로 실행해 hard pass를 확인했다.
 - RIO gate review stop은 사용자 진행 승인으로 닫았다.
 - UDP raw pending-send HWM을 legacy summary/history/envelope HWM과 warning에 반영하도록 수정했다.
+- UDP HWM 수정 review stop은 사용자 진행 승인으로 닫았다.
+- 현재 checkout의 explicit RIO TCP/UDP gate를 protocol별 3회 반복했다.
+- TCP 6개 report와 UDP load 3개 report는 hard pass였지만 UDP open-loop 3개 report는 모두 delivery hard gate를 실패했다.
+- 같은 환경의 SAEA UDP open-loop 대조는 3000/3000으로 통과해 RIO receive window 쪽으로 조사 범위를 좁혔다.
 
 ## 다음 단일 작업 단위
 
-### UDP HWM summary 수정 review stop
+### RIO UDP 반복 open-loop delivery 실패 review stop
 
-- `BaselineSummaryGenerator`는 TCP/UDP pending-send HWM 중 큰 값을 protocol-neutral 집계값으로 사용한다.
-- JSON `tcp-hwm-*` field와 기존 `*-tcp-hwm-high` warning code/metric은 호환성을 유지한다.
-- 기존 SAEA UDP raw report 재요약에서 load HWM 1, open-loop HWM 3이 summary에 보존됐다.
-- 다음 기능은 사용자 검토 전까지 시작하지 않는다.
+- RIO TCP는 load/open-loop 각 3회 모두 sent/received 3000/3000, drop/payload error/pool rented 0으로 hard pass했다.
+- RIO UDP load 3회도 3000/3000으로 통과했지만 open-loop는 2996/2997/2999 수신으로 3회 모두 hard fail했다.
+- UDP open-loop의 send queue HWM은 2, transport drop과 payload error는 0이므로 send queue overflow 증거는 없다.
+- 같은 binary와 환경의 SAEA UDP open-loop는 3000/3000, 99.9 Hz로 통과했다.
+- 기존 RIO UDP focused tests 18/18은 통과해 현재 bounded-window 테스트가 30초 지속 부하 변동성을 포착하지 못하는 공백을 확인했다.
+- 다음 구현은 사용자 검토 전까지 시작하지 않는다.
 
 ## 최신 검증 기준선
 
@@ -68,11 +74,20 @@
 - UDP HWM TDD: summary min/max Red는 expected 1/actual 0, warning Red는 empty collection으로 실패했다.
 - UDP HWM Green: focused 2/2, Benchmark 118/118, solution 521/521, build 경고 0/오류 0.
 - CLI integration: 기존 SAEA UDP raw report 재요약이 load HWM 1/1, open-loop HWM 3/3을 출력했다.
+- repeated RIO TCP: load actual 99.6~100.0 Hz, p99 median/max 1141.5/1409.6 us, HWM max 1;
+  open-loop actual 99.9~100.0 Hz, p99 median/max 1301.9/1388.5 us, HWM max 4, hard failure 0이다.
+- repeated RIO UDP load: 3회 모두 3000/3000, p99 median/max 1169.0/2776.2 us, HWM max 1이다.
+- repeated RIO UDP open-loop: received 2996/2997/2999, actual 85.6~85.7 Hz, p99 median/max 1264.7/1715.9 us,
+  HWM max 2, hard failure 3이다. 5초 receive timeout이 actual rate 계산에 포함됐다.
+- SAEA UDP open-loop 대조: 3000/3000, 99.9 Hz, p99 673.3 us, HWM 3, hard pass다.
+- RIO UDP focused tests 18/18, Benchmark Release build 경고 0/오류 0이다.
 
 ## 다음 후보
 
-1. push 가능 시 현재 local 9커밋을 원격에 반영하고 explicit io_uring remote gate를 갱신한다.
-2. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
+1. RIO UDP bounded receive window 안정화 설계를 별도 review 단위로 작성한다. 우선 후보는 depth 4 Red,
+   close/drain ownership 회귀, 반복 open-loop gate이며 상수만 먼저 바꾸지 않는다.
+2. push 가능 시 현재 local 커밋을 원격에 반영하고 explicit io_uring remote gate를 갱신한다.
+3. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
 
 ## 이번 범위 밖
 

@@ -2,11 +2,12 @@
 
 ## Current TODOs
 
-- [ ] `P1_NOW` UDP HWM summary 수정 결과를 검토한다.
-  - 구현: summary/warning이 `max(TCP HWM, UDP HWM)`을 사용한다.
-  - 호환성: JSON `tcp-hwm-*`와 기존 warning code/metric은 유지한다.
-  - 검증: focused 2/2, Benchmark 118/118, solution 521/521, build 경고 0/오류 0.
-  - 다음 단계: 사용자 검토 뒤 push 가능 시 io_uring remote gate로 이동한다.
+- [ ] `P0_NOW` RIO UDP 반복 open-loop delivery 실패와 다음 hardening 단위를 검토한다.
+  - 증거: 4096B x 100 Hz x 30초 open-loop 3회가 received 2996/2997/2999로 모두 hard fail했다.
+  - 대조: 같은 환경의 SAEA UDP open-loop는 3000/3000으로 통과했고 RIO TCP 6개 report와 UDP load 3개 report도 통과했다.
+  - 현재 상태: RIO UDP focused tests 18/18은 통과하므로 기존 depth 2 blocked-handler 테스트에는 지속 부하 검증 공백이 있다.
+  - 다음 단계: 사용자 검토 뒤 depth 4 bounded window, close/drain ownership, 반복 gate를 포함한 최소 설계를 먼저 작성한다.
+  - 제한: 검증 Red 없이 `ReceiveWindowSize`만 변경하거나 RIO를 default로 승격하지 않는다.
 
 ## Deferred Backlog
 
@@ -33,6 +34,14 @@
 
 ## Completed
 
+- [x] 2026-07-11 현재 checkout의 explicit RIO TCP/UDP gate를 protocol별 3회 반복하고 실패 범위를 조사했다.
+  - TCP load/open-loop 6개 report는 모두 3000/3000, drop/payload error/pool rented 0으로 hard pass했다.
+  - UDP load 3회는 3000/3000이지만 open-loop 3회는 2996/2997/2999 수신으로 hard fail했다.
+  - UDP open-loop send queue HWM은 2, transport drop과 payload error는 0이었다.
+  - 같은 환경의 SAEA UDP open-loop는 3000/3000, 99.9 Hz로 통과했다.
+  - RIO UDP focused tests 18/18은 통과해 지속 open-loop 부하에 대한 회귀 테스트 공백을 확인했다.
+  - raw report와 summary는 임시 경로에만 두고 repository baseline으로 채택하지 않았다.
+- [x] 2026-07-11 UDP pending-send HWM summary 수정 review stop을 사용자 진행 승인으로 닫았다.
 - [x] 2026-07-11 UDP pending-send HWM summary/warning 누락을 TDD로 수정했다.
   - Red 1: UDP HWM 1/3 입력에서 summary min expected 1, actual 0으로 실패했다.
   - Red 2: UDP HWM 8 입력에서 기존 HWM warning collection이 비어 실패했다.
