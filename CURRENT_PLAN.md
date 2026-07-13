@@ -39,14 +39,13 @@
 
 ## 다음 단일 작업 단위
 
-### RIO UDP depth 4 hardening written design review stop
+### RIO UDP depth 4 hardening implementation plan review stop
 
-- `docs/superpowers/specs/2026-07-11-rio-udp-repeat-stability-hardening-design.md`에 D240 보강 설계를 작성했다.
-- public 설정이나 새 abstraction 없이 내부 fixed receive depth를 2에서 4로 검증한다.
-- blocked handler 중 current 1개와 posted slot 4개, close 후 pool 0을 Red로 먼저 고정한다.
-- 구현 수락 gate는 RIO UDP load/open-loop 각 3회 모두 3000/3000과 drop/payload error/pool rented 0이다.
-- 한 번이라도 delivery hard fail이면 depth 8로 확대하지 않고 변경을 되돌린 뒤 누락 위치 diagnostics 설계로 돌아간다.
-- 구현 계획과 production 변경은 written spec 사용자 검토 전까지 시작하지 않는다.
+- written spec 사용자 승인을 반영해 `docs/superpowers/plans/2026-07-13-rio-udp-repeat-stability-hardening.md`를 작성했다.
+- 구현 계획은 두 assertion Red, 내부 상수 2→4, focused/full tests, UDP `--runs 3` gate를 한 단위로 묶는다.
+- gate 성공 시에만 production fix를 커밋하고, 실패 시 task-owned code/test를 복원한 뒤 rejection evidence만 커밋한다.
+- 중간 커밋, depth 8 확대, 새 diagnostics API, push는 하지 않는다.
+- production 변경은 implementation plan 사용자 검토 전까지 시작하지 않는다.
 
 ## 최신 검증 기준선
 
@@ -84,8 +83,8 @@
 
 ## 다음 후보
 
-1. written spec 검토 승인 뒤 depth 4 hardening 구현 계획을 별도 문서 단위로 작성한다.
-2. 구현은 Red 2개, 내부 상수 최소 변경, focused/full tests, UDP `--runs 3` gate 순서로만 진행한다.
+1. implementation plan 검토 승인 뒤 Red부터 하나의 구현 단위로 실행한다.
+2. gate 결과에 따라 accepted fix 또는 rejected hypothesis 중 하나만 문서화·커밋한다.
 3. push 가능 시 현재 local 커밋을 원격에 반영하고 explicit io_uring remote gate를 갱신한다.
 4. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
 

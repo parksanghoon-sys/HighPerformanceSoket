@@ -2,6 +2,15 @@
 
 ## Recent Work
 
+### 2026-07-13 - RIO UDP depth 4 hardening 구현 계획
+
+- 승인된 written spec을 Red 2개, 최소 Green, test/build, UDP runs 3, 단일 결과 commit 순서로 구체화했다.
+- gate 전 중간 commit을 금지해 depth 4가 반복 delivery를 통과한 경우에만 production fix를 수락한다.
+- gate 실패 시 task-owned code/test만 복원하고 depth 8 확대 없이 diagnostics 설계로 돌아가는 분기를 명시했다.
+- exact test code, raw report 구조 검증, stage allow-list와 no-push review stop을 포함했다.
+- 현재 live 기준선은 RIO UDP smoke 8/8, focused UDP tests 18/18, full RIO tests 57/57이다.
+- production code와 tests는 변경하지 않았다.
+
 ### 2026-07-11 - RIO UDP depth 4 반복 안정성 hardening 설계
 
 - D240 이후 다음 변경을 public 설정 없는 internal fixed receive depth 4 검증으로 제한했다.

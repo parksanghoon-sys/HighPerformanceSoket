@@ -1,7 +1,7 @@
 # RIO UDP 반복 안정성 hardening 설계
 
 - 날짜: 2026-07-11
-- 상태: Proposed - 방향 승인, written spec review 대기
+- 상태: Accepted - 2026-07-13 implementation plan 작성
 - 관련 결정: D113, D114, D116, D117, D118, D240
 - 목표: Windows RIO UDP에서 4096B 메시지 100 Hz open-loop 3회 모두 delivery hard gate를 통과한다.
 

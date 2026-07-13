@@ -2,12 +2,12 @@
 
 ## Current TODOs
 
-- [ ] `P0_NOW` RIO UDP depth 4 hardening written spec을 검토한다.
-  - 문서: `docs/superpowers/specs/2026-07-11-rio-udp-repeat-stability-hardening-design.md`.
-  - 선택: 새 API 없이 내부 fixed depth 4를 blocked-handler와 close owner Red로 먼저 검증한다.
-  - 수락 gate: UDP load/open-loop 각 3회 모두 3000/3000, drop/payload error/pool rented 0.
-  - 실패 정책: 한 번이라도 hard fail이면 depth 8로 확대하지 않고 변경을 되돌린 뒤 diagnostics 설계로 돌아간다.
-  - 다음 단계: written spec 사용자 승인 뒤 구현 계획을 별도 문서 단위로 작성한다.
+- [ ] `P0_NOW` RIO UDP depth 4 hardening implementation plan을 검토한다.
+  - 문서: `docs/superpowers/plans/2026-07-13-rio-udp-repeat-stability-hardening.md`.
+  - 순서: RIO preflight → Red 2개 → 상수 2→4 → test/build → UDP runs 3 → 단일 결과 commit.
+  - 성공: production fix와 D240 accepted evidence를 함께 커밋한다.
+  - 실패: task-owned code/test를 복원하고 depth 4 rejection evidence만 커밋한다.
+  - 다음 단계: 사용자 승인 뒤 plan을 task-by-task로 실행한다.
 
 ## Deferred Backlog
 
@@ -34,6 +34,11 @@
 
 ## Completed
 
+- [x] 2026-07-13 RIO UDP depth 4 hardening implementation plan을 작성했다.
+  - 정확한 test replacement, Red/Green 명령, 반복 gate raw 검증, 성공/실패 분기를 포함했다.
+  - 반복 gate 전에는 구현 commit을 만들지 않고 결과 하나만 commit하도록 D013 경계를 유지했다.
+  - live RIO UDP smoke 8/8, focused 18/18, full RIO 57/57 기준선을 다시 확인했다.
+- [x] 2026-07-13 RIO UDP depth 4 hardening written spec 사용자 검토를 승인으로 닫았다.
 - [x] 2026-07-11 RIO UDP 반복 안정성 hardening 방향을 fixed depth 4 written spec으로 정리했다.
   - 기존 slot owner와 request-context mapping을 재사용하고 production 변경을 내부 상수 1개로 제한했다.
   - receive registration reuse와 configurable/adaptive depth는 소유권 충돌과 과도한 범위 때문에 제외했다.
