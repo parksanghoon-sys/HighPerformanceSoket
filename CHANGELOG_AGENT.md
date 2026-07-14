@@ -2,6 +2,15 @@
 
 ## Recent Work
 
+### 2026-07-14 - current-head io_uring 원격 Linux gate 갱신
+
+- local HEAD와 `origin/master`가 `d63f3ba8147df4534268f851379dc05a3cb59427`에서 일치함을 확인했다.
+- explicit `io_uring Linux Contract` run `29305055740`을 `master`에 실행했고 모든 workflow step이 성공했다.
+- io_uring tests와 sample broker의 project-scoped restore/build가 성공했다.
+- artifact TRX는 total/executed/passed 88, failed/error/timeout 0이었다.
+- TRX에서 capability `Available`과 `registered payload fixed send path: hit`를 직접 확인했다.
+- production code와 tests는 변경하지 않았고 원격 artifact는 임시 경로에서만 검증했다.
+
 ### 2026-07-14 - RIO UDP depth 4 구현 review stop 종료
 
 - 사용자의 다음 진행 승인으로 depth 4 구현 결과 review stop을 닫았다.

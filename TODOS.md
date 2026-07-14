@@ -6,16 +6,6 @@
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` 현재 local commit을 push하고 explicit io_uring 원격 Linux gate를 갱신한다.
-  - 남은 일: `master`의 미푸시 local commit을 원격에 반영하고 io_uring workflow 결과를 확인한다.
-  - 이유: 사용자가 현재 push할 수 없다고 명시해 로컬 구현과 분리했다.
-  - 목적: 원격 branch 동기화와 Linux native backend 계약이 현재 checkout에서도 유지됨을 확인한다.
-  - 관련 범위: git remote, `.github/workflows/iouring-linux-contract.yml`, 원격 TRX와 artifact. 새 production 변경은 기본 범위가 아니다.
-  - 현재 상태: Windows solution 520/520과 RIO UDP depth 4 반복 gate는 통과했고 local commit으로 보존돼 있다.
-  - blocker: 사용자의 push 가능 시점과 원격 workflow 실행 환경.
-  - 다음 단계: 사용자가 push한 뒤 workflow의 project build, TRX total/executed/passed, failure/error/timeout,
-    registered payload native evidence를 직접 확인한다.
-
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
   - 남은 일: RIO TCP/UDP는 IPv4 전용이고 sample `auto`는 non-IPv4에서 SAEA fallback을 사용한다.
   - 이유: 현재 fallback으로 기능이 유지되며 4096B x 100 Hz RIO evidence도 IPv4 기준이다.
@@ -39,6 +29,12 @@
 
 ## Completed
 
+- [x] 2026-07-14 current-head explicit io_uring 원격 Linux gate를 갱신했다.
+  - local HEAD와 `origin/master`가 `d63f3ba8147df4534268f851379dc05a3cb59427`에서 일치함을 확인했다.
+  - workflow run `29305055740`의 io_uring tests와 sample broker restore/build를 포함한 모든 step이 성공했다.
+  - artifact TRX는 total/executed/passed 88, failed/error/timeout 0이었다.
+  - `io_uring capability status: Available`과 `registered payload fixed send path: hit`를 직접 확인했다.
+  - source와 tests는 변경하지 않았고 새 production 작업은 열지 않았다.
 - [x] 2026-07-14 RIO UDP depth 4 hardening 구현 review stop을 사용자 진행 승인으로 닫았다.
   - 다음 로컬 구현을 자동으로 열지 않고 push 및 explicit io_uring 원격 gate를 deferred backlog로 분리했다.
   - IPv6, server diagnostics와 workflow allow-list는 trigger가 없어 현재 우선순위에 유지했다.

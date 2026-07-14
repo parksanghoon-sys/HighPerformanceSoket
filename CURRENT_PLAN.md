@@ -15,6 +15,8 @@
 - 위 증거는 end-to-end zero-copy, `auto`/default 승격, latency hard gate를 뜻하지 않는다.
 - `TransportFactory.CreateDefault()`는 SAEA 기본값을 유지하고 sample `auto`는 RIO preferred/SAEA fallback 의미를 유지한다.
 - RIO UDP receive window는 fixed depth 4로 보강됐고 4096B x 100 Hz load/open-loop 3회 delivery gate를 통과했다.
+- 2026-07-14 current-head io_uring Linux contract run `29305055740`에서 project build, TRX 88/88과
+  registered payload native fixed-send evidence를 다시 확인했다.
 
 ## 최근 정리 결과
 
@@ -40,15 +42,17 @@
 - depth 4 burst/close assertion Red를 재현한 뒤 `ReceiveWindowSize`만 2→4로 변경했다.
 - depth 4 RIO UDP load/open-loop 각 3회가 모두 3000/3000으로 통과해 D240 가설을 수락했다.
 - RIO UDP depth 4 구현 review stop은 2026-07-14 사용자 진행 승인으로 닫았다.
+- `d63f3ba8147df4534268f851379dc05a3cb59427` push를 확인하고 같은 SHA로 explicit io_uring Linux gate를 갱신했다.
+- run `29305055740`은 모든 step이 성공했고 artifact의 TRX와 native evidence도 수락 조건을 충족했다.
 
 ## 다음 단일 작업 단위
 
-### 로컬 구현 완료 - push 및 원격 gate 대기
+### 원격 io_uring gate 완료 - 결과 문서 review stop
 
-- RIO UDP depth 4 구현과 검증, 결과 문서화, 사용자 검토가 모두 닫혔다.
-- 현재 목표와 열린 요구 기준으로 즉시 실행 가능한 로컬 코드 작업은 없다.
-- RIO IPv6와 server diagnostics는 실제 제품 요구가 없고, workflow allow-list test도 재발한 회귀가 없어 deferred 상태를 유지한다.
-- 사용자가 push 가능 시 현재 local commit을 원격에 반영한 뒤 explicit io_uring Linux gate를 갱신한다.
+- RIO UDP depth 4 commit과 `origin/master`는 `d63f3ba8147df4534268f851379dc05a3cb59427`에서 일치했다.
+- 같은 SHA의 explicit io_uring Linux contract와 artifact 검증이 완료됐다.
+- 현재 목표와 열린 요구 기준으로 즉시 실행 가능한 production code 작업은 없다.
+- 이번 결과 문서 단위를 검토한 뒤 추가 구현을 자동으로 열지 않는다.
 
 ## 최신 검증 기준선
 
@@ -56,6 +60,10 @@
 - D236 remote gate: io_uring TRX total/executed/passed 88, 실패/오류/timeout 0.
 - native evidence: capability `Available`, registered payload registration과 TCP send loopback 통과,
   `registered payload fixed send path: hit` 확인.
+- current-head remote gate: run `29305055740`, head SHA `d63f3ba8147df4534268f851379dc05a3cb59427`,
+  Linux job과 io_uring/sample broker restore/build step 모두 성공.
+- current-head artifact: TRX total/executed/passed 88, failed/error/timeout 0,
+  capability `Available`, `registered payload fixed send path: hit` 확인.
 - selector 단순화: 구조 Red가 public `Select` 3개를 검출했고, Green 후 selector tests 13/13,
   Sample Broker tests 25/25, solution build 경고 0/오류 0, solution tests 510/510이다.
 - D238 TDD: 최초 public/behavior Red에 더해 review에서 deadline 초과 성공 Red를 재현했고 focused API tests 9/9을 통과했다.
@@ -90,8 +98,8 @@
 
 ## 다음 후보
 
-1. push 가능 시 현재 local 커밋을 원격에 반영한다.
-2. push 후 explicit io_uring remote workflow의 project build, TRX failure counter와 native evidence를 갱신한다.
+1. 현재 원격 gate 결과 문서 단위를 사용자 검토 후 push한다.
+2. 새 제품 요구가 없다면 추가 production 구현을 열지 않는다.
 3. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
 
 ## 이번 범위 밖
