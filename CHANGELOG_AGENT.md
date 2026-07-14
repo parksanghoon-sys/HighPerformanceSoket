@@ -2,6 +2,14 @@
 
 ## Recent Work
 
+### 2026-07-14 - RIO UDP depth 4 구현 review stop 종료
+
+- 사용자의 다음 진행 승인으로 depth 4 구현 결과 review stop을 닫았다.
+- 현재 목표와 열린 요구를 재평가한 결과 즉시 실행 가능한 로컬 코드 작업은 없다.
+- push와 explicit io_uring 원격 Linux gate 갱신은 사용자의 push 가능 시점까지 `P1_SOON`으로 defer했다.
+- RIO IPv6, server diagnostics와 workflow allow-list test는 각각 제품 요구 또는 실제 회귀 trigger가 없어 승격하지 않았다.
+- production code와 tests는 변경하지 않았다.
+
 ### 2026-07-14 - RIO UDP fixed depth 4 반복 안정성 보강
 
 - RIO UDP smoke 8/8과 기존 focused tests 18/18로 RIO availability와 기준선을 먼저 확인했다.

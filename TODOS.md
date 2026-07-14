@@ -2,12 +2,19 @@
 
 ## Current TODOs
 
-- [ ] `P0_NOW` RIO UDP depth 4 hardening 구현 결과를 검토한다.
-  - 변경: `ReceiveWindowSize` 2→4와 depth 4 burst/close ownership test 강화.
-  - 근거: RIO UDP load/open-loop 각 3회 3000/3000, hard failure 0.
-  - 경계: review 전 추가 구현과 push를 시작하지 않는다.
+- 현재 실행 가능한 로컬 TODO 없음.
 
 ## Deferred Backlog
+
+- [ ] `P1_SOON` 현재 local commit을 push하고 explicit io_uring 원격 Linux gate를 갱신한다.
+  - 남은 일: `master`의 미푸시 local commit을 원격에 반영하고 io_uring workflow 결과를 확인한다.
+  - 이유: 사용자가 현재 push할 수 없다고 명시해 로컬 구현과 분리했다.
+  - 목적: 원격 branch 동기화와 Linux native backend 계약이 현재 checkout에서도 유지됨을 확인한다.
+  - 관련 범위: git remote, `.github/workflows/iouring-linux-contract.yml`, 원격 TRX와 artifact. 새 production 변경은 기본 범위가 아니다.
+  - 현재 상태: Windows solution 520/520과 RIO UDP depth 4 반복 gate는 통과했고 local commit으로 보존돼 있다.
+  - blocker: 사용자의 push 가능 시점과 원격 workflow 실행 환경.
+  - 다음 단계: 사용자가 push한 뒤 workflow의 project build, TRX total/executed/passed, failure/error/timeout,
+    registered payload native evidence를 직접 확인한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
   - 남은 일: RIO TCP/UDP는 IPv4 전용이고 sample `auto`는 non-IPv4에서 SAEA fallback을 사용한다.
@@ -32,6 +39,9 @@
 
 ## Completed
 
+- [x] 2026-07-14 RIO UDP depth 4 hardening 구현 review stop을 사용자 진행 승인으로 닫았다.
+  - 다음 로컬 구현을 자동으로 열지 않고 push 및 explicit io_uring 원격 gate를 deferred backlog로 분리했다.
+  - IPv6, server diagnostics와 workflow allow-list는 trigger가 없어 현재 우선순위에 유지했다.
 - [x] 2026-07-14 RIO UDP fixed depth 4 hardening을 TDD와 반복 gate로 수락했다.
   - blocked-handler burst와 close-owner test가 production 변경 전 각각 expected 5 / actual 3으로 실패했다.
   - `ReceiveWindowSize` 한 줄 변경 후 강화 test 2/2, UDP 17/17, 전체 RIO 56/56, solution 520/520이 통과했다.

@@ -39,16 +39,16 @@
 - 같은 환경의 SAEA UDP open-loop 대조는 3000/3000으로 통과해 RIO receive window 쪽으로 조사 범위를 좁혔다.
 - depth 4 burst/close assertion Red를 재현한 뒤 `ReceiveWindowSize`만 2→4로 변경했다.
 - depth 4 RIO UDP load/open-loop 각 3회가 모두 3000/3000으로 통과해 D240 가설을 수락했다.
+- RIO UDP depth 4 구현 review stop은 2026-07-14 사용자 진행 승인으로 닫았다.
 
 ## 다음 단일 작업 단위
 
-### RIO UDP depth 4 hardening implementation review stop
+### 로컬 구현 완료 - push 및 원격 gate 대기
 
-- blocked-handler burst와 close-owner test가 production 변경 전 각각 expected 5 / actual 3 Red를 재현했다.
-- production 변경은 `RioUdpEndpoint.ReceiveWindowSize` 2→4 한 줄이며 `RioTransport.cs`와 public API는 바꾸지 않았다.
-- 강화 test 2/2, UDP tests 17/17, 전체 RIO tests 56/56, solution tests 520/520이 통과했다.
-- 반복 gate 6개 report가 모두 3000/3000, drop/payload error/pool rented 0으로 hard pass했다.
-- 현재 단위는 사용자 구현 결과 검토를 위한 review stop이며 push와 다음 구현은 시작하지 않는다.
+- RIO UDP depth 4 구현과 검증, 결과 문서화, 사용자 검토가 모두 닫혔다.
+- 현재 목표와 열린 요구 기준으로 즉시 실행 가능한 로컬 코드 작업은 없다.
+- RIO IPv6와 server diagnostics는 실제 제품 요구가 없고, workflow allow-list test도 재발한 회귀가 없어 deferred 상태를 유지한다.
+- 사용자가 push 가능 시 현재 local commit을 원격에 반영한 뒤 explicit io_uring Linux gate를 갱신한다.
 
 ## 최신 검증 기준선
 
@@ -90,8 +90,8 @@
 
 ## 다음 후보
 
-1. depth 4 구현 결과를 사용자 검토로 닫는다.
-2. push 가능 시 현재 local 커밋을 원격에 반영하고 explicit io_uring remote gate를 갱신한다.
+1. push 가능 시 현재 local 커밋을 원격에 반영한다.
+2. push 후 explicit io_uring remote workflow의 project build, TRX failure counter와 native evidence를 갱신한다.
 3. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
 
 ## 이번 범위 밖
