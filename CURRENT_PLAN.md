@@ -14,6 +14,7 @@
 - D236 원격 Linux gate에서 sample broker의 explicit `--transport iouring` project build와 backend native contract를 확인했다.
 - 위 증거는 end-to-end zero-copy, `auto`/default 승격, latency hard gate를 뜻하지 않는다.
 - `TransportFactory.CreateDefault()`는 SAEA 기본값을 유지하고 sample `auto`는 RIO preferred/SAEA fallback 의미를 유지한다.
+- RIO UDP receive window는 fixed depth 4로 보강됐고 4096B x 100 Hz load/open-loop 3회 delivery gate를 통과했다.
 
 ## 최근 정리 결과
 
@@ -36,16 +37,18 @@
 - 현재 checkout의 explicit RIO TCP/UDP gate를 protocol별 3회 반복했다.
 - TCP 6개 report와 UDP load 3개 report는 hard pass였지만 UDP open-loop 3개 report는 모두 delivery hard gate를 실패했다.
 - 같은 환경의 SAEA UDP open-loop 대조는 3000/3000으로 통과해 RIO receive window 쪽으로 조사 범위를 좁혔다.
+- depth 4 burst/close assertion Red를 재현한 뒤 `ReceiveWindowSize`만 2→4로 변경했다.
+- depth 4 RIO UDP load/open-loop 각 3회가 모두 3000/3000으로 통과해 D240 가설을 수락했다.
 
 ## 다음 단일 작업 단위
 
-### RIO UDP depth 4 hardening implementation plan review stop
+### RIO UDP depth 4 hardening implementation review stop
 
-- written spec 사용자 승인을 반영해 `docs/superpowers/plans/2026-07-13-rio-udp-repeat-stability-hardening.md`를 작성했다.
-- 구현 계획은 두 assertion Red, 내부 상수 2→4, focused/full tests, UDP `--runs 3` gate를 한 단위로 묶는다.
-- gate 성공 시에만 production fix를 커밋하고, 실패 시 task-owned code/test를 복원한 뒤 rejection evidence만 커밋한다.
-- 중간 커밋, depth 8 확대, 새 diagnostics API, push는 하지 않는다.
-- production 변경은 implementation plan 사용자 검토 전까지 시작하지 않는다.
+- blocked-handler burst와 close-owner test가 production 변경 전 각각 expected 5 / actual 3 Red를 재현했다.
+- production 변경은 `RioUdpEndpoint.ReceiveWindowSize` 2→4 한 줄이며 `RioTransport.cs`와 public API는 바꾸지 않았다.
+- 강화 test 2/2, UDP tests 17/17, 전체 RIO tests 56/56, solution tests 520/520이 통과했다.
+- 반복 gate 6개 report가 모두 3000/3000, drop/payload error/pool rented 0으로 hard pass했다.
+- 현재 단위는 사용자 구현 결과 검토를 위한 review stop이며 push와 다음 구현은 시작하지 않는다.
 
 ## 최신 검증 기준선
 
@@ -75,18 +78,21 @@
 - CLI integration: 기존 SAEA UDP raw report 재요약이 load HWM 1/1, open-loop HWM 3/3을 출력했다.
 - repeated RIO TCP: load actual 99.6~100.0 Hz, p99 median/max 1141.5/1409.6 us, HWM max 1;
   open-loop actual 99.9~100.0 Hz, p99 median/max 1301.9/1388.5 us, HWM max 4, hard failure 0이다.
-- repeated RIO UDP load: 3회 모두 3000/3000, p99 median/max 1169.0/2776.2 us, HWM max 1이다.
-- repeated RIO UDP open-loop: received 2996/2997/2999, actual 85.6~85.7 Hz, p99 median/max 1264.7/1715.9 us,
-  HWM max 2, hard failure 3이다. 5초 receive timeout이 actual rate 계산에 포함됐다.
+- depth 2 repeated RIO UDP open-loop는 received 2996/2997/2999로 hard failure 3이었고 depth 4 Red의 원인이 됐다.
 - SAEA UDP open-loop 대조: 3000/3000, 99.9 Hz, p99 673.3 us, HWM 3, hard pass다.
-- RIO UDP focused tests 18/18, Benchmark Release build 경고 0/오류 0이다.
+- depth 4 TDD/회귀: 강화 test 2/2, RIO UDP 17/17, 전체 RIO 56/56, solution 520/520,
+  Release build 경고 0/오류 0이다.
+- depth 4 repeated RIO UDP load: 3회 모두 3000/3000, actual 99.8~100.0 Hz,
+  p50 175.0~180.4 us, p99 1039.0~1424.9 us, HWM 1이다.
+- depth 4 repeated RIO UDP open-loop: 3회 모두 3000/3000, actual 99.9~100.0 Hz,
+  p50 176.2~192.4 us, p99 1454.2~2131.8 us, HWM 2~4, hard failure 0이다.
+- p99 warning 2개는 report-only이며 delivery 수락 조건과 분리했다.
 
 ## 다음 후보
 
-1. implementation plan 검토 승인 뒤 Red부터 하나의 구현 단위로 실행한다.
-2. gate 결과에 따라 accepted fix 또는 rejected hypothesis 중 하나만 문서화·커밋한다.
-3. push 가능 시 현재 local 커밋을 원격에 반영하고 explicit io_uring remote gate를 갱신한다.
-4. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
+1. depth 4 구현 결과를 사용자 검토로 닫는다.
+2. push 가능 시 현재 local 커밋을 원격에 반영하고 explicit io_uring remote gate를 갱신한다.
+3. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
 
 ## 이번 범위 밖
 

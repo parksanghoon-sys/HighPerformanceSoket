@@ -17,7 +17,7 @@ namespace Hps.Transport
     internal sealed class RioUdpEndpoint : IUdpEndpoint
     {
         private const int CompletionQueueSize = 64;
-        internal const int ReceiveWindowSize = 2;
+        internal const int ReceiveWindowSize = 4;
         private const int MaxOutstandingSend = 1;
         private const int SingleDataBufferPerRequest = 1;
         // UDP broker publish datagram 은 command envelope + 4096B benchmark payload 를 함께 담는다.

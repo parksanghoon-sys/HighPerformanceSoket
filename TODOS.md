@@ -2,12 +2,10 @@
 
 ## Current TODOs
 
-- [ ] `P0_NOW` RIO UDP depth 4 hardening implementation plan을 검토한다.
-  - 문서: `docs/superpowers/plans/2026-07-13-rio-udp-repeat-stability-hardening.md`.
-  - 순서: RIO preflight → Red 2개 → 상수 2→4 → test/build → UDP runs 3 → 단일 결과 commit.
-  - 성공: production fix와 D240 accepted evidence를 함께 커밋한다.
-  - 실패: task-owned code/test를 복원하고 depth 4 rejection evidence만 커밋한다.
-  - 다음 단계: 사용자 승인 뒤 plan을 task-by-task로 실행한다.
+- [ ] `P0_NOW` RIO UDP depth 4 hardening 구현 결과를 검토한다.
+  - 변경: `ReceiveWindowSize` 2→4와 depth 4 burst/close ownership test 강화.
+  - 근거: RIO UDP load/open-loop 각 3회 3000/3000, hard failure 0.
+  - 경계: review 전 추가 구현과 push를 시작하지 않는다.
 
 ## Deferred Backlog
 
@@ -34,6 +32,12 @@
 
 ## Completed
 
+- [x] 2026-07-14 RIO UDP fixed depth 4 hardening을 TDD와 반복 gate로 수락했다.
+  - blocked-handler burst와 close-owner test가 production 변경 전 각각 expected 5 / actual 3으로 실패했다.
+  - `ReceiveWindowSize` 한 줄 변경 후 강화 test 2/2, UDP 17/17, 전체 RIO 56/56, solution 520/520이 통과했다.
+  - Release build는 경고 0/오류 0이었다.
+  - load/open-loop 각 3회가 모두 3000/3000, drop/payload error/pool rented 0으로 hard pass했다.
+  - latency warning 2개는 report-only로 유지했고 raw artifact는 repository baseline으로 채택하지 않았다.
 - [x] 2026-07-13 RIO UDP depth 4 hardening implementation plan을 작성했다.
   - 정확한 test replacement, Red/Green 명령, 반복 gate raw 검증, 성공/실패 분기를 포함했다.
   - 반복 gate 전에는 구현 commit을 만들지 않고 결과 하나만 commit하도록 D013 경계를 유지했다.

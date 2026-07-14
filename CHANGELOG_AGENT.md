@@ -2,6 +2,17 @@
 
 ## Recent Work
 
+### 2026-07-14 - RIO UDP fixed depth 4 반복 안정성 보강
+
+- RIO UDP smoke 8/8과 기존 focused tests 18/18로 RIO availability와 기준선을 먼저 확인했다.
+- blocked-handler burst와 close-owner test가 production 변경 전 각각 expected 5 / actual 3 assertion Red를 재현했다.
+- production 변경은 `RioUdpEndpoint.ReceiveWindowSize` 2→4 한 줄이며 기존 slot owner와 직렬 dispatch를 재사용했다.
+- 강화 test 2/2, UDP 17/17, 전체 RIO 56/56, solution 520/520이 통과했고 Release build는 경고 0/오류 0이었다.
+- RIO UDP load/open-loop 각 3회가 모두 sent/received 3000/3000, drop/payload error/pool rented 0으로 hard pass했다.
+- load actual rate는 99.8~100.0 Hz, p99은 1039.0~1424.9 us, HWM은 1이었다.
+- open-loop actual rate는 99.9~100.0 Hz, p99은 1454.2~2131.8 us, HWM은 2~4였다.
+- p99 warning 2개는 report-only로 유지했고 raw artifact는 임시 경로에서만 검증했다.
+
 ### 2026-07-13 - RIO UDP depth 4 hardening 구현 계획
 
 - 승인된 written spec을 Red 2개, 최소 Green, test/build, UDP runs 3, 단일 결과 commit 순서로 구체화했다.
