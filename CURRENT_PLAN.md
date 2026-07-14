@@ -44,15 +44,18 @@
 - RIO UDP depth 4 구현 review stop은 2026-07-14 사용자 진행 승인으로 닫았다.
 - `d63f3ba8147df4534268f851379dc05a3cb59427` push를 확인하고 같은 SHA로 explicit io_uring Linux gate를 갱신했다.
 - run `29305055740`은 모든 step이 성공했고 artifact의 TRX와 native evidence도 수락 조건을 충족했다.
+- current-head io_uring 원격 gate 결과 review stop은 2026-07-14 사용자 진행 승인으로 닫았다.
 
 ## 다음 단일 작업 단위
 
-### 원격 io_uring gate 완료 - 결과 문서 review stop
+### 로컬 작업 완료 - 사용자 push 대기
 
 - RIO UDP depth 4 commit과 `origin/master`는 `d63f3ba8147df4534268f851379dc05a3cb59427`에서 일치했다.
 - 같은 SHA의 explicit io_uring Linux contract와 artifact 검증이 완료됐다.
+- 원격 gate 결과 문서 review stop도 사용자 승인으로 닫혔다.
 - 현재 목표와 열린 요구 기준으로 즉시 실행 가능한 production code 작업은 없다.
-- 이번 결과 문서 단위를 검토한 뒤 추가 구현을 자동으로 열지 않는다.
+- 원격 gate 기록과 review stop 종료 문서 커밋은 로컬에 완료됐으나 현재 실행 정책이 `git push`를 차단했다.
+- 사용자가 현재 `master`를 push한 뒤 새 제품 요구나 검증 실패가 제시되기 전에는 추가 구현을 자동으로 열지 않는다.
 
 ## 최신 검증 기준선
 
@@ -98,9 +101,9 @@
 
 ## 다음 후보
 
-1. 현재 원격 gate 결과 문서 단위를 사용자 검토 후 push한다.
-2. 새 제품 요구가 없다면 추가 production 구현을 열지 않는다.
-3. RIO full IPv6와 server-level diagnostics는 실제 제품 요구가 열릴 때만 재평가한다.
+1. 사용자가 현재 `master`의 상태 문서 커밋을 원격에 push한다.
+2. push 후 새 제품 요구가 제시되면 현재 목표와 범위를 다시 대조한다.
+3. RIO full IPv6, server-level diagnostics와 workflow allow-list는 기존 trigger가 생길 때만 재평가한다.
 
 ## 이번 범위 밖
 

@@ -6,6 +6,15 @@
 
 ## Deferred Backlog
 
+- [ ] `P1_SOON` current-head 원격 gate 결과 상태 문서 커밋을 push한다.
+  - 남은 일: 로컬 `master`에 완료된 원격 gate 기록과 review stop 종료 커밋을 `origin/master`에 반영한다.
+  - 이유: 현재 실행 정책이 직접 `git push` 명령을 차단했고 GitHub 연결 도구로 우회하면 커밋 이력이 달라진다.
+  - 목적: 검증된 원격 gate 결과와 종료 상태를 원격 저장소의 canonical state에 반영한다.
+  - 관련 범위: git remote와 상태 문서 커밋 2개. production code와 tests는 포함하지 않는다.
+  - 현재 상태: fetch 기준 local은 origin보다 behind 0 / ahead 1이었고 review stop 종료 커밋을 추가로 완료했다.
+  - blocker: 현재 세션의 direct push 실행 정책.
+  - 다음 단계: 사용자가 저장소 루트에서 `git push origin master`를 실행한다.
+
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
   - 남은 일: RIO TCP/UDP는 IPv4 전용이고 sample `auto`는 non-IPv4에서 SAEA fallback을 사용한다.
   - 이유: 현재 fallback으로 기능이 유지되며 4096B x 100 Hz RIO evidence도 IPv4 기준이다.
@@ -29,6 +38,10 @@
 
 ## Completed
 
+- [x] 2026-07-14 current-head io_uring 원격 gate 결과 review stop을 닫았다.
+  - 사용자의 다음 진행 승인으로 원격 build/TRX/native evidence 검토를 완료 처리했다.
+  - 현재 목표와 열린 요구 기준으로 즉시 실행 가능한 production code 작업은 없다.
+  - IPv6, server diagnostics와 workflow allow-list는 기존 trigger 조건이 충족되지 않아 deferred 상태를 유지했다.
 - [x] 2026-07-14 current-head explicit io_uring 원격 Linux gate를 갱신했다.
   - local HEAD와 `origin/master`가 `d63f3ba8147df4534268f851379dc05a3cb59427`에서 일치함을 확인했다.
   - workflow run `29305055740`의 io_uring tests와 sample broker restore/build를 포함한 모든 step이 성공했다.
