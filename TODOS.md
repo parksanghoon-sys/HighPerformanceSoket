@@ -2,19 +2,20 @@
 
 ## Current TODOs
 
-- [ ] D241 transport lifecycle 경합 hardening written spec을 사용자 검토로 확정한다.
-  - 문서: `docs/superpowers/specs/2026-07-15-transport-lifecycle-race-hardening-design.md`.
-  - 범위: `BrokerServer` lifecycle 직렬화와 RIO/io_uring 종료 후 등록 거부.
-  - 다음 단계: 사용자 승인 뒤 별도 implementation plan을 작성한다.
+- [ ] D241 transport lifecycle 경합 hardening implementation plan을 사용자 검토로 확정한다.
+  - 문서: `docs/superpowers/plans/2026-07-15-transport-lifecycle-race-hardening.md`.
+  - 범위: deterministic Red 4개, server lifecycle gate와 Dispose 종료 표식, RIO/io_uring stopped guard, 전체 회귀와 4096B x 100Hz target gate.
+  - 다음 단계: 사용자 승인 뒤 계획을 Red→Green→Refactor 순서로 구현한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` D241 written spec과 상태 문서 commit을 사용자 검토 뒤 원격에 반영한다.
-  - 남은 일: 이번 설계 단위의 로컬 commit을 `origin/master`에 push한다.
-  - 이유: written-spec review stop을 먼저 지키고 push는 사용자가 직접 수행한다.
-  - 목적: 승인된 D241 설계와 현재 진입점을 원격 canonical state에 반영한다.
-  - 범위: lifecycle written spec과 root/archive 상태 문서. production code와 tests는 포함하지 않는다.
-  - 다음 단계: 사용자가 written spec을 승인한 뒤 현재 `master`를 push한다.
+- [ ] `P1_SOON` D241 설계와 implementation plan 문서 commit을 원격에 반영한다.
+  - 남은 일: D241 설계 commit과 이번 계획 commit을 `origin/master`에 push한다.
+  - 이유: push는 사용자가 직접 수행하며 현재 로컬 `master`가 원격보다 앞서 있다.
+  - 목적: 승인된 D241 설계, 구현 계획과 현재 진입점을 원격 canonical state에 반영한다.
+  - 범위: lifecycle spec/plan과 root/archive 상태 문서. production code와 tests는 아직 포함하지 않는다.
+  - 현재 상태: 설계 commit `f814cc1`은 로컬에 있고 implementation plan은 이번 단위에서 작성했다.
+  - 다음 단계: 사용자가 적절한 시점에 현재 `master`를 push한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
   - 남은 일: RIO TCP/UDP는 IPv4 전용이고 sample `auto`는 non-IPv4에서 SAEA fallback을 사용한다.
@@ -39,6 +40,9 @@
 
 ## Completed
 
+- [x] 2026-07-15 D241 transport lifecycle 경합 hardening written spec 사용자 검토를 승인으로 닫았다.
+  - server lifecycle 직렬화와 native 종료 후 등록 거부를 함께 적용하는 D241 방향을 유지했다.
+  - 다음 구현자가 재탐색 없이 실행할 수 있도록 exact Red/Green/refactor/verification plan을 작성했다.
 - [x] 2026-07-15 current-head 상태 문서 push 완료를 확인했다.
   - `master`와 `origin/master`는 `216a35e89202c40a9ff2adf7404af8345cc8d92b`에서 ahead/behind 0/0이다.
   - 오래된 push blocker를 Deferred Backlog에서 제거했다.

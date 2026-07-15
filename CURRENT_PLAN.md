@@ -48,15 +48,15 @@
 
 ## 다음 단일 작업 단위
 
-### D241 transport lifecycle 경합 hardening written-spec 검토
+### D241 transport lifecycle 경합 hardening implementation-plan 검토
 
-- 이번 설계 단위 시작 시 `master`와 `origin/master`는 `216a35e89202c40a9ff2adf7404af8345cc8d92b`에서 일치했다.
-- 현재 구현 검토에서 `BrokerServer` start/stop 비동기 게시 경합과 RIO/io_uring 종료 후 등록 가능성을 확인했다.
-- 채택 설계는 server lifecycle operation 직렬화와 native `Register*`의 locked stopped guard를 함께 적용한다.
+- D241 written spec은 사용자 진행 승인으로 확정했다.
+- 승인된 설계는 server lifecycle operation 직렬화, Dispose 종료 표식 선게시와 native `Register*`의 locked stopped guard를 함께 적용한다.
 - written spec은 `docs/superpowers/specs/2026-07-15-transport-lifecycle-race-hardening-design.md`다.
-- 사용자 written-spec 검토 전에는 production code와 tests를 수정하지 않는다.
-- 승인 뒤 다음 단위는 handoff-ready implementation plan 작성이다.
-- written spec과 상태 문서 commit은 로컬에 남기고 원격 push는 사용자 검토 뒤 별도 수행한다.
+- handoff-ready implementation plan은 `docs/superpowers/plans/2026-07-15-transport-lifecycle-race-hardening.md`다.
+- 계획은 deterministic Red 4개, 최소 Green, 계층별 회귀, solution build/tests와 Windows SAEA 4096B x 100Hz target gate를 exact command로 고정한다.
+- implementation-plan 사용자 검토 전에는 production code와 tests를 수정하지 않는다.
+- 설계 commit `f814cc1`과 이번 계획/state commit은 로컬에 두고 원격 push는 사용자가 별도 수행한다.
 
 ## 최신 검증 기준선
 
@@ -102,9 +102,9 @@
 
 ## 다음 후보
 
-1. D241 written spec 사용자 검토를 닫고 implementation plan을 작성한다.
-2. D241을 TDD로 구현하고 전체 회귀를 확인한다.
-3. lifecycle review stop 뒤 현재 HEAD io_uring 성능 gate와 hot-path allocation finding을 별도 단위로 재평가한다.
+1. D241 implementation plan 사용자 검토를 닫는다.
+2. 승인된 계획대로 Red 4개를 먼저 확인한 뒤 lifecycle hardening을 구현하고 전체 회귀를 확인한다.
+3. lifecycle 구현 review stop 뒤 현재 HEAD io_uring 성능 gate와 hot-path allocation finding을 별도 단위로 재평가한다.
 
 ## 이번 범위 밖
 

@@ -1,9 +1,10 @@
 # Transport lifecycle 경합 hardening 설계
 
 - 날짜: 2026-07-15
-- 상태: Written design - 사용자 검토 대기
+- 상태: 승인됨 - implementation plan 작성 완료
 - 관련 결정: D011, D013, D241
 - 목표: `BrokerServer`와 native transport에서 시작과 종료가 겹쳐도 종료 뒤 새 listener, connection, UDP endpoint 또는 pump가 살아남지 않게 한다.
+- 구현 계획: `docs/superpowers/plans/2026-07-15-transport-lifecycle-race-hardening.md`
 
 ## 1. 문제와 확인된 범위
 
@@ -29,6 +30,7 @@ SAEA의 `Register*`는 `_gate` 안에서 `EnsureRunningLocked()`를 호출하므
 ### A. Server lifecycle 직렬화 + native 등록 시 종료 재검사 - 채택
 
 - `BrokerServer`의 `StartTcpAsync`, `StartUdpAsync`, `StopAsync` 전체를 하나의 async lifecycle gate로 직렬화한다.
+- `Dispose`는 `_disposed` 표식을 먼저 원자적으로 게시한 뒤 같은 직렬화된 Stop 경로를 사용한다.
 - RIO/io_uring의 모든 `Register*`는 자신의 `_gate` 안에서 `_stopped`를 확인한 뒤에만 목록에 추가한다.
 - RIO completion port의 snapshot/null 전환도 `_gate` 안으로 옮겨 생성과 종료를 직렬화한다.
 - public API, backend 선택 정책, 데이터 hot path는 바꾸지 않는다.
@@ -59,6 +61,8 @@ Stop이 진행 중인 Start를 선점하도록 generation token과 내부 cancel
 - `StartTcpAsync`는 gate 획득부터 resource 게시 또는 실패 cleanup까지 독점한다.
 - `StartUdpAsync`도 같은 gate를 사용한다.
 - `StopAsync`는 gate를 얻은 뒤 현재 resource snapshot, close/dispose, accept loop drain, transport stop까지 마친다.
+- `Dispose`는 기존 `_gate` 안에서 `_disposed = true`를 Stop보다 먼저 기록한 뒤 `StopAsync`를 호출한다.
+  따라서 Dispose가 먼저 시작되면 후속 Start가 거부되고, Start가 먼저 시작되면 Dispose의 Stop이 기다렸다가 생성 resource를 닫는다.
 - 기존 `_gate`는 field snapshot과 짧은 상태 변경을 보호하는 용도로 유지한다.
 - publish, receive, fan-out hot path는 lifecycle gate를 사용하지 않는다.
 - gate 대기 중 cancellation은 operation 진입 전 취소로 처리하며, gate를 획득한 뒤에는 기존 cancellation 전달 계약을 유지한다.
@@ -91,7 +95,7 @@ SAEA의 `EnsureRunningLocked()` 등록 계약은 그대로 유지한다. 이번 
 
 ## 4. lifecycle 불변식
 
-1. `BrokerServer`의 start/stop operation은 동시에 두 개 이상 실행되지 않는다.
+1. `BrokerServer`의 start/stop operation은 동시에 두 개 이상 실행되지 않으며 Dispose는 종료 표식을 먼저 게시한다.
 2. Stop이 resource snapshot을 시작한 뒤 어느 backend에도 새 tracked resource가 등록되지 않는다.
 3. 등록이 거부된 resource는 caller local owner가 정확히 한 번 정리한다.
 4. 종료 뒤 `LocalEndPoint`와 `UdpLocalEndPoint`는 `null`이며 listener/endpoint는 닫혀 있다.
@@ -141,6 +145,7 @@ Linux syscall을 만들지 않는 pure lifecycle test로 두어 Windows 전체 t
 ### Green
 
 - `BrokerServer` lifecycle method 세 개에 단일 async gate를 적용한다.
+- `Dispose`는 `_disposed`를 기존 `_gate` 안에서 먼저 게시하고 직렬화된 Stop을 호출한다.
 - RIO/io_uring `Register*`에 공통 locked stopped guard를 적용한다.
 - RIO completion port snapshot을 transport lock 안으로 옮긴다.
 - RIO UDP 등록 실패 cleanup을 endpoint owner까지 확장한다.
@@ -164,7 +169,8 @@ Linux syscall을 만들지 않는 pure lifecycle test로 두어 Windows 전체 t
 - solution Release build와 전체 tests.
 
 이 변경은 데이터 경로를 바꾸지 않으므로 30초 성능 benchmark는 구현 수락의 필수 gate가 아니다.
-다만 build/test 뒤 기존 4096B x 100 Hz Windows smoke를 한 번 실행해 lifecycle 변경이 host 시작/종료를 깨지 않았는지 확인한다.
+다만 build/test 뒤 기존 4096B x 100 Hz Windows SAEA load/open-loop를 TCP/UDP 각각 한 번 실행해
+lifecycle 변경이 host 시작/종료와 correctness gate를 깨지 않았는지 확인한다.
 
 ## 7. 예상 변경 범위
 

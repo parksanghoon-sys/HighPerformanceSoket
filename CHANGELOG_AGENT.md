@@ -2,6 +2,16 @@
 
 ## Recent Work
 
+### 2026-07-15 - transport lifecycle 경합 hardening 구현 계획
+
+- 사용자 진행 승인으로 D241 written spec 검토를 닫고 설계 상태를 Accepted로 전환했다.
+- server TCP/UDP start-stop 경합 Red 2개와 RIO/io_uring 종료 후 registration Red 2개의 exact test seam과 명령을 확정했다.
+- Green은 `BrokerServer` control-path lifecycle gate, native locked stopped guard, RIO completion port 잠금 전환과 UDP 실패 cleanup으로 제한했다.
+- 세부 계획 검토에서 Dispose가 Stop 뒤 `_disposed`를 기록하는 좁은 Start 경합을 확인해, 종료 표식을 먼저 게시하도록 D241을 보완했다.
+- 계층별 focused tests, solution build/tests, Windows SAEA TCP/UDP 4096B x 100Hz target gate와 실패 시 scope 확대 금지를 계획에 명시했다.
+- production code와 tests는 변경하지 않았으며 implementation-plan 사용자 검토를 다음 진입점으로 남겼다.
+- 설계 commit `f814cc1`과 이번 plan/state commit의 push는 사용자가 별도 수행한다.
+
 ### 2026-07-15 - transport lifecycle 경합 hardening 설계
 
 - 현재 구현 검토에서 `BrokerServer`의 비동기 start resource 게시와 Stop 경합, RIO/io_uring의 종료 후 `Register*` 허용을 확인했다.

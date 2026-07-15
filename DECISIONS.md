@@ -12,7 +12,7 @@
 
 ## Active Transport Decisions
 
-- D241 - Server start/stop은 단일 lifecycle gate로 직렬화하고 RIO/io_uring은 Stop 뒤 `Register*`를 거부한다.
+- D241 - Server start/stop을 직렬화하고 Dispose 종료 표식을 먼저 게시하며 RIO/io_uring은 Stop 뒤 `Register*`를 거부한다.
 - D119 - `TransportFactory.CreateDefault()`는 deterministic SAEA 기본값을 유지한다.
 - D120 - RIO/io_uring 선택은 base factory가 아니라 host composition 책임이다.
 - D122 - RIO는 현재 IPv4 전용이며 non-IPv4 sample `auto`는 SAEA로 fallback한다.
