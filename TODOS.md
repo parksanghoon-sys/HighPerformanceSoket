@@ -2,15 +2,16 @@
 
 ## Current TODOs
 
-- [ ] D241 transport 등록-pump 시작 원자성 보강 결과를 사용자 검토로 확정한다.
-  - 범위: SAEA/RIO/io_uring connection·UDP endpoint 등록과 pump 생성·추적의 transport-lock 원자성.
-  - 검증: 후속 deterministic Red 3개, solution 528/528, build 경고 0/오류 0, SAEA/RIO TCP/UDP 4096B x 100Hz target gate pass.
-  - 다음 단계: 사용자 검토를 닫은 뒤 다음 finding을 별도 단위로 재평가한다.
+- [ ] D242 RIO UDP SOCKADDR 변환의 임시 배열 제거 범위와 allocation Red를 확정한다.
+  - 범위: `RioTransport.DecodeSockaddrInet`의 `byte[4]`와 `EncodeSockaddrInet`의 `GetAddressBytes()` 결과 배열.
+  - 유지: public `EndPoint` 계약, Broker UDP runtime target, D113 receive registration 해제 시점, IPv4-only 지원 경계.
+  - 제외: remote endpoint cache, value-type endpoint 계약, receive payload registration reuse, IPv6.
+  - 다음 단계: 환경에 안정적인 allocation assertion을 먼저 검증하고 두 helper의 Span 기반 최소 Green을 설계한다.
 
 ## Deferred Backlog
 
 - [ ] `P1_SOON` D241 설계, implementation plan, 구현과 review follow-up commit을 원격에 반영한다.
-  - 남은 일: D241 설계/계획/구현과 등록-pump 원자성 후속의 로컬 commit을 `origin/master`에 push한다.
+  - 남은 일: D241 설계/계획/구현, 등록-pump 원자성 후속과 review-stop 기록의 로컬 commit을 `origin/master`에 push한다.
   - 이유: push는 사용자가 직접 수행하며 현재 로컬 `master`가 원격보다 앞서 있다.
   - 목적: 승인된 D241 설계, 구현 계획, 검증된 code/tests와 현재 진입점을 원격 canonical state에 반영한다.
   - 범위: lifecycle spec/plan, production/test 파일과 root/archive 상태 문서.
@@ -40,6 +41,11 @@
 
 ## Completed
 
+- [x] 2026-07-15 D241 transport 등록-pump 시작 원자성 보강 review stop을 닫고 다음 finding을 재평가했다.
+  - 사용자의 다음 진행 승인으로 D241 구현 결과를 확정했다.
+  - 2026-06-26 RIO UDP receive loop 검토의 M2/M3는 현재 handler 예외, bounded-window close/drain과 pool leak tests로 닫혔음을 확인했다.
+  - per-datagram payload registration은 D113 소유권 결정에 따라 유지하고, SOCKADDR 변환 임시 배열만 D242 후보로 분리했다.
+  - production code와 tests는 변경하지 않았다.
 - [x] 2026-07-15 D241 transport resource 등록과 pump 시작·추적 사이의 후속 경합을 닫았다.
   - SAEA/RIO/io_uring에서 pump 시작을 차단한 동안 Stop 완료를 금지하는 assertion Red 3개를 확인했다.
   - connection과 UDP endpoint 등록, pump 생성, io_uring send-task 추적을 같은 transport lock 경계로 묶었다.

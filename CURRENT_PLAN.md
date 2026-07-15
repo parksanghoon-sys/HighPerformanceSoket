@@ -45,24 +45,24 @@
 - `d63f3ba8147df4534268f851379dc05a3cb59427` push를 확인하고 같은 SHA로 explicit io_uring Linux gate를 갱신했다.
 - run `29305055740`은 모든 step이 성공했고 artifact의 TRX와 native evidence도 수락 조건을 충족했다.
 - current-head io_uring 원격 gate 결과 review stop은 2026-07-14 사용자 진행 승인으로 닫았다.
+- D241 transport 등록-pump 시작 원자성 보강 review stop은 2026-07-15 사용자 진행 승인으로 닫았다.
+- 2026-06-26 RIO UDP receive loop 검토를 현재 코드에 다시 대조했다.
+- 당시 M2의 handler 예외·pool leak 검증과 M3의 close/drain 경계는 현재 bounded window tests로 닫혀 있다.
+- 당시 M1의 per-datagram payload registration은 D113 소유권 결정에 따라 의도적으로 유지되며,
+  L2의 `SOCKADDR_INET` 변환 임시 배열만 계약 변경 없이 줄일 수 있는 독립 후보로 남았다.
 
 ## 다음 단일 작업 단위
 
-### D241 transport 등록-pump 시작 원자성 보강 review stop
+### D242 RIO UDP SOCKADDR 임시 할당 최소화 방향 검토
 
-- `BrokerServer` TCP/UDP start와 Stop은 control-path lifecycle gate로 직렬화된다.
-- Dispose는 종료 표식을 Stop보다 먼저 게시해 transport stop 예외 뒤에도 재시작을 거부한다.
-- RIO/io_uring의 listener, connection, UDP endpoint 등록은 transport lock 안에서 Stop 이후 요청을 거부한다.
-- RIO completion port snapshot/null 전환과 UDP 등록 실패 cleanup도 같은 종료 경계에 맞췄다.
-- deterministic Red는 계획된 4개와 Dispose stop-failure 경계 1개를 포함해 총 5개를 확인했다.
-- 구현 검토에서 transport resource 등록 직후 Stop이 snapshot하고 그 뒤 pump가 시작될 수 있는 후속 경합을 확인했다.
-- SAEA/RIO/io_uring connection과 UDP endpoint는 등록과 pump 생성까지 같은 transport lock 안에서 완료한다.
-- io_uring connection send-task 추적도 같은 경계에서 Stop snapshot 전에 끝낸다.
-- pump 시작이 차단된 동안 Stop이 완료되지 않는 pure lifecycle Red 3개를 추가로 확인했다.
-- 구현 계획은 `docs/superpowers/plans/2026-07-15-transport-lifecycle-race-hardening.md`다.
-- 전체 528/528, Release build 경고 0/오류 0과 SAEA/RIO TCP/UDP 4096B x 100Hz target gate를 통과했다.
-- production API, data hot path, backend 선택과 transport restart 의미는 바꾸지 않았다.
-- 후속 구현 commit은 로컬에 남기고 원격 push는 사용자가 별도 수행한다.
+- 현재 `DecodeSockaddrInet`은 datagram마다 `byte[4]`, `IPAddress`, `IPEndPoint`를 만든다.
+- net9.0의 `IPAddress(ReadOnlySpan<byte>)`를 사용하면 `byte[4]`만 제거할 수 있다.
+- `EncodeSockaddrInet`의 `GetAddressBytes()`도 `TryWriteBytes(Span<byte>, out int)`로 임시 배열을 제거할 수 있다.
+- `IPAddress`와 `IPEndPoint` 객체는 public `EndPoint` handler/send 계약과 Broker runtime target 모델 때문에
+  이 국소 단위에서 제거하지 않는다.
+- remote endpoint cache는 peer cardinality와 eviction/lifetime 정책을 새로 만들므로 현재 100 Hz 목표에는 과도하다.
+- receive payload registration reuse는 D113의 receive/send registration 중첩 금지와 충돌하므로 D242에 섞지 않는다.
+- 다음 단계는 allocation assertion Red가 환경에 안정적인지 확인한 뒤, 두 변환 helper만 최소 수정하는 설계를 확정하는 것이다.
 
 ## 최신 검증 기준선
 
@@ -129,9 +129,9 @@
 
 ## 다음 후보
 
-1. D241 transport 등록-pump 시작 원자성 보강 결과를 사용자 검토로 닫는다.
-2. 사용자가 push할 때 D241 설계/계획/구현과 review follow-up commit을 원격에 반영한다.
-3. lifecycle 구현 review stop 뒤 현재 HEAD io_uring 성능 gate와 hot-path allocation finding을 별도 단위로 재평가한다.
+1. D242에서 RIO UDP SOCKADDR 변환의 임시 배열 제거 범위와 allocation Red를 확정한다.
+2. 사용자가 push할 때 D241 설계/계획/구현, review follow-up과 review-stop 기록을 원격에 반영한다.
+3. push 뒤 현재 HEAD로 explicit io_uring Linux 성능 gate를 별도 단위에서 갱신한다.
 
 ## 이번 범위 밖
 

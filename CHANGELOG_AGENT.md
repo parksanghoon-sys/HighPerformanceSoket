@@ -2,6 +2,16 @@
 
 ## Recent Work
 
+### 2026-07-15 - D241 review stop 종료와 RIO UDP allocation 범위 재평가
+
+- 사용자의 다음 진행 승인으로 D241 transport 등록-pump 시작 원자성 보강 review stop을 닫았다.
+- 2026-06-26 RIO UDP receive loop 검토를 현재 코드, tests와 D113/D240 결정에 다시 대조했다.
+- handler 예외 close notify, bounded-window close/drain과 `ReceivePool.RentedCount == 0` 검증은 현재 tests에 존재한다.
+- payload buffer의 per-datagram registration은 handler fan-out 전 해제해야 하는 D113 소유권 경계 때문에 유지한다.
+- 다음 후보는 `DecodeSockaddrInet`의 `byte[4]`와 `EncodeSockaddrInet`의 `GetAddressBytes()` 임시 배열 제거로 제한했다.
+- public `EndPoint` 계약, remote cache, receive registration reuse, IPv6와 io_uring 원격 gate는 이번 단위에 포함하지 않았다.
+- production code와 tests는 변경하지 않았다.
+
 ### 2026-07-15 - transport registration과 pump 시작 원자성 보강
 
 - D241 구현 검토에서 transport resource 등록과 pump 시작 사이에 Stop snapshot이 끼어들 수 있는 경합을 확인했다.
