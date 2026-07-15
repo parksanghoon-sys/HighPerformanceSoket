@@ -2,18 +2,19 @@
 
 ## Current TODOs
 
-- 현재 실행 가능한 로컬 TODO 없음.
+- [ ] D241 transport lifecycle 경합 hardening written spec을 사용자 검토로 확정한다.
+  - 문서: `docs/superpowers/specs/2026-07-15-transport-lifecycle-race-hardening-design.md`.
+  - 범위: `BrokerServer` lifecycle 직렬화와 RIO/io_uring 종료 후 등록 거부.
+  - 다음 단계: 사용자 승인 뒤 별도 implementation plan을 작성한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` current-head 원격 gate 결과 상태 문서 커밋을 push한다.
-  - 남은 일: 로컬 `master`에 완료된 원격 gate 기록과 review stop 종료 커밋을 `origin/master`에 반영한다.
-  - 이유: 현재 실행 정책이 직접 `git push` 명령을 차단했고 GitHub 연결 도구로 우회하면 커밋 이력이 달라진다.
-  - 목적: 검증된 원격 gate 결과와 종료 상태를 원격 저장소의 canonical state에 반영한다.
-  - 관련 범위: git remote와 상태 문서 커밋 2개. production code와 tests는 포함하지 않는다.
-  - 현재 상태: fetch 기준 local은 origin보다 behind 0 / ahead 1이었고 review stop 종료 커밋을 추가로 완료했다.
-  - blocker: 현재 세션의 direct push 실행 정책.
-  - 다음 단계: 사용자가 저장소 루트에서 `git push origin master`를 실행한다.
+- [ ] `P1_SOON` D241 written spec과 상태 문서 commit을 사용자 검토 뒤 원격에 반영한다.
+  - 남은 일: 이번 설계 단위의 로컬 commit을 `origin/master`에 push한다.
+  - 이유: written-spec review stop을 먼저 지키고 push는 사용자가 직접 수행한다.
+  - 목적: 승인된 D241 설계와 현재 진입점을 원격 canonical state에 반영한다.
+  - 범위: lifecycle written spec과 root/archive 상태 문서. production code와 tests는 포함하지 않는다.
+  - 다음 단계: 사용자가 written spec을 승인한 뒤 현재 `master`를 push한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
   - 남은 일: RIO TCP/UDP는 IPv4 전용이고 sample `auto`는 non-IPv4에서 SAEA fallback을 사용한다.
@@ -38,6 +39,12 @@
 
 ## Completed
 
+- [x] 2026-07-15 current-head 상태 문서 push 완료를 확인했다.
+  - `master`와 `origin/master`는 `216a35e89202c40a9ff2adf7404af8345cc8d92b`에서 ahead/behind 0/0이다.
+  - 오래된 push blocker를 Deferred Backlog에서 제거했다.
+- [x] 2026-07-15 transport lifecycle 경합 hardening 방향을 written spec으로 정리했다.
+  - server-only 또는 native-only 수정은 반대 계층의 race를 남기므로 두 계층 방어를 D241로 채택했다.
+  - public API와 data hot path는 유지하고 deterministic Red 4개와 cleanup 불변식을 명시했다.
 - [x] 2026-07-14 current-head io_uring 원격 gate 결과 review stop을 닫았다.
   - 사용자의 다음 진행 승인으로 원격 build/TRX/native evidence 검토를 완료 처리했다.
   - 현재 목표와 열린 요구 기준으로 즉시 실행 가능한 production code 작업은 없다.

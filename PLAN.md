@@ -10,10 +10,10 @@ Claude 검토(`.claude/review/`)의 must-fix 해소.
 ---
 
 ## 현재 상태 (스냅샷)
-- [x] **Phase 0** 스캐폴딩: `HighPerformanceSocket.slnx`, 루트 `Directory.Build.props`(net9.0/C#8/unsafe),
-  `src/Hps.Buffers`, `tests/Hps.Buffers.Tests` 생성됨. `dotnet build` 통과.
-- [~] **Phase 1** 진행 중: `src/Hps.Buffers/BipBuffer.cs` **초안 작성됨(테스트·검토 전)**.
-  → 먼저 BipBuffer 테스트를 채우고 검토를 받은 뒤 Pool/RefCounted 로 진행한다.
+- [x] **Phase 0~5**: 메모리, SAEA, Protocol/Broker/Server, benchmark와 Windows RIO 경로 구현·검증 완료.
+- [x] **Phase 6**: Linux io_uring TCP/UDP pump, fixed buffer와 registered payload opt-in 경로 구현 완료.
+- [~] **현재 hardening**: D241 transport lifecycle 경합 설계의 written-spec 검토 대기.
+  세부 실행 지점과 최신 검증값은 [`CURRENT_PLAN.md`](./CURRENT_PLAN.md)를 source of truth로 사용한다.
 
 ---
 

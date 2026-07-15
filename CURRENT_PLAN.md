@@ -48,14 +48,15 @@
 
 ## 다음 단일 작업 단위
 
-### 로컬 작업 완료 - 사용자 push 대기
+### D241 transport lifecycle 경합 hardening written-spec 검토
 
-- RIO UDP depth 4 commit과 `origin/master`는 `d63f3ba8147df4534268f851379dc05a3cb59427`에서 일치했다.
-- 같은 SHA의 explicit io_uring Linux contract와 artifact 검증이 완료됐다.
-- 원격 gate 결과 문서 review stop도 사용자 승인으로 닫혔다.
-- 현재 목표와 열린 요구 기준으로 즉시 실행 가능한 production code 작업은 없다.
-- 원격 gate 기록과 review stop 종료 문서 커밋은 로컬에 완료됐으나 현재 실행 정책이 `git push`를 차단했다.
-- 사용자가 현재 `master`를 push한 뒤 새 제품 요구나 검증 실패가 제시되기 전에는 추가 구현을 자동으로 열지 않는다.
+- 이번 설계 단위 시작 시 `master`와 `origin/master`는 `216a35e89202c40a9ff2adf7404af8345cc8d92b`에서 일치했다.
+- 현재 구현 검토에서 `BrokerServer` start/stop 비동기 게시 경합과 RIO/io_uring 종료 후 등록 가능성을 확인했다.
+- 채택 설계는 server lifecycle operation 직렬화와 native `Register*`의 locked stopped guard를 함께 적용한다.
+- written spec은 `docs/superpowers/specs/2026-07-15-transport-lifecycle-race-hardening-design.md`다.
+- 사용자 written-spec 검토 전에는 production code와 tests를 수정하지 않는다.
+- 승인 뒤 다음 단위는 handoff-ready implementation plan 작성이다.
+- written spec과 상태 문서 commit은 로컬에 남기고 원격 push는 사용자 검토 뒤 별도 수행한다.
 
 ## 최신 검증 기준선
 
@@ -101,9 +102,9 @@
 
 ## 다음 후보
 
-1. 사용자가 현재 `master`의 상태 문서 커밋을 원격에 push한다.
-2. push 후 새 제품 요구가 제시되면 현재 목표와 범위를 다시 대조한다.
-3. RIO full IPv6, server-level diagnostics와 workflow allow-list는 기존 trigger가 생길 때만 재평가한다.
+1. D241 written spec 사용자 검토를 닫고 implementation plan을 작성한다.
+2. D241을 TDD로 구현하고 전체 회귀를 확인한다.
+3. lifecycle review stop 뒤 현재 HEAD io_uring 성능 gate와 hot-path allocation finding을 별도 단위로 재평가한다.
 
 ## 이번 범위 밖
 

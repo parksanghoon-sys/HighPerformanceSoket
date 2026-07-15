@@ -2,6 +2,16 @@
 
 ## Recent Work
 
+### 2026-07-15 - transport lifecycle 경합 hardening 설계
+
+- 현재 구현 검토에서 `BrokerServer`의 비동기 start resource 게시와 Stop 경합, RIO/io_uring의 종료 후 `Register*` 허용을 확인했다.
+- server-only와 native-only 수정은 각각 직접 transport consumer 또는 server resource 게시 race를 남겨 제외했다.
+- D241로 server lifecycle operation 직렬화와 native locked stopped guard를 함께 적용하는 최소 설계를 채택했다.
+- written spec에 deterministic Red 4개, ownership cleanup, focused/full gate와 범위 밖 항목을 명시했다.
+- `PLAN.md`의 오래된 Phase 1 snapshot과 완료된 push blocker를 현재 `master` 상태에 맞게 정리했다.
+- production code와 tests는 변경하지 않았으며 written-spec 사용자 검토를 다음 진입점으로 남겼다.
+- 이번 written spec/state commit의 원격 반영은 사용자 검토 뒤 `P1_SOON`으로 수행한다.
+
 ### 2026-07-14 - current-head io_uring 원격 gate review stop 종료
 
 - 사용자의 다음 진행 승인으로 run `29305055740`의 build/TRX/native evidence 검토를 완료 처리했다.
