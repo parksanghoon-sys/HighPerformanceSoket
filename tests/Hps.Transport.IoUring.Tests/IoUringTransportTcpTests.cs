@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Hps.Buffers;
 using Xunit;
@@ -69,14 +70,12 @@ namespace Hps.Transport.IoUring.Tests
 
                 try
                 {
-                    MethodInfo? registerConnection = typeof(IoUringTransport).GetMethod(
-                        "RegisterConnection",
-                        BindingFlags.Instance | BindingFlags.NonPublic);
+                    MethodInfo? registerConnection = FindRegisterConnectionWithPumpStartup();
                     Assert.NotNull(registerConnection);
 
                     TargetInvocationException exception = Assert.Throws<TargetInvocationException>(delegate()
                     {
-                        registerConnection!.Invoke(transport, new object[] { connection });
+                        registerConnection!.Invoke(transport, new object[] { connection, new Action(delegate() { }) });
                     });
 
                     Assert.IsType<InvalidOperationException>(exception.InnerException);
@@ -84,6 +83,60 @@ namespace Hps.Transport.IoUring.Tests
                 }
                 finally
                 {
+                    connection.Close();
+                }
+            }
+        }
+
+        // registration과 pump task 생성/추적이 분리되면 StopCore가 빈 task snapshot을 만든 뒤 새 pump가 추가될 수 있다.
+        // pump 시작 delegate를 차단한 동안 Stop이 끝나지 않는지 확인해 native owner 정리보다 pump 시작이 항상 먼저 확정되도록 한다.
+        [Fact]
+        public async Task RegisterConnection_WhenPumpStartupIsBlocked_SerializesStopUntilStartupCompletes()
+        {
+            using (IoUringTransport transport = new IoUringTransport())
+            using (ManualResetEventSlim pumpStartupEntered = new ManualResetEventSlim(false))
+            using (ManualResetEventSlim releasePumpStartup = new ManualResetEventSlim(false))
+            {
+                await transport.StartAsync();
+                IConnection connection = CreateStandaloneTransportConnection();
+                MethodInfo? registerConnection = FindRegisterConnectionWithPumpStartup();
+                Assert.NotNull(registerConnection);
+
+                Task registrationTask = Task.Run(delegate()
+                {
+                    Action startPumps = delegate()
+                    {
+                        pumpStartupEntered.Set();
+                        if (!releasePumpStartup.Wait(TimeSpan.FromSeconds(5)))
+                            throw new TimeoutException("io_uring pump 시작 차단을 제한 시간 안에 해제하지 못했습니다.");
+                    };
+
+                    registerConnection!.Invoke(transport, new object[] { connection, startPumps });
+                });
+
+                try
+                {
+                    Assert.True(
+                        pumpStartupEntered.Wait(TimeSpan.FromSeconds(5)),
+                        "io_uring registration이 pump 시작 경계에 진입하지 못했습니다.");
+
+                    Task stopTask = Task.Run(async delegate()
+                    {
+                        await transport.StopAsync();
+                    });
+
+                    await Task.Delay(TimeSpan.FromMilliseconds(100));
+                    Assert.False(stopTask.IsCompleted);
+
+                    releasePumpStartup.Set();
+                    await registrationTask.WaitAsync(TimeSpan.FromSeconds(5));
+                    await stopTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+                    Assert.Empty(((ITransportEndpointDiagnostics)transport).GetEndpointSnapshots());
+                }
+                finally
+                {
+                    releasePumpStartup.Set();
                     connection.Close();
                 }
             }
@@ -210,6 +263,23 @@ namespace Hps.Transport.IoUring.Tests
 
             object? instance = Activator.CreateInstance(connectionType!, nonPublic: true);
             return Assert.IsAssignableFrom<IConnection>(instance);
+        }
+
+        private static MethodInfo? FindRegisterConnectionWithPumpStartup()
+        {
+            MethodInfo[] methods = typeof(IoUringTransport).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic);
+            for (int index = 0; index < methods.Length; index++)
+            {
+                MethodInfo method = methods[index];
+                if (!string.Equals(method.Name, "RegisterConnection", StringComparison.Ordinal))
+                    continue;
+
+                ParameterInfo[] parameters = method.GetParameters();
+                if (parameters.Length == 2 && parameters[1].ParameterType == typeof(Action))
+                    return method;
+            }
+
+            return null;
         }
 
         private static Type RequiredType(string name)

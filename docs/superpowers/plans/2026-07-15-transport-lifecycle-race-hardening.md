@@ -547,7 +547,7 @@ Expected: D241의 6개 code/test 파일과 상태 문서만 변경된다. 예상
 - D241 implementation review stop과 다음 진입점.
 - 실패 또는 미검증 항목은 Completed로 쓰지 않고 `TODOS.md` Deferred Backlog에 handoff-ready하게 남긴다.
 
-- [ ] **Step 2: task-owned 파일만 stage한다**
+- [x] **Step 2: task-owned 파일만 stage한다**
 
 Run:
 
@@ -559,7 +559,7 @@ git diff --cached --stat
 
 Expected: 기존 untracked `.claude/review/*.md`와 `diff/`는 staged되지 않는다. 변경되지 않은 allow-list 파일은 `git add`가 무시해도 된다.
 
-- [ ] **Step 3: 검증 성공 뒤 한 번만 commit한다**
+- [x] **Step 3: 검증 성공 뒤 한 번만 commit한다**
 
 Run:
 
@@ -567,9 +567,9 @@ Run:
 git commit -m "fix(lifecycle): serialize start and stop registration"
 ```
 
-Expected: commit 1개 생성. push는 사용자가 별도로 수행하므로 실행하지 않는다.
+Result: `7de01ca fix(lifecycle): serialize start and stop registration` 생성. push는 수행하지 않았다.
 
-- [ ] **Step 4: review stop 상태를 확인한다**
+- [x] **Step 4: review stop 상태를 확인한다**
 
 Run:
 
@@ -579,6 +579,51 @@ git log -1 --oneline
 ```
 
 Expected: task-owned tracked 변경은 없고 기존 untracked 항목만 남는다. 구현 결과와 검증값을 사용자에게 보고하고 다음 작업을 자동으로 시작하지 않는다.
+
+---
+
+## Task 8: Review finding - transport registration과 pump 시작을 Stop과 직렬화한다
+
+**Files:**
+- Modify: `src/Hps.Transport.Rio/RioTransport.cs`
+- Modify: `src/Hps.Transport.IoUring/IoUringTransport.cs`
+- Modify: `src/Hps.Transport/Saea/SaeaTransport.cs`
+- Modify: `tests/Hps.Transport.Tests/Saea/SaeaTransportTests.cs`
+- Modify: `tests/Hps.Transport.Rio.Tests/RioTransportTcpTests.cs`
+- Modify: `tests/Hps.Transport.IoUring.Tests/IoUringTransportTcpTests.cs`
+- Modify: `tests/Hps.Transport.IoUring.Tests/IoUringTransportUdpTests.cs`
+- Modify: D241 spec과 root/archive state 문서
+
+- [x] **Step 1: registration-pump 경합 Red를 SAEA/RIO/io_uring에 각각 추가한다**
+
+pump-start delegate를 signal로 차단하고 별도 task의 Stop이 release 전에 완료되지 않는지 검증한다.
+최초 구현에는 원자적 registration seam이 없어 세 test 모두 `Assert.NotNull` expected non-null/actual null로 실패했다.
+
+- [x] **Step 2: connection/UDP 등록과 pump 시작·추적을 같은 transport lock 안에서 완료한다**
+
+세 backend의 private `RegisterAndStartPumps`가 실행 상태 검사, 목록 등록, pump 생성과 io_uring send-task 추적까지 완료한다.
+pump 시작이 실패하면 목록 등록을 되돌리고 기존 caller catch/finally가 local owner를 닫는다.
+
+- [x] **Step 3: focused/backend/solution 회귀를 검증한다**
+
+- 신규 registration tests: SAEA/RIO/io_uring 3/3.
+- backend tests: SAEA 45/45, RIO 58/58, io_uring 90/90.
+- solution tests: 528/528.
+- Release build: 경고 0, 오류 0.
+
+- [x] **Step 4: SAEA/RIO TCP/UDP 4096B x 100Hz target gate를 실행한다**
+
+- SAEA TCP load/open-loop: 3000/3000, actual 99.8/99.9 Hz, p99 833.8/892.6 us, HWM 1/4.
+- SAEA UDP load/open-loop: 3000/3000, actual 99.9/99.9 Hz, p99 907.0/839.4 us, UDP HWM 1/4.
+- RIO TCP load/open-loop: 3000/3000, actual 99.8/99.9 Hz, p99 2070.5/1445.7 us, HWM 1/2.
+- RIO UDP load/open-loop: 3000/3000, actual 99.8/99.8 Hz, p99 1779.6/1384.8 us, UDP HWM 1/2.
+- 여덟 run 모두 drop 0, payload error 0, pool rented 0.
+- io_uring native 실기기 run은 로컬 범위 밖이며 기존 Linux gate evidence를 유지한다.
+
+- [x] **Step 5: 설계와 상태 문서를 실제 결과로 갱신한다**
+
+D241 불변식에 등록-pump 원자성을 추가하고 최초 구현과 review follow-up 결과를 구분해 기록한다.
+다음 진입점은 이번 보강의 사용자 review stop이며 push는 사용자가 별도 수행한다.
 
 ## Failure Branches
 

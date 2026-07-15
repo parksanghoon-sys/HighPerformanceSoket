@@ -2,6 +2,20 @@
 
 ## Recent Work
 
+### 2026-07-15 - transport registration과 pump 시작 원자성 보강
+
+- D241 구현 검토에서 transport resource 등록과 pump 시작 사이에 Stop snapshot이 끼어들 수 있는 경합을 확인했다.
+- SAEA/RIO/io_uring의 원자적 registration seam이 없어 신규 test가 expected non-null/actual null assertion Red로 각각 실패했다.
+- 세 backend의 connection과 UDP endpoint 등록, receive/send pump 생성, io_uring send-task 추적을 기존 transport lock 안에서 완료하도록 보강했다.
+- pump 시작 실패 시 목록 등록을 되돌리고 기존 caller cleanup이 local owner를 정리하는 소유권 경계를 유지했다.
+- 신규 registration tests 3/3, SAEA 45/45, RIO 58/58, io_uring 90/90, solution 528/528가 통과했고 Release build는 경고 0/오류 0이다.
+- SAEA/RIO TCP/UDP 4096B x 100Hz load/open-loop 여덟 run은 모두 3000/3000, drop/payload error/pool rented 0이다.
+- SAEA TCP p50/p99은 load 163.4/833.8 us, open-loop 196.6/892.6 us이며 HWM은 1/4다.
+- SAEA UDP p50/p99은 load 150.6/907.0 us, open-loop 151.6/839.4 us이며 UDP HWM은 1/4다.
+- RIO TCP p50/p99은 load 185.4/2070.5 us, open-loop 190.8/1445.7 us이며 HWM은 1/2다.
+- RIO UDP p50/p99은 load 168.8/1779.6 us, open-loop 173.5/1384.8 us이며 UDP HWM은 1/2다.
+- public API, data hot path, backend 선택 정책은 바꾸지 않았고 후속 구현 review stop을 다음 진입점으로 남겼다.
+
 ### 2026-07-15 - transport lifecycle 경합 hardening 구현
 
 - server TCP/UDP start-stop Red는 listen/bind release 전 Stop이 expected false/actual true로 완료돼 각각 실패했다.

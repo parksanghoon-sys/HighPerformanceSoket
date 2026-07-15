@@ -131,9 +131,11 @@ namespace Hps.Transport
             {
                 socket.Bind(localEndPoint);
                 udpEndpoint = new SaeaUdpEndpoint(this, socket);
-                RegisterUdpEndpoint(udpEndpoint);
-                StartUdpReceiveLoop(udpEndpoint);
-                StartUdpSendLoop(udpEndpoint);
+                RegisterUdpEndpoint(udpEndpoint, delegate()
+                {
+                    StartUdpReceiveLoop(udpEndpoint);
+                    StartUdpSendLoop(udpEndpoint);
+                });
                 socket = null!;
 
                 return new ValueTask<IUdpEndpoint>(udpEndpoint);
@@ -247,9 +249,11 @@ namespace Hps.Transport
 
             try
             {
-                RegisterConnection(connection);
-                StartReceiveLoop(connection, socket);
-                StartSendLoop(connection, socket);
+                RegisterConnection(connection, delegate()
+                {
+                    StartReceiveLoop(connection, socket);
+                    StartSendLoop(connection, socket);
+                });
                 return connection;
             }
             catch
@@ -583,21 +587,38 @@ namespace Hps.Transport
             }
         }
 
-        private void RegisterUdpEndpoint(SaeaUdpEndpoint udpEndpoint)
+        private void RegisterUdpEndpoint(SaeaUdpEndpoint udpEndpoint, Action startPumps)
         {
-            lock (_gate)
-            {
-                EnsureRunningLocked();
-                _udpEndpoints.Add(udpEndpoint);
-            }
+            RegisterAndStartPumps(_udpEndpoints, udpEndpoint, startPumps);
         }
 
-        private void RegisterConnection(TransportConnection connection)
+        private void RegisterConnection(TransportConnection connection, Action startPumps)
         {
+            RegisterAndStartPumps(_connections, connection, startPumps);
+        }
+
+        private void RegisterAndStartPumps<T>(List<T> resources, T resource, Action startPumps)
+        {
+            if (startPumps == null)
+                throw new ArgumentNullException(nameof(startPumps));
+
             lock (_gate)
             {
                 EnsureRunningLocked();
-                _connections.Add(connection);
+                resources.Add(resource);
+
+                try
+                {
+                    // StopCore는 같은 gate에서 resource 목록을 snapshot하고 socket을 닫는다.
+                    // pump task 생성까지 먼저 확정해야 Stop/Dispose 뒤 pool을 다시 대여하는 late pump가 생기지 않는다.
+                    startPumps();
+                }
+                catch
+                {
+                    // pump 시작에 실패하면 caller가 local socket owner를 닫도록 목록 소유권을 되돌린다.
+                    resources.Remove(resource);
+                    throw;
+                }
             }
         }
 

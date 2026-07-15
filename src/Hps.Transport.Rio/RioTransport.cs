@@ -167,10 +167,12 @@ namespace Hps.Transport
             {
                 socket.Bind(localEndPoint);
                 endpoint = new RioUdpEndpoint(this, socket, native, GetOrCreateCompletionPort());
-                RegisterUdpEndpoint(endpoint);
-                endpoint.MarkPumpsStarted();
-                StartUdpReceiveLoop(endpoint);
-                StartUdpSendLoop(endpoint);
+                RegisterUdpEndpoint(endpoint, delegate()
+                {
+                    endpoint.MarkPumpsStarted();
+                    StartUdpReceiveLoop(endpoint);
+                    StartUdpSendLoop(endpoint);
+                });
                 socket = null!;
                 return new ValueTask<IUdpEndpoint>(endpoint);
             }
@@ -267,9 +269,11 @@ namespace Hps.Transport
 
             try
             {
-                RegisterConnection(connection);
-                StartReceiveLoop(connection, resource);
-                StartSendLoop(connection, resource);
+                RegisterConnection(connection, delegate()
+                {
+                    StartReceiveLoop(connection, resource);
+                    StartSendLoop(connection, resource);
+                });
                 return connection;
             }
             catch
@@ -301,13 +305,9 @@ namespace Hps.Transport
             }
         }
 
-        private void RegisterConnection(TransportConnection connection)
+        private void RegisterConnection(TransportConnection connection, Action startPumps)
         {
-            lock (_gate)
-            {
-                ThrowIfStoppedLocked();
-                _connections.Add(connection);
-            }
+            RegisterAndStartPumps(_connections, connection, startPumps);
         }
 
         private void UnregisterConnection(TransportConnection connection)
@@ -326,12 +326,33 @@ namespace Hps.Transport
             }
         }
 
-        private void RegisterUdpEndpoint(RioUdpEndpoint endpoint)
+        private void RegisterUdpEndpoint(RioUdpEndpoint endpoint, Action startPumps)
         {
+            RegisterAndStartPumps(_udpEndpoints, endpoint, startPumps);
+        }
+
+        private void RegisterAndStartPumps<T>(List<T> resources, T resource, Action startPumps)
+        {
+            if (startPumps == null)
+                throw new ArgumentNullException(nameof(startPumps));
+
             lock (_gate)
             {
                 ThrowIfStoppedLocked();
-                _udpEndpoints.Add(endpoint);
+                resources.Add(resource);
+
+                try
+                {
+                    // Stop은 같은 gate에서 tracked resource와 completion port를 snapshot한다.
+                    // pump 생성까지 이 임계구역에서 끝내야 snapshot 뒤 새 background I/O가 시작되지 않는다.
+                    startPumps();
+                }
+                catch
+                {
+                    // pump 시작이 일부라도 실패하면 caller가 local owner를 닫도록 등록 소유권을 되돌린다.
+                    resources.Remove(resource);
+                    throw;
+                }
             }
         }
 

@@ -48,17 +48,21 @@
 
 ## 다음 단일 작업 단위
 
-### D241 transport lifecycle 경합 hardening 구현 review stop
+### D241 transport 등록-pump 시작 원자성 보강 review stop
 
 - `BrokerServer` TCP/UDP start와 Stop은 control-path lifecycle gate로 직렬화된다.
 - Dispose는 종료 표식을 Stop보다 먼저 게시해 transport stop 예외 뒤에도 재시작을 거부한다.
 - RIO/io_uring의 listener, connection, UDP endpoint 등록은 transport lock 안에서 Stop 이후 요청을 거부한다.
 - RIO completion port snapshot/null 전환과 UDP 등록 실패 cleanup도 같은 종료 경계에 맞췄다.
 - deterministic Red는 계획된 4개와 Dispose stop-failure 경계 1개를 포함해 총 5개를 확인했다.
+- 구현 검토에서 transport resource 등록 직후 Stop이 snapshot하고 그 뒤 pump가 시작될 수 있는 후속 경합을 확인했다.
+- SAEA/RIO/io_uring connection과 UDP endpoint는 등록과 pump 생성까지 같은 transport lock 안에서 완료한다.
+- io_uring connection send-task 추적도 같은 경계에서 Stop snapshot 전에 끝낸다.
+- pump 시작이 차단된 동안 Stop이 완료되지 않는 pure lifecycle Red 3개를 추가로 확인했다.
 - 구현 계획은 `docs/superpowers/plans/2026-07-15-transport-lifecycle-race-hardening.md`다.
-- 전체 525/525, Release build 경고 0/오류 0과 SAEA TCP/UDP 4096B x 100Hz target gate를 통과했다.
+- 전체 528/528, Release build 경고 0/오류 0과 SAEA/RIO TCP/UDP 4096B x 100Hz target gate를 통과했다.
 - production API, data hot path, backend 선택과 transport restart 의미는 바꾸지 않았다.
-- 구현 commit은 로컬에 남기고 원격 push는 사용자가 별도 수행한다.
+- 후속 구현 commit은 로컬에 남기고 원격 push는 사용자가 별도 수행한다.
 
 ## 최신 검증 기준선
 
@@ -110,11 +114,23 @@
   p99 907.5/861.5 us, HWM 1/2, drop/payload error/pool rented 0.
 - D241 SAEA UDP load/open-loop: 3000/3000, actual 99.9/99.9 Hz, p50 157.3/151.3 us,
   p99 1080.5/978.1 us, UDP HWM 1/6, drop/payload error/pool rented 0.
+- D241 review follow-up Red: SAEA/RIO/io_uring 모두 pump-start 인자를 포함한 원자적 registration seam이 없어
+  `Assert.NotNull` expected non-null/actual null로 실패했다.
+- D241 review follow-up Green: 신규 registration 경합 3/3, SAEA Transport 45/45, RIO 58/58,
+  io_uring 90/90, solution 528/528, Release build 경고 0/오류 0이다.
+- D241 follow-up SAEA TCP load/open-loop: 3000/3000, actual 99.8/99.9 Hz, p50 163.4/196.6 us,
+  p99 833.8/892.6 us, HWM 1/4, drop/payload error/pool rented 0.
+- D241 follow-up SAEA UDP load/open-loop: 3000/3000, actual 99.9/99.9 Hz, p50 150.6/151.6 us,
+  p99 907.0/839.4 us, UDP HWM 1/4, drop/payload error/pool rented 0.
+- D241 follow-up RIO TCP load/open-loop: 3000/3000, actual 99.8/99.9 Hz, p50 185.4/190.8 us,
+  p99 2070.5/1445.7 us, HWM 1/2, drop/payload error/pool rented 0.
+- D241 follow-up RIO UDP load/open-loop: 3000/3000, actual 99.8/99.8 Hz, p50 168.8/173.5 us,
+  p99 1779.6/1384.8 us, UDP HWM 1/2, drop/payload error/pool rented 0.
 
 ## 다음 후보
 
-1. D241 lifecycle hardening 구현 결과를 사용자 검토로 닫는다.
-2. 사용자가 push할 때 D241 설계/계획/구현 commit을 원격에 반영한다.
+1. D241 transport 등록-pump 시작 원자성 보강 결과를 사용자 검토로 닫는다.
+2. 사용자가 push할 때 D241 설계/계획/구현과 review follow-up commit을 원격에 반영한다.
 3. lifecycle 구현 review stop 뒤 현재 HEAD io_uring 성능 gate와 hot-path allocation finding을 별도 단위로 재평가한다.
 
 ## 이번 범위 밖

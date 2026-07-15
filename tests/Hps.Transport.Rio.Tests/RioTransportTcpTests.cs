@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Hps.Buffers;
 using Xunit;
@@ -48,14 +49,12 @@ namespace Hps.Transport.Rio.Tests
 
                 try
                 {
-                    MethodInfo? registerConnection = typeof(RioTransport).GetMethod(
-                        "RegisterConnection",
-                        BindingFlags.Instance | BindingFlags.NonPublic);
+                    MethodInfo? registerConnection = FindRegisterConnectionWithPumpStartup();
                     Assert.NotNull(registerConnection);
 
                     TargetInvocationException exception = Assert.Throws<TargetInvocationException>(delegate()
                     {
-                        registerConnection!.Invoke(transport, new object[] { connection });
+                        registerConnection!.Invoke(transport, new object[] { connection, new Action(delegate() { }) });
                     });
 
                     Assert.IsType<InvalidOperationException>(exception.InnerException);
@@ -63,6 +62,60 @@ namespace Hps.Transport.Rio.Tests
                 }
                 finally
                 {
+                    connection.Close();
+                }
+            }
+        }
+
+        // connection 등록과 pump 시작 사이에 Stop이 snapshot을 가져가면 Stop 뒤 background pump가 뒤늦게 생길 수 있다.
+        // pump 시작 delegate가 transport lock 안에서 막힌 동안 Stop도 완료되지 않아야 등록, pump 시작, 종료 snapshot이 한 순서로 직렬화된다.
+        [Fact]
+        public async Task RegisterConnection_WhenPumpStartupIsBlocked_SerializesStopUntilStartupCompletes()
+        {
+            using (RioTransport transport = new RioTransport())
+            using (ManualResetEventSlim pumpStartupEntered = new ManualResetEventSlim(false))
+            using (ManualResetEventSlim releasePumpStartup = new ManualResetEventSlim(false))
+            {
+                await transport.StartAsync();
+                IConnection connection = CreateStandaloneTransportConnection();
+                MethodInfo? registerConnection = FindRegisterConnectionWithPumpStartup();
+                Assert.NotNull(registerConnection);
+
+                Task registrationTask = Task.Run(delegate()
+                {
+                    Action startPumps = delegate()
+                    {
+                        pumpStartupEntered.Set();
+                        if (!releasePumpStartup.Wait(TimeSpan.FromSeconds(5)))
+                            throw new TimeoutException("RIO pump 시작 차단을 제한 시간 안에 해제하지 못했습니다.");
+                    };
+
+                    registerConnection!.Invoke(transport, new object[] { connection, startPumps });
+                });
+
+                try
+                {
+                    Assert.True(
+                        pumpStartupEntered.Wait(TimeSpan.FromSeconds(5)),
+                        "RIO registration이 pump 시작 경계에 진입하지 못했습니다.");
+
+                    Task stopTask = Task.Run(async delegate()
+                    {
+                        await transport.StopAsync();
+                    });
+
+                    await Task.Delay(TimeSpan.FromMilliseconds(100));
+                    Assert.False(stopTask.IsCompleted);
+
+                    releasePumpStartup.Set();
+                    await registrationTask.WaitAsync(TimeSpan.FromSeconds(5));
+                    await stopTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+                    Assert.Empty(((ITransportEndpointDiagnostics)transport).GetEndpointSnapshots());
+                }
+                finally
+                {
+                    releasePumpStartup.Set();
                     connection.Close();
                 }
             }
@@ -316,6 +369,23 @@ namespace Hps.Transport.Rio.Tests
 
             object? instance = Activator.CreateInstance(connectionType!, nonPublic: true);
             return Assert.IsAssignableFrom<IConnection>(instance);
+        }
+
+        private static MethodInfo? FindRegisterConnectionWithPumpStartup()
+        {
+            MethodInfo[] methods = typeof(RioTransport).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic);
+            for (int index = 0; index < methods.Length; index++)
+            {
+                MethodInfo method = methods[index];
+                if (!string.Equals(method.Name, "RegisterConnection", StringComparison.Ordinal))
+                    continue;
+
+                ParameterInfo[] parameters = method.GetParameters();
+                if (parameters.Length == 2 && parameters[1].ParameterType == typeof(Action))
+                    return method;
+            }
+
+            return null;
         }
 
         private static async Task<byte[]> SendAndReceiveAsync(byte[] payload, bool prependLengthPrefix, int expectedReceiveLength)

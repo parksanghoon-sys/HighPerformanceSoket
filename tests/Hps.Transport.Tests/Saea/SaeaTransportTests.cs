@@ -53,6 +53,61 @@ namespace Hps.Transport.Tests
             }
         }
 
+        // SAEA도 registration과 pump task 생성을 분리하면 direct transport Stop 뒤 receive/send pump가 늦게 시작될 수 있다.
+        // pump 시작 delegate가 transport lock 안에서 막힌 동안 Stop이 완료되지 않아야 close 뒤 pool 재대여 경계를 제거할 수 있다.
+        [Fact]
+        public async Task RegisterConnection_WhenPumpStartupIsBlocked_SerializesStopUntilStartupCompletes()
+        {
+            using (SaeaTransport transport = new SaeaTransport())
+            using (ManualResetEventSlim pumpStartupEntered = new ManualResetEventSlim(false))
+            using (ManualResetEventSlim releasePumpStartup = new ManualResetEventSlim(false))
+            {
+                await transport.StartAsync();
+                TransportConnection connection = new TransportConnection();
+                MethodInfo? registerConnection = FindRegisterConnectionWithPumpStartup();
+                Assert.NotNull(registerConnection);
+
+                Task registrationTask = Task.Run(delegate()
+                {
+                    Action startPumps = delegate()
+                    {
+                        pumpStartupEntered.Set();
+                        if (!releasePumpStartup.Wait(TimeSpan.FromSeconds(5)))
+                            throw new TimeoutException("SAEA pump 시작 차단을 제한 시간 안에 해제하지 못했습니다.");
+                    };
+
+                    registerConnection!.Invoke(transport, new object[] { connection, startPumps });
+                });
+
+                try
+                {
+                    Assert.True(
+                        pumpStartupEntered.Wait(TimeSpan.FromSeconds(5)),
+                        "SAEA registration이 pump 시작 경계에 진입하지 못했습니다.");
+
+                    Task stopTask = Task.Run(async delegate()
+                    {
+                        await transport.StopAsync();
+                    });
+
+                    await Task.Delay(TimeSpan.FromMilliseconds(100));
+                    Assert.False(stopTask.IsCompleted);
+
+                    releasePumpStartup.Set();
+                    await registrationTask.WaitAsync(TimeSpan.FromSeconds(5));
+                    await stopTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+                    Assert.True(connection.IsClosed);
+                    Assert.Empty(GetEndpointSnapshots(transport));
+                }
+                finally
+                {
+                    releasePumpStartup.Set();
+                    connection.Close();
+                }
+            }
+        }
+
         // endpoint snapshot collection 테스트: Interface Server 운영 표면은 Transport 가 현재 보유한 TCP/UDP endpoint 를
         // connection 객체나 socket 참조 없이 값 snapshot 으로 읽을 수 있어야 한다. 닫힌 endpoint 는 tracking 목록에서 빠져야 한다.
         [Fact]
@@ -1114,6 +1169,23 @@ namespace Hps.Transport.Tests
 
             object? result = method!.Invoke(transport, new object[] { udpEndpoint });
             return Assert.IsAssignableFrom<Task>(result);
+        }
+
+        private static MethodInfo? FindRegisterConnectionWithPumpStartup()
+        {
+            MethodInfo[] methods = typeof(SaeaTransport).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic);
+            for (int index = 0; index < methods.Length; index++)
+            {
+                MethodInfo method = methods[index];
+                if (!string.Equals(method.Name, "RegisterConnection", StringComparison.Ordinal))
+                    continue;
+
+                ParameterInfo[] parameters = method.GetParameters();
+                if (parameters.Length == 2 && parameters[1].ParameterType == typeof(Action))
+                    return method;
+            }
+
+            return null;
         }
 
         private static EndpointSnapshot[] GetEndpointSnapshots(SaeaTransport transport)

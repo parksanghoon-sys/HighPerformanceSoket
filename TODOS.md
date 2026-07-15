@@ -2,19 +2,19 @@
 
 ## Current TODOs
 
-- [ ] D241 transport lifecycle 경합 hardening 구현 결과를 사용자 검토로 확정한다.
-  - 범위: server lifecycle gate와 Dispose 종료 표식, RIO/io_uring stopped guard와 RIO owner cleanup.
-  - 검증: deterministic Red 5개, solution 525/525, build 경고 0/오류 0, TCP/UDP 4096B x 100Hz target gate pass.
+- [ ] D241 transport 등록-pump 시작 원자성 보강 결과를 사용자 검토로 확정한다.
+  - 범위: SAEA/RIO/io_uring connection·UDP endpoint 등록과 pump 생성·추적의 transport-lock 원자성.
+  - 검증: 후속 deterministic Red 3개, solution 528/528, build 경고 0/오류 0, SAEA/RIO TCP/UDP 4096B x 100Hz target gate pass.
   - 다음 단계: 사용자 검토를 닫은 뒤 다음 finding을 별도 단위로 재평가한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` D241 설계, implementation plan과 구현 commit을 원격에 반영한다.
-  - 남은 일: D241 설계/계획/구현의 로컬 commit을 `origin/master`에 push한다.
+- [ ] `P1_SOON` D241 설계, implementation plan, 구현과 review follow-up commit을 원격에 반영한다.
+  - 남은 일: D241 설계/계획/구현과 등록-pump 원자성 후속의 로컬 commit을 `origin/master`에 push한다.
   - 이유: push는 사용자가 직접 수행하며 현재 로컬 `master`가 원격보다 앞서 있다.
   - 목적: 승인된 D241 설계, 구현 계획, 검증된 code/tests와 현재 진입점을 원격 canonical state에 반영한다.
-  - 범위: lifecycle spec/plan, 6개 production/test 파일과 root/archive 상태 문서.
-  - 현재 상태: 설계 `f814cc1`, 계획 `b95cee9`와 이번 구현 commit이 로컬에 있다.
+  - 범위: lifecycle spec/plan, production/test 파일과 root/archive 상태 문서.
+  - 현재 상태: 설계 `f814cc1`, 계획 `b95cee9`, 최초 구현 `7de01ca`와 이번 review follow-up commit이 로컬에 있다.
   - 다음 단계: 사용자가 적절한 시점에 현재 `master`를 push한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
@@ -40,6 +40,11 @@
 
 ## Completed
 
+- [x] 2026-07-15 D241 transport resource 등록과 pump 시작·추적 사이의 후속 경합을 닫았다.
+  - SAEA/RIO/io_uring에서 pump 시작을 차단한 동안 Stop 완료를 금지하는 assertion Red 3개를 확인했다.
+  - connection과 UDP endpoint 등록, pump 생성, io_uring send-task 추적을 같은 transport lock 경계로 묶었다.
+  - SAEA 45/45, RIO 58/58, io_uring 90/90, solution 528/528와 Release build 경고 0/오류 0을 확인했다.
+  - SAEA/RIO TCP/UDP load/open-loop 여덟 run은 모두 3000/3000, drop/payload error/pool rented 0이다.
 - [x] 2026-07-15 D241 transport lifecycle 경합 hardening을 TDD로 구현했다.
   - 계획된 server/native Red 4개와 Dispose stop-failure Red 1개를 production 변경 전에 assertion failure로 확인했다.
   - server lifecycle gate, Dispose 종료 표식 선게시, native stopped guard와 RIO completion/UDP cleanup을 최소 구현했다.

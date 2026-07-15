@@ -203,9 +203,11 @@ namespace Hps.Transport
             {
                 socket.Bind(localEndPoint);
                 udpEndpoint = new IoUringUdpEndpoint(this, socket, registry, completionLoop);
-                RegisterUdpEndpoint(udpEndpoint);
-                StartUdpReceiveLoop(udpEndpoint);
-                StartUdpSendLoop(udpEndpoint);
+                RegisterUdpEndpoint(udpEndpoint, delegate()
+                {
+                    StartUdpReceiveLoop(udpEndpoint);
+                    StartUdpSendLoop(udpEndpoint);
+                });
                 socket = null;
                 return new ValueTask<IUdpEndpoint>(udpEndpoint);
             }
@@ -332,9 +334,11 @@ namespace Hps.Transport
 
             try
             {
-                RegisterConnection(connection);
-                StartReceiveLoop(connection, resource);
-                StartSendLoop(connection, resource);
+                RegisterConnection(connection, delegate()
+                {
+                    StartReceiveLoop(connection, resource);
+                    StartSendLoop(connection, resource);
+                });
                 return connection;
             }
             catch
@@ -353,21 +357,38 @@ namespace Hps.Transport
             }
         }
 
-        private void RegisterConnection(TransportConnection connection)
+        private void RegisterConnection(TransportConnection connection, Action startPumps)
         {
-            lock (_gate)
-            {
-                ThrowIfStoppedLocked();
-                _connections.Add(connection);
-            }
+            RegisterAndStartPumps(_connections, connection, startPumps);
         }
 
-        private void RegisterUdpEndpoint(IoUringUdpEndpoint udpEndpoint)
+        private void RegisterUdpEndpoint(IoUringUdpEndpoint udpEndpoint, Action startPumps)
         {
+            RegisterAndStartPumps(_udpEndpoints, udpEndpoint, startPumps);
+        }
+
+        private void RegisterAndStartPumps<T>(List<T> resources, T resource, Action startPumps)
+        {
+            if (startPumps == null)
+                throw new ArgumentNullException(nameof(startPumps));
+
             lock (_gate)
             {
                 ThrowIfStoppedLocked();
-                _udpEndpoints.Add(udpEndpoint);
+                resources.Add(resource);
+
+                try
+                {
+                    // StopCore는 같은 gate에서 resource와 send pump task를 함께 snapshot한다.
+                    // task 생성과 추적까지 끝낸 뒤 gate를 풀어야 queue dispose 뒤 새 pump가 추가되지 않는다.
+                    startPumps();
+                }
+                catch
+                {
+                    // pump 시작 실패 전까지 owner는 caller에 있으므로 목록 등록만 되돌리고 caller cleanup에 맡긴다.
+                    resources.Remove(resource);
+                    throw;
+                }
             }
         }
 

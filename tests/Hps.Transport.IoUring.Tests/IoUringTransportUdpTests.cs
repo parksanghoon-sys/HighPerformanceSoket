@@ -286,7 +286,7 @@ namespace Hps.Transport.IoUring.Tests
                 BindingFlags.Instance | BindingFlags.NonPublic);
 
             Assert.NotNull(register);
-            register!.Invoke(transport, new object[] { endpoint });
+            register!.Invoke(transport, new object[] { endpoint, new Action(delegate() { }) });
         }
 
         private sealed class CapturingDatagramHandler : ITransportDatagramHandler
