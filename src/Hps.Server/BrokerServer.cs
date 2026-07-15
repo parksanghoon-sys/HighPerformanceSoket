@@ -21,6 +21,7 @@ namespace Hps.Server
         private const int SubscriberCountPollIntervalMilliseconds = 10;
 
         private readonly object _gate;
+        private readonly SemaphoreSlim _lifecycleGate;
         private readonly ITransport _transport;
         private readonly PinnedBlockMemoryPool _pool;
         private readonly int _maxPayloadLength;
@@ -80,6 +81,7 @@ namespace Hps.Server
             _maxPayloadLength = maxPayloadLength;
             _options = options;
             _gate = new object();
+            _lifecycleGate = new SemaphoreSlim(1, 1);
             _subscriptions = new SubscriptionTable();
             _subscriberRegistry = _options.StableSubscriberIdentityEnabled
                 ? new SubscriberRegistry(_subscriptions)
@@ -172,11 +174,27 @@ namespace Hps.Server
         /// <summary>
         /// TCP broker 수신 대기를 시작한다.
         /// </summary>
+        /// <remarks>
+        /// 다른 TCP/UDP 시작이나 종료 호출과 lifecycle gate로 직렬화되며, gate 대기 중에는 전달된 cancellation을 따른다.
+        /// </remarks>
         public async ValueTask StartTcpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
         {
             if (localEndPoint == null)
                 throw new ArgumentNullException(nameof(localEndPoint));
 
+            await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await StartTcpCoreAsync(localEndPoint, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _lifecycleGate.Release();
+            }
+        }
+
+        private async ValueTask StartTcpCoreAsync(EndPoint localEndPoint, CancellationToken cancellationToken)
+        {
             bool shouldStartTransport;
 
             lock (_gate)
@@ -243,11 +261,27 @@ namespace Hps.Server
         /// <summary>
         /// UDP broker datagram 수신 대기를 시작한다.
         /// </summary>
+        /// <remarks>
+        /// 다른 TCP/UDP 시작이나 종료 호출과 lifecycle gate로 직렬화되며, gate 대기 중에는 전달된 cancellation을 따른다.
+        /// </remarks>
         public async ValueTask StartUdpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
         {
             if (localEndPoint == null)
                 throw new ArgumentNullException(nameof(localEndPoint));
 
+            await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await StartUdpCoreAsync(localEndPoint, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _lifecycleGate.Release();
+            }
+        }
+
+        private async ValueTask StartUdpCoreAsync(EndPoint localEndPoint, CancellationToken cancellationToken)
+        {
             bool shouldStartTransport;
 
             lock (_gate)
@@ -309,7 +343,23 @@ namespace Hps.Server
         /// <summary>
         /// TCP listener, UDP endpoint, Transport 를 중지한다.
         /// </summary>
+        /// <remarks>
+        /// 진행 중인 시작 작업이 resource 게시 또는 실패 cleanup을 마칠 때까지 기다린 뒤 해당 resource를 종료한다.
+        /// </remarks>
         public async ValueTask StopAsync(CancellationToken cancellationToken = default)
+        {
+            await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await StopCoreAsync(cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _lifecycleGate.Release();
+            }
+        }
+
+        private async ValueTask StopCoreAsync(CancellationToken cancellationToken)
         {
             IConnectionListener? listener;
             IUdpEndpoint? udpEndpoint;
@@ -366,13 +416,21 @@ namespace Hps.Server
         /// <summary>
         /// 서버 수명 종료 시 stop 과 같은 정리를 수행한다.
         /// </summary>
+        /// <remarks>
+        /// 종료 표식을 먼저 게시하므로 transport stop이 실패해도 이후 시작 호출은 거부된다.
+        /// </remarks>
         public void Dispose()
         {
-            if (_disposed)
-                return;
+            lock (_gate)
+            {
+                if (_disposed)
+                    return;
+
+                // 종료 표식을 Stop보다 먼저 게시해야 lifecycle gate를 기다리는 새 Start가 종료된 server를 다시 열지 못한다.
+                _disposed = true;
+            }
 
             StopAsync().AsTask().GetAwaiter().GetResult();
-            _disposed = true;
         }
 
         private async Task AcceptLoopAsync(IConnectionListener listener, CancellationToken cancellationToken)

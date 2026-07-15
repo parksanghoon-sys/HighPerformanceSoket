@@ -2,19 +2,19 @@
 
 ## Current TODOs
 
-- [ ] D241 transport lifecycle 경합 hardening implementation plan을 사용자 검토로 확정한다.
-  - 문서: `docs/superpowers/plans/2026-07-15-transport-lifecycle-race-hardening.md`.
-  - 범위: deterministic Red 4개, server lifecycle gate와 Dispose 종료 표식, RIO/io_uring stopped guard, 전체 회귀와 4096B x 100Hz target gate.
-  - 다음 단계: 사용자 승인 뒤 계획을 Red→Green→Refactor 순서로 구현한다.
+- [ ] D241 transport lifecycle 경합 hardening 구현 결과를 사용자 검토로 확정한다.
+  - 범위: server lifecycle gate와 Dispose 종료 표식, RIO/io_uring stopped guard와 RIO owner cleanup.
+  - 검증: deterministic Red 5개, solution 525/525, build 경고 0/오류 0, TCP/UDP 4096B x 100Hz target gate pass.
+  - 다음 단계: 사용자 검토를 닫은 뒤 다음 finding을 별도 단위로 재평가한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` D241 설계와 implementation plan 문서 commit을 원격에 반영한다.
-  - 남은 일: D241 설계 commit과 이번 계획 commit을 `origin/master`에 push한다.
+- [ ] `P1_SOON` D241 설계, implementation plan과 구현 commit을 원격에 반영한다.
+  - 남은 일: D241 설계/계획/구현의 로컬 commit을 `origin/master`에 push한다.
   - 이유: push는 사용자가 직접 수행하며 현재 로컬 `master`가 원격보다 앞서 있다.
-  - 목적: 승인된 D241 설계, 구현 계획과 현재 진입점을 원격 canonical state에 반영한다.
-  - 범위: lifecycle spec/plan과 root/archive 상태 문서. production code와 tests는 아직 포함하지 않는다.
-  - 현재 상태: 설계 commit `f814cc1`은 로컬에 있고 implementation plan은 이번 단위에서 작성했다.
+  - 목적: 승인된 D241 설계, 구현 계획, 검증된 code/tests와 현재 진입점을 원격 canonical state에 반영한다.
+  - 범위: lifecycle spec/plan, 6개 production/test 파일과 root/archive 상태 문서.
+  - 현재 상태: 설계 `f814cc1`, 계획 `b95cee9`와 이번 구현 commit이 로컬에 있다.
   - 다음 단계: 사용자가 적절한 시점에 현재 `master`를 push한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
@@ -40,6 +40,11 @@
 
 ## Completed
 
+- [x] 2026-07-15 D241 transport lifecycle 경합 hardening을 TDD로 구현했다.
+  - 계획된 server/native Red 4개와 Dispose stop-failure Red 1개를 production 변경 전에 assertion failure로 확인했다.
+  - server lifecycle gate, Dispose 종료 표식 선게시, native stopped guard와 RIO completion/UDP cleanup을 최소 구현했다.
+  - Server 40/40, RIO 57/57, io_uring 89/89, SAEA Transport 44/44와 solution 525/525가 통과했다.
+  - Release build 경고 0/오류 0이며 SAEA TCP/UDP load/open-loop 네 run은 모두 3000/3000, drop/payload error/pool rented 0이다.
 - [x] 2026-07-15 D241 transport lifecycle 경합 hardening written spec 사용자 검토를 승인으로 닫았다.
   - server lifecycle 직렬화와 native 종료 후 등록 거부를 함께 적용하는 D241 방향을 유지했다.
   - 다음 구현자가 재탐색 없이 실행할 수 있도록 exact Red/Green/refactor/verification plan을 작성했다.

@@ -48,15 +48,17 @@
 
 ## 다음 단일 작업 단위
 
-### D241 transport lifecycle 경합 hardening implementation-plan 검토
+### D241 transport lifecycle 경합 hardening 구현 review stop
 
-- D241 written spec은 사용자 진행 승인으로 확정했다.
-- 승인된 설계는 server lifecycle operation 직렬화, Dispose 종료 표식 선게시와 native `Register*`의 locked stopped guard를 함께 적용한다.
-- written spec은 `docs/superpowers/specs/2026-07-15-transport-lifecycle-race-hardening-design.md`다.
-- handoff-ready implementation plan은 `docs/superpowers/plans/2026-07-15-transport-lifecycle-race-hardening.md`다.
-- 계획은 deterministic Red 4개, 최소 Green, 계층별 회귀, solution build/tests와 Windows SAEA 4096B x 100Hz target gate를 exact command로 고정한다.
-- implementation-plan 사용자 검토 전에는 production code와 tests를 수정하지 않는다.
-- 설계 commit `f814cc1`과 이번 계획/state commit은 로컬에 두고 원격 push는 사용자가 별도 수행한다.
+- `BrokerServer` TCP/UDP start와 Stop은 control-path lifecycle gate로 직렬화된다.
+- Dispose는 종료 표식을 Stop보다 먼저 게시해 transport stop 예외 뒤에도 재시작을 거부한다.
+- RIO/io_uring의 listener, connection, UDP endpoint 등록은 transport lock 안에서 Stop 이후 요청을 거부한다.
+- RIO completion port snapshot/null 전환과 UDP 등록 실패 cleanup도 같은 종료 경계에 맞췄다.
+- deterministic Red는 계획된 4개와 Dispose stop-failure 경계 1개를 포함해 총 5개를 확인했다.
+- 구현 계획은 `docs/superpowers/plans/2026-07-15-transport-lifecycle-race-hardening.md`다.
+- 전체 525/525, Release build 경고 0/오류 0과 SAEA TCP/UDP 4096B x 100Hz target gate를 통과했다.
+- production API, data hot path, backend 선택과 transport restart 의미는 바꾸지 않았다.
+- 구현 commit은 로컬에 남기고 원격 push는 사용자가 별도 수행한다.
 
 ## 최신 검증 기준선
 
@@ -99,11 +101,20 @@
 - depth 4 repeated RIO UDP open-loop: 3회 모두 3000/3000, actual 99.9~100.0 Hz,
   p50 176.2~192.4 us, p99 1454.2~2131.8 us, HWM 2~4, hard failure 0이다.
 - p99 warning 2개는 report-only이며 delivery 수락 조건과 분리했다.
+- D241 TDD Red: TCP/UDP start 중 Stop은 expected false/actual true로 조기 완료했고,
+  RIO/io_uring 종료 후 registration은 expected exception이 발생하지 않았으며,
+  Dispose stop failure 뒤 Start는 expected `ObjectDisposedException`이 발생하지 않았다.
+- D241 focused Green: Server 40/40, RIO 57/57, io_uring 89/89, SAEA Transport 44/44.
+- D241 full gate: solution tests 525/525, Release build 경고 0/오류 0.
+- D241 SAEA TCP load/open-loop: 3000/3000, actual 99.6/99.9 Hz, p50 179.9/182.6 us,
+  p99 907.5/861.5 us, HWM 1/2, drop/payload error/pool rented 0.
+- D241 SAEA UDP load/open-loop: 3000/3000, actual 99.9/99.9 Hz, p50 157.3/151.3 us,
+  p99 1080.5/978.1 us, UDP HWM 1/6, drop/payload error/pool rented 0.
 
 ## 다음 후보
 
-1. D241 implementation plan 사용자 검토를 닫는다.
-2. 승인된 계획대로 Red 4개를 먼저 확인한 뒤 lifecycle hardening을 구현하고 전체 회귀를 확인한다.
+1. D241 lifecycle hardening 구현 결과를 사용자 검토로 닫는다.
+2. 사용자가 push할 때 D241 설계/계획/구현 commit을 원격에 반영한다.
 3. lifecycle 구현 review stop 뒤 현재 HEAD io_uring 성능 gate와 hot-path allocation finding을 별도 단위로 재평가한다.
 
 ## 이번 범위 밖

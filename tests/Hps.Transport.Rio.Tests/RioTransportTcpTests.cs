@@ -36,6 +36,38 @@ namespace Hps.Transport.Rio.Tests
             }
         }
 
+        // Stop snapshot 뒤 connection 등록을 허용하면 transport가 더는 추적하지 않는 resource가 종료 후 목록에 생긴다.
+        // native capability 없이도 검증할 수 있도록 standalone connection을 private registration seam에 직접 전달한다.
+        [Fact]
+        public async Task RegisterConnection_WhenTransportAlreadyStopped_ThrowsInvalidOperationException()
+        {
+            using (RioTransport transport = new RioTransport())
+            {
+                await transport.StopAsync();
+                IConnection connection = CreateStandaloneTransportConnection();
+
+                try
+                {
+                    MethodInfo? registerConnection = typeof(RioTransport).GetMethod(
+                        "RegisterConnection",
+                        BindingFlags.Instance | BindingFlags.NonPublic);
+                    Assert.NotNull(registerConnection);
+
+                    TargetInvocationException exception = Assert.Throws<TargetInvocationException>(delegate()
+                    {
+                        registerConnection!.Invoke(transport, new object[] { connection });
+                    });
+
+                    Assert.IsType<InvalidOperationException>(exception.InnerException);
+                    Assert.Empty(((ITransportEndpointDiagnostics)transport).GetEndpointSnapshots());
+                }
+                finally
+                {
+                    connection.Close();
+                }
+            }
+        }
+
         // D122 정책 테스트: 현재 RIO TCP socket 은 IPv4 registered socket 으로만 생성된다.
         // IPv6 listen 주소를 socket layer 까지 넘기면 capability failure 와 endpoint unsupported 가 섞이므로,
         // public boundary 에서 IPv4-only 계약을 먼저 드러내야 한다.
@@ -275,6 +307,15 @@ namespace Hps.Transport.Rio.Tests
                 first.TotalMilliseconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + ", " +
                 second.TotalMilliseconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + ", " +
                 third.TotalMilliseconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        private static IConnection CreateStandaloneTransportConnection()
+        {
+            Type? connectionType = Type.GetType("Hps.Transport.TransportConnection, Hps.Transport");
+            Assert.NotNull(connectionType);
+
+            object? instance = Activator.CreateInstance(connectionType!, nonPublic: true);
+            return Assert.IsAssignableFrom<IConnection>(instance);
         }
 
         private static async Task<byte[]> SendAndReceiveAsync(byte[] payload, bool prependLengthPrefix, int expectedReceiveLength)

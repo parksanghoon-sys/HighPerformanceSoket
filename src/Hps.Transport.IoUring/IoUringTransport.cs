@@ -348,6 +348,7 @@ namespace Hps.Transport
         {
             lock (_gate)
             {
+                ThrowIfStoppedLocked();
                 _listeners.Add(listener);
             }
         }
@@ -356,6 +357,7 @@ namespace Hps.Transport
         {
             lock (_gate)
             {
+                ThrowIfStoppedLocked();
                 _connections.Add(connection);
             }
         }
@@ -364,6 +366,7 @@ namespace Hps.Transport
         {
             lock (_gate)
             {
+                ThrowIfStoppedLocked();
                 _udpEndpoints.Add(udpEndpoint);
             }
         }
@@ -1009,6 +1012,12 @@ namespace Hps.Transport
                 if (!_started || _stopped)
                     throw new InvalidOperationException("io_uring Transport가 실행 중이 아닙니다.");
             }
+        }
+
+        private void ThrowIfStoppedLocked()
+        {
+            if (_stopped)
+                throw new InvalidOperationException("중지된 io_uring Transport에는 새 resource를 등록할 수 없습니다.");
         }
 
         private void EnsureTcpAvailable()

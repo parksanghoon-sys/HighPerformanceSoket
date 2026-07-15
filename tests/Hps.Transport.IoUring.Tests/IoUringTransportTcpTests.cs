@@ -57,6 +57,38 @@ namespace Hps.Transport.IoUring.Tests
             }
         }
 
+        // StopCore가 목록 snapshot을 비운 뒤 connection 등록을 허용하면 queue가 닫힌 transport에 미추적 resource가 남는다.
+        // Linux syscall과 capability probe 없이 종료 경계를 검증해 Windows 개발 환경에서도 registration race를 고정한다.
+        [Fact]
+        public async Task RegisterConnection_WhenTransportAlreadyStopped_ThrowsInvalidOperationException()
+        {
+            using (IoUringTransport transport = new IoUringTransport())
+            {
+                await transport.StopAsync();
+                IConnection connection = CreateStandaloneTransportConnection();
+
+                try
+                {
+                    MethodInfo? registerConnection = typeof(IoUringTransport).GetMethod(
+                        "RegisterConnection",
+                        BindingFlags.Instance | BindingFlags.NonPublic);
+                    Assert.NotNull(registerConnection);
+
+                    TargetInvocationException exception = Assert.Throws<TargetInvocationException>(delegate()
+                    {
+                        registerConnection!.Invoke(transport, new object[] { connection });
+                    });
+
+                    Assert.IsType<InvalidOperationException>(exception.InnerException);
+                    Assert.Empty(((ITransportEndpointDiagnostics)transport).GetEndpointSnapshots());
+                }
+                finally
+                {
+                    connection.Close();
+                }
+            }
+        }
+
         // explicit io_uring backend은 지원되지 않는 OS에서 socket bind/connect로 내려가기 전에 실패해야 한다.
         // 이 경계가 유지되어야 selector가 SAEA fallback을 안전하게 선택할 수 있다.
         [Fact]
@@ -169,6 +201,15 @@ namespace Hps.Transport.IoUring.Tests
                     Assert.Equal(0, pool.RentedCount);
                 }
             }
+        }
+
+        private static IConnection CreateStandaloneTransportConnection()
+        {
+            Type? connectionType = Type.GetType("Hps.Transport.TransportConnection, Hps.Transport");
+            Assert.NotNull(connectionType);
+
+            object? instance = Activator.CreateInstance(connectionType!, nonPublic: true);
+            return Assert.IsAssignableFrom<IConnection>(instance);
         }
 
         private static Type RequiredType(string name)

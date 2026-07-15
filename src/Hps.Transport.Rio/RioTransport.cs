@@ -64,6 +64,7 @@ namespace Hps.Transport
             RioConnectionListener[] listeners;
             TransportConnection[] connections;
             RioUdpEndpoint[] udpEndpoints;
+            RioCompletionPort? completionPort;
 
             lock (_gate)
             {
@@ -75,6 +76,8 @@ namespace Hps.Transport
                 _listeners.Clear();
                 _connections.Clear();
                 _udpEndpoints.Clear();
+                completionPort = _completionPort;
+                _completionPort = null;
             }
 
             for (int i = 0; i < listeners.Length; i++)
@@ -86,8 +89,6 @@ namespace Hps.Transport
             for (int i = 0; i < udpEndpoints.Length; i++)
                 udpEndpoints[i].Close();
 
-            RioCompletionPort? completionPort = _completionPort;
-            _completionPort = null;
             completionPort?.Dispose();
 
             return default(ValueTask);
@@ -175,7 +176,12 @@ namespace Hps.Transport
             }
             finally
             {
-                socket?.Dispose();
+                if (socket != null)
+                {
+                    // RegisterUdpEndpoint가 Stop과 경합해 거부되면 constructor가 만든 native owner까지 여기서 회수한다.
+                    endpoint?.Dispose();
+                    socket.Dispose();
+                }
             }
         }
 
@@ -277,6 +283,8 @@ namespace Hps.Transport
         {
             lock (_gate)
             {
+                ThrowIfStoppedLocked();
+
                 if (_completionPort == null)
                     _completionPort = RioCompletionPort.Create();
 
@@ -288,6 +296,7 @@ namespace Hps.Transport
         {
             lock (_gate)
             {
+                ThrowIfStoppedLocked();
                 _listeners.Add(listener);
             }
         }
@@ -296,6 +305,7 @@ namespace Hps.Transport
         {
             lock (_gate)
             {
+                ThrowIfStoppedLocked();
                 _connections.Add(connection);
             }
         }
@@ -320,6 +330,7 @@ namespace Hps.Transport
         {
             lock (_gate)
             {
+                ThrowIfStoppedLocked();
                 _udpEndpoints.Add(endpoint);
             }
         }
@@ -973,6 +984,12 @@ namespace Hps.Transport
                 if (!_started || _stopped)
                     throw new InvalidOperationException("RIO Transport가 실행 중이 아닙니다.");
             }
+        }
+
+        private void ThrowIfStoppedLocked()
+        {
+            if (_stopped)
+                throw new InvalidOperationException("중지된 RIO Transport에는 새 resource를 등록할 수 없습니다.");
         }
 
         private static void EnsureRioAvailable()

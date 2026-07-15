@@ -299,6 +299,36 @@ namespace Hps.Server.Tests
             }
         }
 
+        // listen 완료 전에 Stop이 start flag만 보고 먼저 끝나면, 뒤늦게 만들어진 listener가 server field에 다시 게시되어 닫히지 않는다.
+        // lifecycle 직렬화는 Stop이 진행 중인 Start의 resource 게시까지 기다린 뒤 그 listener를 정확히 한 번 정리하게 해야 한다.
+        [Fact]
+        public async Task StopAsync_WhenTcpStartIsWaitingForListen_WaitsAndClosesPublishedListener()
+        {
+            FakeTransport transport = new FakeTransport();
+            transport.BlockNextTcpListen();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+
+            using (BrokerServer server = new BrokerServer(transport, pool, 64))
+            {
+                Task startTask = server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0)).AsTask();
+                await transport.WaitForTcpListenCallAsync();
+
+                Task stopTask = server.StopAsync().AsTask();
+                bool stopCompletedBeforeListenRelease = stopTask.IsCompleted;
+
+                transport.ReleaseTcpListen();
+                await startTask;
+                await stopTask;
+
+                Assert.False(stopCompletedBeforeListenRelease);
+                Assert.NotNull(transport.Listener);
+                Assert.Equal(1, transport.Listener!.CloseCallCount);
+                Assert.Equal(1, transport.Listener.DisposeCallCount);
+                Assert.Equal(1, transport.StopCallCount);
+                Assert.Null(server.LocalEndPoint);
+            }
+        }
+
         // UDP stop 수명 테스트: bind 된 UDP endpoint 도 StopAsync 에서 닫고 dispose 해야 한다.
         // 그렇지 않으면 같은 port 재시작이 실패하거나 Transport 의 endpoint close notification cleanup 이 실행될 기회가 사라진다.
         [Fact]
@@ -318,6 +348,69 @@ namespace Hps.Server.Tests
                 Assert.Equal(1, transport.UdpEndpoint.DisposeCallCount);
                 Assert.Equal(1, transport.StopCallCount);
                 Assert.Null(server.UdpLocalEndPoint);
+            }
+        }
+
+        // bind 완료 전에 Stop이 먼저 끝나면 이후 게시된 UDP endpoint는 transport 추적과 server 종료 snapshot에서 모두 빠질 수 있다.
+        // Stop은 진행 중인 bind가 endpoint 소유권을 server에 넘길 때까지 기다린 뒤 close/dispose와 transport stop을 수행해야 한다.
+        [Fact]
+        public async Task StopAsync_WhenUdpStartIsWaitingForBind_WaitsAndClosesPublishedEndpoint()
+        {
+            FakeTransport transport = new FakeTransport();
+            transport.BlockNextUdpBind();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+
+            using (BrokerServer server = new BrokerServer(transport, pool, 64))
+            {
+                Task startTask = server.StartUdpAsync(new IPEndPoint(IPAddress.Loopback, 0)).AsTask();
+                await transport.WaitForUdpBindCallAsync();
+
+                Task stopTask = server.StopAsync().AsTask();
+                bool stopCompletedBeforeBindRelease = stopTask.IsCompleted;
+
+                transport.ReleaseUdpBind();
+                await startTask;
+                await stopTask;
+
+                Assert.False(stopCompletedBeforeBindRelease);
+                Assert.NotNull(transport.UdpEndpoint);
+                Assert.Equal(1, transport.UdpEndpoint!.CloseCallCount);
+                Assert.Equal(1, transport.UdpEndpoint.DisposeCallCount);
+                Assert.Equal(1, transport.StopCallCount);
+                Assert.Null(server.UdpLocalEndPoint);
+            }
+        }
+
+        // transport stop 예외가 나도 Dispose는 다시 사용할 수 없는 terminal operation이어야 한다.
+        // 종료 표식을 Stop 뒤에 기록하면 예외가 그 대입을 건너뛰어 같은 server가 새 listener를 열 수 있으므로 선게시 계약을 고정한다.
+        [Fact]
+        public async Task Dispose_WhenTransportStopThrows_StillRejectsLaterStart()
+        {
+            FakeTransport transport = new FakeTransport();
+            PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(64);
+            BrokerServer server = new BrokerServer(transport, pool, 64);
+
+            try
+            {
+                await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                await transport.Listener!.WaitForAcceptCallAsync();
+                transport.StopException = new InvalidOperationException("의도한 transport stop 실패");
+
+                Assert.Throws<InvalidOperationException>(delegate()
+                {
+                    server.Dispose();
+                });
+
+                await Assert.ThrowsAsync<ObjectDisposedException>(async delegate()
+                {
+                    await server.StartTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                });
+            }
+            finally
+            {
+                transport.StopException = null;
+                await server.StopAsync();
+                server.Dispose();
             }
         }
 
@@ -1175,6 +1268,11 @@ namespace Hps.Server.Tests
 
         private class FakeTransport : ITransport
         {
+            private TaskCompletionSource<bool>? _listenTcpEntered;
+            private TaskCompletionSource<bool>? _listenTcpRelease;
+            private TaskCompletionSource<bool>? _bindUdpEntered;
+            private TaskCompletionSource<bool>? _bindUdpRelease;
+
             internal int SetReceiveHandlerCallCount { get; private set; }
 
             internal int StartCallCount { get; private set; }
@@ -1187,6 +1285,8 @@ namespace Hps.Server.Tests
 
             internal int StopCallCount { get; private set; }
 
+            internal Exception? StopException { get; set; }
+
             internal ITransportReceiveHandler? ReceiveHandler { get; private set; }
 
             internal ITransportDatagramHandler? DatagramHandler { get; private set; }
@@ -1194,6 +1294,38 @@ namespace Hps.Server.Tests
             internal FakeConnectionListener? Listener { get; private set; }
 
             internal FakeUdpEndpoint? UdpEndpoint { get; private set; }
+
+            internal void BlockNextTcpListen()
+            {
+                _listenTcpEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _listenTcpRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            internal Task WaitForTcpListenCallAsync()
+            {
+                return WaitForSignalAsync(_listenTcpEntered);
+            }
+
+            internal void ReleaseTcpListen()
+            {
+                _listenTcpRelease?.TrySetResult(true);
+            }
+
+            internal void BlockNextUdpBind()
+            {
+                _bindUdpEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _bindUdpRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            internal Task WaitForUdpBindCallAsync()
+            {
+                return WaitForSignalAsync(_bindUdpEntered);
+            }
+
+            internal void ReleaseUdpBind()
+            {
+                _bindUdpRelease?.TrySetResult(true);
+            }
 
             public void SetReceiveHandler(ITransportReceiveHandler receiveHandler)
             {
@@ -1207,11 +1339,16 @@ namespace Hps.Server.Tests
                 DatagramHandler = datagramHandler;
             }
 
-            public ValueTask<IConnectionListener> ListenTcpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
+            public async ValueTask<IConnectionListener> ListenTcpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
             {
                 ListenTcpCallCount++;
+                _listenTcpEntered?.TrySetResult(true);
+
+                if (_listenTcpRelease != null)
+                    await _listenTcpRelease.Task.ConfigureAwait(false);
+
                 Listener = new FakeConnectionListener(new IPEndPoint(IPAddress.Loopback, 54321));
-                return new ValueTask<IConnectionListener>(Listener);
+                return Listener;
             }
 
             public ValueTask<IConnection> ConnectTcpAsync(EndPoint remoteEndPoint, CancellationToken cancellationToken = default)
@@ -1219,11 +1356,16 @@ namespace Hps.Server.Tests
                 throw new NotSupportedException();
             }
 
-            public ValueTask<IUdpEndpoint> BindUdpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
+            public async ValueTask<IUdpEndpoint> BindUdpAsync(EndPoint localEndPoint, CancellationToken cancellationToken = default)
             {
                 BindUdpCallCount++;
+                _bindUdpEntered?.TrySetResult(true);
+
+                if (_bindUdpRelease != null)
+                    await _bindUdpRelease.Task.ConfigureAwait(false);
+
                 UdpEndpoint = new FakeUdpEndpoint(new IPEndPoint(IPAddress.Loopback, 54322));
-                return new ValueTask<IUdpEndpoint>(UdpEndpoint);
+                return UdpEndpoint;
             }
 
             public bool TrySend(IConnection connection, TransportSendBuffer sendBuffer)
@@ -1245,11 +1387,24 @@ namespace Hps.Server.Tests
             public ValueTask StopAsync(CancellationToken cancellationToken = default)
             {
                 StopCallCount++;
+                if (StopException != null)
+                    throw StopException;
+
                 return default;
             }
 
             public void Dispose()
             {
+            }
+
+            private static async Task WaitForSignalAsync(TaskCompletionSource<bool>? signal)
+            {
+                Assert.NotNull(signal);
+
+                Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+                Task completedTask = await Task.WhenAny(signal!.Task, timeoutTask).ConfigureAwait(false);
+
+                Assert.Same(signal.Task, completedTask);
             }
         }
 

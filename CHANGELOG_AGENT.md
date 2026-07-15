@@ -2,6 +2,20 @@
 
 ## Recent Work
 
+### 2026-07-15 - transport lifecycle 경합 hardening 구현
+
+- server TCP/UDP start-stop Red는 listen/bind release 전 Stop이 expected false/actual true로 완료돼 각각 실패했다.
+- RIO/io_uring 종료 후 registration Red는 expected `TargetInvocationException`이 발생하지 않아 각각 실패했다.
+- Dispose stop-failure Red는 이후 Start가 expected `ObjectDisposedException`을 내지 않아 실패했다.
+- `BrokerServer` start/stop을 lifecycle gate로 직렬화하고 Dispose 종료 표식을 Stop보다 먼저 게시했다.
+- RIO/io_uring `Register*`에 locked stopped guard를 적용하고 RIO completion port 전환과 UDP 실패 cleanup을 보강했다.
+- focused tests는 Server 40/40, RIO 57/57, io_uring 89/89, SAEA Transport 44/44가 통과했다.
+- solution tests 525/525, Release build 경고 0/오류 0이다.
+- SAEA TCP/UDP load/open-loop 네 run은 모두 4096B x 100Hz에서 3000/3000, drop/payload error/pool rented 0이다.
+- TCP p50/p99은 load 179.9/907.5 us, open-loop 182.6/861.5 us이며 HWM은 1/2다.
+- UDP p50/p99은 load 157.3/1080.5 us, open-loop 151.3/978.1 us이며 UDP HWM은 1/6이다.
+- public API, data hot path, backend 선택 정책은 변경하지 않았고 구현 사용자 review stop을 다음 진입점으로 남겼다.
+
 ### 2026-07-15 - transport lifecycle 경합 hardening 구현 계획
 
 - 사용자 진행 승인으로 D241 written spec 검토를 닫고 설계 상태를 Accepted로 전환했다.
