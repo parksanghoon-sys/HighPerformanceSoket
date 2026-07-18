@@ -1,9 +1,10 @@
 # 혼합 TCP workload 성능 gate 설계
 
 - 날짜: 2026-07-18
-- 상태: 사용자 검토 대상
-- 결정 후보: D243
+- 상태: 승인됨 - implementation plan 사용자 검토 대기
+- 결정: D243
 - 대상: `tests/Hps.Benchmarks`, benchmark CLI/report, 상태 문서
+- 구현 계획: `docs/superpowers/plans/2026-07-18-mixed-tcp-workload-gate.md`
 
 ## 1. 목적
 
@@ -173,13 +174,15 @@ Hps.Benchmarks --mixed-load-open-loop --duration-seconds 1800 --subscribers 1 --
 11. endpoint snapshot에서 pending send가 0인지 확인하고 transport diagnostics를 수집한다.
 12. server/transport를 종료한 뒤 payload pool `RentedCount == 0`을 확인한다.
 
-benchmark client가 측정에 GC jitter를 만들지 않도록 publisher frame과 subscriber payload buffer는 connection별로 한 번만 만든다.
+benchmark client가 측정에 GC jitter를 만들지 않도록 publisher frame과 subscriber payload buffer는 connection별로
+benchmark-local `PinnedBlockMemoryPool`에서 한 번만 대여해 재사용한다.
 publisher는 이전 `SendAsync`가 완료된 뒤 timestamp/sequence를 갱신하므로 같은 mutable frame을 안전하게 재사용한다.
 
 ## 9. 결과 모델과 raw report
 
 기존 `TcpLoopbackRunResult`와 schema version 1 report는 변경하지 않는다.
-mixed command는 전용 result와 전용 JSON writer를 사용한다.
+mixed command는 전용 result와 전용 JSON writer를 사용하고 `schema-version: 2`를 기록한다.
+현재 legacy `BaselineReportReader`는 version 1만 읽으므로 mixed report는 기존 aggregate 입력에서 구조적으로 제외된다.
 
 top-level 필드:
 

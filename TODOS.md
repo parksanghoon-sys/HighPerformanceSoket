@@ -2,11 +2,11 @@
 
 ## Current TODOs
 
-- [ ] D243 mixed TCP workload gate written spec을 사용자 검토로 확정한다.
-  - 범위: data 10,240B x 100 Hz 이상과 control 2,560B x 100 Hz 동시 open-loop benchmark 설계.
-  - 설계: `docs/superpowers/specs/2026-07-18-mixed-tcp-workload-gate-design.md`.
-  - 유지: 기존 4096B baseline, backend selector, production Broker/Protocol/Transport, D239 raw report 경계.
-  - 다음 단계: 사용자 승인 뒤 별도 implementation plan에서 TDD 단위를 확정한다.
+- [ ] D243 mixed TCP workload implementation plan을 사용자 검토로 확정한다.
+  - 범위: options/math, result/report, subscriber 1 runner, fan-out, CLI, io_uring workflow와 성능 evidence의 TDD 순서.
+  - 계획: `docs/superpowers/plans/2026-07-18-mixed-tcp-workload-gate.md`.
+  - 유지: 한 cycle/commit당 하나의 reviewable 기능 단위, legacy baseline 격리, production 변경 선행 금지.
+  - 다음 단계: 사용자 승인 뒤 Task 1 preflight와 Task 2 `MixedWorkloadOptions` TDD만 구현한다.
 
 ## Deferred Backlog
 
@@ -19,12 +19,12 @@
   - 제외: endpoint cache, public `EndPoint` 계약 변경, receive registration reuse, IPv6.
   - 다음 단계: mixed TCP gate가 닫힌 뒤 RIO UDP가 실제 운영 경로인지 재평가한다.
 
-- [ ] `P1_SOON` D241 lifecycle 변경과 D243 mixed workload 설계의 로컬 commit을 원격에 반영한다.
-  - 남은 일: D241 설계/계획/구현·review follow-up과 D243 written spec/state commit을 `origin/master`에 push한다.
+- [ ] `P1_SOON` D241 lifecycle 변경과 D243 mixed workload 설계/계획의 로컬 commit을 원격에 반영한다.
+  - 남은 일: D241 설계/계획/구현·review follow-up과 D243 written spec/implementation plan/state commit을 `origin/master`에 push한다.
   - 이유: push는 사용자가 직접 수행하며 현재 로컬 `master`가 원격보다 앞서 있다.
   - 목적: 검증된 lifecycle code/tests와 새 운영 목표의 canonical 설계를 원격에 반영해 후속 implementation plan 기준을 고정한다.
-  - 범위: D241 lifecycle spec/plan/code/tests, D243 mixed workload spec과 root/archive 상태 문서.
-  - 현재 상태: D241 관련 5개 commit이 원격보다 앞서 있으며 D243 설계 commit은 이번 review stop에서 추가한다.
+  - 범위: D241 lifecycle spec/plan/code/tests, D243 mixed workload spec/plan과 root/archive 상태 문서.
+  - 현재 상태: D241과 D243의 검토 완료 로컬 commit들이 원격보다 앞서 있다.
   - 다음 단계: 사용자가 적절한 시점에 현재 `master`를 push한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
@@ -50,6 +50,11 @@
 
 ## Completed
 
+- [x] 2026-07-18 D243 mixed TCP workload written spec을 승인하고 implementation plan을 작성했다.
+  - 현재 parser/runner/result/report/diagnostics/workflow 계약을 대조해 정확한 파일과 내부 API를 고정했다.
+  - options, result/report, subscriber 1, fan-out, CLI, workflow, evidence를 별도 commit/review stop으로 분리했다.
+  - mixed report는 schema-version 2로 legacy version 1 aggregate와 격리한다.
+  - code/tests는 변경하지 않았고 첫 구현은 사용자 승인 뒤 options TDD로 제한한다.
 - [x] 2026-07-18 D243 mixed TCP workload gate written spec을 작성했다.
   - 기존 baseline 교체, 기존 runner 분기 확대, 독립 mixed command 세 접근을 비교해 독립 command/report를 채택했다.
   - data/control 별도 TCP connection, configurable data rate/duration/subscriber count와 exact delivery/latency gate를 정의했다.

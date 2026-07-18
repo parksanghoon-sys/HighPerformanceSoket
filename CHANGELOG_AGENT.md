@@ -2,6 +2,15 @@
 
 ## Recent Work
 
+### 2026-07-18 - mixed TCP workload implementation plan
+
+- 사용자의 진행 승인으로 D243 written spec을 `Accepted`로 전환했다.
+- 현재 benchmark CLI, runner, result/report, legacy reader, endpoint diagnostics와 io_uring artifact workflow를 실제 코드에 대조했다.
+- mixed report는 `schema-version: 2`를 사용해 version 1 legacy baseline aggregate가 읽지 않도록 구현 경계를 고정했다.
+- options/math, result/report, subscriber 1 runner, N명 fan-out, CLI, Linux workflow, 성능 evidence를 별도 reviewable commit으로 나눴다.
+- publisher/subscriber I/O buffer는 pinned pool에서 connection별 한 번 대여하고 per-message allocation 없이 재사용하도록 계획했다.
+- 새 계획은 `docs/superpowers/plans/2026-07-18-mixed-tcp-workload-gate.md`이며 code/tests는 변경하지 않았다.
+
 ### 2026-07-18 - mixed TCP workload gate 설계
 
 - 운영 목표를 data 10,240B x 100 Hz 이상과 control 2,560B x 100 Hz 동시 처리로 구체화했다.
