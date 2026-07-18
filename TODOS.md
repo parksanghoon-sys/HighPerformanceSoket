@@ -2,20 +2,29 @@
 
 ## Current TODOs
 
-- [ ] D242 RIO UDP SOCKADDR 변환의 임시 배열 제거 범위와 allocation Red를 확정한다.
-  - 범위: `RioTransport.DecodeSockaddrInet`의 `byte[4]`와 `EncodeSockaddrInet`의 `GetAddressBytes()` 결과 배열.
-  - 유지: public `EndPoint` 계약, Broker UDP runtime target, D113 receive registration 해제 시점, IPv4-only 지원 경계.
-  - 제외: remote endpoint cache, value-type endpoint 계약, receive payload registration reuse, IPv6.
-  - 다음 단계: 환경에 안정적인 allocation assertion을 먼저 검증하고 두 helper의 Span 기반 최소 Green을 설계한다.
+- [ ] D243 mixed TCP workload gate written spec을 사용자 검토로 확정한다.
+  - 범위: data 10,240B x 100 Hz 이상과 control 2,560B x 100 Hz 동시 open-loop benchmark 설계.
+  - 설계: `docs/superpowers/specs/2026-07-18-mixed-tcp-workload-gate-design.md`.
+  - 유지: 기존 4096B baseline, backend selector, production Broker/Protocol/Transport, D239 raw report 경계.
+  - 다음 단계: 사용자 승인 뒤 별도 implementation plan에서 TDD 단위를 확정한다.
 
 ## Deferred Backlog
 
-- [ ] `P1_SOON` D241 설계, implementation plan, 구현과 review follow-up commit을 원격에 반영한다.
-  - 남은 일: D241 설계/계획/구현, 등록-pump 원자성 후속과 review-stop 기록의 로컬 commit을 `origin/master`에 push한다.
+- [ ] `P2_LATER` D242 RIO UDP SOCKADDR 변환의 임시 배열을 제거한다.
+  - 남은 일: `DecodeSockaddrInet`의 `byte[4]`와 `EncodeSockaddrInet`의 `GetAddressBytes()` 결과 배열을 Span API로 대체한다.
+  - 이유: 새 운영 목표의 첫 수락 경로는 TCP이며, mixed workload 증거 없이 UDP 미세 최적화를 먼저 하는 것은 목표 기여도가 낮다.
+  - 목적: RIO UDP가 다시 활성 성능 범위가 될 때 계약 변경 없이 datagram당 임시 배열 두 개를 제거한다.
+  - 관련 범위: `src/Hps.Transport.Rio/RioTransport.cs`, RIO UDP codec/allocation tests.
+  - 현재 상태: net9.0 `IPAddress(ReadOnlySpan<byte>)`와 `TryWriteBytes(Span<byte>, out int)` 적용 가능성을 확인했다.
+  - 제외: endpoint cache, public `EndPoint` 계약 변경, receive registration reuse, IPv6.
+  - 다음 단계: mixed TCP gate가 닫힌 뒤 RIO UDP가 실제 운영 경로인지 재평가한다.
+
+- [ ] `P1_SOON` D241 lifecycle 변경과 D243 mixed workload 설계의 로컬 commit을 원격에 반영한다.
+  - 남은 일: D241 설계/계획/구현·review follow-up과 D243 written spec/state commit을 `origin/master`에 push한다.
   - 이유: push는 사용자가 직접 수행하며 현재 로컬 `master`가 원격보다 앞서 있다.
-  - 목적: 승인된 D241 설계, 구현 계획, 검증된 code/tests와 현재 진입점을 원격 canonical state에 반영한다.
-  - 범위: lifecycle spec/plan, production/test 파일과 root/archive 상태 문서.
-  - 현재 상태: 설계 `f814cc1`, 계획 `b95cee9`, 최초 구현 `7de01ca`와 이번 review follow-up commit이 로컬에 있다.
+  - 목적: 검증된 lifecycle code/tests와 새 운영 목표의 canonical 설계를 원격에 반영해 후속 implementation plan 기준을 고정한다.
+  - 범위: D241 lifecycle spec/plan/code/tests, D243 mixed workload spec과 root/archive 상태 문서.
+  - 현재 상태: D241 관련 5개 commit이 원격보다 앞서 있으며 D243 설계 commit은 이번 review stop에서 추가한다.
   - 다음 단계: 사용자가 적절한 시점에 현재 `master`를 push한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
@@ -41,6 +50,10 @@
 
 ## Completed
 
+- [x] 2026-07-18 D243 mixed TCP workload gate written spec을 작성했다.
+  - 기존 baseline 교체, 기존 runner 분기 확대, 독립 mixed command 세 접근을 비교해 독립 command/report를 채택했다.
+  - data/control 별도 TCP connection, configurable data rate/duration/subscriber count와 exact delivery/latency gate를 정의했다.
+  - production code와 tests는 변경하지 않았고 D242 UDP 미세 최적화는 `P2_LATER`로 내렸다.
 - [x] 2026-07-15 D241 transport 등록-pump 시작 원자성 보강 review stop을 닫고 다음 finding을 재평가했다.
   - 사용자의 다음 진행 승인으로 D241 구현 결과를 확정했다.
   - 2026-06-26 RIO UDP receive loop 검토의 M2/M3는 현재 handler 예외, bounded-window close/drain과 pool leak tests로 닫혔음을 확인했다.

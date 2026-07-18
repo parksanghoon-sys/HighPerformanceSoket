@@ -12,7 +12,7 @@ Claude 검토(`.claude/review/`)의 must-fix 해소.
 ## 현재 상태 (스냅샷)
 - [x] **Phase 0~5**: 메모리, SAEA, Protocol/Broker/Server, benchmark와 Windows RIO 경로 구현·검증 완료.
 - [x] **Phase 6**: Linux io_uring TCP/UDP pump, fixed buffer와 registered payload opt-in 경로 구현 완료.
-- [~] **현재 hardening**: D241 transport resource 등록-pump 시작 원자성 보강 완료, 사용자 review stop.
+- [~] **현재 검증 확장**: D243 mixed TCP workload gate written spec 작성 완료, 사용자 review stop.
   세부 실행 지점과 최신 검증값은 [`CURRENT_PLAN.md`](./CURRENT_PLAN.md)를 source of truth로 사용한다.
 
 ---
@@ -91,6 +91,10 @@ Claude 검토(`.claude/review/`)의 must-fix 해소.
 ## Phase 4 — 벤치마크 하니스  (`tests/Hps.Benchmarks/`)
 BenchmarkDotNet 마이크로벤치(BipBuffer/Pool) + 부하 생성 클라이언트로 처리량(msg/s)·
 지연(p50/p99)·연결 스케일링 측정. **SAEA 기준선 수치 기록**.
+
+기존 4096B x 100 Hz 단일-stream baseline은 backend 회귀 비교용으로 유지한다.
+현재 운영 목표는 별도 mixed TCP open-loop profile에서 주 데이터 10,240B x 100 Hz 이상과
+제어·관제 2,560B x 100 Hz를 독립 connection으로 동시에 전송해 검증한다(D243).
 **완료 기준**: 재현 가능한 리포트 산출.
 
 ---

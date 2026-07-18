@@ -2,7 +2,8 @@
 
 ## 목표
 
-- 고성능 TCP/UDP Interface Server에서 4096바이트 메시지를 100 Hz로 처리한다.
+- 고성능 Interface Server에서 주 데이터 10,240B x 100 Hz 이상과 제어·관제 2,560B x 100 Hz를
+  별도 TCP connection으로 동시에 처리한다.
 - 정확성, 누수 없음, bounded backpressure를 먼저 보장하고 지연과 처리량은 재현 가능한 측정으로 판단한다.
 - 상위 Protocol/Broker는 OS별 transport 구현을 모르며, 기본 transport 의미는 명시적 근거 없이 바꾸지 않는다.
 
@@ -17,6 +18,7 @@
 - RIO UDP receive window는 fixed depth 4로 보강됐고 4096B x 100 Hz load/open-loop 3회 delivery gate를 통과했다.
 - 2026-07-14 current-head io_uring Linux contract run `29305055740`에서 project build, TRX 88/88과
   registered payload native fixed-send evidence를 다시 확인했다.
+- 위 4096B x 100 Hz 증거는 legacy 단일-stream 기준선이며 새 mixed TCP 운영 목표를 아직 증명하지 않는다.
 
 ## 최근 정리 결과
 
@@ -50,22 +52,25 @@
 - 당시 M2의 handler 예외·pool leak 검증과 M3의 close/drain 경계는 현재 bounded window tests로 닫혀 있다.
 - 당시 M1의 per-datagram payload registration은 D113 소유권 결정에 따라 의도적으로 유지되며,
   L2의 `SOCKADDR_INET` 변환 임시 배열만 계약 변경 없이 줄일 수 있는 독립 후보로 남았다.
+- 사용자 목표 변경에 따라 D242 UDP 미세 할당보다 mixed TCP workload 검증을 우선한다.
+- 기존 baseline을 보존하고 독립 `--mixed-load-open-loop` command/report를 추가하는 D243 written spec을 작성했다.
 
 ## 다음 단일 작업 단위
 
-### D242 RIO UDP SOCKADDR 임시 할당 최소화 방향 검토
+### D243 mixed TCP workload gate written spec review stop
 
-- 현재 `DecodeSockaddrInet`은 datagram마다 `byte[4]`, `IPAddress`, `IPEndPoint`를 만든다.
-- net9.0의 `IPAddress(ReadOnlySpan<byte>)`를 사용하면 `byte[4]`만 제거할 수 있다.
-- `EncodeSockaddrInet`의 `GetAddressBytes()`도 `TryWriteBytes(Span<byte>, out int)`로 임시 배열을 제거할 수 있다.
-- `IPAddress`와 `IPEndPoint` 객체는 public `EndPoint` handler/send 계약과 Broker runtime target 모델 때문에
-  이 국소 단위에서 제거하지 않는다.
-- remote endpoint cache는 peer cardinality와 eviction/lifetime 정책을 새로 만들므로 현재 100 Hz 목표에는 과도하다.
-- receive payload registration reuse는 D113의 receive/send registration 중첩 금지와 충돌하므로 D242에 섞지 않는다.
-- 다음 단계는 allocation assertion Red가 환경에 안정적인지 확인한 뒤, 두 변환 helper만 최소 수정하는 설계를 확정하는 것이다.
+- 설계 문서: `docs/superpowers/specs/2026-07-18-mixed-tcp-workload-gate-design.md`.
+- 기본 profile은 data 10,240B x 100 Hz와 control 2,560B x 100 Hz를 30초 동안 동시에 전송한다.
+- 논리 구독자마다 data/control subscriber connection을 분리해 제어 stream이 data queue 뒤에 막히지 않게 한다.
+- `--data-rate-hz`, `--duration-seconds`, `--subscribers`만 추가해 headroom, soak와 fan-out을 같은 runner로 검증한다.
+- 기존 4096B baseline과 summary/history/envelope schema는 변경하지 않는다.
+- p99 5ms, p999 10ms, exact delivery, drop 0, end pending 0, 종료 후 pool rented 0을 hard gate로 둔다.
+- production Broker/Protocol/Transport는 benchmark 실패 근거가 생기기 전에는 수정하지 않는다.
+- 사용자 검토 뒤 별도 implementation plan을 작성하며 이번 cycle에는 code/tests를 변경하지 않는다.
 
 ## 최신 검증 기준선
 
+- D243은 written spec 단계이며 mixed TCP code/test와 10.24 Mbps 동시 workload 실행 증거는 아직 없다.
 - D235 local gate: solution build 경고 0/오류 0, solution tests 510/510, Sample Broker tests 25/25.
 - D236 remote gate: io_uring TRX total/executed/passed 88, 실패/오류/timeout 0.
 - native evidence: capability `Available`, registered payload registration과 TCP send loopback 통과,
@@ -129,9 +134,10 @@
 
 ## 다음 후보
 
-1. D242에서 RIO UDP SOCKADDR 변환의 임시 배열 제거 범위와 allocation Red를 확정한다.
-2. 사용자가 push할 때 D241 설계/계획/구현, review follow-up과 review-stop 기록을 원격에 반영한다.
-3. push 뒤 현재 HEAD로 explicit io_uring Linux 성능 gate를 별도 단위에서 갱신한다.
+1. D243 written spec을 사용자 검토로 확정한다.
+2. 승인 뒤 exact Red/Green/refactor 순서의 implementation plan을 작성한다.
+3. 사용자가 push할 때 D241과 D243 문서 commit을 원격에 반영한다.
+4. 구현·로컬 gate 뒤 push된 동일 SHA로 io_uring mixed workload gate를 수행한다.
 
 ## 이번 범위 밖
 
@@ -140,6 +146,9 @@
 - end-to-end zero-copy 주장
 - latency warning의 hard gate 전환
 - benchmark report 기능 추가
+- mixed report를 기존 baseline summary/history/envelope에 통합
+- UDP 10KB segmentation/reassembly 또는 receive block 확대
+- control ACK/retry/durable delivery
 - readiness seam을 wire ACK 또는 범용 diagnostics model로 확장
 - 근거 없는 Benchmark/reporting project 분리
 

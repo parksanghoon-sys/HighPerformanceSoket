@@ -2,6 +2,16 @@
 
 ## Recent Work
 
+### 2026-07-18 - mixed TCP workload gate 설계
+
+- 운영 목표를 data 10,240B x 100 Hz 이상과 control 2,560B x 100 Hz 동시 처리로 구체화했다.
+- 기존 4096B baseline을 교체하지 않고 독립 `--mixed-load-open-loop` command와 raw report를 추가하는 D243을 채택했다.
+- 논리 구독자마다 data/control TCP connection을 분리하고 data rate, duration, subscriber count만 CLI에서 조정한다.
+- exact delivery, drop 0, end pending 0, pool rented 0과 p99 5ms/p999 10ms를 mixed hard gate로 정의했다.
+- 기존 baseline summary/history/envelope, UDP, production Broker/Protocol/Transport는 범위 밖으로 유지했다.
+- D242 RIO UDP 임시 배열 최적화는 새 TCP 목표보다 우선순위가 낮아 `P2_LATER`로 이동했다.
+- written spec은 `docs/superpowers/specs/2026-07-18-mixed-tcp-workload-gate-design.md`이며 code/tests는 변경하지 않았다.
+
 ### 2026-07-15 - D241 review stop 종료와 RIO UDP allocation 범위 재평가
 
 - 사용자의 다음 진행 승인으로 D241 transport 등록-pump 시작 원자성 보강 review stop을 닫았다.
