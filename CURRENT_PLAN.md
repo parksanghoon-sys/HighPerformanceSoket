@@ -13,15 +13,19 @@
 - D243은 기존 baseline을 보존하고 독립 TCP `--mixed-load-open-loop` command/report를 추가하는 방향으로 승인됐다.
 - D243 written spec: `docs/superpowers/specs/2026-07-18-mixed-tcp-workload-gate-design.md`.
 - D243 implementation plan: `docs/superpowers/plans/2026-07-18-mixed-tcp-workload-gate.md`.
+- 2026-07-20 검토에서 fan-out latency 희석, 자원 preflight 부재와 publisher rate interval 오류를 확인해 spec/plan에 보완했다.
 - mixed code/tests와 10.24 Mbps 동시 workload 실행 evidence는 아직 없다.
 
 ## 다음 단일 작업 단위
 
 ### D243 mixed TCP workload implementation plan review stop
 
-- 이번 cycle은 구현 계획과 상태 문서만 정렬했다. production code와 tests는 변경하지 않았다.
+- 이번 cycle은 검토 finding에 따라 설계, 구현 계획과 상태 문서만 보완했다. production code와 tests는 변경하지 않았다.
 - 계획은 options/math, result/report, subscriber 1 runner, N명 fan-out, CLI, Linux workflow, 성능 evidence를 서로 다른 reviewable commit으로 나눈다.
-- mixed JSON은 `schema-version: 2`를 사용해 version 1만 읽는 legacy baseline aggregate와 분리한다.
+- mixed JSON은 `report-kind: mixed-tcp-workload`, `schema-version: 2`로 종류와 버전을 분리한다.
+- stream latency gate는 subscriber별 percentile의 최댓값과 latency failed subscriber count를 사용한다.
+- options는 subscriber 최대 256명과 latency 원본/scratch payload 128MiB를 socket/배열 생성 전에 거부한다.
+- publisher actual rate는 첫/마지막 send completion 사이 `sent - 1`개 interval로 계산한다.
 - 사용자 검토 승인 뒤 첫 구현 cycle은 plan Task 1 preflight와 Task 2 `MixedWorkloadOptions` TDD만 수행한다.
 - Task 2 commit/review stop 전에는 result, runner, CLI를 함께 구현하지 않는다.
 
@@ -29,13 +33,15 @@
 
 - D243 plan은 현재 benchmark parser, command line, Program, runner, identity, report reader/writer, endpoint diagnostics와 io_uring artifact workflow를 대조해 작성했다.
 - 현재 `BaselineReportReader`는 `schema-version == 1` report를 legacy shape로 읽으므로 mixed report version 2 격리가 필요하다.
-- 기존 검증 기준은 solution tests 528/528, Release build 경고 0/오류 0이다. 이번 문서 cycle에서는 build/test를 재실행하지 않는다.
-- 최근 SAEA/RIO 4096B x 100 Hz TCP/UDP run은 모두 3000/3000, drop/payload error/pool rented 0이다.
+- 2026-07-20 현재 Release build 경고 0/오류 0, solution tests 528/528를 재확인했다.
+- 현재 SAEA TCP 4096B x 100 Hz x 30초 open-loop는 3000/3000, actual 99.8 Hz, p99 623.9us, HWM 5, drop/payload error/pool rented 0이다.
+- RIO TCP smoke는 8/8, drop/payload error/pool rented 0이다.
+- 이 검증은 legacy 단일 stream 기준선이며 mixed 10.24 Mbps evidence가 아니다.
 
 ## 구현 순서
 
-1. options 입력 검증과 checked 계획 수.
-2. stream/global hard gate, schema-version 2 report와 mixed run identity.
+1. options 입력 검증, checked 계획 수, subscriber/latency 저장 preflight.
+2. `sent - 1` interval rate, worst-subscriber latency hard gate, typed report와 mixed run identity.
 3. 단일 논리 구독자 mixed TCP runner.
 4. N명 fan-out exact delivery.
 5. CLI와 Program 연결.

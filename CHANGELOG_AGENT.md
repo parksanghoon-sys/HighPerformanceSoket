@@ -2,11 +2,21 @@
 
 ## Recent Work
 
+### 2026-07-20 - mixed TCP workload 설계/계획 검토 보완
+
+- 현재 구현에는 D243 mixed command/code/tests/evidence가 없고 legacy 4096B 기준선만 실행 가능함을 재확인했다.
+- Release build 경고 0/오류 0, solution tests 528/528, SAEA TCP 4096B x 100Hz x 30초 open-loop 3000/3000과 RIO TCP smoke 8/8을 확인했다.
+- fan-out latency가 aggregate percentile에 희석되지 않도록 stream gate를 subscriber별 percentile 최댓값과 latency failed subscriber count로 변경했다.
+- CLI 유효 정수만으로 OOM/socket 고갈이 발생하지 않도록 subscriber 256명과 latency 원본/scratch payload 128MiB preflight를 options 계약에 추가했다.
+- publisher actual rate를 첫/마지막 send completion 사이 `sent - 1` interval로 계산하도록 수정했다.
+- mixed report에 `report-kind: mixed-tcp-workload`를 추가하고 delivery/latency failed subscriber count를 분리했다.
+- production code/tests는 변경하지 않았고 다음 진입점은 Task 2 `MixedWorkloadOptions` TDD 전 사용자 review stop이다.
+
 ### 2026-07-18 - mixed TCP workload implementation plan
 
 - 사용자의 진행 승인으로 D243 written spec을 `Accepted`로 전환했다.
 - 현재 benchmark CLI, runner, result/report, legacy reader, endpoint diagnostics와 io_uring artifact workflow를 실제 코드에 대조했다.
-- mixed report는 `schema-version: 2`를 사용해 version 1 legacy baseline aggregate가 읽지 않도록 구현 경계를 고정했다.
+- mixed report는 `report-kind: mixed-tcp-workload`, `schema-version: 2`를 사용해 version 1 legacy baseline aggregate가 읽지 않도록 구현 경계를 고정했다.
 - options/math, result/report, subscriber 1 runner, N명 fan-out, CLI, Linux workflow, 성능 evidence를 별도 reviewable commit으로 나눴다.
 - publisher/subscriber I/O buffer는 pinned pool에서 connection별 한 번 대여하고 per-message allocation 없이 재사용하도록 계획했다.
 - 새 계획은 `docs/superpowers/plans/2026-07-18-mixed-tcp-workload-gate.md`이며 code/tests는 변경하지 않았다.

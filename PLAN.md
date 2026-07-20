@@ -12,7 +12,7 @@ Claude 검토(`.claude/review/`)의 must-fix 해소.
 ## 현재 상태 (스냅샷)
 - [x] **Phase 0~5**: 메모리, SAEA, Protocol/Broker/Server, benchmark와 Windows RIO 경로 구현·검증 완료.
 - [x] **Phase 6**: Linux io_uring TCP/UDP pump, fixed buffer와 registered payload opt-in 경로 구현 완료.
-- [~] **현재 검증 확장**: D243 mixed TCP workload gate written spec 승인 및 implementation plan 작성 완료, 사용자 review stop.
+- [~] **현재 검증 확장**: D243 mixed TCP workload gate written spec 승인, 2026-07-20 측정/자원 finding 보완 및 implementation plan 재검토 stop.
   세부 실행 지점과 최신 검증값은 [`CURRENT_PLAN.md`](./CURRENT_PLAN.md)를 source of truth로 사용한다.
 
 ---
