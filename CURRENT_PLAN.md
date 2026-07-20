@@ -14,34 +14,33 @@
 - D243 written spec: `docs/superpowers/specs/2026-07-18-mixed-tcp-workload-gate-design.md`.
 - D243 implementation plan: `docs/superpowers/plans/2026-07-18-mixed-tcp-workload-gate.md`.
 - 2026-07-20 검토에서 fan-out latency 희석, 자원 preflight 부재와 publisher rate interval 오류를 확인해 spec/plan에 보완했다.
-- mixed code/tests와 10.24 Mbps 동시 workload 실행 evidence는 아직 없다.
+- D243 Task 2 `MixedWorkloadOptions`는 입력, checked 계획 수, subscriber 256명과 latency 저장소 128MiB 사전 검증까지 구현했다.
+- mixed result/report, runner, CLI와 10.24 Mbps 동시 workload 실행 evidence는 아직 없다.
 
 ## 다음 단일 작업 단위
 
-### D243 mixed TCP workload implementation plan review stop
+### D243 Task 2 `MixedWorkloadOptions` 구현 review stop
 
-- 이번 cycle은 검토 finding에 따라 설계, 구현 계획과 상태 문서만 보완했다. production code와 tests는 변경하지 않았다.
-- 계획은 options/math, result/report, subscriber 1 runner, N명 fan-out, CLI, Linux workflow, 성능 evidence를 서로 다른 reviewable commit으로 나눈다.
-- mixed JSON은 `report-kind: mixed-tcp-workload`, `schema-version: 2`로 종류와 버전을 분리한다.
-- stream latency gate는 subscriber별 percentile의 최댓값과 latency failed subscriber count를 사용한다.
-- options는 subscriber 최대 256명과 latency 원본/scratch payload 128MiB를 socket/배열 생성 전에 거부한다.
-- publisher actual rate는 첫/마지막 send completion 사이 `sent - 1`개 interval로 계산한다.
-- 사용자 검토 승인 뒤 첫 구현 cycle은 plan Task 1 preflight와 Task 2 `MixedWorkloadOptions` TDD만 수행한다.
-- Task 2 commit/review stop 전에는 result, runner, CLI를 함께 구현하지 않는다.
+- reflection 계약 Red 1개와 behavior Red 10개를 확인한 뒤 options type과 검증 계산만 최소 구현했다.
+- 기본 profile은 data/control 각각 3,000 message, 구독자 1명 기준 4개 client connection과 latency payload 72,000B로 계산한다.
+- 모든 계획 수는 `checked long`으로 계산한 뒤 `int` 표현 범위, subscriber 256명과 latency payload 128MiB를 socket/배열 생성 전에 검증한다.
+- options 생성자는 socket, payload buffer와 latency 배열을 만들지 않는다.
+- 사용자 검토로 Task 2를 확정하기 전에는 Task 3 result/report를 시작하지 않는다.
 
 ## 최신 검증 기준
 
 - D243 plan은 현재 benchmark parser, command line, Program, runner, identity, report reader/writer, endpoint diagnostics와 io_uring artifact workflow를 대조해 작성했다.
 - 현재 `BaselineReportReader`는 `schema-version == 1` report를 legacy shape로 읽으므로 mixed report version 2 격리가 필요하다.
-- 2026-07-20 현재 Release build 경고 0/오류 0, solution tests 528/528를 재확인했다.
+- 2026-07-20 현재 focused options tests 15/15, benchmark tests 133/133이 통과했다.
+- Release build 경고 0/오류 0, solution tests 543/543이 통과했다.
 - 현재 SAEA TCP 4096B x 100 Hz x 30초 open-loop는 3000/3000, actual 99.8 Hz, p99 623.9us, HWM 5, drop/payload error/pool rented 0이다.
 - RIO TCP smoke는 8/8, drop/payload error/pool rented 0이다.
 - 이 검증은 legacy 단일 stream 기준선이며 mixed 10.24 Mbps evidence가 아니다.
 
 ## 구현 순서
 
-1. options 입력 검증, checked 계획 수, subscriber/latency 저장 preflight.
-2. `sent - 1` interval rate, worst-subscriber latency hard gate, typed report와 mixed run identity.
+1. [완료] options 입력 검증, checked 계획 수, subscriber/latency 저장 preflight.
+2. [다음 후보] `sent - 1` interval rate, worst-subscriber latency hard gate, typed report와 mixed run identity.
 3. 단일 논리 구독자 mixed TCP runner.
 4. N명 fan-out exact delivery.
 5. CLI와 Program 연결.

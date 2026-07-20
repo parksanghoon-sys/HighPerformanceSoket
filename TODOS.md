@@ -2,12 +2,12 @@
 
 ## Current TODOs
 
-- [ ] D243 mixed TCP workload implementation plan을 사용자 검토로 확정한다.
-  - 범위: resource-safe options/math, typed result/report, subscriber 1 runner, worst-subscriber fan-out gate, CLI, io_uring workflow와 성능 evidence의 TDD 순서.
-  - 계획: `docs/superpowers/plans/2026-07-18-mixed-tcp-workload-gate.md`.
-  - 유지: 한 cycle/commit당 하나의 reviewable 기능 단위, report kind/schema 기반 legacy baseline 격리, production 변경 선행 금지.
-  - 보완: subscriber 256명/latency 128MiB preflight, `sent - 1` interval rate, subscriber별 worst latency와 실패 수를 구현 계약에 반영했다.
-  - 다음 단계: 사용자 승인 뒤 Task 1 preflight와 Task 2 `MixedWorkloadOptions` TDD만 구현한다.
+- [ ] D243 Task 2 `MixedWorkloadOptions` 구현 review stop을 사용자 검토로 확정한다.
+  - 범위: 고정 mixed profile, 입력 하한, checked 계획 수, subscriber 256명과 latency payload 128MiB 실행 전 상한.
+  - 구현: `tests/Hps.Benchmarks/MixedWorkloadOptions.cs`, `tests/Hps.Benchmarks.Tests/MixedWorkloadOptionsTests.cs`.
+  - 검증: options 15/15, benchmark 133/133, solution 543/543, Release build 경고 0/오류 0.
+  - 유지: socket, latency 배열, result/report, runner와 CLI는 이번 단위에 포함하지 않았다.
+  - 다음 단계: 사용자 승인 뒤에만 plan Task 3 stream/global result와 typed report TDD를 시작한다.
 
 ## Deferred Backlog
 
@@ -51,6 +51,15 @@
 
 ## Completed
 
+- [x] 2026-07-20 D243 Task 2 mixed workload options와 실행 전 자원 경계를 TDD로 구현했다.
+  - type 부재 assertion Red 1개와 shell 대상 behavior Red 10개를 순서대로 확인했다.
+  - data/control message·delivery 수, `2 + 2N` connection 수와 원본/scratch latency payload를 constructor에서 계산한다.
+  - 최소 입력, Int32/Int64 계획 수, subscriber 256명과 latency payload 128MiB 상한을 allocation 전에 검증한다.
+  - 독립 리뷰에서 지적된 고정 상수, 실제 Int64 overflow 변환과 정확한 128MiB 경계 테스트를 보강했다.
+  - result/report, runner, CLI와 성능 실행은 열지 않고 Task 2 review stop에서 멈췄다.
+- [x] 2026-07-20 D243 mixed TCP workload implementation plan을 사용자 검토로 확정했다.
+  - 사용자 진행 승인에 따라 Task 1 preflight와 Task 2 options만 구현 범위로 열었다.
+  - 이후 Task는 기존 계획의 commit별 review stop을 유지한다.
 - [x] 2026-07-20 D243 설계/구현 계획의 측정 정확성과 자원 안전 finding을 보완했다.
   - fan-out latency를 aggregate sample percentile이 아니라 subscriber별 percentile 최댓값으로 판정한다.
   - subscriber 256명과 latency 원본/scratch payload 128MiB를 실행 전 options/CLI에서 거부한다.

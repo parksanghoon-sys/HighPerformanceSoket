@@ -2,6 +2,15 @@
 
 ## Recent Work
 
+### 2026-07-20 - D243 mixed workload options 사전 검증 구현
+
+- reflection 기반 type 부재 Red 1개와 최소 shell 대상 behavior Red 10개를 확인한 뒤 `MixedWorkloadOptions`만 구현했다.
+- data/control message·delivery 수, `2 + 2N` client connection 수와 모든 latency 원본 배열 및 최대 stream scratch 하나의 payload 크기를 constructor에서 계산한다.
+- 최소 data rate 100Hz, 양수 duration/subscriber, subscriber 최대 256명, Int32/Int64 계획 수와 latency payload 128MiB를 socket/배열 생성 전에 검증한다.
+- 독립 리뷰의 Major 테스트 누락을 반영해 모든 고정 상수, 실제 Int64 overflow 변환과 정확한 128MiB 허용/거부 경계를 추가로 고정했다.
+- focused options 15/15, benchmark 133/133, solution 543/543와 Release build 경고 0/오류 0을 확인했다.
+- result/report, runner, CLI와 mixed workload 성능 실행은 추가하지 않았으며 Task 2 review stop을 유지한다.
+
 ### 2026-07-20 - mixed TCP workload 설계/계획 검토 보완
 
 - 현재 구현에는 D243 mixed command/code/tests/evidence가 없고 legacy 4096B 기준선만 실행 가능함을 재확인했다.
