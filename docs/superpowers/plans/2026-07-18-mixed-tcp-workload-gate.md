@@ -1131,7 +1131,7 @@ Review stop: workflow source 계약만 보고한다. push와 remote workflow 실
 - Consumes: fully exposed mixed command and workflow.
 - Produces: Windows SAEA/RIO 3회, preferred backend 1,800초 soak, pushed SHA Linux io_uring 3회 raw evidence.
 
-- [ ] **Step 1: solution 전체를 검증한다**
+- [x] **Step 1: solution 전체를 검증한다**
 
 Run:
 
@@ -1142,7 +1142,7 @@ dotnet test HighPerformanceSocket.slnx -c Release --no-build --no-restore -p:NuG
 
 Expected: build 오류 0, 새 경고 0, solution tests 전체 green, discovered/executed count가 0보다 큼.
 
-- [ ] **Step 2: Windows SAEA 기본 profile을 3회 실행한다**
+- [x] **Step 2: Windows SAEA 기본 profile을 3회 실행한다**
 
 ```powershell
 $root = "artifacts/benchmarks/mixed/saea-$(Get-Date -Format yyyyMMdd-HHmmss)"
@@ -1156,11 +1156,11 @@ New-Item -ItemType Directory -Force $root | Out-Null
 
 각 JSON에서 두 stream `sent/planned`, `received/planned-delivery`, min/max, delivery/latency failed subscriber, sequence/payload error, `N - 1` interval actual rate, worst-subscriber p99/p999와 global drop/HWM/pending/pool/timeout을 기록한다. 세 run 모두 `passed=true`여야 한다.
 
-- [ ] **Step 3: Windows RIO 기본 profile을 3회 실행한다**
+- [x] **Step 3: Windows RIO 기본 profile을 3회 실행한다**
 
 RIO capability가 Available인 Windows host에서 Step 2의 backend만 `rio`로 바꾼다. unavailable이면 성공으로 간주하지 않고 환경 blocker로 상태 문서에 기록한다. 세 raw report 모두 hard pass여야 한다.
 
-- [ ] **Step 4: 배포 우선 backend 1,800초 soak를 실행한다**
+- [x] **Step 4: 배포 우선 backend 1,800초 soak를 실행한다**
 
 ```powershell
 dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj -c Release --no-build --no-restore -- --mixed-load-open-loop --backend saea --data-rate-hz 100 --duration-seconds 1800 --subscribers 1 --report artifacts/benchmarks/mixed/saea-soak-1800s.json
@@ -1170,6 +1170,8 @@ dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj -c Release --no-
 
 - [ ] **Step 5: push된 동일 SHA에서 Linux io_uring workflow를 실행한다**
 
+2026-07-21 현재 source evidence HEAD `cd1bd820450b9d9dc5f67baef19951af981ea033`은 `origin/master`보다 14커밋 앞서 있어 동일 SHA workflow를 실행할 수 없다. 사용자가 최종 문서 commit까지 push한 뒤 수행한다.
+
 사용자가 push한 뒤 `.github/workflows/iouring-benchmark-artifacts.yml`을 `workflow_dispatch`로 실행한다. 다음을 직접 확인한다.
 
 - workflow checkout SHA가 검토한 local commit SHA와 같다.
@@ -1178,7 +1180,7 @@ dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj -c Release --no-
 - 기존 TCP/UDP baseline, summary, history, envelope exit도 회귀 없이 0이다.
 - mixed report가 TCP/UDP baseline summary source count에 섞이지 않는다.
 
-- [ ] **Step 6: actual 운영 fan-out/rate 입력이 있으면 별도 run으로 검증한다**
+- [x] **Step 6: actual 운영 fan-out/rate 입력이 있으면 별도 run으로 검증한다**
 
 실제 최대 data rate와 논리 subscriber 수가 환경 변수로 제공되면 다음 command를 추가로 실행한다.
 
@@ -1195,7 +1197,9 @@ dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj -c Release --no-
 
 두 환경 변수가 제공되지 않으면 command를 실행하지 않고 기본 100Hz/N=1만 수락했다고 명시하며 더 높은 rate나 다중 subscriber production capacity를 주장하지 않는다.
 
-- [ ] **Step 7: evidence 결과를 commit하고 review stop에서 멈춘다**
+2026-07-21 두 환경 변수 모두 제공되지 않아 별도 run은 생략했고 100Hz/N=1 범위만 수락했다.
+
+- [x] **Step 7: evidence 결과를 commit하고 review stop에서 멈춘다**
 
 ignored raw artifact는 commit하지 않는다. 상태 문서에는 command, SHA, backend, run 수, 실제 핵심 수치와 artifact 위치를 기록한다.
 

@@ -1,7 +1,7 @@
 # 혼합 TCP workload 성능 gate 설계
 
 - 날짜: 2026-07-18
-- 상태: 승인됨 - 2026-07-20 검토 보완 반영, implementation plan 재검토 대기
+- 상태: 구현 및 Windows 수락 완료 - pushed-SHA Linux io_uring evidence 대기
 - 결정: D243
 - 대상: `tests/Hps.Benchmarks`, benchmark CLI/report, 상태 문서
 - 구현 계획: `docs/superpowers/plans/2026-07-18-mixed-tcp-workload-gate.md`

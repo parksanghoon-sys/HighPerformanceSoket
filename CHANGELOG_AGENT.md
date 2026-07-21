@@ -2,6 +2,15 @@
 
 ## Recent Work
 
+### 2026-07-21 - D243 Windows mixed workload 수락 evidence
+
+- source HEAD `cd1bd820450b9d9dc5f67baef19951af981ea033`에서 Release build 경고 0/오류 0과 solution tests 631/631을 통과했다.
+- SAEA 30초 3회는 각 stream 3000/3000, 100.0Hz, 최악 p99 1480.0us, p999 2679.2us, HWM 최대 3으로 모두 pass했다.
+- RIO 30초 3회는 실제 `RioTransport`에서 각 stream 3000/3000, 100.0Hz, 최악 p99 1864.4us, p999 4052.3us, HWM 최대 3으로 모두 pass했다.
+- SAEA 1,800초 soak는 각 stream 180000/180000, 100.0Hz, 최악 p99 1434.9us, p999 3105.8us, HWM 6으로 pass했다.
+- 7개 raw report 모두 drop/pending/pool/timeout과 sequence/payload error가 0이며 schema/backend/count/rate/latency 재검증을 통과했다.
+- 운영 fan-out 입력이 없어 100Hz/N=1만 수락했고, push된 동일 SHA가 없어 Linux io_uring remote gate는 `P1_SOON`으로 남겼다.
+
 ### 2026-07-21 - D243 Linux io_uring mixed artifact workflow
 
 - io_uring artifact workflow에 mixed 전용 runner/date/session root를 추가했다.

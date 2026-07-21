@@ -12,7 +12,7 @@ Claude 검토(`.claude/review/`)의 must-fix 해소.
 ## 현재 상태 (스냅샷)
 - [x] **Phase 0~5**: 메모리, SAEA, Protocol/Broker/Server, benchmark와 Windows RIO 경로 구현·검증 완료.
 - [x] **Phase 6**: Linux io_uring TCP/UDP pump, fixed buffer와 registered payload opt-in 경로 구현 완료.
-- [~] **현재 검증 확장**: D243 Task 3 stream/global hard gate와 typed mixed report 구현 완료, 사용자 review stop.
+- [~] **현재 검증 확장**: D243 mixed command/runner/workflow와 Windows SAEA/RIO 수락 완료. push된 SHA의 Linux io_uring mixed gate 대기.
   세부 실행 지점과 최신 검증값은 [`CURRENT_PLAN.md`](./CURRENT_PLAN.md)를 source of truth로 사용한다.
 
 ---

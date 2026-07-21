@@ -2,12 +2,7 @@
 
 ## Current TODOs
 
-- [ ] D243 Task 8 backend별 mixed workload 수락 evidence를 수집한다.
-  - 범위: solution Release build/test, Windows SAEA/RIO 30초 각 3회, 배포 우선 backend 1,800초 soak와 raw report 검증.
-  - 계약: 모든 실행은 exact delivery, latency, drop/pending/pool/timeout hard gate를 통과해야 하며 unavailable native backend는 성공이 아니라 blocker다.
-  - 원격: push된 동일 SHA의 Linux io_uring workflow만 evidence로 인정하며 이 cycle에서는 push하지 않는다.
-  - 운영 입력: 환경 변수가 없으면 별도 fan-out run을 생략하고 100Hz/N=1 범위만 수락한다.
-  - 유지: raw artifact는 ignored 경로에 두고 production 결함 증거가 없는 한 production 소스를 변경하지 않는다.
+- 현재 즉시 실행 가능한 D243 로컬 항목은 없다. push가 필요한 Linux io_uring 수락은 Deferred Backlog의 `P1_SOON` 항목을 따른다.
 
 ## Deferred Backlog
 
@@ -20,13 +15,15 @@
   - 제외: endpoint cache, public `EndPoint` 계약 변경, receive registration reuse, IPv6.
   - 다음 단계: mixed TCP gate가 닫힌 뒤 RIO UDP가 실제 운영 경로인지 재평가한다.
 
-- [ ] `P1_SOON` D241 lifecycle 변경과 D243 mixed workload 설계/구현의 로컬 commit을 원격에 반영한다.
-  - 남은 일: D241 설계/구현·review follow-up과 D243 written spec, Task 2 options, Task 3 result/report commit을 `origin/master`에 push한다.
+- [ ] `P1_SOON` D241/D243 로컬 commit을 push하고 동일 SHA의 Linux io_uring mixed gate를 실행한다.
+  - 남은 일: 현재 local `master`를 `origin/master`에 push한 뒤 `iouring-benchmark-artifacts.yml`을 `workflow_dispatch`로 실행하고 mixed raw report 3개를 검증한다.
   - 이유: push는 사용자가 직접 수행하며 현재 로컬 `master`가 원격보다 앞서 있다.
-  - 목적: 검증된 lifecycle code/tests와 새 운영 목표의 canonical 설계를 원격에 반영해 후속 implementation plan 기준을 고정한다.
-  - 범위: D241 lifecycle spec/plan/code/tests, D243 mixed workload spec/plan/code/tests와 root/archive 상태 문서.
-  - 현재 상태: D241과 D243 Task 2~6의 검토 완료 로컬 commit들이 원격보다 앞서 있고 이번 cycle도 push는 수행하지 않는다.
-  - 다음 단계: 사용자가 적절한 시점에 현재 `master`를 push한다.
+  - 목적: 검증된 lifecycle과 mixed workload 구현을 원격에 반영하고 같은 source/workflow SHA에서 io_uring hard gate를 닫는다.
+  - 범위: D241 lifecycle, D243 Task 2~8, `.github/workflows/iouring-benchmark-artifacts.yml`, 원격 artifact와 job summary.
+  - 현재 상태: source evidence HEAD `cd1bd820450b9d9dc5f67baef19951af981ea033`은 `origin/master`보다 14커밋 앞선다. Windows SAEA/RIO 각 3회와 SAEA 1,800초 soak는 통과했다.
+  - 확인 계약: checkout SHA 일치, `IOURING_MIXED_EXIT=0`, schema v2 mixed report 3개 pass, 기존 TCP/UDP baseline/summary/history/envelope exit 0, baseline source count 비혼입.
+  - blocker: 현재 commit들이 원격에 없어 workflow가 동일 SHA를 checkout할 수 없다.
+  - 다음 단계: 사용자가 최종 evidence 문서 commit까지 push한 뒤 해당 SHA로 workflow를 실행한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
   - 남은 일: RIO TCP/UDP는 IPv4 전용이고 sample `auto`는 non-IPv4에서 SAEA fallback을 사용한다.
@@ -51,6 +48,12 @@
 
 ## Completed
 
+- [x] 2026-07-21 D243 Task 8의 로컬 backend별 mixed workload 수락 evidence를 수집했다.
+  - source HEAD `cd1bd820450b9d9dc5f67baef19951af981ea033`에서 solution build 경고 0/오류 0과 tests 631/631을 확인했다.
+  - SAEA/RIO 30초 각 3회는 각 stream 3000/3000, 100.0Hz와 모든 hard gate를 통과했다.
+  - SAEA 1,800초 soak는 각 stream 180000/180000, 최악 p99 1434.9us, p999 3105.8us와 모든 zero gate를 통과했다.
+  - ignored raw report 7개를 schema/backend/count/min/max/rate/latency/error 기준으로 재검증해 모두 `passed=true`를 확인했다.
+  - 운영 fan-out 환경 변수가 없어 100Hz/N=1만 수락했으며 push된 SHA의 io_uring gate는 완료로 처리하지 않았다.
 - [x] 2026-07-21 D243 Task 7 Linux io_uring workflow에 mixed workload artifact gate를 TDD로 추가했다.
   - mixed root 부재 assertion Red를 확인한 뒤 runner/date/session 전용 경로를 추가했다.
   - io_uring 100Hz, 30초, subscriber 1 실행을 3회 독립 report로 수집하고 실행 실패 후에도 나머지 raw report를 계속 수집한다.
