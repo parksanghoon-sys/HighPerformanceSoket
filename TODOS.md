@@ -2,12 +2,12 @@
 
 ## Current TODOs
 
-- [ ] D243 Task 6 mixed workload command, parser와 Program을 TDD로 연결한다.
-  - 범위: `BenchmarkCommand`, `BenchmarkCommandLine`, parser, Program/help와 대응 tests.
-  - 계약: backend/data rate/duration/subscribers/report만 허용하고 protocol은 거부하며 `MixedWorkloadOptions`로 실행 전 자원 상한을 검증한다.
-  - 검증: parser/Program focused, benchmark 전체, Release benchmark build와 1초 SAEA CLI report smoke.
-  - 유지: legacy command/parser, production Broker/Protocol/Transport와 workflow는 이번 단위에서 변경하지 않는다.
-  - 다음 단계: Task 6 독립 review와 commit 뒤 Task 7 Linux io_uring mixed artifact workflow로 진행한다.
+- [ ] D243 Task 7 Linux io_uring workflow에 mixed workload artifact gate를 TDD로 추가한다.
+  - 범위: `.github/workflows/iouring-benchmark-artifacts.yml`, workflow source contract tests와 상태 문서.
+  - 계약: mixed 전용 root/date/session 경로에 30초 report 3개를 독립 수집하고 누적 exit를 final gate에 포함한다.
+  - 검증: workflow focused test, benchmark 전체와 `git diff --check`.
+  - 유지: mixed report를 기존 TCP/UDP baseline summary/history/envelope 입력 root에 섞지 않는다.
+  - 다음 단계: Task 7 독립 review와 commit 뒤 Task 8 로컬 SAEA/RIO 반복 및 soak evidence로 진행한다.
 
 ## Deferred Backlog
 
@@ -25,7 +25,7 @@
   - 이유: push는 사용자가 직접 수행하며 현재 로컬 `master`가 원격보다 앞서 있다.
   - 목적: 검증된 lifecycle code/tests와 새 운영 목표의 canonical 설계를 원격에 반영해 후속 implementation plan 기준을 고정한다.
   - 범위: D241 lifecycle spec/plan/code/tests, D243 mixed workload spec/plan/code/tests와 root/archive 상태 문서.
-  - 현재 상태: D241과 D243의 검토 완료 로컬 commit들이 원격보다 앞서 있고 이번 cycle도 push는 수행하지 않는다.
+  - 현재 상태: D241과 D243 Task 2~6의 검토 완료 로컬 commit들이 원격보다 앞서 있고 이번 cycle도 push는 수행하지 않는다.
   - 다음 단계: 사용자가 적절한 시점에 현재 `master`를 push한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
@@ -51,6 +51,12 @@
 
 ## Completed
 
+- [x] 2026-07-21 D243 Task 6 mixed workload CLI와 Program 연결을 TDD로 구현했다.
+  - command/property reflection assertion과 parser/help behavior assertion Red를 확인한 뒤 mixed 전용 입력 경로를 추가했다.
+  - backend, data rate, duration, subscribers와 report만 허용하고 protocol은 값 유무와 관계없이 전용 usage error로 거부한다.
+  - parser는 `MixedWorkloadOptions`를 생성해 socket·latency 배열 할당 전에 범위, overflow와 128MiB 상한을 검증한다.
+  - Program은 runner, schema v2 writer와 exit 0/1/2 계약을 연결했으며 legacy parser와 baseline command는 유지했다.
+  - focused 50/50, benchmark 220/220과 Release build 경고 0/오류 0을 확인했고 SAEA 1초 CLI smoke도 exact delivery와 전역 zero gate를 통과했다.
 - [x] 2026-07-21 D243 Task 5 N명 mixed TCP fan-out을 TDD로 구현했다.
   - subscriber 2명 integration과 다중 latency summary 집계가 기존 `NotSupportedException`으로 실패하는 assertion Red를 확인했다.
   - stream별 socket, pinned buffer, state와 receive task를 고정 길이 배열로 만들고 logical index별 소유권을 유지했다.

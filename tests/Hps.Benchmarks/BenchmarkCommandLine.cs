@@ -14,7 +14,10 @@ namespace Hps.Benchmarks
             string? historyOutputPath,
             string? historyMarkdownOutputPath,
             TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea,
-            LoopbackProtocol loopbackProtocol = LoopbackProtocol.Tcp)
+            LoopbackProtocol loopbackProtocol = LoopbackProtocol.Tcp,
+            int mixedDataRateHz = MixedWorkloadOptions.DefaultDataRateHz,
+            int mixedDurationSeconds = MixedWorkloadOptions.DefaultDurationSeconds,
+            int mixedSubscriberCount = MixedWorkloadOptions.DefaultSubscriberCount)
             : this(
                 command,
                 reportPath,
@@ -31,7 +34,10 @@ namespace Hps.Benchmarks
                 null,
                 null,
                 transportBackend,
-                loopbackProtocol)
+                loopbackProtocol,
+                mixedDataRateHz,
+                mixedDurationSeconds,
+                mixedSubscriberCount)
         {
         }
 
@@ -51,7 +57,10 @@ namespace Hps.Benchmarks
             string? envelopeOutputPath,
             string? envelopeMarkdownOutputPath,
             TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea,
-            LoopbackProtocol loopbackProtocol = LoopbackProtocol.Tcp)
+            LoopbackProtocol loopbackProtocol = LoopbackProtocol.Tcp,
+            int mixedDataRateHz = MixedWorkloadOptions.DefaultDataRateHz,
+            int mixedDurationSeconds = MixedWorkloadOptions.DefaultDurationSeconds,
+            int mixedSubscriberCount = MixedWorkloadOptions.DefaultSubscriberCount)
         {
             Command = command;
             ReportPath = reportPath;
@@ -69,6 +78,9 @@ namespace Hps.Benchmarks
             EnvelopeMarkdownOutputPath = envelopeMarkdownOutputPath;
             TransportBackend = transportBackend;
             LoopbackProtocol = loopbackProtocol;
+            MixedDataRateHz = mixedDataRateHz;
+            MixedDurationSeconds = mixedDurationSeconds;
+            MixedSubscriberCount = mixedSubscriberCount;
         }
 
         public BenchmarkCommand Command { get; }
@@ -102,5 +114,11 @@ namespace Hps.Benchmarks
         public TcpLoopbackTransportBackend TransportBackend { get; }
 
         public LoopbackProtocol LoopbackProtocol { get; }
+
+        public int MixedDataRateHz { get; }
+
+        public int MixedDurationSeconds { get; }
+
+        public int MixedSubscriberCount { get; }
     }
 }

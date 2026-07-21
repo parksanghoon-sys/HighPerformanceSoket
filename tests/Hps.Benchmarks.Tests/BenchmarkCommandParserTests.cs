@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 using Xunit;
 
@@ -5,6 +6,198 @@ namespace Hps.Benchmarks.Tests
 {
     public sealed class BenchmarkCommandParserTests
     {
+        // 신규 mixed command를 direct reference하기 전에 reflection으로 CLI model shape부터 고정한다.
+        // 이 순서를 지키면 type 부재가 compile failure가 아니라 요구한 계약의 assertion Red로 드러난다.
+        [Fact]
+        public void Contract_MixedLoadCommandLineExposesCommandAndWorkloadOptions()
+        {
+            string[] commandNames = Enum.GetNames(typeof(BenchmarkCommand));
+            Type commandLineType = typeof(BenchmarkCommandLine);
+
+            Assert.Contains("MixedLoadOpenLoop", commandNames);
+            Assert.NotNull(commandLineType.GetProperty("MixedDataRateHz"));
+            Assert.NotNull(commandLineType.GetProperty("MixedDurationSeconds"));
+            Assert.NotNull(commandLineType.GetProperty("MixedSubscriberCount"));
+        }
+
+        // mixed runner는 기존 단일 stream protocol selector를 받지 않고 data/control TCP topology를 고정한다.
+        // parser가 실행 전 모든 입력을 보존해야 socket이나 latency 배열을 만들기 전에 같은 options 검증을 적용할 수 있다.
+        [Fact]
+        public void TryParse_WhenMixedLoadUsesAllOptions_ReturnsMixedCommandSettings()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[]
+                {
+                    "--mixed-load-open-loop",
+                    "--backend", "rio",
+                    "--data-rate-hz", "250",
+                    "--duration-seconds", "60",
+                    "--subscribers", "4",
+                    "--report", "out/mixed.json"
+                },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal(BenchmarkCommand.MixedLoadOpenLoop, commandLine.Command);
+            Assert.Equal(TcpLoopbackTransportBackend.Rio, commandLine.TransportBackend);
+            Assert.Equal(250, commandLine.MixedDataRateHz);
+            Assert.Equal(60, commandLine.MixedDurationSeconds);
+            Assert.Equal(4, commandLine.MixedSubscriberCount);
+            Assert.Equal("out/mixed.json", commandLine.ReportPath);
+        }
+
+        // 옵션을 생략한 local smoke와 CI command는 설계에서 승인한 100Hz, 30초, 구독자 1명을 사용한다.
+        [Fact]
+        public void TryParse_WhenMixedLoadHasNoOptions_UsesMixedDefaults()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--mixed-load-open-loop" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal(BenchmarkCommand.MixedLoadOpenLoop, commandLine.Command);
+            Assert.Equal(100, commandLine.MixedDataRateHz);
+            Assert.Equal(30, commandLine.MixedDurationSeconds);
+            Assert.Equal(1, commandLine.MixedSubscriberCount);
+        }
+
+        // 값 형식과 최소/최대 범위는 runner allocation 전 usage error로 수렴해야 한다.
+        [Theory]
+        [InlineData("--data-rate-hz", "99")]
+        [InlineData("--data-rate-hz", "not-a-number")]
+        [InlineData("--duration-seconds", "0")]
+        [InlineData("--duration-seconds", "not-a-number")]
+        [InlineData("--subscribers", "0")]
+        [InlineData("--subscribers", "257")]
+        [InlineData("--subscribers", "not-a-number")]
+        public void TryParse_WhenMixedLoadOptionIsInvalid_ReturnsUsageError(string option, string value)
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--mixed-load-open-loop", option, value },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Equal(BenchmarkCommand.MixedLoadOpenLoop, commandLine.Command);
+        }
+
+        // 유효한 정수라도 latency 저장 추정이 128MiB를 넘으면 CLI 단계에서 거부해야 실제 배열 OOM을 막는다.
+        [Fact]
+        public void TryParse_WhenMixedLoadExceedsLatencyStorageLimit_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[]
+                {
+                    "--mixed-load-open-loop",
+                    "--data-rate-hz", "100",
+                    "--duration-seconds", "1800",
+                    "--subscribers", "47"
+                },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+            Assert.Equal(BenchmarkCommand.MixedLoadOpenLoop, commandLine.Command);
+        }
+
+        // 장기 수락 기준인 1800초/N=1은 128MiB 안에 있으므로 parser가 허용해야 한다.
+        [Fact]
+        public void TryParse_WhenMixedLoadUsesSoakProfile_ReturnsMixedCommand()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[]
+                {
+                    "--mixed-load-open-loop",
+                    "--data-rate-hz", "100",
+                    "--duration-seconds", "1800",
+                    "--subscribers", "1"
+                },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Null(errorMessage);
+            Assert.Equal(1800, commandLine.MixedDurationSeconds);
+        }
+
+        // int parse에 성공해도 count/byte 산술이 overflow하면 usage error여야 한다.
+        [Fact]
+        public void TryParse_WhenMixedLoadCountCalculationOverflows_ReturnsUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[]
+                {
+                    "--mixed-load-open-loop",
+                    "--data-rate-hz", int.MaxValue.ToString(),
+                    "--duration-seconds", int.MaxValue.ToString(),
+                    "--subscribers", "1"
+                },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.NotNull(errorMessage);
+        }
+
+        // mixed topology는 data/control TCP connection을 자체 정의하므로 protocol selector를 조용히 무시하면 안 된다.
+        [Theory]
+        [InlineData("tcp")]
+        [InlineData("udp")]
+        public void TryParse_WhenMixedLoadSpecifiesProtocol_ReturnsMixedProtocolUsageError(string protocol)
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--mixed-load-open-loop", "--protocol", protocol },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Equal("--protocol 옵션은 --mixed-load-open-loop과 함께 사용할 수 없습니다.", errorMessage);
+            Assert.Equal(BenchmarkCommand.MixedLoadOpenLoop, commandLine.Command);
+        }
+
+        // trailing protocol도 generic missing-value 오류가 아니라 mixed topology 전용 오류여야 한다.
+        [Fact]
+        public void TryParse_WhenMixedLoadProtocolHasNoValue_ReturnsMixedProtocolUsageError()
+        {
+            BenchmarkCommandLine commandLine;
+            string? errorMessage;
+
+            bool parsed = BenchmarkCommandParser.TryParse(
+                new[] { "--mixed-load-open-loop", "--protocol" },
+                out commandLine,
+                out errorMessage);
+
+            Assert.True(parsed);
+            Assert.Equal("--protocol 옵션은 --mixed-load-open-loop과 함께 사용할 수 없습니다.", errorMessage);
+        }
+
         // 기존 --load --report 계약을 먼저 고정한다.
         // baseline suite 추가 중 기존 단일 runner command 가 BenchmarkDotNet fallback 으로 밀려나면
         // report artifact 생성 경로가 조용히 깨질 수 있다.

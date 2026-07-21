@@ -6,7 +6,7 @@ namespace Hps.Benchmarks
     {
         public const int DefaultBaselineRunCount = 3;
 
-        public const string MessageReportOnlyWithRuns = "--report 옵션은 --smoke, --load, --load-open-loop 뒤에서만 사용할 수 있습니다.";
+        public const string MessageReportOnlyWithRuns = "--report 옵션은 --smoke, --load, --load-open-loop, --mixed-load-open-loop 뒤에서만 사용할 수 있습니다.";
         public const string MessageUnknownRunnerArgs = "알 수 없는 benchmark runner 인자입니다.";
         public const string MessageReportPathRequired = "--report 옵션에는 저장할 파일 경로가 필요합니다.";
         public const string MessageReportExecutionOnly = "--report 옵션은 benchmark 실행 명령에서만 사용할 수 있습니다.";
@@ -16,6 +16,11 @@ namespace Hps.Benchmarks
         public const string MessageProtocolPathRequired = "--protocol 옵션에는 tcp 또는 udp 값이 필요합니다.";
         public const string MessageProtocolInvalid = "--protocol 옵션은 tcp 또는 udp 값만 사용할 수 있습니다.";
         public const string MessageProtocolExecutionOnly = "--protocol 옵션은 benchmark 실행 명령에서만 사용할 수 있습니다.";
+        public const string MessageMixedProtocolNotAllowed = "--protocol 옵션은 --mixed-load-open-loop과 함께 사용할 수 없습니다.";
+        public const string MessageMixedDataRateInvalid = "--data-rate-hz 옵션에는 100 이상의 정수가 필요합니다.";
+        public const string MessageMixedDurationInvalid = "--duration-seconds 옵션에는 1 이상의 정수가 필요합니다.";
+        public const string MessageMixedSubscriberInvalid = "--subscribers 옵션에는 1 이상 256 이하의 정수가 필요합니다.";
+        public const string MessageMixedOptionsInvalid = "mixed workload 입력이 count 또는 latency 저장소 허용 범위를 벗어났습니다.";
         public const string MessageBaselineOutputRequired = "--baseline-suite 옵션에는 report directory 경로가 필요합니다.";
         public const string MessageBaselineRunsInvalid = "--runs 옵션에는 1 이상의 정수가 필요합니다.";
         public const string MessageBaselineReportNotAllowed = "--report 옵션은 --baseline-suite 와 함께 사용할 수 없습니다.";
@@ -77,6 +82,9 @@ namespace Hps.Benchmarks
 
             if (string.Equals(commandArg, "--load-open-loop", StringComparison.OrdinalIgnoreCase))
                 return ParseRunner(args, BenchmarkCommand.LoadOpenLoop, out commandLine, out errorMessage);
+
+            if (string.Equals(commandArg, "--mixed-load-open-loop", StringComparison.OrdinalIgnoreCase))
+                return ParseMixedRunner(args, out commandLine, out errorMessage);
 
             if (ContainsReportOption(args))
             {
@@ -408,6 +416,137 @@ namespace Hps.Benchmarks
             ParseRunnerOptions(args, out reportPath, out transportBackend, out loopbackProtocol, out errorMessage);
             commandLine = new BenchmarkCommandLine(command, reportPath, null, 0, null, null, null, null, null, null, transportBackend, loopbackProtocol);
             return true;
+        }
+
+        private static bool ParseMixedRunner(
+            string[] args,
+            out BenchmarkCommandLine commandLine,
+            out string? errorMessage)
+        {
+            string? reportPath = null;
+            TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea;
+            int dataRateHz = MixedWorkloadOptions.DefaultDataRateHz;
+            int durationSeconds = MixedWorkloadOptions.DefaultDurationSeconds;
+            int subscriberCount = MixedWorkloadOptions.DefaultSubscriberCount;
+            errorMessage = null;
+
+            commandLine = CreateMixedCommandLine(
+                reportPath,
+                transportBackend,
+                dataRateHz,
+                durationSeconds,
+                subscriberCount);
+
+            // mixed runner는 data/control TCP topology를 자체 고정하므로 protocol 값 유무와 관계없이
+            // generic pair parsing보다 먼저 거부한다. trailing --protocol도 unknown args로 흐르지 않는다.
+            if (ContainsProtocolOption(args))
+            {
+                errorMessage = MessageMixedProtocolNotAllowed;
+                return true;
+            }
+
+            for (int index = 1; index < args.Length; index += 2)
+            {
+                if (index + 1 >= args.Length)
+                {
+                    errorMessage = MessageUnknownRunnerArgs;
+                    break;
+                }
+
+                string option = args[index];
+                string value = args[index + 1];
+                if (string.Equals(option, "--report", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(value))
+                    {
+                        errorMessage = MessageReportPathRequired;
+                        break;
+                    }
+
+                    reportPath = value;
+                }
+                else if (string.Equals(option, "--backend", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!TryParseTransportBackend(value, out transportBackend, out errorMessage))
+                        break;
+                }
+                else if (string.Equals(option, "--data-rate-hz", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!int.TryParse(value, out dataRateHz))
+                    {
+                        errorMessage = MessageMixedDataRateInvalid;
+                        break;
+                    }
+                }
+                else if (string.Equals(option, "--duration-seconds", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!int.TryParse(value, out durationSeconds))
+                    {
+                        errorMessage = MessageMixedDurationInvalid;
+                        break;
+                    }
+                }
+                else if (string.Equals(option, "--subscribers", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!int.TryParse(value, out subscriberCount))
+                    {
+                        errorMessage = MessageMixedSubscriberInvalid;
+                        break;
+                    }
+                }
+                else
+                {
+                    errorMessage = MessageUnknownRunnerArgs;
+                    break;
+                }
+            }
+
+            if (errorMessage == null)
+            {
+                try
+                {
+                    // options 생성 자체가 allocation 전 checked count와 128MiB latency 저장소 preflight다.
+                    // parser가 같은 계약을 재사용해야 CLI 유효 정수만으로 socket/배열 생성 단계에 진입하지 않는다.
+                    new MixedWorkloadOptions(dataRateHz, durationSeconds, subscriberCount);
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    errorMessage = MessageMixedOptionsInvalid;
+                }
+            }
+
+            commandLine = CreateMixedCommandLine(
+                reportPath,
+                transportBackend,
+                dataRateHz,
+                durationSeconds,
+                subscriberCount);
+            return true;
+        }
+
+        private static BenchmarkCommandLine CreateMixedCommandLine(
+            string? reportPath,
+            TcpLoopbackTransportBackend transportBackend,
+            int dataRateHz,
+            int durationSeconds,
+            int subscriberCount)
+        {
+            return new BenchmarkCommandLine(
+                BenchmarkCommand.MixedLoadOpenLoop,
+                reportPath,
+                null,
+                0,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                transportBackend,
+                LoopbackProtocol.Tcp,
+                dataRateHz,
+                durationSeconds,
+                subscriberCount);
         }
 
         private static void ParseRunnerOptions(

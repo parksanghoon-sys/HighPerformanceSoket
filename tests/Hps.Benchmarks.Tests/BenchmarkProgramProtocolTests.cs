@@ -64,6 +64,32 @@ namespace Hps.Benchmarks.Tests
             }
         }
 
+        // mixed workload는 legacy protocol runner와 다른 입력 집합을 사용하므로 help에 독립 command line을 노출해야 한다.
+        // 이 줄이 없으면 parser가 지원하는 rate/duration/subscriber 경계를 사용자가 실행 전에 확인할 수 없다.
+        [Fact]
+        public void Main_WhenHelpRequested_PrintsMixedWorkloadUsage()
+        {
+            TextWriter originalOut = Console.Out;
+            using (StringWriter writer = new StringWriter())
+            {
+                try
+                {
+                    Console.SetOut(writer);
+
+                    int exitCode = Program.Main(new[] { "--help" });
+
+                    Assert.Equal(0, exitCode);
+                    Assert.Contains(
+                        "Hps.Benchmarks --mixed-load-open-loop [--backend <saea|rio|iouring>] [--data-rate-hz <100+>] [--duration-seconds <1+>] [--subscribers <1..256>] [--report <path>]",
+                        writer.ToString());
+                }
+                finally
+                {
+                    Console.SetOut(originalOut);
+                }
+            }
+        }
+
         // TCP io_uring benchmark 는 기존 raw report schema 를 유지하되 scenario key 를 별도로 가져야 한다.
         // 이 key 가 SAEA 와 같으면 summary/history 단계에서 backend 별 성능 결과가 섞인다.
         [Fact]

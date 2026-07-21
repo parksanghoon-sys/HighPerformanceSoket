@@ -2,6 +2,16 @@
 
 ## Recent Work
 
+### 2026-07-21 - D243 mixed workload CLI와 Program 연결
+
+- `--mixed-load-open-loop` command와 data rate, duration, subscriber count command-line 모델을 추가했다.
+- mixed parser는 backend/data rate/duration/subscribers/report만 받고 protocol은 값 유무와 관계없이 명시적으로 거부한다.
+- 실행 전에 `MixedWorkloadOptions`를 생성해 입력 범위, count overflow와 128MiB latency 저장 상한을 재사용 검증한다.
+- Program에 runner, schema v2 report writer와 exit 0/1/2 계약을 연결하고 exact help line을 추가했다.
+- focused 50/50, benchmark 220/220과 Release build 경고 0/오류 0을 통과했다.
+- SAEA 1초 CLI smoke에서 data/control 100/100, drop/pending/pool/timeout 0과 schema v2 report를 확인했다.
+- production Broker/Protocol/Transport와 legacy baseline command는 변경하지 않았다.
+
 ### 2026-07-21 - D243 N명 mixed TCP fan-out 구현
 
 - 단일 subscriber 가드를 제거하고 data/control별 socket, pinned buffer, state와 receive task를 `SubscriberCount` 길이의 고정 배열로 확장했다.

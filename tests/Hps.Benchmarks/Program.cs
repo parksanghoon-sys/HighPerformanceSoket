@@ -55,6 +55,16 @@ namespace Hps.Benchmarks
 
                     return CompleteRun(TcpLoopbackScenarioRunner.RunOpenLoopAsync(commandLine.TransportBackend).GetAwaiter().GetResult(), commandLine.ReportPath);
 
+                case BenchmarkCommand.MixedLoadOpenLoop:
+                    return CompleteMixedRun(
+                        TcpMixedWorkloadScenarioRunner.RunAsync(
+                            new MixedWorkloadOptions(
+                                commandLine.MixedDataRateHz,
+                                commandLine.MixedDurationSeconds,
+                                commandLine.MixedSubscriberCount),
+                            commandLine.TransportBackend).GetAwaiter().GetResult(),
+                        commandLine.ReportPath);
+
                 case BenchmarkCommand.BaselineSuite:
                     return CompleteBaselineSuite(commandLine.BaselineOutputDirectory!, commandLine.BaselineRunCount, commandLine.TransportBackend, commandLine.LoopbackProtocol);
 
@@ -115,6 +125,26 @@ namespace Hps.Benchmarks
                 try
                 {
                     TcpLoopbackReportWriter.Write(reportPath, result);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("report-write-error: {0}", ex.Message);
+                    return ReportWriteFailedExitCode;
+                }
+            }
+
+            return result.Passed ? SuccessExitCode : FailedRunExitCode;
+        }
+
+        private static int CompleteMixedRun(MixedWorkloadRunResult result, string? reportPath)
+        {
+            result.Print(Console.Out);
+
+            if (reportPath != null)
+            {
+                try
+                {
+                    MixedWorkloadReportWriter.Write(reportPath, result);
                 }
                 catch (Exception ex)
                 {
@@ -248,6 +278,7 @@ namespace Hps.Benchmarks
             writer.WriteLine("  Hps.Benchmarks --smoke [--protocol <tcp|udp>] [--backend <saea|rio|iouring>] [--report <path>]");
             writer.WriteLine("  Hps.Benchmarks --load [--protocol <tcp|udp>] [--backend <saea|rio|iouring>] [--report <path>]");
             writer.WriteLine("  Hps.Benchmarks --load-open-loop [--protocol <tcp|udp>] [--backend <saea|rio|iouring>] [--report <path>]");
+            writer.WriteLine("  Hps.Benchmarks --mixed-load-open-loop [--backend <saea|rio|iouring>] [--data-rate-hz <100+>] [--duration-seconds <1+>] [--subscribers <1..256>] [--report <path>]");
             writer.WriteLine("  Hps.Benchmarks --baseline-suite <output-dir> [--runs <count>] [--protocol <tcp|udp>] [--backend <saea|rio|iouring>]");
             writer.WriteLine("  Hps.Benchmarks --summarize-baseline <input-dir> --summary <output-json> [--summary-md <output-md>]");
             writer.WriteLine("  Hps.Benchmarks --summarize-baseline-history <baseline-root> --history <output-json> [--history-md <output-md>]");

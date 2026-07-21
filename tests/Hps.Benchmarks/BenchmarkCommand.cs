@@ -7,6 +7,7 @@ namespace Hps.Benchmarks
         Smoke,
         Load,
         LoadOpenLoop,
+        MixedLoadOpenLoop,
         BaselineSuite,
         SummarizeBaseline,
         SummarizeBaselineHistory,
