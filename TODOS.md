@@ -2,7 +2,7 @@
 
 ## Current TODOs
 
-- 현재 즉시 실행 가능한 D243 로컬 항목은 없다. push가 필요한 Linux io_uring 수락은 Deferred Backlog의 `P1_SOON` 항목을 따른다.
+- 현재 즉시 실행 가능한 D243 로컬 항목은 없다. CI 교정 commit push가 필요한 Linux io_uring 수락은 Deferred Backlog의 `P1_SOON` 항목을 따른다.
 
 ## Deferred Backlog
 
@@ -15,15 +15,15 @@
   - 제외: endpoint cache, public `EndPoint` 계약 변경, receive registration reuse, IPv6.
   - 다음 단계: mixed TCP gate가 닫힌 뒤 RIO UDP가 실제 운영 경로인지 재평가한다.
 
-- [ ] `P1_SOON` D241/D243 로컬 commit을 push하고 동일 SHA의 Linux io_uring mixed gate를 실행한다.
-  - 남은 일: 현재 local `master`를 `origin/master`에 push한 뒤 `iouring-benchmark-artifacts.yml`을 `workflow_dispatch`로 실행하고 mixed raw report 3개를 검증한다.
-  - 이유: push는 사용자가 직접 수행하며 현재 로컬 `master`가 원격보다 앞서 있다.
+- [ ] `P1_SOON` Linux CI 범위 교정 commit을 push하고 io_uring mixed gate를 재실행한다.
+  - 남은 일: 현재 local `master`를 `origin/master`에 push한 뒤 `iouring-benchmark-artifacts.yml`을 `workflow_dispatch`로 다시 실행하고 mixed raw report 3개를 검증한다.
+  - 이유: push는 사용자가 직접 수행하며 원격 run `29801941712`에서 발견한 CI 교정이 아직 로컬에만 있다.
   - 목적: 검증된 lifecycle과 mixed workload 구현을 원격에 반영하고 같은 source/workflow SHA에서 io_uring hard gate를 닫는다.
   - 범위: D241 lifecycle, D243 Task 2~8, `.github/workflows/iouring-benchmark-artifacts.yml`, 원격 artifact와 job summary.
-  - 현재 상태: source evidence HEAD `cd1bd820450b9d9dc5f67baef19951af981ea033`은 `origin/master`보다 14커밋 앞선다. Windows SAEA/RIO 각 3회와 SAEA 1,800초 soak는 통과했다.
+  - 현재 상태: run `29801941712`는 SHA `75d81f54edea3930cf0fbffe266c2709acec07a6`을 정확히 checkout했지만 WPF sample을 포함한 solution restore에서 `NETSDK1100`으로 실패했다. benchmark project 단위 restore/build 교정과 회귀 테스트를 로컬에서 완료했다.
   - 확인 계약: checkout SHA 일치, `IOURING_MIXED_EXIT=0`, schema v2 mixed report 3개 pass, 기존 TCP/UDP baseline/summary/history/envelope exit 0, baseline source count 비혼입.
-  - blocker: 현재 commit들이 원격에 없어 workflow가 동일 SHA를 checkout할 수 없다.
-  - 다음 단계: 사용자가 최종 evidence 문서 commit까지 push한 뒤 해당 SHA로 workflow를 실행한다.
+  - blocker: CI 범위 교정 commit이 원격에 없어 workflow를 성공 조건으로 재실행할 수 없다.
+  - 다음 단계: 사용자가 현재 commit을 push한 뒤 해당 SHA로 workflow를 재실행한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
   - 남은 일: RIO TCP/UDP는 IPv4 전용이고 sample `auto`는 non-IPv4에서 SAEA fallback을 사용한다.
@@ -39,14 +39,13 @@
   - 범위: `Hps.Server`, `Hps.Transport`, host/sample code.
   - 다음 단계: 실제 소비자 요구를 먼저 확보한다.
 
-- [ ] `P3_NICE` explicit io_uring workflow의 exact command allow-list test는 필요성이 확인될 때만 추가한다.
-  - 남은 일: Linux workflow의 모든 `dotnet restore/build/test` command를 exact set으로 고정하는 test가 없다.
-  - 이유: D236 gate는 통과했고 현재 결함이 아니라 미래 scope-regression 방지 제안이다.
-  - 목적: workflow scope가 반복적으로 넓어지는 문제가 재발할 때 최소 정적 계약으로 제한한다.
-  - 범위: `BenchmarkArtifactWorkflowTests.cs`.
-  - 다음 단계: 실제 regression 또는 workflow 변경 요구가 생길 때 assertion Red로 시작한다.
-
 ## Completed
+
+- [x] 2026-07-21 io_uring benchmark workflow의 Linux solution 범위 회귀를 TDD로 교정했다.
+  - run `29801941712`에서 SHA 일치 후 WPF sample 때문에 restore가 `NETSDK1100`으로 실패한 원인을 확인했다.
+  - benchmark project 단위 restore/build 요구 assertion이 기존 YAML에서 실패하는 Red를 확인했다.
+  - workflow를 `tests/Hps.Benchmarks/Hps.Benchmarks.csproj`만 restore/build하도록 제한하고 `EnableWindowsTargeting` 우회는 추가하지 않았다.
+  - benchmark build 경고 0/오류 0, benchmark tests 222/222와 solution tests 632/632가 통과했다.
 
 - [x] 2026-07-21 D243 Task 8의 로컬 backend별 mixed workload 수락 evidence를 수집했다.
   - source HEAD `cd1bd820450b9d9dc5f67baef19951af981ea033`에서 solution build 경고 0/오류 0과 tests 631/631을 확인했다.

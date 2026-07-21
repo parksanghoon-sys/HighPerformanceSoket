@@ -26,7 +26,7 @@
 
 ## Active Workflow Decisions
 
-- D243 - 기존 baseline을 보존하고 data/control 분리 TCP connection을 사용하는 독립 mixed workload command/report로 새 운영 목표를 검증한다. Windows SAEA/RIO 100Hz/N=1과 SAEA 1,800초는 수락됐고 pushed-SHA io_uring evidence는 대기 중이다.
+- D243 - 기존 baseline을 보존하고 data/control 분리 TCP connection을 사용하는 독립 mixed workload command/report로 새 운영 목표를 검증한다. Windows SAEA/RIO 100Hz/N=1과 SAEA 1,800초는 수락됐다. 첫 pushed-SHA io_uring run은 Linux solution restore 범위 회귀로 benchmark 전에 실패했으며 project-scoped CI 교정 push와 재실행이 대기 중이다.
 - D013 - 한 cycle은 하나의 coherent work unit과 review stop으로 제한하고 unrelated change를 같은 commit에 섞지 않는다.
 - D239 - Benchmark 실행과 reporting은 raw report JSON 논리 경계를 유지하고 실제 trigger 전에는 project를 분리하지 않는다.
 - 원격 workflow의 green 결과는 artifact/TRX와 failure counter를 직접 확인한 뒤에만 evidence로 수락한다.

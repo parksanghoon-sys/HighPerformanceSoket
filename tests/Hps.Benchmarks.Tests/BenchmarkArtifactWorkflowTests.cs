@@ -209,6 +209,20 @@ namespace Hps.Benchmarks.Tests
             Assert.DoesNotContain("--summarize-baseline-history \"$BENCH_MIXED", workflow);
         }
 
+        // Linux 벤치마크 워크플로는 실행에 필요한 프로젝트만 복원·빌드해야 한다.
+        // 전체 솔루션을 대상으로 삼으면 Windows 전용 WPF 샘플 때문에 Linux에서 NETSDK1100이 발생한다.
+        [Fact]
+        public void IoUringBenchmarkWorkflow_WhenRunOnLinux_RestoresAndBuildsOnlyBenchmarkProject()
+        {
+            string workflow = ReadIoUringBenchmarkArtifactWorkflow();
+
+            Assert.Contains("dotnet restore tests/Hps.Benchmarks/Hps.Benchmarks.csproj", workflow);
+            Assert.Contains("dotnet build tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-restore", workflow);
+            Assert.DoesNotContain("dotnet restore HighPerformanceSocket.slnx", workflow);
+            Assert.DoesNotContain("dotnet build HighPerformanceSocket.slnx", workflow);
+            Assert.DoesNotContain("EnableWindowsTargeting", workflow);
+        }
+
         // Linux contract workflow는 native tests와 실제 sample composition을 함께 빌드하되 solution/WPF로 범위를 넓히면 안 된다.
         // runtime test는 기존 io_uring test project에만 남겨 장기 실행 broker process 없이 backend 계약을 검증한다.
         [Fact]

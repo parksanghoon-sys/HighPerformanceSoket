@@ -2,6 +2,14 @@
 
 ## Recent Work
 
+### 2026-07-21 - io_uring benchmark Linux restore 범위 교정
+
+- pushed SHA `75d81f54edea3930cf0fbffe266c2709acec07a6`로 workflow run `29801941712`를 실행해 checkout SHA 일치를 확인했다.
+- 전체 solution restore가 Windows WPF sample에서 `NETSDK1100`으로 실패해 TCP/UDP/mixed benchmark가 실행되지 않은 원인을 확인했다.
+- benchmark project만 restore/build해야 한다는 assertion Red를 추가하고 workflow 범위를 `tests/Hps.Benchmarks/Hps.Benchmarks.csproj`로 제한했다.
+- benchmark build 경고 0/오류 0, benchmark tests 222/222와 solution tests 632/632가 통과했다.
+- production source는 변경하지 않았으며 교정 commit push 후 같은 workflow의 artifact gate 재실행이 남아 있다.
+
 ### 2026-07-21 - D243 Windows mixed workload 수락 evidence
 
 - source HEAD `cd1bd820450b9d9dc5f67baef19951af981ea033`에서 Release build 경고 0/오류 0과 solution tests 631/631을 통과했다.

@@ -1170,7 +1170,7 @@ dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj -c Release --no-
 
 - [ ] **Step 5: push된 동일 SHA에서 Linux io_uring workflow를 실행한다**
 
-2026-07-21 현재 source evidence HEAD `cd1bd820450b9d9dc5f67baef19951af981ea033`은 `origin/master`보다 14커밋 앞서 있어 동일 SHA workflow를 실행할 수 없다. 사용자가 최종 문서 commit까지 push한 뒤 수행한다.
+2026-07-21 workflow run `29801941712`는 pushed SHA `75d81f54edea3930cf0fbffe266c2709acec07a6`을 정확히 checkout했다. 그러나 전체 solution restore가 Windows WPF sample에서 `NETSDK1100`으로 실패해 benchmark는 실행되지 않았다. benchmark project 단위 restore/build assertion Red를 확인한 뒤 workflow를 교정했으며, 교정 commit push 후 재실행한다.
 
 사용자가 push한 뒤 `.github/workflows/iouring-benchmark-artifacts.yml`을 `workflow_dispatch`로 실행한다. 다음을 직접 확인한다.
 
