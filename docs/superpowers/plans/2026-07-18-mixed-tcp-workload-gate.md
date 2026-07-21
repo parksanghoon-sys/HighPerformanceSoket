@@ -639,7 +639,7 @@ Review stop: synthetic gate와 report 격리만 보고하고 runner를 시작하
 - Produces internal test seam: `CalculateSubscriberLatency(long[] latencyTicks, int count, long[] scratch)`와 `AggregateSubscriberLatencies(SubscriberLatencySummary[] summaries)`.
 - Temporary boundary: 이 Task에서는 `SubscriberCount != 1`을 `NotSupportedException`으로 거부한다. CLI는 아직 노출하지 않는다.
 
-- [ ] **Step 1: runner type/method 부재 assertion Red를 작성한다**
+- [x] **Step 1: runner type/method 부재 assertion Red를 작성한다**
 
 ```csharp
 [Fact]
@@ -657,7 +657,7 @@ public void Contract_TcpMixedWorkloadScenarioRunnerExposesRunAsync()
 
 Expected: type null assertion failure.
 
-- [ ] **Step 2: runner shell과 SAEA 1초 integration Red를 만든다**
+- [x] **Step 2: runner shell과 SAEA 1초 integration Red를 만든다**
 
 shell은 `RunAsync`에서 `Task.FromException<MixedWorkloadRunResult>(new NotImplementedException())`를 반환해 shape test를 Green으로 만든다. 이어 다음 integration test가 `NotImplementedException`으로 실패하는 것을 확인한다.
 
@@ -692,7 +692,7 @@ public async Task RunAsync_WhenOneSubscriberUsesSaea_DeliversBothStreamsWithoutD
 
 integration test는 scheduler noise 때문에 `result.Passed`나 latency budget을 단언하지 않는다. latency gate 계산은 Task 3의 deterministic test가 담당하고 실제 threshold는 Task 8 explicit run에서 판정한다.
 
-- [ ] **Step 3: topology와 buffer ownership을 최소 Green으로 구현한다**
+- [x] **Step 3: topology와 buffer ownership을 최소 Green으로 구현한다**
 
 runner의 고정 wire 값은 다음이다.
 
@@ -727,9 +727,9 @@ setup 순서는 고정한다.
 
 `CreateTransport`는 기존 TCP/UDP runner의 backend/capability 조건을 그대로 복제한다. 이번 Task에서 기존 runner 두 파일을 리팩터링하거나 공용 factory를 추가하지 않는다. 세 번째 사용이 생겼지만 backend 선택 code는 짧고 안정적이며, 기존 baseline 파일을 건드리는 것보다 D243 범위가 작다.
 
-- [ ] **Step 4: per-message allocation 없는 frame send/receive를 구현한다**
+- [x] **Step 4: per-message allocation 없는 frame send/receive를 구현한다**
 
-private method signature를 다음으로 고정한다.
+setup frame helper signature를 다음으로 고정한다.
 
 ```csharp
 private static int PreparePublisherFrame(
@@ -751,23 +751,16 @@ private static async ValueTask SendAllAsync(
     byte[] buffer,
     int length,
     CancellationToken cancellationToken);
-
-private static async ValueTask ReceiveExactAsync(
-    Socket socket,
-    byte[] buffer,
-    int offset,
-    int length,
-    CancellationToken cancellationToken);
 ```
 
 - `PreparePublisherFrame`은 첫 4B에 command payload 길이를 big-endian으로 쓰고 뒤에 `PUBLISH <topic> ` ASCII bytes를 destination block에 직접 쓴다.
 - `UpdatePublisherPayload`는 timestamp, sequence, marker와 `(sequence + payloadIndex) & 0xFF` pattern을 payload 영역에 쓴다.
-- `SendAllAsync`는 `Socket.SendAsync(ReadOnlyMemory<byte>, SocketFlags.None, token)`의 partial send를 loop한다.
-- `ReceiveExactAsync`는 `Socket.ReceiveAsync(Memory<byte>, SocketFlags.None, token)`의 partial receive를 loop하며 0이면 connection closed failure로 처리한다.
-- receive loop는 4B header를 같은 buffer 앞에 읽고 length 검증 후 payload를 같은 block 앞에서 다시 읽는다.
+- setup의 `SendAllAsync`는 `Socket.SendAsync(ReadOnlyMemory<byte>, SocketFlags.None, token)`의 partial send를 loop한다.
+- publisher/subscriber 장수명 task 안에서 partial send/receive loop를 직접 수행한다. per-message 보조 async state machine은 같은 process의 tail latency에 GC jitter를 넣으므로 만들지 않는다.
+- receive task는 4B header를 같은 buffer 앞에 읽고 length 검증 후 payload를 같은 block 앞에서 다시 읽는다.
 - `ArraySegment<byte>` task overload, per-frame timeout task, per-message byte array는 사용하지 않는다.
 
-- [ ] **Step 5: 공통 시작과 독립 absolute pacing을 구현한다**
+- [x] **Step 5: 공통 시작과 독립 absolute pacing을 구현한다**
 
 두 publisher는 같은 `startTickTask`를 기다린다. 각 publisher의 target tick은 다음 식을 사용한다.
 
@@ -775,9 +768,9 @@ private static async ValueTask ReceiveExactAsync(
 long targetTick = startTick + ((long)messageIndex * Stopwatch.Frequency / rateHz);
 ```
 
-remaining time이 2ms 이상이면 `Task.Delay(remainingMilliseconds - 1, token)`, 그 이하면 `Task.Yield()`로 target까지 접근한다. publisher는 첫 `SendAllAsync` 완료 직후 tick과 마지막 `SendAllAsync` 완료 직후 tick을 기록한다. result는 두 completion 사이 `sent - 1`개 간격으로 actual rate를 계산한다. data와 control pacing state를 공유하지 않는다.
+publisher별 `AbsoluteDeadlineWaiter`는 `Timer`와 `ManualResetValueTaskSourceCore<bool>`를 한 번만 만들고 각 target tick의 남은 절대 시간으로 같은 timer를 재무장한다. publisher별 주기 timer 생성 시점을 기준으로 삼지 않으므로 data/control은 공통 start의 같은 monotonic 시간축을 유지한다. publisher는 첫 send 완료 직후 tick과 마지막 send 완료 직후 tick을 기록한다. result는 두 completion 사이 `sent - 1`개 간격으로 actual rate를 계산한다. data와 control waiter 상태는 공유하지 않는다.
 
-- [ ] **Step 6: subscriber 검증과 percentile 집계를 구현한다**
+- [x] **Step 6: subscriber 검증과 percentile 집계를 구현한다**
 
 subscriber state는 계획 수 길이의 `long[] LatencyTicks`, `Received`, `SequenceErrors`, `PayloadErrors`, `TimedOut`만 가진다. runner는 두 stream에서 순차 재사용하는 최대 계획 수 길이의 `long[] percentileScratch` 하나를 별도로 가진다.
 
@@ -786,19 +779,19 @@ subscriber state는 계획 수 길이의 `long[] LatencyTicks`, `Received`, `Seq
 - frame length가 stream payload 길이와 다르면 payload error를 증가시키고 안전하게 종료한다.
 - embedded sequence가 현재 receive index와 다르면 sequence error를 증가시킨다.
 - marker와 pattern이 다르면 payload error를 증가시킨다.
-- timestamp가 0보다 크면 `Stopwatch.GetTimestamp() - embeddedTimestamp`를 저장한다.
+- timestamp가 0보다 크고 수신 시각보다 미래가 아니면 차이를 저장한다. 0 또는 미래 timestamp는 latency 0으로 보정하지 않고 payload error로 판정한다.
 - p50/p99/p999는 subscriber의 유효 latency를 `percentileScratch`에 복사해 sort한 뒤 `ceil(count * percentile) - 1` index를 사용한다.
 - first/second-half p99도 sequence 기준 앞/뒤 절반을 같은 scratch에 순차 복사해 계산한다. 별도 aggregate/half 배열을 만들지 않는다.
 
 Task 4에서는 subscriber state가 stream당 하나이므로 min/max는 해당 `Received`다. delivery failed count는 count/order/payload 중 하나라도 실패하면 1이고, latency failed count는 해당 subscriber의 p99 또는 p999가 예산을 넘으면 1이다. stream latency 값은 그 subscriber의 값이다.
 
-- [ ] **Step 7: timeout과 cleanup 결과를 반환 가능한 failure로 만든다**
+- [x] **Step 7: timeout과 cleanup 결과를 반환 가능한 failure로 만든다**
 
 run 전체에 `duration + DrainTimeoutSeconds + SetupTimeoutSeconds` 단일 `CancellationTokenSource.CancelAfter`를 둔다. setup/drain/receive가 timeout이면 `TimeoutCount`를 증가시키고 partial count로 failed result를 만든다. 예상하지 못한 programming/configuration exception은 숨기지 않고 throw한다.
 
 `finally`는 socket dispose, idempotent `server.StopAsync`, client buffer Return을 수행한다. 주입 pool leak가 남으면 result에 실제 count를 기록하며 임의 retry나 GC를 호출하지 않는다.
 
-- [ ] **Step 8: focused와 benchmark 전체를 Green으로 확인하고 commit한다**
+- [x] **Step 8: focused와 benchmark 전체를 Green으로 확인하고 commit한다**
 
 Run:
 

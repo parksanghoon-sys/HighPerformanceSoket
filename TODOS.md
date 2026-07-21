@@ -2,12 +2,12 @@
 
 ## Current TODOs
 
-- [ ] D243 Task 3 stream/global gate와 typed report 구현 review stop을 사용자 검토로 확정한다.
-  - 범위: mixed stream/run result, `N - 1` rate, worst-subscriber latency, global zero gate, schema v2 writer와 backend identity.
-  - 구현: `tests/Hps.Benchmarks/MixedWorkload*Result.cs`, `MixedWorkloadReportWriter.cs`, `BenchmarkRunIdentity.cs`와 대응 tests.
-  - 검증: focused 56/56, benchmark 189/189, solution 599/599, Release build 경고 0/오류 0.
-  - 유지: socket, payload/latency 배열, runner, CLI와 production 계층은 이번 단위에 포함하지 않았다.
-  - 다음 단계: 사용자 승인 뒤에만 plan Task 4 단일 논리 구독자 mixed TCP runner TDD를 시작한다.
+- [ ] D243 Task 4 단일 논리 구독자 mixed TCP runner 구현 review stop을 사용자 검토로 확정한다.
+  - 범위: data/control TCP connection 4개, pinned client buffer 재사용, 공통 absolute pacing, exact delivery/latency와 timeout/cleanup 결과.
+  - 구현: `tests/Hps.Benchmarks/TcpMixedWorkloadScenarioRunner.cs`와 대응 tests.
+  - 검증: focused 12/12, benchmark 201/201, solution 611/611, Release build 경고 0/오류 0과 SAEA 1초 integration 5회 연속 통과.
+  - 유지: subscriber 2명 이상은 `NotSupportedException`으로 거부하고 CLI, production Broker/Protocol/Transport는 변경하지 않았다.
+  - 다음 단계: 사용자 승인 뒤에만 plan Task 5 N명 fan-out exact delivery TDD를 시작한다.
 
 ## Deferred Backlog
 
@@ -51,6 +51,14 @@
 
 ## Completed
 
+- [x] 2026-07-21 D243 Task 4 단일 subscriber mixed TCP runner를 TDD로 구현했다.
+  - runner/latency/timestamp/pacing seam 부재 assertion Red와 SAEA integration `NotImplementedException` Red를 순서대로 확인했다.
+  - data/control은 별도 subscriber/publisher 연결과 pinned block을 사용하고 공통 start tick의 absolute deadline으로 동시에 진행한다.
+  - 독립 리뷰의 timestamp 무결성, per-message async 할당과 주기 timer 위상 finding을 반영해 payload error와 reusable absolute deadline waiter를 구현했다.
+  - partial send/receive는 publisher/subscriber 장수명 task 안에서 처리하며 cleanup은 모든 시작 task 종료 뒤 client block을 반환한다.
+  - focused 12/12, benchmark 201/201, solution 611/611, Release build 경고 0/오류 0과 1초 SAEA integration 5회 연속 통과를 확인했다.
+- [x] 2026-07-21 D243 Task 3 result/report 구현 review stop을 사용자 진행 승인으로 닫았다.
+  - 승인에 따라 다음 단일 구현 범위를 Task 4 단일 subscriber runner로 열었고 fan-out, CLI와 production 계층은 제외했다.
 - [x] 2026-07-21 D243 Task 3 stream/global hard gate와 typed mixed report를 TDD로 구현했다.
   - stream/run과 writer, mixed identity type 부재를 reflection assertion Red로 각각 확인한 뒤 shape와 behavior를 단계적으로 구현했다.
   - actual rate는 첫/마지막 completion 사이 `N - 1` interval을 사용하고 subscriber별 최악 p99/p999와 실패 subscriber 수를 판정한다.

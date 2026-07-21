@@ -2,6 +2,16 @@
 
 ## Recent Work
 
+### 2026-07-21 - D243 단일 subscriber mixed TCP runner 구현
+
+- data/control별 subscriber/publisher TCP connection 4개와 16KiB pinned client block 4개를 사용하는 독립 mixed runner를 구현했다.
+- 두 publisher는 공통 start tick의 absolute schedule을 사용하고, reusable timer/value-task source로 per-message pacing allocation과 publisher별 timer 위상 오차를 제거했다.
+- subscriber는 장수명 receive task와 같은 pinned block으로 partial header/payload를 읽고 sequence, marker, pattern, timestamp와 latency를 검증한다.
+- timeout과 예상 밖 task 실패 모두 시작된 I/O task 종료를 관측한 뒤 socket, server와 client block을 정리하며 pool/pending/drop 결과를 보존한다.
+- 독립 리뷰의 timestamp 손상 통과, per-message async 상태 머신, 주기 timer 위상과 canceled fast-path finding을 모두 해소했다.
+- focused 12/12, benchmark 201/201, solution 611/611, SAEA 1초 integration 5회 연속 통과와 Release build 경고 0/오류 0을 확인했다.
+- subscriber 2명 이상은 아직 거부하며 fan-out, CLI와 production Broker/Protocol/Transport는 변경하지 않았다.
+
 ### 2026-07-21 - D243 mixed workload result/report hard gate 구현
 
 - `MixedWorkloadStreamResult`에 subscriber별 exact delivery, `(sent - 1)` actual rate와 worst-subscriber p99/p999 hard gate를 구현했다.
