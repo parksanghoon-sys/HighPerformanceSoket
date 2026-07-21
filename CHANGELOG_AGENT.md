@@ -2,6 +2,15 @@
 
 ## Recent Work
 
+### 2026-07-21 - D243 Linux io_uring mixed artifact workflow
+
+- io_uring artifact workflow에 mixed 전용 runner/date/session root를 추가했다.
+- 100Hz, 30초, subscriber 1 mixed command를 3회 실행해 독립 schema v2 raw report를 수집한다.
+- 한 실행이 실패해도 나머지 report를 수집하고 누적 `IOURING_MIXED_EXIT`를 summary와 final gate에 연결했다.
+- 기존 TCP/UDP baseline summary/history/envelope 입력에는 mixed root를 사용하지 않는다.
+- root 부재 assertion Red 뒤 workflow focused 9/9, benchmark 221/221과 diff check를 통과했다.
+- production Broker/Protocol/Transport와 legacy benchmark command는 변경하지 않았다.
+
 ### 2026-07-21 - D243 mixed workload CLI와 Program 연결
 
 - `--mixed-load-open-loop` command와 data rate, duration, subscriber count command-line 모델을 추가했다.

@@ -34,22 +34,28 @@ jobs:
           bench_root="${runner_root}"
           tcp_root="${runner_root}/tcp"
           udp_root="${runner_root}/udp"
+          mixed_root="${runner_root}/mixed"
           tcp_date_root="${tcp_root}/${date_root_name}"
           udp_date_root="${udp_root}/${date_root_name}"
+          mixed_date_root="${mixed_root}/${date_root_name}"
           tcp_session_dir="${tcp_date_root}/session-01"
           udp_session_dir="${udp_date_root}/session-01"
+          mixed_session_dir="${mixed_date_root}/session-01"
           artifact_name="iouring-benchmark-artifacts-${date_root_name}-github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
-          mkdir -p "$tcp_session_dir" "$udp_session_dir"
+          mkdir -p "$tcp_session_dir" "$udp_session_dir" "$mixed_session_dir"
 
           {
             echo "BENCH_ROOT=$bench_root"
             echo "BENCH_TCP_ROOT=$tcp_root"
             echo "BENCH_UDP_ROOT=$udp_root"
+            echo "BENCH_MIXED_ROOT=$mixed_root"
             echo "BENCH_TCP_DATE_ROOT=$tcp_date_root"
             echo "BENCH_UDP_DATE_ROOT=$udp_date_root"
+            echo "BENCH_MIXED_DATE_ROOT=$mixed_date_root"
             echo "BENCH_TCP_SESSION_DIR=$tcp_session_dir"
             echo "BENCH_UDP_SESSION_DIR=$udp_session_dir"
+            echo "BENCH_MIXED_SESSION_DIR=$mixed_session_dir"
             echo "BENCH_DATE_ROOT_NAME=$date_root_name"
             echo "BENCH_ARTIFACT_NAME=$artifact_name"
           } >> "$GITHUB_ENV"
@@ -179,6 +185,23 @@ jobs:
           fi
           exit 0
 
+      - name: Run io_uring mixed workload gate
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mixed_exit=0
+          for run in 01 02 03; do
+            dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --mixed-load-open-loop --backend iouring --data-rate-hz 100 --duration-seconds 30 --subscribers 1 --report "$BENCH_MIXED_SESSION_DIR/mixed-${run}.json"
+            exit_code=$?
+            if [ "$exit_code" != "0" ]; then
+              mixed_exit=1
+              echo "io_uring mixed workload run ${run} exited with $exit_code; continuing to collect remaining raw reports."
+            fi
+          done
+          echo "IOURING_MIXED_EXIT=$mixed_exit" >> "$GITHUB_ENV"
+          exit 0
+
       - name: Write io_uring benchmark summary
         if: always()
         shell: bash
@@ -192,9 +215,12 @@ jobs:
             echo "- Runner kind: ${HPS_BENCHMARK_RUNNER_KIND}"
             echo "- Backend: iouring"
             echo "- Runs per protocol: 3"
+            echo "- Mixed profile: data 10240B x 100Hz, control 2560B x 100Hz, subscribers 1"
+            echo "- Mixed report count: 3"
             echo "- Date: ${BENCH_DATE_ROOT_NAME:-unknown}"
             echo "- TCP date root: tcp/${BENCH_DATE_ROOT_NAME:-unknown}/"
             echo "- UDP date root: udp/${BENCH_DATE_ROOT_NAME:-unknown}/"
+            echo "- Mixed date root: mixed/${BENCH_DATE_ROOT_NAME:-unknown}/"
             echo "- TCP baseline exit: ${IOURING_TCP_BASELINE_EXIT:-not-run}"
             echo "- TCP summary exit: ${IOURING_TCP_SUMMARY_EXIT:-not-run}"
             echo "- TCP history exit: ${IOURING_TCP_HISTORY_EXIT:-not-run}"
@@ -203,8 +229,9 @@ jobs:
             echo "- UDP summary exit: ${IOURING_UDP_SUMMARY_EXIT:-not-run}"
             echo "- UDP history exit: ${IOURING_UDP_HISTORY_EXIT:-not-run}"
             echo "- UDP envelope exit: ${IOURING_UDP_ENVELOPE_EXIT:-not-run}"
+            echo "- Mixed hard gate exit: ${IOURING_MIXED_EXIT:-not-run}"
             echo
-            echo "This workflow is evidence-only. Latency and warning values are report data, not hard gates."
+            echo "Legacy TCP/UDP baseline latency and warning values are report-only. Mixed workload delivery, latency, resource and timeout limits are command hard gates."
           } > "$BENCH_ROOT/summary.md"
 
       - name: Upload io_uring benchmark artifacts
@@ -229,11 +256,12 @@ jobs:
             "${IOURING_UDP_SUMMARY_EXIT:-1}"
             "${IOURING_UDP_HISTORY_EXIT:-1}"
             "${IOURING_UDP_ENVELOPE_EXIT:-1}"
+            "${IOURING_MIXED_EXIT:-1}"
           )
 
           for exit_code in "${exit_codes[@]}"; do
             if [ "$exit_code" != "0" ]; then
-              echo "io_uring benchmark artifact generation completed with non-zero exit code; tcp-baseline=${IOURING_TCP_BASELINE_EXIT:-not-run} tcp-summary=${IOURING_TCP_SUMMARY_EXIT:-not-run} tcp-history=${IOURING_TCP_HISTORY_EXIT:-not-run} tcp-envelope=${IOURING_TCP_ENVELOPE_EXIT:-not-run} udp-baseline=${IOURING_UDP_BASELINE_EXIT:-not-run} udp-summary=${IOURING_UDP_SUMMARY_EXIT:-not-run} udp-history=${IOURING_UDP_HISTORY_EXIT:-not-run} udp-envelope=${IOURING_UDP_ENVELOPE_EXIT:-not-run}"
+              echo "io_uring benchmark artifact generation completed with non-zero exit code; tcp-baseline=${IOURING_TCP_BASELINE_EXIT:-not-run} tcp-summary=${IOURING_TCP_SUMMARY_EXIT:-not-run} tcp-history=${IOURING_TCP_HISTORY_EXIT:-not-run} tcp-envelope=${IOURING_TCP_ENVELOPE_EXIT:-not-run} udp-baseline=${IOURING_UDP_BASELINE_EXIT:-not-run} udp-summary=${IOURING_UDP_SUMMARY_EXIT:-not-run} udp-history=${IOURING_UDP_HISTORY_EXIT:-not-run} udp-envelope=${IOURING_UDP_ENVELOPE_EXIT:-not-run} mixed=${IOURING_MIXED_EXIT:-not-run}"
               exit 1
             fi
           done

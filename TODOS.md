@@ -2,12 +2,12 @@
 
 ## Current TODOs
 
-- [ ] D243 Task 7 Linux io_uring workflow에 mixed workload artifact gate를 TDD로 추가한다.
-  - 범위: `.github/workflows/iouring-benchmark-artifacts.yml`, workflow source contract tests와 상태 문서.
-  - 계약: mixed 전용 root/date/session 경로에 30초 report 3개를 독립 수집하고 누적 exit를 final gate에 포함한다.
-  - 검증: workflow focused test, benchmark 전체와 `git diff --check`.
-  - 유지: mixed report를 기존 TCP/UDP baseline summary/history/envelope 입력 root에 섞지 않는다.
-  - 다음 단계: Task 7 독립 review와 commit 뒤 Task 8 로컬 SAEA/RIO 반복 및 soak evidence로 진행한다.
+- [ ] D243 Task 8 backend별 mixed workload 수락 evidence를 수집한다.
+  - 범위: solution Release build/test, Windows SAEA/RIO 30초 각 3회, 배포 우선 backend 1,800초 soak와 raw report 검증.
+  - 계약: 모든 실행은 exact delivery, latency, drop/pending/pool/timeout hard gate를 통과해야 하며 unavailable native backend는 성공이 아니라 blocker다.
+  - 원격: push된 동일 SHA의 Linux io_uring workflow만 evidence로 인정하며 이 cycle에서는 push하지 않는다.
+  - 운영 입력: 환경 변수가 없으면 별도 fan-out run을 생략하고 100Hz/N=1 범위만 수락한다.
+  - 유지: raw artifact는 ignored 경로에 두고 production 결함 증거가 없는 한 production 소스를 변경하지 않는다.
 
 ## Deferred Backlog
 
@@ -51,6 +51,12 @@
 
 ## Completed
 
+- [x] 2026-07-21 D243 Task 7 Linux io_uring workflow에 mixed workload artifact gate를 TDD로 추가했다.
+  - mixed root 부재 assertion Red를 확인한 뒤 runner/date/session 전용 경로를 추가했다.
+  - io_uring 100Hz, 30초, subscriber 1 실행을 3회 독립 report로 수집하고 실행 실패 후에도 나머지 raw report를 계속 수집한다.
+  - 누적 `IOURING_MIXED_EXIT`를 summary와 기존 final failure gate에 포함했다.
+  - mixed report는 TCP/UDP baseline summary/history/envelope 입력 root와 분리했다.
+  - workflow focused 9/9, benchmark 전체 221/221과 `git diff --check`를 통과했다.
 - [x] 2026-07-21 D243 Task 6 mixed workload CLI와 Program 연결을 TDD로 구현했다.
   - command/property reflection assertion과 parser/help behavior assertion Red를 확인한 뒤 mixed 전용 입력 경로를 추가했다.
   - backend, data rate, duration, subscribers와 report만 허용하고 protocol은 값 유무와 관계없이 전용 usage error로 거부한다.

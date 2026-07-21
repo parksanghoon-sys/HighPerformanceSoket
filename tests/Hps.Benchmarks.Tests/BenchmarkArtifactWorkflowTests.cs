@@ -160,6 +160,55 @@ namespace Hps.Benchmarks.Tests
             Assert.DoesNotContain("udp_root=\"${bench_root}/udp\"", workflow);
         }
 
+        // mixed report는 schema v2 hard gate이므로 legacy TCP/UDP baseline aggregate와 별도 root에 보존한다.
+        // 세 실행 중 하나가 실패해도 나머지 raw report를 수집하고 마지막 gate에서 누적 실패를 반환해야 한다.
+        [Fact]
+        public void IoUringBenchmarkWorkflow_WhenMixedGateRuns_WritesThreeIndependentMixedReports()
+        {
+            string workflow = ReadIoUringBenchmarkArtifactWorkflow();
+            int udpEnvelopeIndex = workflow.IndexOf("name: Write UDP io_uring envelope comparison", StringComparison.Ordinal);
+            int mixedGateIndex = workflow.IndexOf("name: Run io_uring mixed workload gate", StringComparison.Ordinal);
+            int summaryIndex = workflow.IndexOf("name: Write io_uring benchmark summary", StringComparison.Ordinal);
+
+            Assert.True(mixedGateIndex > udpEnvelopeIndex);
+            Assert.True(summaryIndex > mixedGateIndex);
+
+            string mixedGate = workflow.Substring(mixedGateIndex, summaryIndex - mixedGateIndex);
+            string mixedCommand = "dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --mixed-load-open-loop --backend iouring --data-rate-hz 100 --duration-seconds 30 --subscribers 1 --report \"$BENCH_MIXED_SESSION_DIR/mixed-${run}.json\"";
+            int initializeIndex = mixedGate.IndexOf("mixed_exit=0", StringComparison.Ordinal);
+            int loopIndex = mixedGate.IndexOf("for run in 01 02 03", StringComparison.Ordinal);
+            int commandIndex = mixedGate.IndexOf(mixedCommand, StringComparison.Ordinal);
+            int failureIndex = mixedGate.IndexOf("mixed_exit=1", StringComparison.Ordinal);
+            int exportIndex = mixedGate.IndexOf("IOURING_MIXED_EXIT=$mixed_exit", StringComparison.Ordinal);
+            int continueIndex = mixedGate.IndexOf("exit 0", StringComparison.Ordinal);
+
+            Assert.True(initializeIndex >= 0);
+            Assert.True(loopIndex > initializeIndex);
+            Assert.True(commandIndex > loopIndex);
+            Assert.True(failureIndex > commandIndex);
+            Assert.True(exportIndex > failureIndex);
+            Assert.True(continueIndex > exportIndex);
+
+            Assert.Contains("mixed_root=\"${runner_root}/mixed\"", workflow);
+            Assert.Contains("mixed_date_root=\"${mixed_root}/${date_root_name}\"", workflow);
+            Assert.Contains("mixed_session_dir=\"${mixed_date_root}/session-01\"", workflow);
+            Assert.Contains("BENCH_MIXED_ROOT=$mixed_root", workflow);
+            Assert.Contains("BENCH_MIXED_DATE_ROOT=$mixed_date_root", workflow);
+            Assert.Contains("BENCH_MIXED_SESSION_DIR=$mixed_session_dir", workflow);
+            Assert.Contains("for run in 01 02 03", mixedGate);
+            Assert.Contains(mixedCommand, mixedGate);
+            Assert.Contains("mixed_exit=1", mixedGate);
+            Assert.Contains("continuing to collect remaining raw reports", mixedGate);
+            Assert.Contains("IOURING_MIXED_EXIT=$mixed_exit", mixedGate);
+            Assert.Contains("exit 0", mixedGate);
+            Assert.DoesNotContain("exit 1", mixedGate);
+            Assert.Contains("\"${IOURING_MIXED_EXIT:-1}\"", workflow);
+            Assert.Contains("- Mixed report count: 3", workflow);
+            Assert.Contains("- Mixed hard gate exit: ${IOURING_MIXED_EXIT:-not-run}", workflow);
+            Assert.DoesNotContain("--summarize-baseline \"$BENCH_MIXED", workflow);
+            Assert.DoesNotContain("--summarize-baseline-history \"$BENCH_MIXED", workflow);
+        }
+
         // Linux contract workflow는 native tests와 실제 sample composition을 함께 빌드하되 solution/WPF로 범위를 넓히면 안 된다.
         // runtime test는 기존 io_uring test project에만 남겨 장기 실행 broker process 없이 backend 계약을 검증한다.
         [Fact]

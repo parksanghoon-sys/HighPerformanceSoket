@@ -1057,7 +1057,7 @@ Review stop: CLI/report smoke까지 보고하고 workflow를 시작하지 않는
 - Produces artifact path: `mixed/<yyyy-mm-dd>/session-01/mixed-01.json`부터 `mixed-03.json`.
 - Produces environment: `BENCH_MIXED_ROOT`, `BENCH_MIXED_DATE_ROOT`, `BENCH_MIXED_SESSION_DIR`.
 
-- [ ] **Step 1: workflow contract assertion Red를 추가한다**
+- [x] **Step 1: workflow contract assertion Red를 추가한다**
 
 ```csharp
 [Fact]
@@ -1077,7 +1077,7 @@ public void IoUringBenchmarkWorkflow_WhenMixedGateRuns_WritesThreeIndependentMix
 
 Expected: 첫 path assertion failure.
 
-- [ ] **Step 2: artifact path와 3회 hard gate step을 Green으로 추가한다**
+- [x] **Step 2: artifact path와 3회 hard gate step을 Green으로 추가한다**
 
 prepare step에 `mixed_root`, `mixed_date_root`, `mixed_session_dir`을 추가하고 directory를 만든다.
 
@@ -1097,7 +1097,7 @@ dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-
 
 기존 TCP/UDP baseline summary/history/envelope 입력 root에는 mixed directory를 넣지 않는다. summary 마지막 문구는 “legacy baseline latency는 report-only이고 mixed latency는 command hard gate”로 구분한다.
 
-- [ ] **Step 3: focused와 benchmark 전체를 Green으로 확인하고 commit한다**
+- [x] **Step 3: focused와 benchmark 전체를 Green으로 확인하고 commit한다**
 
 Run:
 
