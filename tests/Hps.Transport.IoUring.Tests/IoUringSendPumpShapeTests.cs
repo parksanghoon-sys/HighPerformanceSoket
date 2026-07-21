@@ -40,6 +40,43 @@ namespace Hps.Transport.IoUring.Tests
             }
         }
 
+        // recv SQE도 connection close 뒤 CQE를 받은 다음 pinned block과 context를 반환해야 한다.
+        // StopAsync가 receive pump를 기다리지 않으면 completion loop/queue가 먼저 닫혀 resource cleanup이 영원히 끝나지 않는다.
+        [Fact]
+        public async Task StopAsync_WhenTcpReceivePumpTaskIsTracked_WaitsForTaskCompletion()
+        {
+            using (IoUringTransport transport = new IoUringTransport())
+            {
+                TaskCompletionSource<bool> receivePumpCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                TrackConnectionReceivePumpTask(transport, receivePumpCompletion.Task);
+
+                Task stopTask = transport.StopAsync().AsTask();
+                Assert.False(stopTask.IsCompleted);
+
+                receivePumpCompletion.SetResult(true);
+                await stopTask;
+            }
+        }
+
+        // io_uring pending request는 socket close만으로 취소되지 않으므로 resource Dispose가 cancel SQE를 먼저 제출해야 한다.
+        // helper만 존재하고 shutdown path에서 호출하지 않는 불완전 구현을 IL call 검증으로 막는다.
+        [Fact]
+        public void TcpConnectionResourceDispose_WhenInspected_CallsPendingOperationCancelHelper()
+        {
+            MethodInfo? disposeMethod = typeof(IoUringTcpConnectionResource).GetMethod(
+                "Dispose",
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo? cancelMethod = typeof(IoUringTcpConnectionResource).GetMethod(
+                "CancelPendingOperations",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(disposeMethod);
+            Assert.NotNull(cancelMethod);
+            Assert.True(
+                ContainsCall(disposeMethod!, cancelMethod!),
+                "IoUringTcpConnectionResource.Dispose가 pending operation cancel helper를 호출해야 합니다.");
+        }
+
         // D210처럼 production path를 바로 fixed write로 바꾸지 않고,
         // registered buffer lookup 기반 WRITE_FIXED helper shape만 먼저 고정한다.
         [Fact]
@@ -113,6 +150,16 @@ namespace Hps.Transport.IoUring.Tests
         {
             MethodInfo? method = typeof(IoUringTransport).GetMethod(
                 "TrackConnectionSendPumpTask",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(method);
+
+            method!.Invoke(transport, new object[] { task });
+        }
+
+        private static void TrackConnectionReceivePumpTask(IoUringTransport transport, Task task)
+        {
+            MethodInfo? method = typeof(IoUringTransport).GetMethod(
+                "TrackConnectionReceivePumpTask",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.NotNull(method);
 

@@ -174,7 +174,7 @@ namespace Hps.Benchmarks.Tests
             Assert.True(summaryIndex > mixedGateIndex);
 
             string mixedGate = workflow.Substring(mixedGateIndex, summaryIndex - mixedGateIndex);
-            string mixedCommand = "dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --mixed-load-open-loop --backend iouring --data-rate-hz 100 --duration-seconds 30 --subscribers 1 --report \"$BENCH_MIXED_SESSION_DIR/mixed-${run}.json\"";
+            string mixedCommand = "timeout --signal=TERM --kill-after=10s 1m dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --mixed-load-open-loop --backend iouring --data-rate-hz 100 --duration-seconds 30 --subscribers 1 --report \"$BENCH_MIXED_SESSION_DIR/mixed-${run}.json\"";
             int initializeIndex = mixedGate.IndexOf("mixed_exit=0", StringComparison.Ordinal);
             int loopIndex = mixedGate.IndexOf("for run in 01 02 03", StringComparison.Ordinal);
             int commandIndex = mixedGate.IndexOf(mixedCommand, StringComparison.Ordinal);
@@ -221,6 +221,24 @@ namespace Hps.Benchmarks.Tests
             Assert.DoesNotContain("dotnet restore HighPerformanceSocket.slnx", workflow);
             Assert.DoesNotContain("dotnet build HighPerformanceSocket.slnx", workflow);
             Assert.DoesNotContain("EnableWindowsTargeting", workflow);
+        }
+
+        // native benchmark가 lifecycle 결함으로 멈춰도 job 전체 40분 timeout까지 기다리면 raw evidence 회수가 늦어진다.
+        // suite와 개별 mixed run에 현실적인 상한을 두고 기존 exit-code 누적 경로로 timeout 실패를 전달해야 한다.
+        [Fact]
+        public void IoUringBenchmarkWorkflow_WhenNativeCommandHangs_UsesPerCommandWatchdogs()
+        {
+            string workflow = ReadIoUringBenchmarkArtifactWorkflow();
+
+            Assert.Contains(
+                "timeout --signal=TERM --kill-after=10s 4m dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite \"$BENCH_TCP_SESSION_DIR\" --runs 3 --protocol tcp --backend iouring",
+                workflow);
+            Assert.Contains(
+                "timeout --signal=TERM --kill-after=10s 4m dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite \"$BENCH_UDP_SESSION_DIR\" --runs 3 --protocol udp --backend iouring",
+                workflow);
+            Assert.Contains(
+                "timeout --signal=TERM --kill-after=10s 1m dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --mixed-load-open-loop",
+                workflow);
         }
 
         // Linux contract workflow는 native tests와 실제 sample composition을 함께 빌드하되 solution/WPF로 범위를 넓히면 안 된다.

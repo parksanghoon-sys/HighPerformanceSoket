@@ -100,6 +100,12 @@ namespace Hps.Transport
             }
         }
 
+        internal bool TryGetQueue(out IoUringQueue? queue)
+        {
+            queue = _queue;
+            return queue != null;
+        }
+
         internal Task RunOnceForTestsAsync()
         {
             return DrainAvailableCompletionsAsync(CancellationToken.None);
@@ -113,6 +119,11 @@ namespace Hps.Transport
         internal void DispatchCompletion(IoUringCompletion completion)
         {
             ThrowIfDisposed();
+
+            // operation registry는 0을 발급하지 않는다. 이 값은 ASYNC_CANCEL 요청 자체의 CQE에만 사용하며,
+            // 취소 대상 operation은 원래 token으로 별도 CQE를 받아 기존 waiter를 정상적으로 깨운다.
+            if (completion.Token == 0)
+                return;
 
             IoUringOperationContext? context;
             if (!_registry.TryResolve(completion.Token, out context) || context == null)

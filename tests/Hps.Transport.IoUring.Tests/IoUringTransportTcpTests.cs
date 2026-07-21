@@ -58,6 +58,95 @@ namespace Hps.Transport.IoUring.Tests
             }
         }
 
+        // connection close가 socket을 닫는 시점에도 이미 제출된 recv/send SQE는 pinned block을 참조할 수 있다.
+        // pump가 CQE를 관측하고 빠져나오기 전에 block 반환과 context unregister가 일어나면 buffer 재사용 손상과
+        // 완료되지 않는 waiter가 생기므로, resource cleanup은 마지막 pump reference 반환까지 미뤄야 한다.
+        [Fact]
+        public void TcpConnectionResource_WhenDisposedWithPumpReference_DefersCleanupUntilPumpReleases()
+        {
+            Type resourceType = RequiredType("Hps.Transport.IoUringTcpConnectionResource, Hps.Transport.IoUring");
+            MethodInfo? addPumpReference = resourceType.GetMethod(
+                "AddPumpReference",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            MethodInfo? releasePumpReference = resourceType.GetMethod(
+                "ReleasePumpReference",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(addPumpReference);
+            Assert.NotNull(releasePumpReference);
+
+            IoUringOperationRegistry registry = new IoUringOperationRegistry();
+            IoUringCompletionLoop loop = IoUringCompletionLoop.CreateForTests(registry);
+            Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            IDisposable? resource = null;
+            bool pumpReferenceHeld = false;
+
+            try
+            {
+                resource = (IDisposable)CreateInstance(resourceType, socket, registry, loop);
+
+                PinnedBlockMemoryPool receivePool = (PinnedBlockMemoryPool)ReadProperty(resource, "ReceivePool");
+                PinnedBlockMemoryPool lengthPrefixPool = (PinnedBlockMemoryPool)ReadProperty(resource, "LengthPrefixPool");
+                IoUringOperationContext receiveContext = (IoUringOperationContext)ReadProperty(resource, "ReceiveContext");
+                IoUringOperationContext sendContext = (IoUringOperationContext)ReadProperty(resource, "SendContext");
+
+                addPumpReference!.Invoke(resource, Array.Empty<object>());
+                pumpReferenceHeld = true;
+                resource.Dispose();
+
+                IoUringOperationContext? resolved;
+                Assert.Equal(1, receivePool.RentedCount);
+                Assert.Equal(1, lengthPrefixPool.RentedCount);
+                Assert.True(registry.TryResolve(receiveContext.Token, out resolved));
+                Assert.Same(receiveContext, resolved);
+                Assert.True(registry.TryResolve(sendContext.Token, out resolved));
+                Assert.Same(sendContext, resolved);
+
+                releasePumpReference!.Invoke(resource, Array.Empty<object>());
+                pumpReferenceHeld = false;
+
+                Assert.Equal(0, receivePool.RentedCount);
+                Assert.Equal(0, lengthPrefixPool.RentedCount);
+                Assert.False(registry.TryResolve(receiveContext.Token, out resolved));
+                Assert.False(registry.TryResolve(sendContext.Token, out resolved));
+            }
+            finally
+            {
+                if (pumpReferenceHeld && resource != null && releasePumpReference != null)
+                    releasePumpReference.Invoke(resource, Array.Empty<object>());
+
+                resource?.Dispose();
+                socket.Dispose();
+                loop.Dispose();
+            }
+        }
+
+        // 10,240B data payload에 TCP length prefix와 PUBLISH command envelope가 붙어도 한 recv block에 들어와야 한다.
+        // 4KiB block은 frame 하나를 최소 세 CQE로 나눠 completion loop polling 지연을 누적하므로 16KiB 경계를 고정한다.
+        [Fact]
+        public void TcpConnectionResource_WhenCreated_UsesSixteenKilobyteReceiveBlock()
+        {
+            Type resourceType = RequiredType("Hps.Transport.IoUringTcpConnectionResource, Hps.Transport.IoUring");
+            IoUringOperationRegistry registry = new IoUringOperationRegistry();
+            IoUringCompletionLoop loop = IoUringCompletionLoop.CreateForTests(registry);
+            Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            IDisposable? resource = null;
+
+            try
+            {
+                resource = (IDisposable)CreateInstance(resourceType, socket, registry, loop);
+                PinnedBlockMemoryPool receivePool = (PinnedBlockMemoryPool)ReadProperty(resource, "ReceivePool");
+
+                Assert.Equal(16 * 1024, receivePool.BlockSize);
+            }
+            finally
+            {
+                resource?.Dispose();
+                socket.Dispose();
+                loop.Dispose();
+            }
+        }
+
         // StopCore가 목록 snapshot을 비운 뒤 connection 등록을 허용하면 queue가 닫힌 transport에 미추적 resource가 남는다.
         // Linux syscall과 capability probe 없이 종료 경계를 검증해 Windows 개발 환경에서도 registration race를 고정한다.
         [Fact]
@@ -252,6 +341,35 @@ namespace Hps.Transport.IoUring.Tests
                     listener.Close();
                     await transport.StopAsync();
                     Assert.Equal(0, pool.RentedCount);
+                }
+            }
+        }
+
+        // close(fd)만으로 pending io_uring recv가 끝난다고 가정하면 remote peer가 열린 연결에서 StopAsync가 영원히 대기한다.
+        // Linux available 환경에서는 receive waiter가 걸린 상태로 peer를 유지하고 explicit ASYNC_CANCEL 종료를 검증한다.
+        [Fact]
+        public async Task StopAsync_WhenIoUringReceiveIsPendingAndPeerRemainsOpen_CompletesWithinTimeout()
+        {
+            if (IoUringCapabilityProbe.GetStatus() != IoUringCapabilityStatus.Available)
+                return;
+
+            using (IoUringTransport transport = new IoUringTransport())
+            {
+                await transport.StartAsync();
+
+                IConnectionListener listener = await transport.ListenTcpAsync(new IPEndPoint(IPAddress.Loopback, 0));
+                Socket client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                try
+                {
+                    await client.ConnectAsync(listener.LocalEndPoint);
+                    await listener.AcceptAsync();
+
+                    await transport.StopAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                }
+                finally
+                {
+                    client.Dispose();
+                    listener.Close();
                 }
             }
         }

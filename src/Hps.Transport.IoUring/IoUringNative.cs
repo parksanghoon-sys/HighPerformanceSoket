@@ -19,6 +19,7 @@ namespace Hps.Transport
         internal const byte OperationWriteFixed = 5;
         internal const byte OperationSendMessage = 9;
         internal const byte OperationReceiveMessage = 10;
+        internal const byte OperationAsyncCancel = 14;
         internal const byte OperationSend = 26;
         internal const byte OperationReceive = 27;
         internal const uint EnterGetEvents = 0x1;

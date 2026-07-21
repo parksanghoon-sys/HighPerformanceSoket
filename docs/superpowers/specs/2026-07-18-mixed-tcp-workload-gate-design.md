@@ -320,3 +320,25 @@ RIO/io_uring 내부 receive pool과 registered payload owner cleanup은 기존 b
 - 상태 문서: 구현·검증 결과와 다음 review stop.
 
 수정 대상이 baseline summary/history/envelope, UDP runner 또는 production project까지 넓어지면 현재 설계를 중단하고 범위를 재검토한다.
+
+## 15. 2026-07-21 Linux io_uring failure evidence와 D244 후속
+
+pushed SHA `b7ffa22d80864d2c9e69fef1bac1dc6777efbfc1`의 run `29802726026`에서 production backend 변경을
+허용하는 raw failure 근거가 처음 확보됐다.
+
+- TCP baseline은 첫 load/open-loop 뒤 두 번째 load에서 정지했다.
+- mixed 3회는 exact delivery, 100Hz와 모든 zero gate를 통과했다.
+- control p99는 5ms 안이지만 10,240B data p99는 `5668.4~6791.6us`로 세 번 모두 실패했다.
+- 4KiB io_uring recv block은 data frame을 최소 세 recv/CQE로 분할한다.
+- connection close는 context와 pinned block을 즉시 회수하지만 Linux io_uring pending request는 일반 fd close만으로 취소되지 않는다.
+
+따라서 상위 Broker/Protocol이나 latency threshold는 바꾸지 않고 D244 backend 단위만 연다.
+
+- pending receive/send token은 `IORING_OP_ASYNC_CANCEL`로 명시적으로 취소한다.
+- receive/send pump 종료 뒤 context와 pinned block을 회수한다.
+- receive block은 16KiB로 늘려 현재 data frame을 한 recv에 수용한다.
+- command watchdog으로 같은 정지가 재발해도 raw artifact 수집을 40분 job timeout 전에 계속한다.
+
+이 변경은 local TDD와 전체 회귀를 통과했지만 native syscall과 latency 개선은 D244 pushed SHA의 Linux contract와
+benchmark artifact가 모두 green이 될 때만 수락한다. io_uring completion loop busy polling 변경, Broker batching,
+queue capacity 확대와 mixed threshold 완화는 이번 failure에 대한 최소 수정이 아니므로 포함하지 않는다.

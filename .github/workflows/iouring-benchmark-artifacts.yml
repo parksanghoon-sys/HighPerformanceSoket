@@ -74,7 +74,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite "$BENCH_TCP_SESSION_DIR" --runs 3 --protocol tcp --backend iouring
+          timeout --signal=TERM --kill-after=10s 4m dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite "$BENCH_TCP_SESSION_DIR" --runs 3 --protocol tcp --backend iouring
           exit_code=$?
           echo "IOURING_TCP_BASELINE_EXIT=$exit_code" >> "$GITHUB_ENV"
           if [ "$exit_code" != "0" ]; then
@@ -132,7 +132,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite "$BENCH_UDP_SESSION_DIR" --runs 3 --protocol udp --backend iouring
+          timeout --signal=TERM --kill-after=10s 4m dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --baseline-suite "$BENCH_UDP_SESSION_DIR" --runs 3 --protocol udp --backend iouring
           exit_code=$?
           echo "IOURING_UDP_BASELINE_EXIT=$exit_code" >> "$GITHUB_ENV"
           if [ "$exit_code" != "0" ]; then
@@ -192,7 +192,7 @@ jobs:
           set +e
           mixed_exit=0
           for run in 01 02 03; do
-            dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --mixed-load-open-loop --backend iouring --data-rate-hz 100 --duration-seconds 30 --subscribers 1 --report "$BENCH_MIXED_SESSION_DIR/mixed-${run}.json"
+            timeout --signal=TERM --kill-after=10s 1m dotnet run --project tests/Hps.Benchmarks/Hps.Benchmarks.csproj --no-build --no-restore -- --mixed-load-open-loop --backend iouring --data-rate-hz 100 --duration-seconds 30 --subscribers 1 --report "$BENCH_MIXED_SESSION_DIR/mixed-${run}.json"
             exit_code=$?
             if [ "$exit_code" != "0" ]; then
               mixed_exit=1

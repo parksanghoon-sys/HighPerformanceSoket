@@ -2,7 +2,7 @@
 
 ## Current TODOs
 
-- 현재 즉시 실행 가능한 D243 로컬 항목은 없다. CI 교정 commit push가 필요한 Linux io_uring 수락은 Deferred Backlog의 `P1_SOON` 항목을 따른다.
+- 현재 즉시 실행 가능한 D243/D244 로컬 항목은 없다. D244 commit push가 필요한 Linux io_uring 수락은 Deferred Backlog의 `P1_SOON` 항목을 따른다.
 
 ## Deferred Backlog
 
@@ -15,15 +15,15 @@
   - 제외: endpoint cache, public `EndPoint` 계약 변경, receive registration reuse, IPv6.
   - 다음 단계: mixed TCP gate가 닫힌 뒤 RIO UDP가 실제 운영 경로인지 재평가한다.
 
-- [ ] `P1_SOON` Linux CI 범위 교정 commit을 push하고 io_uring mixed gate를 재실행한다.
-  - 남은 일: 현재 local `master`를 `origin/master`에 push한 뒤 `iouring-benchmark-artifacts.yml`을 `workflow_dispatch`로 다시 실행하고 mixed raw report 3개를 검증한다.
-  - 이유: push는 사용자가 직접 수행하며 원격 run `29801941712`에서 발견한 CI 교정이 아직 로컬에만 있다.
-  - 목적: 검증된 lifecycle과 mixed workload 구현을 원격에 반영하고 같은 source/workflow SHA에서 io_uring hard gate를 닫는다.
-  - 범위: D241 lifecycle, D243 Task 2~8, `.github/workflows/iouring-benchmark-artifacts.yml`, 원격 artifact와 job summary.
-  - 현재 상태: run `29801941712`는 SHA `75d81f54edea3930cf0fbffe266c2709acec07a6`을 정확히 checkout했지만 WPF sample을 포함한 solution restore에서 `NETSDK1100`으로 실패했다. benchmark project 단위 restore/build 교정과 회귀 테스트를 로컬에서 완료했다.
-  - 확인 계약: checkout SHA 일치, `IOURING_MIXED_EXIT=0`, schema v2 mixed report 3개 pass, 기존 TCP/UDP baseline/summary/history/envelope exit 0, baseline source count 비혼입.
-  - blocker: CI 범위 교정 commit이 원격에 없어 workflow를 성공 조건으로 재실행할 수 없다.
-  - 다음 단계: 사용자가 현재 commit을 push한 뒤 해당 SHA로 workflow를 재실행한다.
+- [ ] `P1_SOON` D244를 push하고 Linux io_uring contract와 mixed gate를 같은 SHA에서 재실행한다.
+  - 남은 일: 현재 local `master`를 `origin/master`에 push한 뒤 `iouring-linux-contract.yml`과 `iouring-benchmark-artifacts.yml`을 `workflow_dispatch`로 실행하고 두 artifact를 검증한다.
+  - 이유: push는 사용자가 직접 수행하며 D244의 native `ASYNC_CANCEL`과 16KiB recv 지연 개선은 Windows 로컬에서 실제 syscall/latency를 검증할 수 없다.
+  - 목적: peer-open pending recv 종료, TCP 반복 안정성, data/control mixed hard gate를 같은 source/workflow SHA에서 닫는다.
+  - 범위: D244 io_uring TCP resource/pump lifetime, async cancel queue/completion routing, recv block, benchmark watchdog과 D243 mixed artifact.
+  - 현재 상태: run `29802726026`은 SHA `b7ffa22d80864d2c9e69fef1bac1dc6777efbfc1`에서 restore/build와 UDP baseline을 통과했다. TCP는 raw 2개 뒤 정지했고 mixed 3회는 exact delivery/zero gate를 통과했지만 data p99 `5668.4~6791.6us`로 모두 실패했다. D244 local Red/Green과 solution 640/640을 완료했다.
+  - 확인 계약: contract 전체 green과 peer-open pending recv test 통과, benchmark checkout SHA 일치, TCP/UDP exit 0, `IOURING_MIXED_EXIT=0`, schema v2 mixed report 3개 pass, baseline source count 비혼입.
+  - blocker: D244 commit이 아직 원격에 없다.
+  - 다음 단계: 사용자가 현재 commit을 push한 뒤 두 workflow를 실행한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
   - 남은 일: RIO TCP/UDP는 IPv4 전용이고 sample `auto`는 non-IPv4에서 SAEA fallback을 사용한다.
@@ -40,6 +40,13 @@
   - 다음 단계: 실제 소비자 요구를 먼저 확보한다.
 
 ## Completed
+
+- [x] 2026-07-21 D244 io_uring TCP 종료 수명과 10,240B mixed 지연 경로를 TDD로 보강했다.
+  - run `29802726026`의 TCP 반복 정지와 mixed data p99 5ms 초과 raw evidence를 보존했다.
+  - TCP resource cleanup을 receive/send pump reference 반환 뒤로 미루고 Stop이 두 pump task를 모두 기다리게 했다.
+  - `IORING_OP_ASYNC_CANCEL`을 operation token별로 제출하고 token 0 cancel control CQE를 일반 routing과 분리했다.
+  - recv block을 4KiB에서 16KiB로 늘려 10,240B payload와 command envelope를 한 recv에 담고 suite/mixed watchdog을 추가했다.
+  - io_uring 97/97, benchmark 223/223, solution 640/640과 Release build 경고 0/오류 0을 확인했다.
 
 - [x] 2026-07-21 io_uring benchmark workflow의 Linux solution 범위 회귀를 TDD로 교정했다.
   - run `29801941712`에서 SHA 일치 후 WPF sample 때문에 restore가 `NETSDK1100`으로 실패한 원인을 확인했다.

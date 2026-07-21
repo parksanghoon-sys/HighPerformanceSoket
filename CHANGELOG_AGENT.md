@@ -2,6 +2,15 @@
 
 ## Recent Work
 
+### 2026-07-21 - D244 io_uring TCP 종료·mixed 지연 보강
+
+- pushed SHA `b7ffa22d80864d2c9e69fef1bac1dc6777efbfc1`의 run `29802726026`에서 project restore/build와 UDP 6개는 통과했지만 TCP는 raw 2개 뒤 정지했다.
+- mixed 3회는 3000/3000, 100Hz와 drop/pending/pool/timeout/error 0을 유지했으나 data p99 `5668.4~6791.6us`로 5ms hard gate를 실패했다.
+- TCP resource cleanup을 마지막 receive/send pump reference 뒤로 지연하고 Stop이 두 pump task를 모두 기다리게 했다.
+- close 시 pending operation token을 `IORING_OP_ASYNC_CANCEL`로 취소하고 token 0 control CQE를 registry routing에서 분리했다.
+- recv block을 16KiB로 늘리고 TCP/UDP suite 4분, mixed run 1분 watchdog을 추가했다.
+- io_uring tests 97/97, benchmark tests 223/223, solution tests 640/640과 Release build 경고 0/오류 0을 통과했다. native/latency 수락은 push 후 원격 두 workflow에 남아 있다.
+
 ### 2026-07-21 - io_uring benchmark Linux restore 범위 교정
 
 - pushed SHA `75d81f54edea3930cf0fbffe266c2709acec07a6`로 workflow run `29801941712`를 실행해 checkout SHA 일치를 확인했다.

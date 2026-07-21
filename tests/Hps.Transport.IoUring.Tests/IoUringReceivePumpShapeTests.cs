@@ -18,5 +18,17 @@ namespace Hps.Transport.IoUring.Tests
             Assert.NotNull(queueType.GetMethod("TryDequeueCompletion", BindingFlags.Instance | BindingFlags.NonPublic));
             Assert.NotNull(transportType.GetMethod("ReceiveLoopAsync", BindingFlags.Instance | BindingFlags.NonPublic));
         }
+
+        // close(fd)는 io_uring이 보유한 pending request reference를 취소하지 않는다.
+        // resource shutdown이 recv/send user_data token을 명시적으로 취소할 수 있도록 queue helper shape를 고정한다.
+        [Fact]
+        public void Queue_WhenInspected_ExposesTokenBasedAsyncCancelHelper()
+        {
+            MethodInfo? cancelMethod = typeof(IoUringQueue).GetMethod(
+                "TrySubmitCancel",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(cancelMethod);
+        }
     }
 }

@@ -21,17 +21,19 @@
 - D243 Task 6은 `--mixed-load-open-loop` CLI, 실행 전 자원 검증, Program runner/writer와 exit code를 연결했다.
 - D243 Task 7은 Linux io_uring workflow에 mixed 전용 artifact root와 30초 3회 hard gate를 연결했다.
 - D243 Task 8의 Windows SAEA/RIO 30초 각 3회와 SAEA 1,800초 soak는 모두 hard pass했다.
-- pushed SHA `75d81f54edea3930cf0fbffe266c2709acec07a6`의 workflow run `29801941712`는 checkout까지 일치했지만 Linux 전체 solution restore가 WPF sample의 `NETSDK1100`으로 실패했다.
-- io_uring benchmark workflow를 benchmark project만 restore/build하도록 로컬에서 TDD로 교정했으며, 이 교정 commit의 push와 원격 재실행이 남아 있다.
+- pushed SHA `b7ffa22d80864d2c9e69fef1bac1dc6777efbfc1`의 workflow run `29802726026`은 project-scoped restore/build와 UDP baseline 6개를 통과했다.
+- 같은 run의 TCP baseline은 첫 load/open-loop 뒤 두 번째 load에서 9분 이상 정지해 취소했고, mixed 3회는 exact delivery와 zero gate를 통과했지만 data p99 `5668.4~6791.6us`로 5ms hard gate를 모두 실패했다.
+- D244로 io_uring TCP close 시 token별 `IORING_OP_ASYNC_CANCEL`, receive/send pump lifetime drain, 16KiB recv block과 benchmark command watchdog을 로컬 구현했다. 원격 수락은 아직 대기 중이다.
 
 ## 다음 단일 작업 단위
 
-### D243 pushed-SHA Linux io_uring mixed evidence
+### D244 pushed-SHA Linux io_uring lifecycle·mixed evidence
 
-- 사용자가 현재 CI 교정 commit을 push한 뒤 `.github/workflows/iouring-benchmark-artifacts.yml`을 다시 수동 실행한다.
-- checkout SHA 일치, `IOURING_MIXED_EXIT=0`, mixed schema v2 report 3개 hard pass와 기존 TCP/UDP artifact exit 0을 확인한다.
+- 사용자가 현재 D244 commit을 push한 뒤 `iouring-linux-contract.yml`과 `iouring-benchmark-artifacts.yml`을 같은 SHA에서 수동 실행한다.
+- contract에서 peer-open pending recv 종료 test와 전체 native tests green을 확인한다.
+- benchmark에서 TCP/UDP baseline exit 0, `IOURING_MIXED_EXIT=0`, mixed schema v2 report 3개 hard pass를 확인한다.
 - mixed report가 legacy baseline summary/history/envelope source count에 섞이지 않았는지 확인한다.
-- 교정 commit의 push와 성공 artifact 확인 전에는 원격 수락을 완료로 기록하지 않는다.
+- D244 push와 두 원격 artifact 확인 전에는 io_uring lifecycle·성능 수락을 완료로 기록하지 않는다.
 
 ## 최신 검증 기준
 
@@ -51,6 +53,10 @@
 - `HPS_OPERATIONAL_DATA_RATE_HZ`와 `HPS_OPERATIONAL_SUBSCRIBERS`가 없어 별도 운영 fan-out run은 수행하지 않았다. 수락 범위는 100Hz/N=1이며 N=2는 기능 통합 검증만 보유한다.
 - workflow run `29801941712`는 `75d81f54edea3930cf0fbffe266c2709acec07a6`을 checkout했지만 WPF sample이 포함된 solution restore에서 `NETSDK1100`으로 종료되어 benchmark는 실행되지 않았다.
 - 회귀 테스트 Red를 확인한 뒤 Linux workflow restore/build 대상을 `tests/Hps.Benchmarks/Hps.Benchmarks.csproj`로 제한했다. benchmark build 경고 0/오류 0, benchmark tests 222/222와 solution tests 632/632가 통과했다.
+- run `29802726026`은 SHA `b7ffa22d80864d2c9e69fef1bac1dc6777efbfc1`을 checkout했고 restore/build, UDP 6개와 artifact upload를 완료했다. TCP는 raw report 2개 뒤 정지했으며 mixed는 3회 모두 3000/3000, 100Hz, drop/pending/pool/timeout/error 0이지만 data p99 5ms를 초과했다.
+- D244 Red는 pump reference cleanup 1건, receive task stop 관측 1건, 16KiB recv block 1건, async cancel queue/control/resource 연결 3건과 workflow watchdog 2건으로 확인했다.
+- D244 Green은 io_uring tests 97/97, benchmark tests 223/223, solution tests 640/640과 Release 단일-node build 경고 0/오류 0을 통과했다.
+- 전체 `dotnet format --verify-no-changes`는 이번 변경 밖 기존 whitespace 진단을 다수 포함해 실패했으며, `git diff --check`는 통과했다.
 - 기본 병렬 build의 MSBuild worker 1개 종료와 VSTest 시작 timeout이 각각 한 번 있었으나 같은 소스의 단일-node build/test 재실행은 통과했고 코드 변경은 필요하지 않았다.
 - 현재 SAEA TCP 4096B x 100 Hz x 30초 open-loop는 3000/3000, actual 99.8 Hz, p99 623.9us, HWM 5, drop/payload error/pool rented 0이다.
 - RIO TCP smoke는 8/8, drop/payload error/pool rented 0이다.
@@ -64,7 +70,7 @@
 4. [완료] N명 fan-out exact delivery와 subscriber별 latency 집계.
 5. [완료] CLI와 Program 연결.
 6. [완료] Linux io_uring mixed artifact workflow.
-7. [부분 완료] SAEA/RIO 3회와 SAEA 1,800초 soak 완료. Linux CI 범위 교정 commit push와 io_uring evidence 재실행 대기.
+7. [부분 완료] SAEA/RIO 3회와 SAEA 1,800초 soak 완료. D244 push와 Linux contract/benchmark evidence 재실행 대기.
 
 사용자가 남은 Task 전체 진행을 승인했으므로 각 단위는 D013에 따라 구현, 검증, 독립 review와 commit을 마친 뒤 다음 단위로 연속 진행한다.
 

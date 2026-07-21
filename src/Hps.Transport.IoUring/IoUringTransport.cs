@@ -27,6 +27,7 @@ namespace Hps.Transport
         private readonly List<IoUringConnectionListener> _listeners;
         private readonly List<TransportConnection> _connections;
         private readonly List<IoUringUdpEndpoint> _udpEndpoints;
+        private readonly List<Task> _connectionReceivePumpTasks;
         private readonly List<Task> _connectionSendPumpTasks;
         private readonly List<IoUringRegisteredPayloadBlockPool> _registeredPayloadPools;
         private IoUringQueue? _queue;
@@ -47,6 +48,7 @@ namespace Hps.Transport
             _listeners = new List<IoUringConnectionListener>();
             _connections = new List<TransportConnection>();
             _udpEndpoints = new List<IoUringUdpEndpoint>();
+            _connectionReceivePumpTasks = new List<Task>();
             _connectionSendPumpTasks = new List<Task>();
             _registeredPayloadPools = new List<IoUringRegisteredPayloadBlockPool>();
         }
@@ -87,6 +89,7 @@ namespace Hps.Transport
         {
             cancellationToken.ThrowIfCancellationRequested();
             IoUringStopSnapshot snapshot = StopCore();
+            await WaitForConnectionReceivePumpTasksAsync(snapshot.ConnectionReceivePumpTasks).ConfigureAwait(false);
             await WaitForConnectionSendPumpTasksAsync(snapshot.ConnectionSendPumpTasks).ConfigureAwait(false);
             await WaitForTcpInFlightSendsToDrainAsync(snapshot.Connections).ConfigureAwait(false);
             snapshot.DisposeNativeOwners();
@@ -280,6 +283,7 @@ namespace Hps.Transport
         public override void Dispose()
         {
             IoUringStopSnapshot snapshot = StopCore();
+            WaitForConnectionReceivePumpTasksAsync(snapshot.ConnectionReceivePumpTasks).GetAwaiter().GetResult();
             WaitForConnectionSendPumpTasksAsync(snapshot.ConnectionSendPumpTasks).GetAwaiter().GetResult();
             WaitForTcpInFlightSendsToDrainAsync(snapshot.Connections).GetAwaiter().GetResult();
             snapshot.DisposeNativeOwners();
@@ -402,20 +406,95 @@ namespace Hps.Transport
 
         private void StartReceiveLoop(TransportConnection connection, IoUringTcpConnectionResource resource)
         {
-            _ = Task.Run(delegate()
+            resource.AddPumpReference();
+            try
             {
-                return ReceiveLoopAsync(connection, resource);
-            });
+                Task task = Task.Run(delegate()
+                {
+                    return RunReceiveLoopWithLifetimeAsync(connection, resource);
+                });
+
+                TrackConnectionReceivePumpTask(task);
+            }
+            catch
+            {
+                resource.ReleasePumpReference();
+                throw;
+            }
         }
 
         private void StartSendLoop(TransportConnection connection, IoUringTcpConnectionResource resource)
         {
-            Task task = Task.Run(delegate()
+            resource.AddPumpReference();
+            try
             {
-                return SendLoopAsync(connection, resource);
-            });
+                Task task = Task.Run(delegate()
+                {
+                    return RunSendLoopWithLifetimeAsync(connection, resource);
+                });
 
-            TrackConnectionSendPumpTask(task);
+                TrackConnectionSendPumpTask(task);
+            }
+            catch
+            {
+                resource.ReleasePumpReference();
+                throw;
+            }
+        }
+
+        private async Task RunReceiveLoopWithLifetimeAsync(
+            TransportConnection connection,
+            IoUringTcpConnectionResource resource)
+        {
+            try
+            {
+                await ReceiveLoopAsync(connection, resource).ConfigureAwait(false);
+            }
+            finally
+            {
+                resource.ReleasePumpReference();
+            }
+        }
+
+        private async Task RunSendLoopWithLifetimeAsync(
+            TransportConnection connection,
+            IoUringTcpConnectionResource resource)
+        {
+            try
+            {
+                await SendLoopAsync(connection, resource).ConfigureAwait(false);
+            }
+            finally
+            {
+                resource.ReleasePumpReference();
+            }
+        }
+
+        private void TrackConnectionReceivePumpTask(Task task)
+        {
+            if (task == null)
+                throw new ArgumentNullException(nameof(task));
+
+            lock (_gate)
+            {
+                if (!task.IsCompleted)
+                    _connectionReceivePumpTasks.Add(task);
+            }
+
+            if (!task.IsCompleted)
+            {
+                task.ContinueWith(
+                    completedTask => RemoveConnectionReceivePumpTask(completedTask),
+                    TaskScheduler.Default);
+            }
+        }
+
+        private void RemoveConnectionReceivePumpTask(Task task)
+        {
+            lock (_gate)
+            {
+                _connectionReceivePumpTasks.Remove(task);
+            }
         }
 
         private void TrackConnectionSendPumpTask(Task task)
@@ -935,6 +1014,7 @@ namespace Hps.Transport
             IoUringConnectionListener[] listeners;
             TransportConnection[] connections;
             IoUringUdpEndpoint[] udpEndpoints;
+            Task[] connectionReceivePumpTasks;
             Task[] connectionSendPumpTasks;
             IoUringRegisteredPayloadBlockPool[] registeredPayloadPools;
             IoUringCompletionLoop? completionLoop;
@@ -948,11 +1028,13 @@ namespace Hps.Transport
                 listeners = _listeners.ToArray();
                 connections = _connections.ToArray();
                 udpEndpoints = _udpEndpoints.ToArray();
+                connectionReceivePumpTasks = _connectionReceivePumpTasks.ToArray();
                 connectionSendPumpTasks = _connectionSendPumpTasks.ToArray();
                 registeredPayloadPools = _registeredPayloadPools.ToArray();
                 _listeners.Clear();
                 _connections.Clear();
                 _udpEndpoints.Clear();
+                _connectionReceivePumpTasks.Clear();
                 _connectionSendPumpTasks.Clear();
                 _registeredPayloadPools.Clear();
 
@@ -977,7 +1059,19 @@ namespace Hps.Transport
             for (int index = 0; index < udpEndpoints.Length; index++)
                 udpEndpoints[index].Dispose();
 
-            return new IoUringStopSnapshot(connections, connectionSendPumpTasks, registeredPayloadPools, completionLoop, queue);
+            return new IoUringStopSnapshot(
+                connections,
+                connectionReceivePumpTasks,
+                connectionSendPumpTasks,
+                registeredPayloadPools,
+                completionLoop,
+                queue);
+        }
+
+        private static async Task WaitForConnectionReceivePumpTasksAsync(Task[] receivePumpTasks)
+        {
+            for (int index = 0; index < receivePumpTasks.Length; index++)
+                await receivePumpTasks[index].ConfigureAwait(false);
         }
 
         private static async Task WaitForConnectionSendPumpTasksAsync(Task[] sendPumpTasks)
@@ -1000,12 +1094,14 @@ namespace Hps.Transport
 
             internal IoUringStopSnapshot(
                 TransportConnection[] connections,
+                Task[] connectionReceivePumpTasks,
                 Task[] connectionSendPumpTasks,
                 IoUringRegisteredPayloadBlockPool[] registeredPayloadPools,
                 IoUringCompletionLoop? completionLoop,
                 IoUringQueue? queue)
             {
                 Connections = connections;
+                ConnectionReceivePumpTasks = connectionReceivePumpTasks;
                 ConnectionSendPumpTasks = connectionSendPumpTasks;
                 _registeredPayloadPools = registeredPayloadPools;
                 _completionLoop = completionLoop;
@@ -1013,6 +1109,8 @@ namespace Hps.Transport
             }
 
             internal TransportConnection[] Connections { get; }
+
+            internal Task[] ConnectionReceivePumpTasks { get; }
 
             internal Task[] ConnectionSendPumpTasks { get; }
 

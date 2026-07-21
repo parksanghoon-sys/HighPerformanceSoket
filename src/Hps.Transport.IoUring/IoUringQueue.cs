@@ -254,6 +254,34 @@ namespace Hps.Transport
             return TrySubmitMessage(fileDescriptor, messageHeader, token, IoUringNative.OperationSendMessage);
         }
 
+        /// <summary>
+        /// user_data token이 일치하는 pending request 하나를 명시적으로 취소한다.
+        /// cancel 요청 자체의 CQE는 operation token으로 예약하지 않은 0을 사용해 completion loop가 control CQE로 버린다.
+        /// </summary>
+        internal unsafe bool TrySubmitCancel(ulong targetToken)
+        {
+            if (targetToken == 0)
+                throw new ArgumentOutOfRangeException(nameof(targetToken), "취소할 io_uring user_data token은 0일 수 없습니다.");
+
+            ThrowIfDisposed();
+
+            lock (_submissionGate)
+            {
+                IoUringSubmissionQueueEntry* submission = TryAcquireSubmissionEntry();
+                if (submission == null)
+                    return false;
+
+                *submission = default(IoUringSubmissionQueueEntry);
+                submission->Opcode = IoUringNative.OperationAsyncCancel;
+                submission->Address = targetToken;
+                submission->UserData = 0;
+                PublishSubmissionEntry(submission);
+            }
+
+            IoUringNative.Enter(FileDescriptor, 1, 0, 0);
+            return true;
+        }
+
         internal unsafe bool TryDequeueCompletion(out IoUringCompletion completion)
         {
             ThrowIfDisposed();

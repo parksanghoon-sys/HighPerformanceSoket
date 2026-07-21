@@ -71,6 +71,17 @@ namespace Hps.Transport.IoUring.Tests
             InvokeDispatch(loop, new IoUringCompletion(context.Token, -125, 0));
         }
 
+        // token 0은 operation registry가 발급하지 않고 async cancel 요청 자체의 CQE에만 사용하는 control token이다.
+        // cancel 대상 CQE는 원래 token으로 waiter에 전달하되, control CQE는 routing 오류 없이 버려야 한다.
+        [Fact]
+        public void DispatchCompletion_WhenAsyncCancelControlTokenArrives_IgnoresControlCompletion()
+        {
+            IoUringOperationRegistry registry = new IoUringOperationRegistry();
+            object loop = CreateLoopForTests(registry);
+
+            InvokeDispatch(loop, new IoUringCompletion(0, 0, 0));
+        }
+
         // context가 아직 WaitAsync를 호출하지 않았다면 completion을 받을 준비가 된 operation이 아니다.
         // 이 상태를 허용하면 submit 전 context나 이미 회수된 context가 완료된 것처럼 보일 수 있다.
         [Fact]
