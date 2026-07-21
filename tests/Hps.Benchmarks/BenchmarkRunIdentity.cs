@@ -21,6 +21,9 @@ namespace Hps.Benchmarks
         public const string UdpSaeaBenchmarkProfile = "udp-loopback-saea-v1";
         public const string UdpRioBenchmarkProfile = "udp-loopback-rio-v1";
         public const string UdpIoUringBenchmarkProfile = "udp-loopback-iouring-v1";
+        public const string MixedSaeaBenchmarkProfile = "tcp-mixed-load-saea-v1";
+        public const string MixedRioBenchmarkProfile = "tcp-mixed-load-rio-v1";
+        public const string MixedIoUringBenchmarkProfile = "tcp-mixed-load-iouring-v1";
 
         private const string RunnerIdEnvironmentVariable = "HPS_BENCHMARK_RUNNER_ID";
         private const string RunnerKindEnvironmentVariable = "HPS_BENCHMARK_RUNNER_KIND";
@@ -87,6 +90,32 @@ namespace Hps.Benchmarks
         public static BenchmarkRunIdentity CaptureForBackend(TcpLoopbackTransportBackend transportBackend)
         {
             return CaptureForBackendAndProtocol(transportBackend, LoopbackProtocol.Tcp);
+        }
+
+        public static BenchmarkRunIdentity CaptureForMixedTcpBackend(TcpLoopbackTransportBackend transportBackend)
+        {
+            BenchmarkRunIdentity backendIdentity = CaptureForBackend(transportBackend);
+            string benchmarkProfile;
+
+            if (transportBackend == TcpLoopbackTransportBackend.Rio)
+                benchmarkProfile = MixedRioBenchmarkProfile;
+            else if (transportBackend == TcpLoopbackTransportBackend.IoUring)
+                benchmarkProfile = MixedIoUringBenchmarkProfile;
+            else
+                benchmarkProfile = MixedSaeaBenchmarkProfile;
+
+            // runner/environment capture와 backend 이름은 기존 기준선을 재사용하되,
+            // 비교 profile만 mixed workload 전용 값으로 분리한다.
+            return new BenchmarkRunIdentity(
+                benchmarkProfile,
+                backendIdentity.RunnerId,
+                backendIdentity.RunnerKind,
+                backendIdentity.TransportBackend,
+                backendIdentity.OsDescription,
+                backendIdentity.OsArchitecture,
+                backendIdentity.ProcessArchitecture,
+                backendIdentity.FrameworkDescription,
+                backendIdentity.ProcessorCount);
         }
 
         public static BenchmarkRunIdentity CaptureForBackendAndProtocol(TcpLoopbackTransportBackend transportBackend, LoopbackProtocol loopbackProtocol)

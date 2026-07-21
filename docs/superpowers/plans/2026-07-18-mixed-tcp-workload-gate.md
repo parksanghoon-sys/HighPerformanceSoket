@@ -394,7 +394,7 @@ Review stop: options/math/resource preflight만 보고하고 Task 3을 시작하
 - Produces: `MixedWorkloadReportWriter.Write(string path, MixedWorkloadRunResult result)`.
 - Produces: `BenchmarkRunIdentity.CaptureForMixedTcpBackend(TcpLoopbackTransportBackend transportBackend)`.
 
-- [ ] **Step 1: result type 부재 assertion Red를 작성한다**
+- [x] **Step 1: result type 부재 assertion Red를 작성한다**
 
 두 type을 reflection으로 찾고 다음 property를 고정한다.
 
@@ -424,7 +424,7 @@ public void Contract_MixedWorkloadResultsExposeStreamAndGlobalGates()
 
 Expected: 최초 `Assert.NotNull(streamType)` assertion failure.
 
-- [ ] **Step 2: exact constructor와 property shape를 추가한다**
+- [x] **Step 2: exact constructor와 property shape를 추가한다**
 
 `MixedWorkloadStreamResult` constructor parameter는 다음 순서를 고정한다.
 
@@ -476,7 +476,7 @@ public MixedWorkloadRunResult(
 
 모든 입력 count는 음수를 거부하고 string/result/identity null을 거부한다. 첫 Green에서는 property 저장과 `Passed => false`만 구현해 shape test를 통과시킨다.
 
-- [ ] **Step 3: stream/global 판정 behavior Red를 추가한다**
+- [x] **Step 3: stream/global 판정 behavior Red를 추가한다**
 
 test helper `CreatePassingStream`은 data 기준으로 100 planned/sent, subscriber 2명, 200 deliveries, min/max 100, delivery/latency failed subscriber 0, error 0, worst-subscriber p99 4,000us, p999 9,000us를 만든다. 첫 completion부터 마지막 completion까지 elapsed는 0.99초여서 actual rate는 100Hz다.
 
@@ -510,7 +510,7 @@ public double ActualRateHz
 
 Expected: shell의 false 판정 때문에 passing assertions가 실패한다.
 
-- [ ] **Step 4: hard gate를 최소 Green으로 구현한다**
+- [x] **Step 4: hard gate를 최소 Green으로 구현한다**
 
 ```csharp
 public bool DeliveryPassed
@@ -550,7 +550,7 @@ public bool Passed
 
 run-level `Passed`는 두 stream pass와 네 global zero 조건을 모두 `&&`로 결합한다. HWM과 latency growth는 report-only다.
 
-- [ ] **Step 5: writer 부재와 legacy 격리 assertion Red를 추가한다**
+- [x] **Step 5: writer 부재와 legacy 격리 assertion Red를 추가한다**
 
 writer type은 reflection으로 먼저 실패시킨다. type shell 뒤에는 passing result를 임시 directory에 쓰고 다음 JSON을 단언한다.
 
@@ -573,7 +573,7 @@ Assert.Equal(9000.0, root.GetProperty("streams")[0].GetProperty("worst-subscribe
 
 같은 directory를 `BaselineReportReader.ReadDirectory`로 읽었을 때 count 0도 단언한다. `report-kind`가 mixed 문서 종류를 고정하고, version 1을 쓰면 legacy reader가 mixed shape의 누락 key에서 예외를 내므로 Red가 된다.
 
-- [ ] **Step 6: `Utf8JsonWriter`로 report kind와 schema-version 2를 Green으로 구현한다**
+- [x] **Step 6: `Utf8JsonWriter`로 report kind와 schema-version 2를 Green으로 구현한다**
 
 top-level key 순서는 다음으로 고정한다.
 
@@ -591,7 +591,7 @@ streams
 
 각 stream object는 constructor property 전체와 `actual-rate-hz`, 세 부분 gate, `passed`, `publisher-elapsed-ms`를 쓴다. latency JSON key는 `worst-subscriber-p50-latency-us`, `worst-subscriber-p99-latency-us`, `worst-subscriber-p999-latency-us`, `worst-subscriber-first-half-p99-latency-us`, `worst-subscriber-second-half-p99-latency-us`, `worst-subscriber-p99-latency-growth-ratio`로 고정한다. round 자릿수는 rate/latency 1자리, growth 2자리다.
 
-- [ ] **Step 7: backend별 mixed identity를 assertion Red와 Green으로 고정한다**
+- [x] **Step 7: backend별 mixed identity를 assertion Red와 Green으로 고정한다**
 
 `BenchmarkRunIdentityTests`에서 `CaptureForMixedTcpBackend`를 reflection으로 먼저 찾아 부재 assertion Red를 확인한다. Green은 다음 profile 상수와 기존 backend name/environment capture를 사용한다.
 
@@ -603,7 +603,7 @@ public const string MixedIoUringBenchmarkProfile = "tcp-mixed-load-iouring-v1";
 
 SAEA/RIO/io_uring theory는 각각 mixed profile과 기존 `SaeaTransport`/`RioTransport`/`IoUringTransport` 이름을 단언한다. 이 method는 Task 4 runner가 별도 임시 identity 없이 바로 사용한다.
 
-- [ ] **Step 8: focused와 benchmark 전체를 Green으로 확인하고 commit한다**
+- [x] **Step 8: focused와 benchmark 전체를 Green으로 확인하고 commit한다**
 
 Run:
 

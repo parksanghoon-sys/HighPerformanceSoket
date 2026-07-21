@@ -96,6 +96,38 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal("IoUringTransport", identity.TransportBackend);
         }
 
+        // mixed TCP raw report는 legacy single-stream profile과 분리된 비교 identity를 사용해야 한다.
+        // reflection Red로 전용 capture method 부재를 먼저 드러내 기존 CaptureForBackend 의미를 바꾸지 않게 한다.
+        [Fact]
+        public void Contract_CaptureForMixedTcpBackendExists()
+        {
+            MethodInfo? method = typeof(BenchmarkRunIdentity).GetMethod(
+                "CaptureForMixedTcpBackend",
+                BindingFlags.Static | BindingFlags.Public);
+
+            Assert.NotNull(method);
+        }
+
+        // mixed workload는 backend 환경 metadata를 재사용하되 legacy single-stream 비교 profile과는 분리되어야 한다.
+        // 세 backend를 모두 고정해 새 raw report가 서로 또는 기존 baseline과 잘못 집계되는 회귀를 막는다.
+        [Theory]
+        [InlineData("Saea", "tcp-mixed-load-saea-v1", "SaeaTransport")]
+        [InlineData("Rio", "tcp-mixed-load-rio-v1", "RioTransport")]
+        [InlineData("IoUring", "tcp-mixed-load-iouring-v1", "IoUringTransport")]
+        public void CaptureForMixedTcpBackend_WhenBackendIsSelected_UsesMixedProfileAndExistingBackendName(
+            string backendName,
+            string expectedProfile,
+            string expectedBackendName)
+        {
+            TcpLoopbackTransportBackend backend = (TcpLoopbackTransportBackend)Enum.Parse(
+                typeof(TcpLoopbackTransportBackend),
+                backendName);
+            BenchmarkRunIdentity identity = BenchmarkRunIdentity.CaptureForMixedTcpBackend(backend);
+
+            Assert.Equal(expectedProfile, identity.BenchmarkProfile);
+            Assert.Equal(expectedBackendName, identity.TransportBackend);
+        }
+
         // 서로 다른 장비를 비교군에서 분리하려면 사용자가 runner id 를 명시해야 한다.
         // 자동 machine name 수집 대신 환경 변수만 허용해 로컬/사설 환경 정보 노출을 막는다.
         [Fact]

@@ -15,24 +15,27 @@
 - D243 implementation plan: `docs/superpowers/plans/2026-07-18-mixed-tcp-workload-gate.md`.
 - 2026-07-20 검토에서 fan-out latency 희석, 자원 preflight 부재와 publisher rate interval 오류를 확인해 spec/plan에 보완했다.
 - D243 Task 2 `MixedWorkloadOptions`는 입력, checked 계획 수, subscriber 256명과 latency 저장소 128MiB 사전 검증까지 구현했다.
-- mixed result/report, runner, CLI와 10.24 Mbps 동시 workload 실행 evidence는 아직 없다.
+- D243 Task 3은 `N - 1` rate, worst-subscriber latency, 전역 zero gate, schema v2 mixed report와 backend별 identity까지 구현했다.
+- mixed runner, CLI와 10.24 Mbps 동시 workload 실행 evidence는 아직 없다.
 
 ## 다음 단일 작업 단위
 
-### D243 Task 2 `MixedWorkloadOptions` 구현 review stop
+### D243 Task 3 stream/global gate와 typed report 구현 review stop
 
-- reflection 계약 Red 1개와 behavior Red 10개를 확인한 뒤 options type과 검증 계산만 최소 구현했다.
-- 기본 profile은 data/control 각각 3,000 message, 구독자 1명 기준 4개 client connection과 latency payload 72,000B로 계산한다.
-- 모든 계획 수는 `checked long`으로 계산한 뒤 `int` 표현 범위, subscriber 256명과 latency payload 128MiB를 socket/배열 생성 전에 검증한다.
-- options 생성자는 socket, payload buffer와 latency 배열을 만들지 않는다.
-- 사용자 검토로 Task 2를 확정하기 전에는 Task 3 result/report를 시작하지 않는다.
+- stream gate는 subscriber별 exact delivery, `(sent - 1)` interval actual rate 99% 이상과 worst-subscriber p99/p999 예산을 결합한다.
+- run gate는 data/control pass와 drop, end pending, fallback pool rented, timeout의 zero 조건을 모두 결합한다.
+- mixed JSON은 `report-kind: mixed-tcp-workload`, `schema-version: 2`와 canonical key 순서를 사용해 legacy reader에서 격리된다.
+- SAEA/RIO/io_uring은 기존 environment/backend metadata를 유지하면서 mixed 전용 benchmark profile을 사용한다.
+- 독립 리뷰의 count validation 테스트 공백을 stream 14개와 run 9개 parameter theory로 해소했다.
+- 사용자 검토로 Task 3을 확정하기 전에는 Task 4 단일 subscriber runner를 시작하지 않는다.
 
 ## 최신 검증 기준
 
 - D243 plan은 현재 benchmark parser, command line, Program, runner, identity, report reader/writer, endpoint diagnostics와 io_uring artifact workflow를 대조해 작성했다.
 - 현재 `BaselineReportReader`는 `schema-version == 1` report를 legacy shape로 읽으므로 mixed report version 2 격리가 필요하다.
-- 2026-07-20 현재 focused options tests 15/15, benchmark tests 133/133이 통과했다.
-- Release build 경고 0/오류 0, solution tests 543/543이 통과했다.
+- 2026-07-21 현재 Task 3 focused tests 56/56, benchmark tests 189/189가 통과했다.
+- Release 단일-node build 경고 0/오류 0, solution tests 599/599가 통과했다.
+- 기본 병렬 build의 MSBuild worker 1개 종료와 VSTest 시작 timeout이 각각 한 번 있었으나 같은 소스의 단일-node build/test 재실행은 통과했고 코드 변경은 필요하지 않았다.
 - 현재 SAEA TCP 4096B x 100 Hz x 30초 open-loop는 3000/3000, actual 99.8 Hz, p99 623.9us, HWM 5, drop/payload error/pool rented 0이다.
 - RIO TCP smoke는 8/8, drop/payload error/pool rented 0이다.
 - 이 검증은 legacy 단일 stream 기준선이며 mixed 10.24 Mbps evidence가 아니다.
@@ -40,8 +43,8 @@
 ## 구현 순서
 
 1. [완료] options 입력 검증, checked 계획 수, subscriber/latency 저장 preflight.
-2. [다음 후보] `sent - 1` interval rate, worst-subscriber latency hard gate, typed report와 mixed run identity.
-3. 단일 논리 구독자 mixed TCP runner.
+2. [완료] `sent - 1` interval rate, worst-subscriber latency hard gate, typed report와 mixed run identity.
+3. [다음 후보] 단일 논리 구독자 mixed TCP runner.
 4. N명 fan-out exact delivery.
 5. CLI와 Program 연결.
 6. Linux io_uring mixed artifact workflow.

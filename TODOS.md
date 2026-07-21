@@ -2,12 +2,12 @@
 
 ## Current TODOs
 
-- [ ] D243 Task 2 `MixedWorkloadOptions` 구현 review stop을 사용자 검토로 확정한다.
-  - 범위: 고정 mixed profile, 입력 하한, checked 계획 수, subscriber 256명과 latency payload 128MiB 실행 전 상한.
-  - 구현: `tests/Hps.Benchmarks/MixedWorkloadOptions.cs`, `tests/Hps.Benchmarks.Tests/MixedWorkloadOptionsTests.cs`.
-  - 검증: options 15/15, benchmark 133/133, solution 543/543, Release build 경고 0/오류 0.
-  - 유지: socket, latency 배열, result/report, runner와 CLI는 이번 단위에 포함하지 않았다.
-  - 다음 단계: 사용자 승인 뒤에만 plan Task 3 stream/global result와 typed report TDD를 시작한다.
+- [ ] D243 Task 3 stream/global gate와 typed report 구현 review stop을 사용자 검토로 확정한다.
+  - 범위: mixed stream/run result, `N - 1` rate, worst-subscriber latency, global zero gate, schema v2 writer와 backend identity.
+  - 구현: `tests/Hps.Benchmarks/MixedWorkload*Result.cs`, `MixedWorkloadReportWriter.cs`, `BenchmarkRunIdentity.cs`와 대응 tests.
+  - 검증: focused 56/56, benchmark 189/189, solution 599/599, Release build 경고 0/오류 0.
+  - 유지: socket, payload/latency 배열, runner, CLI와 production 계층은 이번 단위에 포함하지 않았다.
+  - 다음 단계: 사용자 승인 뒤에만 plan Task 4 단일 논리 구독자 mixed TCP runner TDD를 시작한다.
 
 ## Deferred Backlog
 
@@ -20,12 +20,12 @@
   - 제외: endpoint cache, public `EndPoint` 계약 변경, receive registration reuse, IPv6.
   - 다음 단계: mixed TCP gate가 닫힌 뒤 RIO UDP가 실제 운영 경로인지 재평가한다.
 
-- [ ] `P1_SOON` D241 lifecycle 변경과 D243 mixed workload 설계/계획/검토 보완의 로컬 commit을 원격에 반영한다.
-  - 남은 일: D241 설계/계획/구현·review follow-up과 D243 written spec/implementation plan/2026-07-20 검토 보완 commit을 `origin/master`에 push한다.
+- [ ] `P1_SOON` D241 lifecycle 변경과 D243 mixed workload 설계/구현의 로컬 commit을 원격에 반영한다.
+  - 남은 일: D241 설계/구현·review follow-up과 D243 written spec, Task 2 options, Task 3 result/report commit을 `origin/master`에 push한다.
   - 이유: push는 사용자가 직접 수행하며 현재 로컬 `master`가 원격보다 앞서 있다.
   - 목적: 검증된 lifecycle code/tests와 새 운영 목표의 canonical 설계를 원격에 반영해 후속 implementation plan 기준을 고정한다.
-  - 범위: D241 lifecycle spec/plan/code/tests, D243 mixed workload spec/plan과 root/archive 상태 문서.
-  - 현재 상태: D241과 D243의 검토 완료 로컬 commit들이 원격보다 앞서 있고 push는 수행하지 않았다.
+  - 범위: D241 lifecycle spec/plan/code/tests, D243 mixed workload spec/plan/code/tests와 root/archive 상태 문서.
+  - 현재 상태: D241과 D243의 검토 완료 로컬 commit들이 원격보다 앞서 있고 이번 cycle도 push는 수행하지 않는다.
   - 다음 단계: 사용자가 적절한 시점에 현재 `master`를 push한다.
 
 - [ ] `P2_LATER` RIO full IPv6는 default promotion scope가 열릴 때 재평가한다.
@@ -51,6 +51,14 @@
 
 ## Completed
 
+- [x] 2026-07-21 D243 Task 3 stream/global hard gate와 typed mixed report를 TDD로 구현했다.
+  - stream/run과 writer, mixed identity type 부재를 reflection assertion Red로 각각 확인한 뒤 shape와 behavior를 단계적으로 구현했다.
+  - actual rate는 첫/마지막 completion 사이 `N - 1` interval을 사용하고 subscriber별 최악 p99/p999와 실패 subscriber 수를 판정한다.
+  - schema v2 mixed JSON의 canonical top-level/stream key, 반올림과 legacy reader count 0을 고정했다.
+  - 독립 리뷰의 Minor 테스트 공백을 모든 stream/run count parameter 음수 theory로 해소했다.
+  - focused 56/56, benchmark 189/189, solution 599/599와 Release build 경고 0/오류 0을 확인했다.
+- [x] 2026-07-21 D243 Task 2 `MixedWorkloadOptions` 구현 review stop을 사용자 진행 승인으로 닫았다.
+  - 승인에 따라 다음 단일 구현 범위를 Task 3 result/report/identity로 열었고 runner와 CLI는 계속 제외했다.
 - [x] 2026-07-20 D243 Task 2 mixed workload options와 실행 전 자원 경계를 TDD로 구현했다.
   - type 부재 assertion Red 1개와 shell 대상 behavior Red 10개를 순서대로 확인했다.
   - data/control message·delivery 수, `2 + 2N` connection 수와 원본/scratch latency payload를 constructor에서 계산한다.

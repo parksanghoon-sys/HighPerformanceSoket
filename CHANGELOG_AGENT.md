@@ -2,6 +2,17 @@
 
 ## Recent Work
 
+### 2026-07-21 - D243 mixed workload result/report hard gate 구현
+
+- `MixedWorkloadStreamResult`에 subscriber별 exact delivery, `(sent - 1)` actual rate와 worst-subscriber p99/p999 hard gate를 구현했다.
+- `MixedWorkloadRunResult`는 data/control과 drop, end pending, fallback pool rented, timeout zero gate를 결합하고 console summary를 제공한다.
+- `MixedWorkloadReportWriter`는 `report-kind: mixed-tcp-workload`, `schema-version: 2`, canonical key 순서와 stream 전체 계측값을 기록해 legacy reader에서 격리한다.
+- SAEA/RIO/io_uring mixed benchmark profile을 기존 backend/environment identity capture에 연결했다.
+- 독립 리뷰는 구현 결함 없이 음수 count 테스트 공백만 지적했고 stream 14개와 run 9개 parameter theory로 해소했다.
+- focused 56/56, benchmark 189/189, solution 599/599, targeted format 검증과 Release 단일-node build 경고 0/오류 0을 확인했다.
+- 기본 병렬 build worker 종료와 VSTest 시작 timeout은 같은 소스 재실행에서 재현되지 않아 코드 변경 없이 환경성 일회 실패로 분리했다.
+- runner, CLI와 production 계층은 변경하지 않았으며 Task 3 review stop을 유지한다.
+
 ### 2026-07-20 - D243 mixed workload options 사전 검증 구현
 
 - reflection 기반 type 부재 Red 1개와 최소 shell 대상 behavior Red 10개를 확인한 뒤 `MixedWorkloadOptions`만 구현했다.
