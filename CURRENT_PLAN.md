@@ -17,25 +17,25 @@
 - D243 Task 2 `MixedWorkloadOptions`는 입력, checked 계획 수, subscriber 256명과 latency 저장소 128MiB 사전 검증까지 구현했다.
 - D243 Task 3은 `N - 1` rate, worst-subscriber latency, 전역 zero gate, schema v2 mixed report와 backend별 identity까지 구현했다.
 - D243 Task 4는 data/control 4개 TCP connection, pinned client buffer 재사용, 공통 absolute pacing과 단일 subscriber exact delivery runner까지 구현했다.
+- D243 Task 5는 같은 runner를 고정 길이 subscriber collection으로 확장하고 subscriber별 exact delivery와 worst-latency 집계를 구현했다.
 - CLI와 30초 반복·soak·native backend mixed workload evidence는 아직 없다.
 
 ## 다음 단일 작업 단위
 
-### D243 Task 4 단일 논리 구독자 mixed TCP runner review stop
+### D243 Task 6 mixed workload CLI와 Program 연결
 
-- data/control은 각각 subscriber/publisher TCP connection을 사용하고 16KiB pinned block 네 개를 connection 수명 동안 재사용한다.
-- 두 publisher는 공통 start tick의 absolute deadline을 따르며 timer/value-task source를 publisher당 한 번만 만들어 per-message pacing allocation을 피한다.
-- subscriber는 같은 pinned block으로 header/payload partial receive를 반복하고 sequence, marker, pattern, timestamp와 subscriber별 latency를 검증한다.
-- timeout/예외 cleanup은 시작된 I/O task 종료를 관측한 뒤 socket, server와 client block을 정리하며 종료 후 fallback pool rented를 결과에 기록한다.
-- Task 4는 `SubscriberCount == 1`만 허용하고 CLI, fan-out과 production 계층은 변경하지 않았다.
-- 사용자 검토로 Task 4를 확정하기 전에는 Task 5 N명 fan-out을 시작하지 않는다.
+- `BenchmarkCommand.MixedLoadOpenLoop`와 data rate/duration/subscriber command-line 값을 추가한다.
+- mixed command는 backend, data rate, duration, subscribers와 report만 허용하고 protocol 지정은 명시적으로 거부한다.
+- parser 단계에서 `MixedWorkloadOptions`를 생성해 socket이나 latency 배열 할당 전에 범위와 128MiB 상한을 검증한다.
+- Program은 검증된 runner와 schema v2 writer를 연결하고 result hard gate에 따라 exit 0/1, report 오류에 exit 2를 반환한다.
+- production Broker/Protocol/Transport와 legacy load/baseline command는 변경하지 않는다.
 
 ## 최신 검증 기준
 
 - D243 plan은 현재 benchmark parser, command line, Program, runner, identity, report reader/writer, endpoint diagnostics와 io_uring artifact workflow를 대조해 작성했다.
 - 현재 `BaselineReportReader`는 `schema-version == 1` report를 legacy shape로 읽으므로 mixed report version 2 격리가 필요하다.
-- 2026-07-21 현재 Task 4 focused tests 12/12, benchmark tests 201/201가 통과했다.
-- Release 단일-node build 경고 0/오류 0, solution tests 611/611이 통과했다.
+- 2026-07-21 현재 Task 5 focused tests 14/14, subscriber 1/2/duplicate integration 20회 반복과 benchmark tests 203/203이 통과했다.
+- Release 단일-node build 경고 0/오류 0과 solution tests 613/613이 Task 5 최종 소스에서 통과했다.
 - 기본 병렬 build의 MSBuild worker 1개 종료와 VSTest 시작 timeout이 각각 한 번 있었으나 같은 소스의 단일-node build/test 재실행은 통과했고 코드 변경은 필요하지 않았다.
 - 현재 SAEA TCP 4096B x 100 Hz x 30초 open-loop는 3000/3000, actual 99.8 Hz, p99 623.9us, HWM 5, drop/payload error/pool rented 0이다.
 - RIO TCP smoke는 8/8, drop/payload error/pool rented 0이다.
@@ -46,12 +46,12 @@
 1. [완료] options 입력 검증, checked 계획 수, subscriber/latency 저장 preflight.
 2. [완료] `sent - 1` interval rate, worst-subscriber latency hard gate, typed report와 mixed run identity.
 3. [완료] 단일 논리 구독자 mixed TCP runner.
-4. [다음 후보] N명 fan-out exact delivery.
-5. CLI와 Program 연결.
+4. [완료] N명 fan-out exact delivery와 subscriber별 latency 집계.
+5. [다음] CLI와 Program 연결.
 6. Linux io_uring mixed artifact workflow.
 7. SAEA/RIO 3회, 1,800초 soak, push된 SHA의 io_uring evidence.
 
-각 단위는 D013에 따라 구현, 검증, 상태 문서, commit 후 사용자 review stop에서 멈춘다.
+사용자가 남은 Task 전체 진행을 승인했으므로 각 단위는 D013에 따라 구현, 검증, 독립 review와 commit을 마친 뒤 다음 단위로 연속 진행한다.
 
 ## 유지할 범위 경계
 

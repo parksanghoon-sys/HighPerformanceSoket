@@ -1,6 +1,11 @@
 using System;
+using System.Buffers.Binary;
 using System.Diagnostics;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -172,6 +177,126 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal(expected.LatencyFailedSubscriberCount, actual.LatencyFailedSubscriberCount);
         }
 
+        // 스트림 수준 latency는 모든 sample을 합쳐 다시 percentile을 계산하지 않고, 구독자별 결과의 최댓값을 사용한다.
+        // growth ratio도 이미 계산된 구독자별 ratio 중 최댓값을 보존해 서로 다른 구독자의 half 값을 섞지 않는다.
+        [Fact]
+        public void AggregateSubscriberLatencies_WhenTwoSummariesProvided_ReturnsWorstValuesAndFailedCount()
+        {
+            SubscriberLatencySummary first = new SubscriberLatencySummary(1000, 4000, 8000, 3000, 4000, 1.5, 1);
+            SubscriberLatencySummary second = new SubscriberLatencySummary(2000, 6000, 9000, 2000, 6000, 3.0, 1);
+
+            SubscriberLatencySummary actual = TcpMixedWorkloadScenarioRunner.AggregateSubscriberLatencies(
+                new[] { first, second });
+
+            Assert.Equal(2000, actual.P50);
+            Assert.Equal(6000, actual.P99);
+            Assert.Equal(9000, actual.P999);
+            Assert.Equal(3000, actual.FirstHalfP99);
+            Assert.Equal(6000, actual.SecondHalfP99);
+            Assert.Equal(3.0, actual.P99GrowthRatio);
+            Assert.Equal(2, actual.LatencyFailedSubscriberCount);
+        }
+
+        // 계획 개수에 도달했다는 이유로 receive를 끝내면 broker가 보낸 terminal duplicate가 client socket에 남아도
+        // exact delivery 결과가 통과한다. peer EOF까지 읽어 계획 초과 프레임을 실제 Received 수에 반영해야 한다.
+        [Fact]
+        public async Task ReceiveStreamAsync_WhenDuplicateFrameArrivesBeforeEof_CountsUnexpectedDelivery()
+        {
+            const int payloadLength = 2560;
+            const byte marker = 0x43;
+            TcpListener listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+
+            try
+            {
+                IPEndPoint endPoint = (IPEndPoint)listener.LocalEndpoint;
+                using (Socket sender = new Socket(
+                    AddressFamily.InterNetwork,
+                    SocketType.Stream,
+                    ProtocolType.Tcp))
+                {
+                    Task<Socket> acceptTask = listener.AcceptSocketAsync();
+                    sender.Connect(endPoint);
+
+                    using (Socket receiver = await acceptTask)
+                    {
+                        Type stateType = typeof(TcpMixedWorkloadScenarioRunner).GetNestedType(
+                            "SubscriberState",
+                            BindingFlags.NonPublic)!;
+                        object state = Activator.CreateInstance(stateType, new object[] { 1 })!;
+                        MethodInfo receiveMethod = typeof(TcpMixedWorkloadScenarioRunner).GetMethod(
+                            "ReceiveStreamAsync",
+                            BindingFlags.Static | BindingFlags.NonPublic)!;
+                        FieldInfo receivedField = stateType.GetField(
+                            "Received",
+                            BindingFlags.Instance | BindingFlags.Public)!;
+                        byte[] receiveBuffer = new byte[MixedWorkloadOptions.MaxFramePayloadBytes];
+                        byte[] frame = CreateSubscriberFrame(payloadLength, marker, 0);
+
+                        Task receiveTask = (Task)receiveMethod.Invoke(
+                            null,
+                            new object[]
+                            {
+                                receiver,
+                                receiveBuffer,
+                                payloadLength,
+                                marker,
+                                state,
+                                CancellationToken.None
+                            })!;
+                        SendAll(sender, frame);
+                        SendAll(sender, frame);
+                        sender.Shutdown(SocketShutdown.Send);
+
+                        await receiveTask;
+
+                        Assert.Equal(2, (int)receivedField.GetValue(state)!);
+
+                        Array subscriberStates = Array.CreateInstance(stateType, 1);
+                        subscriberStates.SetValue(state, 0);
+                        MethodInfo calculateStreamLatency = typeof(TcpMixedWorkloadScenarioRunner).GetMethod(
+                            "CalculateStreamLatency",
+                            BindingFlags.Static | BindingFlags.NonPublic)!;
+                        SubscriberLatencySummary latency = (SubscriberLatencySummary)calculateStreamLatency.Invoke(
+                            null,
+                            new object[] { subscriberStates, new long[1] })!;
+
+                        Type publisherType = typeof(TcpMixedWorkloadScenarioRunner).GetNestedType(
+                            "PublisherState",
+                            BindingFlags.NonPublic)!;
+                        object publisher = Activator.CreateInstance(publisherType)!;
+                        publisherType.GetField("Sent", BindingFlags.Instance | BindingFlags.Public)!
+                            .SetValue(publisher, 1);
+                        MethodInfo createStreamResult = typeof(TcpMixedWorkloadScenarioRunner).GetMethod(
+                            "CreateStreamResult",
+                            BindingFlags.Static | BindingFlags.NonPublic)!;
+                        MixedWorkloadStreamResult result = (MixedWorkloadStreamResult)createStreamResult.Invoke(
+                            null,
+                            new object[]
+                            {
+                                "control",
+                                "control",
+                                payloadLength,
+                                100,
+                                1,
+                                1,
+                                1,
+                                publisher,
+                                subscriberStates,
+                                latency
+                            })!;
+
+                        Assert.Equal(2, result.ReceivedDeliveryCount);
+                        Assert.Equal(1, result.DeliveryFailedSubscriberCount);
+                    }
+                }
+            }
+            finally
+            {
+                listener.Stop();
+            }
+        }
+
         // 단일 구독자 integration은 data/control이 독립 연결에서 동시에 진행되어도 각 100개를 정확히 전달해야 한다.
         // scheduler 변동이 큰 test 환경에서는 latency hard budget 자체를 단언하지 않고 무결성·자원 counter를 고정한다.
         [Fact]
@@ -182,6 +307,23 @@ namespace Hps.Benchmarks.Tests
             MixedWorkloadRunResult result = await TcpMixedWorkloadScenarioRunner.RunAsync(
                 options,
                 TcpLoopbackTransportBackend.Saea);
+
+            Assert.True(
+                result.Data.SentMessageCount == 100
+                && result.Data.ReceivedDeliveryCount == 100
+                && result.Control.SentMessageCount == 100
+                && result.Control.ReceivedDeliveryCount == 100
+                && result.Data.SequenceErrorCount == 0
+                && result.Control.SequenceErrorCount == 0
+                && result.Data.PayloadErrorCount == 0
+                && result.Control.PayloadErrorCount == 0
+                && result.Data.DeliveryFailedSubscriberCount == 0
+                && result.Control.DeliveryFailedSubscriberCount == 0
+                && result.DroppedPendingSendCount == 0
+                && result.EndPendingSendCount == 0
+                && result.FallbackPoolRentedAfterStop == 0
+                && result.TimeoutCount == 0,
+                FormatRunResult(result));
 
             Assert.Equal(100, result.Data.SentMessageCount);
             Assert.Equal(100, result.Data.ReceivedDeliveryCount);
@@ -199,17 +341,78 @@ namespace Hps.Benchmarks.Tests
             Assert.Equal(0, result.TimeoutCount);
         }
 
-        // fan-out collection은 다음 Task의 별도 Red/Green 범위다.
-        // 현재 runner가 options 값을 조용히 무시하고 한 명만 실행해 잘못된 capacity 증거를 만들지 않게 한다.
+        // fan-out은 subscriber별 실제 수신 합과 최소/최대 수신 수로 정확성을 판정해야 한다.
+        // 두 topic 모두 구독자 2명이 계획한 100개를 각각 받아 aggregate 합만 맞는 편향 전달을 통과시키지 않는다.
         [Fact]
-        public async Task RunAsync_WhenSubscriberCountIsNotOne_ThrowsNotSupported()
+        public async Task RunAsync_WhenTwoSubscribersUseSaea_DeliversEveryStreamToEverySubscriber()
         {
             MixedWorkloadOptions options = new MixedWorkloadOptions(100, 1, 2);
 
-            await Assert.ThrowsAsync<NotSupportedException>(async delegate
+            MixedWorkloadRunResult result = await TcpMixedWorkloadScenarioRunner.RunAsync(
+                options,
+                TcpLoopbackTransportBackend.Saea);
+
+            Assert.True(
+                result.Data.ReceivedDeliveryCount == 200
+                && result.Data.MinimumReceivedPerSubscriber == 100
+                && result.Data.MaximumReceivedPerSubscriber == 100
+                && result.Data.DeliveryFailedSubscriberCount == 0
+                && result.Control.ReceivedDeliveryCount == 200
+                && result.Control.DeliveryFailedSubscriberCount == 0
+                && result.DroppedPendingSendCount == 0
+                && result.EndPendingSendCount == 0
+                && result.FallbackPoolRentedAfterStop == 0
+                && result.TimeoutCount == 0,
+                FormatRunResult(result));
+
+            Assert.Equal(200, result.Data.PlannedDeliveryCount);
+            Assert.Equal(200, result.Data.ReceivedDeliveryCount);
+            Assert.Equal(100, result.Data.MinimumReceivedPerSubscriber);
+            Assert.Equal(100, result.Data.MaximumReceivedPerSubscriber);
+            Assert.Equal(0, result.Data.DeliveryFailedSubscriberCount);
+            Assert.Equal(200, result.Control.PlannedDeliveryCount);
+            Assert.Equal(200, result.Control.ReceivedDeliveryCount);
+            Assert.Equal(0, result.Control.DeliveryFailedSubscriberCount);
+            Assert.Equal(0, result.DroppedPendingSendCount);
+            Assert.Equal(0, result.EndPendingSendCount);
+            Assert.Equal(0, result.FallbackPoolRentedAfterStop);
+            Assert.Equal(0, result.TimeoutCount);
+        }
+
+        private static byte[] CreateSubscriberFrame(int payloadLength, byte marker, int sequence)
+        {
+            byte[] frame = new byte[4 + payloadLength];
+            Span<byte> payload = new Span<byte>(frame, 4, payloadLength);
+            BinaryPrimitives.WriteInt32BigEndian(new Span<byte>(frame, 0, 4), payloadLength);
+            BinaryPrimitives.WriteInt64BigEndian(payload.Slice(0, 8), Stopwatch.GetTimestamp());
+            BinaryPrimitives.WriteInt32BigEndian(payload.Slice(8, 4), sequence);
+            payload[12] = marker;
+            for (int index = 13; index < payloadLength; index++)
+                payload[index] = (byte)((sequence + index) & 0xFF);
+
+            return frame;
+        }
+
+        private static void SendAll(Socket socket, byte[] frame)
+        {
+            int sentTotal = 0;
+            while (sentTotal < frame.Length)
             {
-                await TcpMixedWorkloadScenarioRunner.RunAsync(options, TcpLoopbackTransportBackend.Saea);
-            });
+                int sent = socket.Send(frame, sentTotal, frame.Length - sentTotal, SocketFlags.None);
+                if (sent == 0)
+                    throw new InvalidOperationException("회귀 테스트 frame 전송 중 socket이 먼저 닫혔습니다.");
+
+                sentTotal += sent;
+            }
+        }
+
+        private static string FormatRunResult(MixedWorkloadRunResult result)
+        {
+            using (StringWriter writer = new StringWriter())
+            {
+                result.Print(writer);
+                return writer.ToString();
+            }
         }
     }
 }

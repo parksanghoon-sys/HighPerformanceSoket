@@ -825,7 +825,7 @@ Review stop: SAEA 1초 exact delivery/drop/pending/leak 결과만 보고하고 f
 - Consumes: Task 4의 단일 subscriber runner.
 - Produces: `SubscriberCount >= 1` 전체 지원. public/internal signature는 바꾸지 않는다.
 
-- [ ] **Step 1: subscriber 2명 exact fan-out assertion Red를 추가한다**
+- [x] **Step 1: subscriber 2명 exact fan-out assertion Red를 추가한다**
 
 ```csharp
 [Fact]
@@ -842,11 +842,9 @@ public async Task RunAsync_WhenTwoSubscribersUseSaea_DeliversEveryStreamToEveryS
     Assert.Equal(100, result.Data.MinimumReceivedPerSubscriber);
     Assert.Equal(100, result.Data.MaximumReceivedPerSubscriber);
     Assert.Equal(0, result.Data.DeliveryFailedSubscriberCount);
-    Assert.Equal(0, result.Data.LatencyFailedSubscriberCount);
     Assert.Equal(200, result.Control.PlannedDeliveryCount);
     Assert.Equal(200, result.Control.ReceivedDeliveryCount);
     Assert.Equal(0, result.Control.DeliveryFailedSubscriberCount);
-    Assert.Equal(0, result.Control.LatencyFailedSubscriberCount);
     Assert.Equal(0, result.DroppedPendingSendCount);
     Assert.Equal(0, result.EndPendingSendCount);
     Assert.Equal(0, result.FallbackPoolRentedAfterStop);
@@ -856,13 +854,16 @@ public async Task RunAsync_WhenTwoSubscribersUseSaea_DeliversEveryStreamToEveryS
 
 Expected: Task 4의 `NotSupportedException` 때문에 fail.
 
-- [ ] **Step 2: fixed guard를 제거하고 subscriber collection을 만든다**
+integration test는 scheduler 부하에 따라 달라지는 5ms/10ms latency budget을 단언하지 않는다.
+subscriber별 latency 실패 집계는 아래 deterministic aggregation test로 고정하고 실제 hard SLO는 Task 8 명시 실행에서 판정한다.
+
+- [x] **Step 2: fixed guard를 제거하고 subscriber collection을 만든다**
 
 stream별 `Socket[]`, `byte[][]`, `SubscriberState[]`, `Task[]`를 `SubscriberCount` 길이로 한 번 만든다. 각 logical index에서 data/control socket과 buffer를 하나씩 생성한다. `WaitForSubscriberCountAsync(topic, SubscriberCount, 5초)`를 두 topic 모두에 호출한 뒤 receive task를 시작한다.
 
 hot path에서 LINQ, closure capture, growable collection을 사용하지 않는다. task 생성 loop에서는 index를 local 변수로 복사해 각 state/socket을 정확히 연결한다.
 
-- [ ] **Step 3: stream aggregate를 subscriber별 exact/worst-latency gate로 만든다**
+- [x] **Step 3: stream aggregate를 subscriber별 exact/worst-latency gate로 만든다**
 
 - received delivery count는 모든 subscriber `Received` 합이다.
 - min/max는 subscriber state의 실제 `Received` 최소/최대다.
@@ -876,7 +877,7 @@ aggregate 합만 일치해도 한 subscriber가 누락되면 `MinimumReceivedPer
 
 deterministic aggregation Red는 정상 `SubscriberLatencySummary`와 p99 6,000us/failed count 1인 summary를 `AggregateSubscriberLatencies`에 넣었을 때 p99가 6,000us, latency failed subscriber count가 1이 되는지를 확인한다. 이 test는 실제 scheduler를 사용하지 않는다.
 
-- [ ] **Step 4: focused와 benchmark 전체를 Green으로 확인하고 commit한다**
+- [x] **Step 4: focused와 benchmark 전체를 Green으로 확인하고 commit한다**
 
 Run:
 

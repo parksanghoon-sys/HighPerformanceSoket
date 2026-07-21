@@ -2,12 +2,12 @@
 
 ## Current TODOs
 
-- [ ] D243 Task 4 단일 논리 구독자 mixed TCP runner 구현 review stop을 사용자 검토로 확정한다.
-  - 범위: data/control TCP connection 4개, pinned client buffer 재사용, 공통 absolute pacing, exact delivery/latency와 timeout/cleanup 결과.
-  - 구현: `tests/Hps.Benchmarks/TcpMixedWorkloadScenarioRunner.cs`와 대응 tests.
-  - 검증: focused 12/12, benchmark 201/201, solution 611/611, Release build 경고 0/오류 0과 SAEA 1초 integration 5회 연속 통과.
-  - 유지: subscriber 2명 이상은 `NotSupportedException`으로 거부하고 CLI, production Broker/Protocol/Transport는 변경하지 않았다.
-  - 다음 단계: 사용자 승인 뒤에만 plan Task 5 N명 fan-out exact delivery TDD를 시작한다.
+- [ ] D243 Task 6 mixed workload command, parser와 Program을 TDD로 연결한다.
+  - 범위: `BenchmarkCommand`, `BenchmarkCommandLine`, parser, Program/help와 대응 tests.
+  - 계약: backend/data rate/duration/subscribers/report만 허용하고 protocol은 거부하며 `MixedWorkloadOptions`로 실행 전 자원 상한을 검증한다.
+  - 검증: parser/Program focused, benchmark 전체, Release benchmark build와 1초 SAEA CLI report smoke.
+  - 유지: legacy command/parser, production Broker/Protocol/Transport와 workflow는 이번 단위에서 변경하지 않는다.
+  - 다음 단계: Task 6 독립 review와 commit 뒤 Task 7 Linux io_uring mixed artifact workflow로 진행한다.
 
 ## Deferred Backlog
 
@@ -51,6 +51,13 @@
 
 ## Completed
 
+- [x] 2026-07-21 D243 Task 5 N명 mixed TCP fan-out을 TDD로 구현했다.
+  - subscriber 2명 integration과 다중 latency summary 집계가 기존 `NotSupportedException`으로 실패하는 assertion Red를 확인했다.
+  - stream별 socket, pinned buffer, state와 receive task를 고정 길이 배열로 만들고 logical index별 소유권을 유지했다.
+  - 수신 합, subscriber별 min/max, delivery 실패 수와 sequence/payload error 합을 계산하고 latency percentile/growth는 subscriber별 최댓값으로 집계한다.
+  - receiver는 계획 수 도달 신호 뒤 server EOF/reset까지 읽어 terminal duplicate를 count하고, 초과 frame은 delivery 실패로 기록하되 latency 배열 경계를 넘지 않는다.
+  - 부분 초기화와 timeout cleanup은 생성된 모든 socket/task/buffer를 순회해 종료·관측·반환한다.
+  - focused 14/14, subscriber 1/2/duplicate integration 20회 반복, benchmark 203/203, solution 613/613과 Release build 경고 0/오류 0을 확인했다.
 - [x] 2026-07-21 D243 Task 4 단일 subscriber mixed TCP runner를 TDD로 구현했다.
   - runner/latency/timestamp/pacing seam 부재 assertion Red와 SAEA integration `NotImplementedException` Red를 순서대로 확인했다.
   - data/control은 별도 subscriber/publisher 연결과 pinned block을 사용하고 공통 start tick의 absolute deadline으로 동시에 진행한다.

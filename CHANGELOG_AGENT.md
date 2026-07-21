@@ -2,6 +2,16 @@
 
 ## Recent Work
 
+### 2026-07-21 - D243 N명 mixed TCP fan-out 구현
+
+- 단일 subscriber 가드를 제거하고 data/control별 socket, pinned buffer, state와 receive task를 `SubscriberCount` 길이의 고정 배열로 확장했다.
+- subscriber별 수신 수와 sequence/payload/timeout 상태를 집계해 aggregate 합이 같아도 편향 전달을 실패로 판정한다.
+- latency는 subscriber별 percentile과 전후반 growth를 scratch 하나로 순차 계산하고 각 지표의 최댓값과 실패 subscriber 수 합을 stream result에 기록한다.
+- receiver는 계획 수 도달 신호를 게시한 뒤 server EOF/reset까지 읽어 terminal duplicate를 count하며, runner는 모든 신호를 기다린 뒤 pending drain과 server stop을 수행한다.
+- 부분 초기화와 timeout 경로에서도 생성된 모든 socket을 닫고 task를 관측한 뒤 pinned block을 정확히 반환한다.
+- 2명 fan-out, 다중 latency 집계와 terminal duplicate Red를 확인한 뒤 focused 14/14, integration 20회 반복, benchmark 203/203과 solution 613/613을 통과했다.
+- public/internal signature, production Broker/Protocol/Transport와 CLI는 변경하지 않았다.
+
 ### 2026-07-21 - D243 단일 subscriber mixed TCP runner 구현
 
 - data/control별 subscriber/publisher TCP connection 4개와 16KiB pinned client block 4개를 사용하는 독립 mixed runner를 구현했다.

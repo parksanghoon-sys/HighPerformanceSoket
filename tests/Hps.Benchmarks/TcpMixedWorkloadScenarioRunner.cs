@@ -39,27 +39,29 @@ namespace Hps.Benchmarks
         private const int PendingPollMilliseconds = 10;
 
         /// <summary>
-        /// 지정 backend에서 단일 논리 구독자 mixed workload를 실행한다.
+        /// 지정 backend에서 논리 구독자 수만큼 fan-out하는 mixed workload를 실행한다.
         /// </summary>
         /// <param name="options">사전 검증된 전송률, 실행 시간과 구독자 계획이다.</param>
         /// <param name="transportBackend">서버가 사용할 TCP transport backend이다.</param>
         /// <returns>두 stream의 전달·지연과 transport 종료 상태를 결합한 결과이다.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="options"/>가 null이다.</exception>
-        /// <exception cref="NotSupportedException">
-        /// 현재 Task 범위인 단일 구독자가 아니거나 선택 backend를 현재 OS에서 사용할 수 없다.
-        /// </exception>
+        /// <exception cref="NotSupportedException">선택 backend를 현재 OS에서 사용할 수 없다.</exception>
         public static async Task<MixedWorkloadRunResult> RunAsync(
             MixedWorkloadOptions options,
             TcpLoopbackTransportBackend transportBackend = TcpLoopbackTransportBackend.Saea)
         {
             if (options == null)
                 throw new ArgumentNullException(nameof(options));
-            if (options.SubscriberCount != 1)
-                throw new NotSupportedException("단일 구독자 mixed workload만 현재 구현되어 있습니다.");
 
             PinnedBlockMemoryPool pool = new PinnedBlockMemoryPool(MixedWorkloadOptions.MaxFramePayloadBytes);
-            SubscriberState dataSubscriberState = new SubscriberState(options.DataMessageCount);
-            SubscriberState controlSubscriberState = new SubscriberState(options.ControlMessageCount);
+            SubscriberState[] dataSubscriberStates = new SubscriberState[options.SubscriberCount];
+            SubscriberState[] controlSubscriberStates = new SubscriberState[options.SubscriberCount];
+            for (int index = 0; index < options.SubscriberCount; index++)
+            {
+                dataSubscriberStates[index] = new SubscriberState(options.DataMessageCount);
+                controlSubscriberStates[index] = new SubscriberState(options.ControlMessageCount);
+            }
+
             PublisherState dataPublisherState = new PublisherState();
             PublisherState controlPublisherState = new PublisherState();
             long[] percentileScratch = new long[Math.Max(options.DataMessageCount, options.ControlMessageCount)];
@@ -76,19 +78,20 @@ namespace Hps.Benchmarks
             {
                 ITransportDiagnostics transportDiagnostics = GetTransportDiagnostics(transport);
                 ITransportEndpointDiagnostics endpointDiagnostics = GetEndpointDiagnostics(transport);
-                Socket? dataSubscriber = null;
-                Socket? controlSubscriber = null;
+                Socket?[] dataSubscribers = new Socket?[options.SubscriberCount];
+                Socket?[] controlSubscribers = new Socket?[options.SubscriberCount];
                 Socket? dataPublisher = null;
                 Socket? controlPublisher = null;
-                byte[]? dataSubscriberBuffer = null;
-                byte[]? controlSubscriberBuffer = null;
+                byte[]?[] dataSubscriberBuffers = new byte[]?[options.SubscriberCount];
+                byte[]?[] controlSubscriberBuffers = new byte[]?[options.SubscriberCount];
                 byte[]? dataPublisherBuffer = null;
                 byte[]? controlPublisherBuffer = null;
                 TaskCompletionSource<long>? startTickSource = null;
-                Task? dataReceiveTask = null;
-                Task? controlReceiveTask = null;
+                Task?[] dataReceiveTasks = new Task?[options.SubscriberCount];
+                Task?[] controlReceiveTasks = new Task?[options.SubscriberCount];
                 Task? dataPublishTask = null;
                 Task? controlPublishTask = null;
+                bool serverStopped = false;
 
                 runCancellation.CancelAfter(TimeSpan.FromSeconds(
                     options.DurationSeconds + SetupTimeoutSeconds + DrainTimeoutSeconds));
@@ -97,8 +100,6 @@ namespace Hps.Benchmarks
                 {
                     // 같은 pool을 server fallback payload와 benchmark client가 공유한다.
                     // 종료 뒤 RentedCount 하나로 두 소유권 경계의 누수를 함께 확인할 수 있다.
-                    dataSubscriberBuffer = pool.Rent();
-                    controlSubscriberBuffer = pool.Rent();
                     dataPublisherBuffer = pool.Rent();
                     controlPublisherBuffer = pool.Rent();
 
@@ -107,32 +108,45 @@ namespace Hps.Benchmarks
                         runCancellation.Token).ConfigureAwait(false);
                     IPEndPoint boundEndPoint = GetBoundEndPoint(server);
 
-                    dataSubscriber = CreateConnectedTcpClient(boundEndPoint);
-                    controlSubscriber = CreateConnectedTcpClient(boundEndPoint);
+                    // subscriber별 socket과 pinned block을 logical index에 고정한다. 배열은 실행 전에 한 번만
+                    // 만들며 receive hot path에서는 growable collection이나 index closure를 사용하지 않는다.
+                    for (int index = 0; index < options.SubscriberCount; index++)
+                    {
+                        byte[] dataBuffer = pool.Rent();
+                        dataSubscriberBuffers[index] = dataBuffer;
+                        byte[] controlBuffer = pool.Rent();
+                        controlSubscriberBuffers[index] = controlBuffer;
+
+                        Socket dataSocket = CreateConnectedTcpClient(boundEndPoint);
+                        dataSubscribers[index] = dataSocket;
+                        Socket controlSocket = CreateConnectedTcpClient(boundEndPoint);
+                        controlSubscribers[index] = controlSocket;
+
+                        int dataSubscriptionLength = PrepareSubscriptionFrame(dataBuffer, DataTopic);
+                        int controlSubscriptionLength = PrepareSubscriptionFrame(controlBuffer, ControlTopic);
+                        await SendAllAsync(
+                            dataSocket,
+                            dataBuffer,
+                            dataSubscriptionLength,
+                            runCancellation.Token).ConfigureAwait(false);
+                        await SendAllAsync(
+                            controlSocket,
+                            controlBuffer,
+                            controlSubscriptionLength,
+                            runCancellation.Token).ConfigureAwait(false);
+                    }
+
                     dataPublisher = CreateConnectedTcpClient(boundEndPoint);
                     controlPublisher = CreateConnectedTcpClient(boundEndPoint);
 
-                    int dataSubscriptionLength = PrepareSubscriptionFrame(dataSubscriberBuffer, DataTopic);
-                    int controlSubscriptionLength = PrepareSubscriptionFrame(controlSubscriberBuffer, ControlTopic);
-                    await SendAllAsync(
-                        dataSubscriber,
-                        dataSubscriberBuffer,
-                        dataSubscriptionLength,
-                        runCancellation.Token).ConfigureAwait(false);
-                    await SendAllAsync(
-                        controlSubscriber,
-                        controlSubscriberBuffer,
-                        controlSubscriptionLength,
-                        runCancellation.Token).ConfigureAwait(false);
-
                     await server.WaitForSubscriberCountAsync(
                         DataTopic,
-                        1,
+                        options.SubscriberCount,
                         TimeSpan.FromSeconds(SetupTimeoutSeconds),
                         runCancellation.Token).ConfigureAwait(false);
                     await server.WaitForSubscriberCountAsync(
                         ControlTopic,
-                        1,
+                        options.SubscriberCount,
                         TimeSpan.FromSeconds(SetupTimeoutSeconds),
                         runCancellation.Token).ConfigureAwait(false);
 
@@ -141,20 +155,34 @@ namespace Hps.Benchmarks
                     // 독점해 다른 stream 시작을 늦추는 inline continuation 편향을 줄인다.
                     startTickSource = new TaskCompletionSource<long>(
                         TaskCreationOptions.RunContinuationsAsynchronously);
-                    dataReceiveTask = ReceiveStreamAsync(
-                        dataSubscriber,
-                        dataSubscriberBuffer,
-                        MixedWorkloadOptions.DataPayloadBytes,
-                        DataMarker,
-                        dataSubscriberState,
-                        runCancellation.Token);
-                    controlReceiveTask = ReceiveStreamAsync(
-                        controlSubscriber,
-                        controlSubscriberBuffer,
-                        MixedWorkloadOptions.ControlPayloadBytes,
-                        ControlMarker,
-                        controlSubscriberState,
-                        runCancellation.Token);
+                    for (int index = 0; index < options.SubscriberCount; index++)
+                    {
+                        int subscriberIndex = index;
+                        Socket dataSocket = dataSubscribers[subscriberIndex]
+                            ?? throw new InvalidOperationException("data subscriber socket이 준비되지 않았습니다.");
+                        Socket controlSocket = controlSubscribers[subscriberIndex]
+                            ?? throw new InvalidOperationException("control subscriber socket이 준비되지 않았습니다.");
+                        byte[] dataBuffer = dataSubscriberBuffers[subscriberIndex]
+                            ?? throw new InvalidOperationException("data subscriber buffer가 준비되지 않았습니다.");
+                        byte[] controlBuffer = controlSubscriberBuffers[subscriberIndex]
+                            ?? throw new InvalidOperationException("control subscriber buffer가 준비되지 않았습니다.");
+
+                        dataReceiveTasks[subscriberIndex] = ReceiveStreamAsync(
+                            dataSocket,
+                            dataBuffer,
+                            MixedWorkloadOptions.DataPayloadBytes,
+                            DataMarker,
+                            dataSubscriberStates[subscriberIndex],
+                            runCancellation.Token);
+                        controlReceiveTasks[subscriberIndex] = ReceiveStreamAsync(
+                            controlSocket,
+                            controlBuffer,
+                            MixedWorkloadOptions.ControlPayloadBytes,
+                            ControlMarker,
+                            controlSubscriberStates[subscriberIndex],
+                            runCancellation.Token);
+                    }
+
                     dataPublishTask = PublishStreamAsync(
                         dataPublisher,
                         dataPublisherBuffer,
@@ -180,10 +208,22 @@ namespace Hps.Benchmarks
 
                     startTickSource.SetResult(Stopwatch.GetTimestamp());
                     await Task.WhenAll(dataPublishTask, controlPublishTask).ConfigureAwait(false);
-                    await Task.WhenAll(dataReceiveTask, controlReceiveTask).ConfigureAwait(false);
+                    await AwaitPlannedDeliveriesAsync(
+                        dataSubscriberStates,
+                        dataReceiveTasks).ConfigureAwait(false);
+                    await AwaitPlannedDeliveriesAsync(
+                        controlSubscriberStates,
+                        controlReceiveTasks).ConfigureAwait(false);
                     endPendingSendCount = await WaitForPendingSendsToDrainAsync(
                         endpointDiagnostics,
                         runCancellation.Token).ConfigureAwait(false);
+
+                    // pending 0 뒤 server connection을 닫아 subscriber receiver에 명시적인 EOF를 전달한다.
+                    // receiver는 계획 개수에서 멈추지 않고 EOF까지 읽으므로 broker의 terminal duplicate도 계측된다.
+                    await server.StopAsync().ConfigureAwait(false);
+                    serverStopped = true;
+                    await AwaitTasksAsync(dataReceiveTasks).ConfigureAwait(false);
+                    await AwaitTasksAsync(controlReceiveTasks).ConfigureAwait(false);
                 }
                 catch (TimeoutException)
                 {
@@ -204,43 +244,36 @@ namespace Hps.Benchmarks
                     // 해당 task가 pinned block을 더 이상 사용하지 않는다는 수명 경계가 성립한다.
                     runCancellation.Cancel();
                     startTickSource?.TrySetCanceled(runCancellation.Token);
-                    dataSubscriber?.Dispose();
-                    controlSubscriber?.Dispose();
+                    DisposeSockets(dataSubscribers);
+                    DisposeSockets(controlSubscribers);
                     dataPublisher?.Dispose();
                     controlPublisher?.Dispose();
 
-                    await ObserveCleanupTaskAsync(dataReceiveTask).ConfigureAwait(false);
-                    await ObserveCleanupTaskAsync(controlReceiveTask).ConfigureAwait(false);
+                    await ObserveCleanupTasksAsync(dataReceiveTasks).ConfigureAwait(false);
+                    await ObserveCleanupTasksAsync(controlReceiveTasks).ConfigureAwait(false);
                     await ObserveCleanupTaskAsync(dataPublishTask).ConfigureAwait(false);
                     await ObserveCleanupTaskAsync(controlPublishTask).ConfigureAwait(false);
 
                     try
                     {
-                        await server.StopAsync().ConfigureAwait(false);
+                        if (!serverStopped)
+                            await server.StopAsync().ConfigureAwait(false);
                     }
                     finally
                     {
-                        ReturnBuffer(pool, dataSubscriberBuffer);
-                        ReturnBuffer(pool, controlSubscriberBuffer);
+                        ReturnBuffers(pool, dataSubscriberBuffers);
+                        ReturnBuffers(pool, controlSubscriberBuffers);
                         ReturnBuffer(pool, dataPublisherBuffer);
                         ReturnBuffer(pool, controlPublisherBuffer);
                     }
                 }
 
-                SubscriberLatencySummary dataLatency = AggregateSubscriberLatencies(new[]
-                {
-                    CalculateSubscriberLatency(
-                        dataSubscriberState.LatencyTicks,
-                        dataSubscriberState.Received,
-                        percentileScratch)
-                });
-                SubscriberLatencySummary controlLatency = AggregateSubscriberLatencies(new[]
-                {
-                    CalculateSubscriberLatency(
-                        controlSubscriberState.LatencyTicks,
-                        controlSubscriberState.Received,
-                        percentileScratch)
-                });
+                SubscriberLatencySummary dataLatency = CalculateStreamLatency(
+                    dataSubscriberStates,
+                    percentileScratch);
+                SubscriberLatencySummary controlLatency = CalculateStreamLatency(
+                    controlSubscriberStates,
+                    percentileScratch);
                 MixedWorkloadStreamResult dataResult = CreateStreamResult(
                     "data",
                     DataTopic,
@@ -250,7 +283,7 @@ namespace Hps.Benchmarks
                     options.DataMessageCount,
                     options.DataDeliveryCount,
                     dataPublisherState,
-                    dataSubscriberState,
+                    dataSubscriberStates,
                     dataLatency);
                 MixedWorkloadStreamResult controlResult = CreateStreamResult(
                     "control",
@@ -261,7 +294,7 @@ namespace Hps.Benchmarks
                     options.ControlMessageCount,
                     options.ControlDeliveryCount,
                     controlPublisherState,
-                    controlSubscriberState,
+                    controlSubscriberStates,
                     controlLatency);
 
                 return new MixedWorkloadRunResult(
@@ -342,7 +375,7 @@ namespace Hps.Benchmarks
 
         /// <summary>
         /// subscriber별 요약을 stream의 worst-subscriber 값으로 집계한다.
-        /// Task 4에서는 단일 구독자만 허용하며 다중 집계는 다음 fan-out 작업에서 확장한다.
+        /// 각 percentile과 growth는 subscriber별 계산값의 최댓값이며, 실패 수는 전체 subscriber 합이다.
         /// </summary>
         internal static SubscriberLatencySummary AggregateSubscriberLatencies(
             SubscriberLatencySummary[] summaries)
@@ -351,10 +384,35 @@ namespace Hps.Benchmarks
                 throw new ArgumentNullException(nameof(summaries));
             if (summaries.Length == 0)
                 return SubscriberLatencySummary.Zero;
-            if (summaries.Length != 1)
-                throw new NotSupportedException("다중 구독자 latency 집계는 아직 구현되지 않았습니다.");
 
-            return summaries[0];
+            double p50 = 0;
+            double p99 = 0;
+            double p999 = 0;
+            double firstHalfP99 = 0;
+            double secondHalfP99 = 0;
+            double growthRatio = 0;
+            int failedCount = 0;
+
+            for (int index = 0; index < summaries.Length; index++)
+            {
+                SubscriberLatencySummary summary = summaries[index];
+                p50 = Math.Max(p50, summary.P50);
+                p99 = Math.Max(p99, summary.P99);
+                p999 = Math.Max(p999, summary.P999);
+                firstHalfP99 = Math.Max(firstHalfP99, summary.FirstHalfP99);
+                secondHalfP99 = Math.Max(secondHalfP99, summary.SecondHalfP99);
+                growthRatio = Math.Max(growthRatio, summary.P99GrowthRatio);
+                failedCount = checked(failedCount + summary.LatencyFailedSubscriberCount);
+            }
+
+            return new SubscriberLatencySummary(
+                p50,
+                p99,
+                p999,
+                firstHalfP99,
+                secondHalfP99,
+                growthRatio,
+                failedCount);
         }
 
         /// <summary>
@@ -437,10 +495,12 @@ namespace Hps.Benchmarks
             SubscriberState state,
             CancellationToken cancellationToken)
         {
+            bool frameInProgress = false;
             try
             {
-                while (state.Received < state.LatencyTicks.Length)
+                while (true)
                 {
+                    frameInProgress = false;
                     int headerReceived = 0;
                     while (headerReceived < LengthPrefixBytes)
                     {
@@ -449,9 +509,16 @@ namespace Hps.Benchmarks
                             SocketFlags.None,
                             cancellationToken).ConfigureAwait(false);
                         if (received == 0)
-                            throw new InvalidOperationException("TCP frame header 수신 중 socket이 먼저 닫혔습니다.");
+                        {
+                            // frame 경계의 EOF는 publisher 완료와 pending drain 뒤 server가 보내는 정상 종료다.
+                            // partial header EOF만 wire 손상으로 기록하고, 계획보다 적은 정상 EOF는 count gate가 판정한다.
+                            if (headerReceived != 0)
+                                state.PayloadErrors++;
+                            return;
+                        }
 
                         headerReceived += received;
+                        frameInProgress = true;
                     }
 
                     int payloadLength = BinaryPrimitives.ReadInt32BigEndian(
@@ -497,12 +564,30 @@ namespace Hps.Benchmarks
                         new ReadOnlySpan<byte>(buffer, TimestampOffset, TimestampBytes));
                     long receivedTimestamp = Stopwatch.GetTimestamp();
                     if (TryCalculateLatency(embeddedTimestamp, receivedTimestamp, out long latencyTicks))
-                        state.LatencyTicks[receiveIndex] = latencyTicks;
+                    {
+                        // 계획 초과 frame은 exact-delivery 실패 증거로 count하되 고정 크기 latency 저장소에는 쓰지 않는다.
+                        // 정상 계획 범위의 percentile 표본만 보존해 duplicate가 배열 경계를 넘지 않게 한다.
+                        if (receiveIndex < state.LatencyTicks.Length)
+                            state.LatencyTicks[receiveIndex] = latencyTicks;
+                    }
                     else
                         state.PayloadErrors++;
 
-                    state.Received++;
+                    state.Received = checked(state.Received + 1);
+                    if (state.Received == state.LatencyTicks.Length)
+                        state.PlannedDeliverySource.TrySetResult(true);
+                    frameInProgress = false;
                 }
+            }
+            catch (SocketException exception) when (
+                exception.SocketErrorCode == SocketError.ConnectionReset
+                || exception.SocketErrorCode == SocketError.ConnectionAborted
+                || exception.SocketErrorCode == SocketError.OperationAborted)
+            {
+                // BrokerServer backend에 따라 StopAsync가 FIN 대신 reset/abort로 client receive를 끝낼 수 있다.
+                // frame 경계의 종료는 정상이고, header 또는 payload 도중 종료만 불완전 frame 손상으로 기록한다.
+                if (frameInProgress)
+                    state.PayloadErrors++;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -638,6 +723,28 @@ namespace Hps.Benchmarks
             return pendingCount;
         }
 
+        private static SubscriberLatencySummary CalculateStreamLatency(
+            SubscriberState[] subscribers,
+            long[] scratch)
+        {
+            // subscriber별 원본 sample은 서로 섞지 않는다. 같은 scratch를 순차 재사용해 percentile을
+            // 독립 계산한 뒤 summary만 집계하면 fan-out 수에 비례하는 추가 aggregate sample 배열이 필요 없다.
+            SubscriberLatencySummary[] summaries = new SubscriberLatencySummary[subscribers.Length];
+            for (int index = 0; index < subscribers.Length; index++)
+            {
+                SubscriberState subscriber = subscribers[index];
+                int latencySampleCount = Math.Min(
+                    subscriber.Received,
+                    subscriber.LatencyTicks.Length);
+                summaries[index] = CalculateSubscriberLatency(
+                    subscriber.LatencyTicks,
+                    latencySampleCount,
+                    scratch);
+            }
+
+            return AggregateSubscriberLatencies(summaries);
+        }
+
         private static MixedWorkloadStreamResult CreateStreamResult(
             string name,
             string topic,
@@ -647,15 +754,36 @@ namespace Hps.Benchmarks
             int plannedMessageCount,
             int plannedDeliveryCount,
             PublisherState publisher,
-            SubscriberState subscriber,
+            SubscriberState[] subscribers,
             SubscriberLatencySummary latency)
         {
-            int deliveryFailedSubscriberCount = subscriber.Received != plannedMessageCount
-                || subscriber.SequenceErrors != 0
-                || subscriber.PayloadErrors != 0
-                || subscriber.TimedOut
-                ? 1
-                : 0;
+            int receivedDeliveryCount = 0;
+            int minimumReceivedPerSubscriber = subscribers.Length == 0 ? 0 : int.MaxValue;
+            int maximumReceivedPerSubscriber = 0;
+            int deliveryFailedSubscriberCount = 0;
+            int sequenceErrorCount = 0;
+            int payloadErrorCount = 0;
+
+            for (int index = 0; index < subscribers.Length; index++)
+            {
+                SubscriberState subscriber = subscribers[index];
+                receivedDeliveryCount = checked(receivedDeliveryCount + subscriber.Received);
+                sequenceErrorCount = checked(sequenceErrorCount + subscriber.SequenceErrors);
+                payloadErrorCount = checked(payloadErrorCount + subscriber.PayloadErrors);
+                minimumReceivedPerSubscriber = Math.Min(minimumReceivedPerSubscriber, subscriber.Received);
+                maximumReceivedPerSubscriber = Math.Max(maximumReceivedPerSubscriber, subscriber.Received);
+
+                // aggregate 합이 계획과 같더라도 특정 subscriber가 누락되면 delivery 실패다.
+                // count와 wire 검증 오류를 logical subscriber 단위로 묶어 실패 수를 정확히 한 번 올린다.
+                if (subscriber.Received != plannedMessageCount
+                    || subscriber.SequenceErrors != 0
+                    || subscriber.PayloadErrors != 0
+                    || subscriber.TimedOut)
+                {
+                    deliveryFailedSubscriberCount++;
+                }
+            }
+
             long publisherElapsedTicks = publisher.Sent >= 2
                 ? publisher.LastCompletionTick - publisher.FirstCompletionTick
                 : 0;
@@ -668,15 +796,15 @@ namespace Hps.Benchmarks
                 targetDurationSeconds,
                 plannedMessageCount,
                 publisher.Sent,
-                1,
+                subscribers.Length,
                 plannedDeliveryCount,
-                subscriber.Received,
-                subscriber.Received,
-                subscriber.Received,
+                receivedDeliveryCount,
+                minimumReceivedPerSubscriber,
+                maximumReceivedPerSubscriber,
                 deliveryFailedSubscriberCount,
                 latency.LatencyFailedSubscriberCount,
-                subscriber.SequenceErrors,
-                subscriber.PayloadErrors,
+                sequenceErrorCount,
+                payloadErrorCount,
                 latency.P50,
                 latency.P99,
                 latency.P999,
@@ -792,10 +920,57 @@ namespace Hps.Benchmarks
             }
         }
 
+        private static void DisposeSockets(Socket?[] sockets)
+        {
+            for (int index = 0; index < sockets.Length; index++)
+                sockets[index]?.Dispose();
+        }
+
         private static void ReturnBuffer(PinnedBlockMemoryPool pool, byte[]? buffer)
         {
             if (buffer != null)
                 pool.Return(buffer);
+        }
+
+        private static void ReturnBuffers(PinnedBlockMemoryPool pool, byte[]?[] buffers)
+        {
+            for (int index = 0; index < buffers.Length; index++)
+                ReturnBuffer(pool, buffers[index]);
+        }
+
+        private static async Task AwaitTasksAsync(Task?[] tasks)
+        {
+            for (int index = 0; index < tasks.Length; index++)
+            {
+                Task task = tasks[index]
+                    ?? throw new InvalidOperationException("subscriber receive task가 준비되지 않았습니다.");
+                await task.ConfigureAwait(false);
+            }
+        }
+
+        private static async Task AwaitPlannedDeliveriesAsync(
+            SubscriberState[] subscribers,
+            Task?[] receiveTasks)
+        {
+            for (int index = 0; index < subscribers.Length; index++)
+            {
+                Task receiveTask = receiveTasks[index]
+                    ?? throw new InvalidOperationException("subscriber receive task가 준비되지 않았습니다.");
+                Task completedTask = await Task.WhenAny(
+                    subscribers[index].PlannedDeliverySource.Task,
+                    receiveTask).ConfigureAwait(false);
+
+                // EOF, wire 오류 또는 cancellation으로 receiver가 계획 수보다 먼저 끝나면 해당 completion을
+                // 관측해 runner가 신호를 무한 대기하지 않게 한다. 정상 count 불일치는 result gate가 판정한다.
+                if (object.ReferenceEquals(completedTask, receiveTask))
+                    await receiveTask.ConfigureAwait(false);
+            }
+        }
+
+        private static async Task ObserveCleanupTasksAsync(Task?[] tasks)
+        {
+            for (int index = 0; index < tasks.Length; index++)
+                await ObserveCleanupTaskAsync(tasks[index]).ConfigureAwait(false);
         }
 
         private static async Task ObserveCleanupTaskAsync(Task? task)
@@ -826,9 +1001,12 @@ namespace Hps.Benchmarks
             public SubscriberState(int plannedMessageCount)
             {
                 LatencyTicks = new long[plannedMessageCount];
+                PlannedDeliverySource = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
             }
 
             public long[] LatencyTicks { get; }
+            public TaskCompletionSource<bool> PlannedDeliverySource { get; }
             public int Received;
             public int SequenceErrors;
             public int PayloadErrors;
